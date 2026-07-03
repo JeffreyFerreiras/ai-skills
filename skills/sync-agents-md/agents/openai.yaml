@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync AGENTS.md"
+  short_description: "Sync agent instruction markdown"
+  default_prompt: "Use $sync-agents-md to audit and synchronize AGENTS.md instruction files across my agent tools."
