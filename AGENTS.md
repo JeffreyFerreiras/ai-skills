@@ -3,7 +3,7 @@
 ## File Search and Discovery
 
 - Use `rg` (ripgrep) for fast file discovery and text search in terminals — prefer it over `Get-ChildItem`, `find`, or `grep`.
-- In VS Code agent context, prefer `grep_search` for in-file text searches and `file_search` for file name patterns.
+- In agent/IDE context, prefer internal tools such as `grep_search` for in-file text searches and `file_search` for file name patterns.
 - Use `semantic_search` for concept-based searches across the workspace.
 
 
