@@ -7,23 +7,26 @@ description: Audit, compare, create, and synchronize AGENTS.md-style instruction
 
 ## Overview
 
-Synchronize agent-facing markdown instructions while preserving each tool's native discovery rules and avoiding destructive overwrites.
+Synchronize agent-facing markdown instructions while preserving each tool's native discovery rules, local repo context, and user-owned files.
 
-Treat instruction files as user-owned configuration. Prefer inventory and comparison before editing, and keep canonical content separate from tool-specific wrappers when formats differ.
+Prefer inventory and comparison before editing. Keep global preferences, repo-specific guidance, and tool-specific wrappers separate unless the user explicitly asks for a merged file.
 
-## Canonical Source
+## Source Model
 
-The profile-level `C:\Users\sephn\AGENTS.md` is the single source of truth. Sync always flows **from the profile outward to repos** — never from a repo back to the profile unless explicitly requested. Repo-level AGENTS.md files are downstream copies.
+- `C:\Users\sephn\AGENTS.md` is the source for profile-wide preferences: communication style, safety posture, default workflow, and personal tool habits.
+- Repository `AGENTS.md` files are the source for repository-specific facts: project layout, commands, validation, architecture notes, and local conventions.
+- Do not copy broad profile guidance into repositories by default. Merge only the parts that change how work in that repository should be done.
+- Let the user's requested source and target override these defaults when explicit.
 
 ## Workflow
 
 1. Locate candidate instruction files before editing, latest edited wins.
 2. Inventory each file's path, size, modified time, and apparent purpose. Use `rg --files -g "AGENTS.md" -g "CLAUDE.md" -g "copilot-instructions.md"` for fast discovery — avoid `Get-ChildItem -Recurse` which is slow.
-3. Identify the canonical source from the user's request. Default to `C:\Users\sephn\AGENTS.md` unless told otherwise.
+3. Identify the source from the user's request and the file scope. Default to profile for global preferences and the nearest repo instruction file for repo-specific guidance.
 4. Compare overlapping guidance by topic, not only by filename.
 5. Decide whether to copy verbatim, merge, or transform:
    - Copy when the target also supports `AGENTS.md` semantics.
-   - Merge when the target already has user-specific local rules.
+   - Merge when global preferences and repo-specific rules both matter.
    - Transform when the target uses another format such as Cursor rules, VS Code prompts, or Claude user instructions.
 6. Before writes, state each target path and whether the operation will create, append, merge, or replace.
 7. Back up existing targets with timestamped names before replacement or substantial rewrite.
@@ -53,7 +56,9 @@ Use `rg --files -g "AGENTS.md" -g "CLAUDE.md" -g "copilot-instructions.md" -g "*
 Keep shared guidance portable:
 
 - Preserve concrete project facts, commands, conventions, and safety rules.
+- Preserve repo-specific content when applying profile-level guidance.
 - Remove chat-history details, stale task notes, and one-off implementation plans unless the user asks to keep them.
+- Remove duplicated global preferences from repo files unless they materially affect that repo.
 - Avoid secrets, tokens, private URLs, and credentials.
 - Avoid absolute machine paths unless the file is explicitly profile-local.
 - Prefer concise imperative instructions.
