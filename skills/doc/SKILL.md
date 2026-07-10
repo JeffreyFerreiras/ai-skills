@@ -15,7 +15,7 @@ description: "Use when the task involves reading, creating, or editing `.docx` d
 1. Prefer visual review (layout, tables, diagrams).
    - If `soffice` and `pdftoppm` are available, convert DOCX -> PDF -> PNGs.
    - Or use `scripts/render_docx.py` (requires `pdf2image` and Poppler).
-   - If these tools are missing, install them or ask the user to review rendered pages locally.
+   - If these tools are missing, use configured workspace dependencies or ask before installing system-level software.
 2. Use `python-docx` for edits and structured creation (headings, styles, tables, lists).
 3. After each meaningful change, re-render and inspect the pages.
 4. If visual review is not possible, extract text with `python-docx` as a fallback and call out layout risk.

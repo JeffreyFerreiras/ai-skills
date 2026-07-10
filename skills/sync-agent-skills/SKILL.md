@@ -29,12 +29,12 @@ Prefer an inventory-first workflow. Treat `.codex/skills`, `.claude`, `.cursor`,
 6. Before writes, state the target paths and whether the operation will copy, transform, or replace files.
 7. Preserve existing files with timestamped backups before replacement.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
-9. When the sync changes personal Codex skills, also update the skills repository:
-   - Use `C:\dev\GitHub\ai-skills` as the local skills repo unless the user specifies another repo.
+9. When the user asks to publish profile changes, also update the skills repository:
+   - Use the repository specified by the user or discover the current `ai-skills` checkout.
    - Mirror each changed skill folder into `<repo>\skills\<skill-name>`.
    - Inspect `git status --short --branch` before staging so unrelated user changes are visible.
-   - Commit only the mirrored skill changes with a focused message.
-   - Push the commit to the remote `master` branch with `git push origin HEAD:master`.
+   - Commit only the mirrored skill changes with a focused message when the user requests a commit.
+   - Push only when the user explicitly requests publication, using the repository's configured branch.
    - Never force-push, rewrite history, or include unrelated repo changes unless the user explicitly asks.
 
 ## Helper Script
@@ -42,7 +42,8 @@ Prefer an inventory-first workflow. Treat `.codex/skills`, `.claude`, `.cursor`,
 Use `scripts/sync_agent_skills.py` for repeatable local filesystem operations:
 
 ```powershell
-python C:\Users\sephn\.codex\skills\sync-agent-skills\scripts\sync_agent_skills.py inventory
+$syncScript = Join-Path $HOME '.codex\skills\sync-agent-skills\scripts\sync_agent_skills.py'
+python $syncScript inventory
 ```
 
 Common operations:
@@ -55,7 +56,7 @@ python <skill-dir>\scripts\sync_agent_skills.py inventory --json
 python <skill-dir>\scripts\sync_agent_skills.py inventory --max-depth 3 --max-files 100
 
 # Inventory explicit roots.
-python <skill-dir>\scripts\sync_agent_skills.py inventory --root codex=C:\Users\me\.codex\skills --root vscode=C:\Users\me\AppData\Roaming\Code\User
+python <skill-dir>\scripts\sync_agent_skills.py inventory --root "codex=$HOME\.codex\skills" --root "vscode=$env:APPDATA\Code\User"
 
 # Check whether VS Code will discover Codex skills.
 python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode
@@ -64,32 +65,29 @@ python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode
 python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode --apply
 
 # Dry-run a copy from a source skill/file into a target root.
-python <skill-dir>\scripts\sync_agent_skills.py sync --source C:\Users\me\.codex\skills\my-skill --target-root C:\Users\me\.claude\skills
+python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.codex\skills\my-skill" --target-root "$HOME\.claude\skills"
 
 # Apply the copy. Existing targets are backed up first.
-python <skill-dir>\scripts\sync_agent_skills.py sync --source C:\Users\me\.codex\skills\my-skill --target-root C:\Users\me\.claude\skills --apply --force
+python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.codex\skills\my-skill" --target-root "$HOME\.claude\skills" --apply --force
 ```
 
 The script does not convert formats. Use it to inventory, compare checksums, and copy a finalized artifact after deciding that a direct copy is appropriate.
 
-## Repository Publish
+## Repository Update
 
-When publishing synced skills to the personal repo, keep the local profile path and repository mirror aligned:
+When updating the repository mirror, keep the profile path and repository skill folder aligned:
 
 ```powershell
-$repo = "C:\dev\GitHub\ai-skills"
+$repo = (git rev-parse --show-toplevel).Trim()
 $skillName = "sync-agent-skills"
-$source = "C:\Users\sephn\.codex\skills\$skillName"
+$source = Join-Path $HOME ".codex\skills\$skillName"
 $target = Join-Path $repo "skills\$skillName"
 
-python C:\Users\sephn\.codex\skills\sync-agent-skills\scripts\sync_agent_skills.py sync --source $source --target-root (Join-Path $repo "skills") --apply --force
+python (Join-Path $source "scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --apply --force
 git -C $repo status --short --branch
-git -C $repo add "skills/$skillName"
-git -C $repo commit -m "Update $skillName skill"
-git -C $repo push origin HEAD:master
 ```
 
-If the repo has no remote `master` branch yet, the push creates it. If the push is rejected because remote `master` has newer commits, fetch and inspect the divergence before deciding whether to merge or ask the user.
+Stage, commit, or push only when requested. Resolve the configured remote and target branch instead of assuming `master` or `main`.
 
 ## Format Guidance
 

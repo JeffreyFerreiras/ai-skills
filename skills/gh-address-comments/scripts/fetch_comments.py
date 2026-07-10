@@ -19,6 +19,7 @@ import json
 import subprocess
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 QUERY = """\
 query(
@@ -120,16 +121,27 @@ def gh_pr_view_json(fields: str) -> dict[str, Any]:
     return _run_json(["gh", "pr", "view", "--json", fields])
 
 
+def parse_pr_url(url: str, expected_number: int | None = None) -> tuple[str, str, int]:
+    """Return the base owner, repository, and PR number encoded in a PR URL."""
+    parts = urlparse(url).path.strip("/").split("/")
+    if len(parts) != 4 or parts[2] != "pull":
+        raise ValueError(f"Unexpected pull request URL: {url}")
+    try:
+        number = int(parts[3])
+    except ValueError as error:
+        raise ValueError(f"Invalid pull request number in URL: {url}") from error
+    if expected_number is not None and number != expected_number:
+        raise ValueError(f"Pull request URL number {number} does not match gh result {expected_number}")
+    return parts[0], parts[1], number
+
+
 def get_current_pr_ref() -> tuple[str, str, int]:
     """
     Resolve the PR for the current branch (whatever gh considers associated).
-    Works for cross-repo PRs too, by reading head repository owner/name.
+    Resolve the base repository from the canonical PR URL so fork PRs work too.
     """
-    pr = gh_pr_view_json("number,headRepositoryOwner,headRepository")
-    owner = pr["headRepositoryOwner"]["login"]
-    repo = pr["headRepository"]["name"]
-    number = int(pr["number"])
-    return owner, repo, number
+    pull_request = gh_pr_view_json("number,url")
+    return parse_pr_url(pull_request["url"], expected_number=int(pull_request["number"]))
 
 
 def gh_api_graphql(
