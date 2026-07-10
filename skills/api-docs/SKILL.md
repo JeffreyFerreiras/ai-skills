@@ -1,16 +1,25 @@
 ---
 name: api-docs
-description: Add XML documentation comments to code files. Use when the user wants to document public APIs, classes, methods, or properties with accurate, descriptive XML doc comments. Checks how code is used in the codebase for accuracy and uses inheritdoc for interface implementations.
+description: Add or improve accurate .NET XML documentation comments for public APIs, classes, interfaces, methods, properties, events, and generic types. Use when the user requests XML docs, public API documentation, missing documentation cleanup, or documentation for changed C# members.
 ---
 
-# API Documentation Prompt
+# .NET API Documentation
 
-Add XML documentation to the code files. The documentation should be descriptive and clearly define the purpose of each attribute or method. Check for how the code is used in other parts of the codebase to ensure accuracy. The comments should provide business context and be understandable to other developers. Use `<inheritdoc />` for classes that implement interfaces, placing detailed comments in the interface definition. Ensure all public members have appropriate XML documentation comments. By default, apply to the changes in this PR, diffed from master unless otherwise specified. If the user requests, apply to all public members in the codebase.
+## Workflow
 
-## .NET XML Documentation Guidelines
-For classes that implement interfaces:
+1. Scope documentation to changed public members unless the user requests a broader surface.
+2. Inspect usages, interfaces, implementations, validation, and tests before describing behavior.
+3. Document the contract and business purpose rather than restating identifiers or syntax.
+4. Run the narrowest documentation analyzer or build target available for the affected project.
 
-- Use `<inheritdoc />` in the class documentation
-- Place the detailed comments in the interface definition
+## XML Documentation
 
-Ensure all public members have appropriate XML documentation comments.
+- Use `<summary>` for purpose and observable behavior.
+- Add `<typeparam>`, `<param>`, `<returns>`, and `<value>` where applicable.
+- Add `<exception>` only for exceptions callers can meaningfully observe from the documented contract.
+- Put detailed contract documentation on interfaces and use `<inheritdoc />` for implementations when the contract is unchanged.
+- Use `<see cref="..." />` and `<paramref name="..." />` for navigable references.
+- Preserve important nullability, units, ranges, side effects, ordering, thread-safety, and lifecycle constraints.
+- Avoid empty boilerplate, guessed behavior, implementation details, and comments that merely repeat the member name.
+
+Report the documented surface and validation result.

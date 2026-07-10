@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Impacted"
+  short_description: "Run focused checks for changed files"
+  default_prompt: "Use $test-impacted to select and run the narrowest checks affected by these changes."

@@ -12,13 +12,13 @@ Remove one skill concept across local agent tool surfaces without deleting unrel
 ## Workflow
 
 1. Normalize the requested skill name to lowercase hyphen-case, but also search for likely aliases in prompts and command files.
-2. Inspect repo status before changing `C:\dev\GitHub\ai-skills`; unrelated changes may already exist.
+2. Resolve the requested skills repository and inspect its status; unrelated changes may already exist.
 3. Inventory active tool locations:
-   - Codex: `C:\Users\sephn\.codex\skills\<skill-name>`
-   - Claude: `C:\Users\sephn\.claude\skills\<skill-name>`
-   - Cursor: `C:\Users\sephn\.cursor\skills\<skill-name>`, `C:\Users\sephn\.cursor\skills-cursor\<skill-name>`, and `C:\Users\sephn\.cursor\commands\<skill-name>.prompt.md`
-   - VS Code/Copilot: `C:\Users\sephn\AppData\Roaming\Code\User`; look for active prompt, instruction, or agent files, not history or transcript artifacts.
-   - Repo mirror: `C:\dev\GitHub\ai-skills\skills\<skill-name>`
+   - Codex: `$CODEX_HOME/skills/<skill-name>` or `~/.codex/skills/<skill-name>`.
+   - Claude: `~/.claude/skills/<skill-name>`.
+   - Cursor: inspect `~/.cursor/skills`, `~/.cursor/skills-cursor`, and `~/.cursor/commands`.
+   - VS Code/Copilot: inspect the active user profile, commonly `%APPDATA%/Code/User` on Windows.
+   - Repo mirror: `<repo>/skills/<skill-name>`.
 4. Search before deletion with `rg --files` and a content search. Exclude caches, logs, archived sessions, history, extension installs, and transcript stores unless the user explicitly asks to purge history.
 5. Before writes, state each target path and whether it will be removed. If matches include ambiguous files, explain which are active targets and which are ignored.
 6. Remove only confirmed active skill artifacts. Verify resolved paths stay inside the intended roots before recursive deletion.
@@ -32,13 +32,15 @@ Remove one skill concept across local agent tool surfaces without deleting unrel
 Use path search first:
 
 ```powershell
-rg --files `
-  'C:\Users\sephn\.codex\skills' `
-  'C:\Users\sephn\.claude\skills' `
-  'C:\Users\sephn\.cursor\skills' `
-  'C:\Users\sephn\.cursor\skills-cursor' `
-  'C:\Users\sephn\.cursor\commands' `
-  'C:\dev\GitHub\ai-skills\skills' |
+$roots = @(
+  (Join-Path $HOME '.codex\skills'),
+  (Join-Path $HOME '.claude\skills'),
+  (Join-Path $HOME '.cursor\skills'),
+  (Join-Path $HOME '.cursor\skills-cursor'),
+  (Join-Path $HOME '.cursor\commands'),
+  (Join-Path $repoRoot 'skills')
+) | Where-Object { Test-Path -LiteralPath $_ }
+rg --files $roots |
   rg -i '(^|[\\/])<skill-name>([\\/.]|$)|<alias>'
 ```
 

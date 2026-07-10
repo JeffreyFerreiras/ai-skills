@@ -242,14 +242,96 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
     return result
 
 
-def load_json_object(path: Path) -> dict[str, object]:
+def strip_json_comments(text: str) -> str:
+    """Remove JSON line and block comments while preserving quoted strings."""
+    result: list[str] = []
+    index = 0
+    in_string = False
+    escaped = False
+    while index < len(text):
+        character = text[index]
+        if in_string:
+            result.append(character)
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            index += 1
+            continue
+        if character == '"':
+            in_string = True
+            result.append(character)
+            index += 1
+            continue
+        next_character = text[index + 1] if index + 1 < len(text) else ""
+        if character == "/" and next_character == "/":
+            index += 2
+            while index < len(text) and text[index] not in "\r\n":
+                index += 1
+            continue
+        if character == "/" and next_character == "*":
+            index += 2
+            while index + 1 < len(text) and text[index : index + 2] != "*/":
+                if text[index] in "\r\n":
+                    result.append(text[index])
+                index += 1
+            index = min(index + 2, len(text))
+            continue
+        result.append(character)
+        index += 1
+    return "".join(result)
+
+
+def strip_trailing_commas(text: str) -> str:
+    """Remove trailing JSON commas while preserving quoted strings."""
+    result: list[str] = []
+    index = 0
+    in_string = False
+    escaped = False
+    while index < len(text):
+        character = text[index]
+        if in_string:
+            result.append(character)
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            index += 1
+            continue
+        if character == '"':
+            in_string = True
+            result.append(character)
+            index += 1
+            continue
+        if character == ",":
+            lookahead = index + 1
+            while lookahead < len(text) and text[lookahead].isspace():
+                lookahead += 1
+            if lookahead < len(text) and text[lookahead] in "}]":
+                index += 1
+                continue
+        result.append(character)
+        index += 1
+    return "".join(result)
+
+
+def load_json_object(path: Path) -> tuple[dict[str, object], bool]:
     if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+        return {}, False
+    raw = path.read_text(encoding="utf-8")
+    is_jsonc = False
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        data = json.loads(strip_trailing_commas(strip_json_comments(raw)))
+        is_jsonc = True
     if not isinstance(data, dict):
         raise ValueError(f"expected JSON object in {path}")
-    return data
+    return data, is_jsonc
 
 
 def write_json_object(path: Path, data: dict[str, object]) -> None:
@@ -266,22 +348,15 @@ def write_json_object(path: Path, data: dict[str, object]) -> None:
 def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
     settings_path = (settings_path or vscode_user_settings_path()).expanduser()
     settings_exists = settings_path.exists()
-    settings = load_json_object(settings_path)
+    settings, settings_is_jsonc = load_json_object(settings_path)
     locations = settings.get("chat.agentSkillsLocations")
     if not isinstance(locations, dict):
         locations = {}
 
-    required_locations = {
-        ".github/skills": True,
-        ".claude/skills": True,
-        "~/.copilot/skills": True,
-        "~/.claude/skills": True,
-        "~/.codex/skills": True,
-    }
     desired = dict(settings)
     desired["chat.useAgentSkills"] = True
     desired["github.copilot.chat.skillTool.enabled"] = True
-    desired["chat.agentSkillsLocations"] = {**required_locations, **locations, "~/.codex/skills": True}
+    desired["chat.agentSkillsLocations"] = {**locations, "~/.codex/skills": True}
 
     issues = []
     if not shutil.which("code"):
@@ -299,7 +374,14 @@ def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
         actions.append(f"update {settings_path}")
         if settings_exists:
             actions.append(f"backup existing settings beside {settings_path}")
+        if settings_is_jsonc:
+            actions.append("preserve JSONC comments and trailing commas with a manual or JSONC-aware edit")
         if apply:
+            if settings_is_jsonc:
+                raise ValueError(
+                    f"refusing to rewrite JSONC settings as strict JSON: {settings_path}; "
+                    "apply the reported settings with a JSONC-aware editor"
+                )
             write_json_object(settings_path, desired)
     else:
         actions.append("VS Code agent skill settings already include ~/.codex/skills")
@@ -307,6 +389,7 @@ def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
     return {
         "settings_path": str(settings_path),
         "settings_exists": settings_exists,
+        "settings_is_jsonc": settings_is_jsonc,
         "code_cli_found": shutil.which("code") is not None,
         "issues": issues,
         "apply": apply,

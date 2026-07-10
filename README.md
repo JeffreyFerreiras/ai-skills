@@ -1,38 +1,71 @@
-# AI Agent Setups
+# AI Agent Skills
 
-Portable repository for AI-agent skills, instructions, prompts, scripts, and tool-specific setup wrappers that can be replicated across machines and AI tools.
+Canonical, portable source for personal AI-agent skills, instructions, scripts, and tool-specific metadata.
+
+## Validate
+
+Install the validator dependency, then run the repository doctor and tests:
+
+```powershell
+python -m pip install PyYAML
+python skills/skill-doctor/scripts/skill_doctor.py .
+python -m unittest discover -s tests -v
+```
+
+The doctor validates frontmatter, folder naming, UI metadata, referenced resources, Python syntax, overlapping triggers, and optional profile drift.
 
 ## Layout
 
 ```text
+AGENTS.md
 skills/
   example-skill/
     SKILL.md
-    agents/
-      openai.yaml
+    agents/openai.yaml
     scripts/
     references/
     assets/
+tests/
 ```
 
-Each reusable skill should be a self-contained folder under `skills/`. Keep each setup asset focused:
+Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when they directly support the skill.
 
-- `SKILL.md` is required.
-- `agents/openai.yaml` is recommended for UI metadata.
-- Add `scripts/`, `references/`, or `assets/` only when they directly support the skill.
-- Avoid extra documentation inside individual skill folders unless an agent needs it to use the skill.
+## Skill Catalog
 
-## Creating A Codex-Format Skill
+| Skill | Purpose |
+| --- | --- |
+| `api-docs` | Add accurate .NET XML documentation to changed public APIs. |
+| `clean-architecture-code` | Implement code with pragmatic inward-pointing boundaries. |
+| `clean-architecture-review` | Review architecture boundaries and dependency direction. |
+| `clean-code` | Write or refactor clear, maintainable code while preserving behavior. |
+| `code-review` | Review local changes with evidence-backed, severity-ranked findings. |
+| `doc` | Create, edit, render, and visually verify DOCX files. |
+| `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
+| `gh-address-comments` | Inspect and address actionable GitHub PR review threads. |
+| `leetcode` | Solve and explain coding-interview and algorithm problems. |
+| `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
+| `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
+| `skill-doctor` | Validate this repository and compare it with an installed profile. |
+| `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
+| `sync-agents-md` | Audit and synchronize agent instruction markdown. |
+| `test-impacted` | Select and run tests and lint for impacted files. |
 
-For Codex-format `SKILL.md` assets, use lowercase hyphenated names:
+## Create A Skill
 
+Use the installed `skill-creator` scaffolder, replace its placeholders, add the skill to the catalog, and validate the whole repository:
 
 ```powershell
-python C:\Users\sephn\.codex\skills\.system\skill-creator\scripts\init_skill.py my-skill --path .\skills
+$creator = Join-Path $HOME '.codex\skills\.system\skill-creator\scripts\init_skill.py'
+python $creator my-skill --path .\skills --interface display_name='My Skill' --interface short_description='Describe the capability' --interface default_prompt='Use $my-skill to complete this task.'
+python skills/skill-doctor/scripts/skill_doctor.py .
 ```
 
-Then edit `skills/my-skill/SKILL.md` and validate it:
+## Profile Comparison
+
+Compare the repository with a Codex profile without changing either location:
 
 ```powershell
-python C:\Users\sephn\.codex\skills\.system\skill-creator\scripts\quick_validate.py .\skills\my-skill
+python skills/skill-doctor/scripts/skill_doctor.py . --profile-root (Join-Path $HOME '.codex\skills')
 ```
+
+Repository content is canonical. Profile updates should use the `sync-agent-skills` workflow, begin with a dry run, and preserve backups of differing targets.

@@ -1,17 +1,26 @@
 ---
 name: generate-unit-tests
-description: Generate concise, maintainable unit tests for referenced files. Use when the user wants unit tests with >=95% coverage, clear Arrange/Act/Assert structure, isolated and deterministic tests, and proper mocking of external dependencies. Mirrors source file structure and follows existing naming conventions.
+description: Generate concise, maintainable unit tests for referenced code, following existing test conventions and verifying behavior, edge cases, and failure paths. Use when the user asks to add or improve unit tests, raise meaningful coverage, reproduce a bug with a test, or validate isolated behavior with appropriate test doubles.
 ---
 
 # Generate Unit Tests
 
-You are an expert test engineer. Generate concise, maintainable unit tests that follow these rules:
+## Workflow
 
-- Target >=95% code coverage for the referenced files; prefer full coverage when practical.
-- Use clear Arrange/Act/Assert structure and descriptive test names.
-- Cover success, failure, edge cases, and validation paths.
-- Keep tests isolated and deterministic; mock external dependencies and side effects.
-- Favor small, focused assertions; avoid over-mocking or testing implementation details.
-- Mirror the source file structure in the test directory and follow existing naming conventions.
-- If setup is complex, extract reusable builders/factories within the test suite.
-- Include any necessary fixtures, test doubles, or helpers inline with the tests.
+1. Inspect the source, its callers, existing tests, test framework, naming conventions, and available coverage tooling.
+2. Identify observable behaviors and risks before choosing test cases.
+3. Add the smallest coherent tests that cover success, validation, failure, boundary, and regression paths relevant to the code.
+4. Run the focused test target. Measure coverage when the project provides a practical command or the user requests a target.
+5. Report what was covered, the command result, and any behavior that remains difficult to isolate.
+
+## Test Design
+
+- Use clear Arrange/Act/Assert structure when it improves readability; do not add ceremonial comments.
+- Name tests after behavior and outcome.
+- Keep tests deterministic and independent of network, wall-clock time, random state, and shared mutable state.
+- Mock external boundaries and costly side effects, not internal implementation details.
+- Reuse existing builders, factories, fixtures, and helpers. Add a focused helper when repeated setup obscures intent.
+- Prefer meaningful assertions over maximizing assertion count.
+- Mirror the repository's test structure and conventions.
+
+Treat 95 percent coverage as a target only when the user or project requires it. Otherwise prioritize important behavior and mutation-resistant assertions over a numeric threshold.
