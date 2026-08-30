@@ -1,4 +1,4 @@
 interface:
   display_name: "Code Review"
-  short_description: "Review changes for actionable defects"
-  default_prompt: "Use $code-review to review these changes and return evidence-backed findings ordered by severity."
+  short_description: "Review defects and design opportunities"
+  default_prompt: "Use $code-review to review these changes and return evidence-backed findings plus any justified design-pattern opportunities."
