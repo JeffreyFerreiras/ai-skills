@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPOSITORY_ROOT / "skills" / "gh-address-comments" / "scripts" / "fetch_comments.py"
+MODULE_PATH = REPOSITORY_ROOT / "skills" / "address-pr-feedback" / "scripts" / "fetch_comments.py"
 SPEC = importlib.util.spec_from_file_location("fetch_comments", MODULE_PATH)
 assert SPEC and SPEC.loader
 fetch_comments = importlib.util.module_from_spec(SPEC)

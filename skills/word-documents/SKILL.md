@@ -1,10 +1,10 @@
 ---
-name: "doc"
-description: "Use when the task involves reading, creating, or editing `.docx` documents, especially when formatting or layout fidelity matters; prefer `python-docx` plus the bundled `scripts/render_docx.py` for visual checks."
+name: word-documents
+description: Create, edit, review, and render .docx documents when formatting or layout fidelity matters.
 ---
 
 
-# DOCX Skill
+# Word Documents
 
 ## When to use
 - Read or review DOCX content where layout matters (tables, diagrams, pagination).

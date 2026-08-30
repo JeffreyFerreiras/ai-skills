@@ -1,9 +1,9 @@
 ---
-name: test-impacted
-description: Determine and run the narrowest unit tests, lint, type checks, and build targets affected by current changes, then fix failures caused by those changes. Use when the user asks to validate a branch, test impacted files, run focused checks, or repair relevant validation failures without expanding into unrelated cleanup.
+name: run-change-checks
+description: Select and run focused tests, lint, type checks, and builds for current changes, then fix relevant failures.
 ---
 
-# Test Impacted
+# Run Change Checks
 
 ## Workflow
 

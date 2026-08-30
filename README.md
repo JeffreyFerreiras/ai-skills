@@ -37,22 +37,31 @@ Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when
 
 | Skill | Purpose |
 | --- | --- |
+| `andromeda-ssh` | Safely inspect and administer the Andromeda Ubuntu host over SSH. |
 | `api-docs` | Add accurate .NET XML documentation to changed public APIs. |
 | `clean-architecture-code` | Implement code with pragmatic inward-pointing boundaries. |
 | `clean-architecture-review` | Review architecture boundaries and dependency direction. |
 | `clean-code` | Write or refactor clear, maintainable code while preserving behavior. |
 | `code-review` | Review local changes with evidence-backed, severity-ranked findings. |
-| `doc` | Create, edit, render, and visually verify DOCX files. |
+| `word-documents` | Create, edit, render, and visually verify DOCX files. |
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
-| `gh-address-comments` | Inspect and address actionable GitHub PR review threads. |
+| `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |
+| `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
 | `skill-doctor` | Validate this repository and compare it with an installed profile. |
 | `software-engineering-graph` | Orchestrate bounded design, implementation, review, and verification roles. |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
-| `test-impacted` | Select and run tests and lint for impacted files. |
+| `run-change-checks` | Select and run focused checks for current changes. |
+| `vault-answer` | Answer questions strictly from evidence in the local knowledge vault. |
+| `vault-build-graph` | Build an evidence-backed knowledge graph from ingested vault sources. |
+| `vault-daily-review` | Create an evidence-backed daily review of vault activity. |
+| `vault-find-contradictions` | Find and record dated contradictions and changed beliefs in the vault. |
+| `vault-maintain` | Audit, validate, and safely maintain the local knowledge vault. |
+| `vault-process-inbox` | Process vault Inbox sources and invoke semantic graph building. |
+| `vault-reset` | Safely reset a knowledge vault with a recoverable backup. |
 
 ## Create A Skill
 
