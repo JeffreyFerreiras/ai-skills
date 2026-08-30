@@ -10,6 +10,9 @@ Install the validator dependency, then run the repository doctor and tests:
 python -m pip install PyYAML
 python skills/skill-doctor/scripts/skill_doctor.py .
 python -m unittest discover -s tests -v
+Push-Location .\skills\software-engineering-graph
+python -m unittest discover -s tests -v
+Pop-Location
 ```
 
 The doctor validates frontmatter, folder naming, UI metadata, referenced resources, Python syntax, overlapping triggers, and optional profile drift.
@@ -19,7 +22,7 @@ The doctor validates frontmatter, folder naming, UI metadata, referenced resourc
 ```text
 AGENTS.md
 skills/
-  example-skill/
+  skill-name/
     SKILL.md
     agents/openai.yaml
     scripts/
@@ -46,6 +49,7 @@ Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
 | `skill-doctor` | Validate this repository and compare it with an installed profile. |
+| `software-engineering-graph` | Orchestrate bounded design, implementation, review, and verification roles. |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
 | `test-impacted` | Select and run tests and lint for impacted files. |
