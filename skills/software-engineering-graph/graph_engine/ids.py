@@ -39,4 +39,3 @@ def stable_id(
         specialist_tag or "",
     ]
     return "g2-" + sha256_bytes(canonical_bytes(identity))[:24]
-

@@ -324,10 +324,13 @@ class StateTests(GraphCase):
                 connection.execute("UPDATE runs SET status='active' WHERE run_id='RUN-1'")
 
     def test_default_store_uses_profile_root_not_skill_directory(self):
-        home = installed_codex_home()
-        self.assertEqual(home, Path(r"C:\Users\sephn\.codex"))
-        default = StateStore()
-        self.assertTrue(str(default.run_root("repo", "run")).startswith(str(home / "graph-runs")))
+        profile_root = self.root / ".codex"
+        installed_module = profile_root / "skills" / "software-engineering-graph" / "graph_engine" / "state.py"
+        with patch("graph_engine.state.__file__", str(installed_module)):
+            home = installed_codex_home()
+            self.assertEqual(home, profile_root)
+            default = StateStore()
+            self.assertEqual(default.run_root("repo", "run").parents[1], home / "graph-runs")
 
     def test_semantic_corruption_fails_closed(self):
         cases = [

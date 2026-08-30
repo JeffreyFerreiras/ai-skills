@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,8 +10,7 @@ from graph_engine.ids import sha256_bytes
 from graph_engine.state import StateStore
 
 
-WORKSPACE = Path(r"C:\dev\GitHub\AlbanianLiveTranslate")
-POLICY_SOURCE = WORKSPACE / ".codex" / "engineering-graph.json"
+POLICY_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "engineering-graph.json"
 DIGEST = "a" * 64
 
 
@@ -24,7 +22,7 @@ class GraphCase(unittest.TestCase):
         (self.repo / ".codex").mkdir(parents=True)
         (self.repo / "docs" / "artifacts").mkdir(parents=True)
         (self.repo / "docs" / "engineering-graph.md").write_text("# Test graph evidence\n", encoding="utf-8")
-        shutil.copyfile(POLICY_SOURCE, self.repo / ".codex" / "engineering-graph.json")
+        (self.repo / ".codex" / "engineering-graph.json").write_bytes(POLICY_FIXTURE.read_bytes())
         self.policy_bytes = (self.repo / ".codex" / "engineering-graph.json").read_bytes()
         self.store = StateStore(self.root / "codex")
         self.counter = 0

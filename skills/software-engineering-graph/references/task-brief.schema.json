@@ -30,4 +30,3 @@
     "capability": {"type": "object", "additionalProperties": false, "required": ["effect", "action", "target_ref"], "properties": {"effect": {"enum": ["filesystem_read", "filesystem_write", "command", "external_read", "external_write", "destructive", "publish", "deploy"]}, "action": {"$ref": "#/$defs/id"}, "target_ref": {"type": "string", "minLength": 1}}}
   }
 }
-

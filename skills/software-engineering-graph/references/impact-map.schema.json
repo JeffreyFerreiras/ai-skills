@@ -12,4 +12,3 @@
     "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 1200}}
   }
 }
-
