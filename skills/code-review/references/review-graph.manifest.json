@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "name": "code-review-design-pattern-graph",
-  "description": "A bounded discovery graph from observable review pressures to candidate design patterns. Candidates require confirmation against the code and are never findings by themselves.",
+  "version": 2,
+  "name": "code-review-design-graph",
+  "description": "A bounded discovery graph from observable review pressures to SOLID principle hypotheses and candidate design patterns. Matches require confirmation against the code and are never findings by themselves.",
   "nodes": [
     {
       "id": "signal.varying-behavior",

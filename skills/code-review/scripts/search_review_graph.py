@@ -109,8 +109,9 @@ def load_manifest(path: Path) -> ReviewGraph:
 
     if not isinstance(raw, dict):
         raise ManifestError("manifest root must be an object")
-    if raw.get("version") != 1:
-        raise ManifestError("manifest version must be 1")
+    version = raw.get("version")
+    if type(version) is not int or version not in {1, 2}:
+        raise ManifestError("manifest version must be 1 or 2")
 
     raw_nodes = raw.get("nodes")
     if not isinstance(raw_nodes, list) or not raw_nodes:
@@ -125,9 +126,16 @@ def load_manifest(path: Path) -> ReviewGraph:
         if node_id in nodes:
             raise ManifestError(f"duplicate node id: {node_id}")
         kind = _require_string(node.get("kind"), f"{location}.kind")
-        if kind not in {"review-signal", "principle", "pattern"}:
+        supported_kinds = {"review-signal", "pattern"}
+        if version == 2:
+            supported_kinds.add("principle")
+        if kind not in supported_kinds:
+            if kind == "principle" and version == 1:
+                raise ManifestError(
+                    f"{location}.kind 'principle' requires manifest version 2"
+                )
             raise ManifestError(
-                f"{location}.kind must be 'review-signal', 'principle', or 'pattern'"
+                f"{location}.kind is unsupported for manifest version {version}"
             )
         _require_string(node.get("name"), f"{location}.name")
         _require_string(node.get("summary"), f"{location}.summary")
@@ -166,7 +174,7 @@ def load_manifest(path: Path) -> ReviewGraph:
         seen_edges.add(identity)
         edges.append(Edge(source, target, relation, rationale))
 
-    return ReviewGraph(version=1, nodes=nodes, edges=tuple(edges))
+    return ReviewGraph(version=version, nodes=nodes, edges=tuple(edges))
 
 
 def tokenize(value: str) -> tuple[str, ...]:

@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import subprocess
 import sys
@@ -11,6 +12,19 @@ SCRIPT = SKILL_ROOT / "scripts" / "search_review_graph.py"
 MANIFEST = SKILL_ROOT / "references" / "review-graph.manifest.json"
 
 
+def load_search_module():
+    spec = importlib.util.spec_from_file_location("search_review_graph", SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load {SCRIPT}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+SEARCH_MODULE = load_search_module()
+
+
 def run_search(*arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *arguments],
@@ -21,11 +35,44 @@ def run_search(*arguments: str) -> subprocess.CompletedProcess[str]:
 
 
 class ReviewGraphSearchTests(unittest.TestCase):
-    def test_manifest_validates(self) -> None:
+    def test_default_version_two_manifest_validates(self) -> None:
         result = run_search("--validate")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Valid review graph", result.stdout)
+        raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        self.assertEqual(raw["version"], 2)
+        self.assertEqual(raw["name"], "code-review-design-graph")
+
+        graph = SEARCH_MODULE.load_manifest(MANIFEST)
+        self.assertEqual(graph.version, 2)
+
+    def test_legacy_version_one_manifest_without_principles_validates(self) -> None:
+        raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        raw["version"] = 1
+        raw["nodes"] = [
+            node for node in raw["nodes"] if node["kind"] != "principle"
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            legacy_manifest = Path(temporary) / "legacy.json"
+            legacy_manifest.write_text(json.dumps(raw), encoding="utf-8")
+            result = run_search("--manifest", str(legacy_manifest), "--validate")
+            graph = SEARCH_MODULE.load_manifest(legacy_manifest)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Valid review graph", result.stdout)
+        self.assertEqual(graph.version, 1)
+
+    def test_version_one_manifest_rejects_principles(self) -> None:
+        raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        raw["version"] = 1
+        with tempfile.TemporaryDirectory() as temporary:
+            invalid_manifest = Path(temporary) / "invalid.json"
+            invalid_manifest.write_text(json.dumps(raw), encoding="utf-8")
+            result = run_search("--manifest", str(invalid_manifest), "--validate")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("'principle' requires manifest version 2", result.stderr)
 
     def test_each_solid_principle_resolves_by_full_name_and_acronym(self) -> None:
         principles = {
