@@ -110,8 +110,8 @@ def load_manifest(path: Path) -> ReviewGraph:
     if not isinstance(raw, dict):
         raise ManifestError("manifest root must be an object")
     version = raw.get("version")
-    if type(version) is not int or version not in {1, 2}:
-        raise ManifestError("manifest version must be 1 or 2")
+    if type(version) is not int or version != 2:
+        raise ManifestError("manifest version must be 2")
 
     raw_nodes = raw.get("nodes")
     if not isinstance(raw_nodes, list) or not raw_nodes:
@@ -126,14 +126,8 @@ def load_manifest(path: Path) -> ReviewGraph:
         if node_id in nodes:
             raise ManifestError(f"duplicate node id: {node_id}")
         kind = _require_string(node.get("kind"), f"{location}.kind")
-        supported_kinds = {"review-signal", "pattern"}
-        if version == 2:
-            supported_kinds.add("principle")
+        supported_kinds = {"review-signal", "principle", "pattern"}
         if kind not in supported_kinds:
-            if kind == "principle" and version == 1:
-                raise ManifestError(
-                    f"{location}.kind 'principle' requires manifest version 2"
-                )
             raise ManifestError(
                 f"{location}.kind is unsupported for manifest version {version}"
             )

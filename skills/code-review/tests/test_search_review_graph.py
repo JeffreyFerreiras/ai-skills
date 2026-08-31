@@ -47,32 +47,20 @@ class ReviewGraphSearchTests(unittest.TestCase):
         graph = SEARCH_MODULE.load_manifest(MANIFEST)
         self.assertEqual(graph.version, 2)
 
-    def test_legacy_version_one_manifest_without_principles_validates(self) -> None:
-        raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        raw["version"] = 1
-        raw["nodes"] = [
-            node for node in raw["nodes"] if node["kind"] != "principle"
-        ]
-        with tempfile.TemporaryDirectory() as temporary:
-            legacy_manifest = Path(temporary) / "legacy.json"
-            legacy_manifest.write_text(json.dumps(raw), encoding="utf-8")
-            result = run_search("--manifest", str(legacy_manifest), "--validate")
-            graph = SEARCH_MODULE.load_manifest(legacy_manifest)
+    def test_non_version_two_manifests_are_rejected(self) -> None:
+        for version in (1, 3, True, None):
+            with self.subTest(version=version):
+                raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
+                raw["version"] = version
+                with tempfile.TemporaryDirectory() as temporary:
+                    invalid_manifest = Path(temporary) / "invalid.json"
+                    invalid_manifest.write_text(json.dumps(raw), encoding="utf-8")
+                    result = run_search(
+                        "--manifest", str(invalid_manifest), "--validate"
+                    )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Valid review graph", result.stdout)
-        self.assertEqual(graph.version, 1)
-
-    def test_version_one_manifest_rejects_principles(self) -> None:
-        raw = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        raw["version"] = 1
-        with tempfile.TemporaryDirectory() as temporary:
-            invalid_manifest = Path(temporary) / "invalid.json"
-            invalid_manifest.write_text(json.dumps(raw), encoding="utf-8")
-            result = run_search("--manifest", str(invalid_manifest), "--validate")
-
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("'principle' requires manifest version 2", result.stderr)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("manifest version must be 2", result.stderr)
 
     def test_each_solid_principle_resolves_by_full_name_and_acronym(self) -> None:
         principles = {
