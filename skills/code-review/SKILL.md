@@ -9,9 +9,12 @@ description: Review local Git changes, a commit range, or a supplied diff for co
 
 1. Read the applicable `AGENTS.md` and inspect repository status.
 2. Use the user-specified range when provided. Otherwise resolve the remote default branch from `refs/remotes/origin/HEAD`, with the current repository's established branch as a fallback.
-3. Inspect the diff and enough surrounding code, callers, tests, configuration, and contracts to establish impact.
-4. Prioritize behavioral defects and regressions over stylistic preferences or pattern suggestions.
-5. Report only actionable findings supported by a concrete failure mode or maintainability cost.
+3. Establish the intended behavior from the user request and any available change, pull-request, or commit description. Compare that intent with the diff. When intent remains unclear, raise an open question rather than assuming an unfamiliar approach is defective.
+4. Inspect the diff and enough surrounding code, callers, tests, configuration, and contracts to establish impact. If broad or mixed scope prevents reliable review, explain the limitation and identify coherent review units without imposing a fixed size limit.
+5. Inspect available test, lint or format, static-analysis, and presubmit results. Report missing or unavailable validation evidence as residual risk; do not assume a reviewer must rerun checks already evidenced by the workflow.
+6. Prioritize behavioral defects and regressions over stylistic preferences or pattern suggestions.
+7. Defer to the author's choice when multiple approaches are equally valid. Recommend an alternative only when it addresses a concrete correctness, comprehension, performance, or maintainability cost.
+8. Report only actionable findings supported by a concrete failure mode or maintainability cost.
 
 Do not edit files during a review-only request.
 
@@ -21,7 +24,8 @@ Do not edit files during a review-only request.
 - Authentication, authorization, input handling, secrets, unsafe execution, and data exposure.
 - Compatibility of public APIs, schemas, persistence, and configuration.
 - Performance risks on plausible hot paths or unbounded inputs.
-- Test coverage for changed behavior and meaningful failure paths.
+- Alignment between the stated intent and the diff, including scope that materially obstructs comprehension or validation.
+- Test coverage for changed behavior and meaningful failure paths, plus available automated validation evidence.
 - Compliance with repository instructions and established local conventions.
 - Concrete design pressure that may justify a known pattern, especially repeated variation, scattered state logic, construction policy, boundary adaptation, event fanout, request lifecycle, or dependency creation.
 
