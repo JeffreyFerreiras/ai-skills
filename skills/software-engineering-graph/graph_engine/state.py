@@ -9,7 +9,7 @@ import sqlite3
 import stat
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
@@ -22,6 +22,8 @@ UNSUPPORTED_POSIX_FILESYSTEMS = {
     "9p", "afs", "ceph", "cifs", "davfs", "gcsfuse", "glusterfs",
     "nfs", "nfs4", "smb3", "sshfs",
 }
+
+SemanticValidator = Callable[[sqlite3.Connection, sqlite3.Row], None]
 
 
 SCHEMA = """
@@ -39,6 +41,12 @@ CREATE TABLE runs (
   journal_mode TEXT NOT NULL, synchronous TEXT NOT NULL, sqlite_version TEXT NOT NULL,
   local_filesystem TEXT NOT NULL, host_identity TEXT NOT NULL, database_device INTEGER,
   database_inode INTEGER, blocked_reason TEXT, authoritative INTEGER NOT NULL
+  ,started_at TEXT NOT NULL, finished_at TEXT
+);
+CREATE TABLE execution_plans (
+  run_id TEXT PRIMARY KEY REFERENCES runs(run_id), size TEXT NOT NULL,
+  plan_json TEXT NOT NULL, plan_digest TEXT NOT NULL, status TEXT NOT NULL,
+  authority_ref TEXT, approved_at TEXT, approved_by TEXT, approval_digest TEXT
 );
 CREATE TABLE nodes (
   branch_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(run_id), node_instance_id TEXT NOT NULL UNIQUE,
@@ -77,6 +85,12 @@ CREATE TABLE approvals (
   decision TEXT NOT NULL, authority_ref TEXT NOT NULL, artifact_sha256 TEXT NOT NULL,
   PRIMARY KEY(run_id,approval_id)
 );
+CREATE TABLE approval_attestations (
+  run_id TEXT NOT NULL REFERENCES runs(run_id), approval_id TEXT NOT NULL,
+  actor TEXT NOT NULL, host_identity TEXT NOT NULL, approved_at TEXT NOT NULL,
+  approval_digest TEXT NOT NULL, PRIMARY KEY(run_id,approval_id),
+  FOREIGN KEY(run_id,approval_id) REFERENCES approvals(run_id,approval_id)
+);
 CREATE TABLE acceptance_evidence (
   run_id TEXT NOT NULL REFERENCES runs(run_id), criterion_id TEXT NOT NULL, artifact_ref TEXT NOT NULL,
   artifact_sha256 TEXT NOT NULL, PRIMARY KEY(run_id,criterion_id)
@@ -95,6 +109,71 @@ CREATE TABLE artifacts (
   source_path TEXT, content_json TEXT, device INTEGER, inode INTEGER, immutable INTEGER NOT NULL,
   UNIQUE(run_id,kind,sha256,ref)
 );
+CREATE TABLE fanouts (
+  fanout_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE RESTRICT,
+  stage TEXT NOT NULL, generation INTEGER NOT NULL CHECK(generation>=0),
+  status TEXT NOT NULL CHECK(status IN ('awaiting','assessed')),
+  member_branch_ids_json TEXT NOT NULL,
+  assessment_ref TEXT REFERENCES artifacts(ref) ON DELETE RESTRICT,
+  assessment_digest TEXT, authority_ref TEXT, actor TEXT, host_identity TEXT, assessed_at TEXT,
+  UNIQUE(run_id,stage,generation),
+  CHECK(
+    (status='awaiting' AND assessment_ref IS NULL AND assessment_digest IS NULL AND authority_ref IS NULL
+      AND actor IS NULL AND host_identity IS NULL AND assessed_at IS NULL)
+    OR
+    (status='assessed' AND assessment_ref IS NOT NULL AND assessment_digest IS NOT NULL
+      AND authority_ref IS NOT NULL AND actor IS NOT NULL AND host_identity IS NOT NULL AND assessed_at IS NOT NULL)
+  )
+);
+CREATE TABLE fanout_dependencies (
+  fanout_id TEXT NOT NULL REFERENCES fanouts(fanout_id) ON DELETE RESTRICT,
+  before_branch_id TEXT NOT NULL REFERENCES nodes(branch_id) ON DELETE RESTRICT,
+  after_branch_id TEXT NOT NULL REFERENCES nodes(branch_id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  PRIMARY KEY(fanout_id,before_branch_id,after_branch_id),
+  CHECK(before_branch_id<>after_branch_id)
+);
+CREATE TABLE branch_attempts (
+  run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE RESTRICT,
+  branch_id TEXT NOT NULL REFERENCES nodes(branch_id) ON DELETE RESTRICT,
+  attempt_number INTEGER NOT NULL CHECK(attempt_number>0), attempt_id TEXT NOT NULL,
+  claim_digest TEXT NOT NULL CHECK(length(claim_digest)=64), started_at TEXT NOT NULL,
+  finished_at TEXT, outcome TEXT,
+  PRIMARY KEY(branch_id,attempt_number), UNIQUE(run_id,attempt_id),
+  CHECK((finished_at IS NULL AND outcome IS NULL) OR (finished_at IS NOT NULL AND outcome IS NOT NULL))
+);
+CREATE TRIGGER fanout_transition_guard BEFORE UPDATE ON fanouts
+BEGIN
+  SELECT CASE
+    WHEN OLD.status<>'awaiting' OR NEW.status<>'assessed'
+      OR OLD.fanout_id<>NEW.fanout_id OR OLD.run_id<>NEW.run_id OR OLD.stage<>NEW.stage
+      OR OLD.generation<>NEW.generation OR OLD.member_branch_ids_json<>NEW.member_branch_ids_json
+    THEN RAISE(ABORT,'FANOUT_IMMUTABLE')
+  END;
+END;
+CREATE TRIGGER fanout_insert_guard BEFORE INSERT ON fanouts WHEN NEW.status<>'awaiting'
+BEGIN SELECT RAISE(ABORT,'FANOUT_IMMUTABLE'); END;
+CREATE TRIGGER fanout_delete_guard BEFORE DELETE ON fanouts
+BEGIN SELECT RAISE(ABORT,'FANOUT_IMMUTABLE'); END;
+CREATE TRIGGER fanout_dependency_update_guard BEFORE UPDATE ON fanout_dependencies
+BEGIN SELECT RAISE(ABORT,'FANOUT_DEPENDENCY_IMMUTABLE'); END;
+CREATE TRIGGER fanout_dependency_insert_guard BEFORE INSERT ON fanout_dependencies
+WHEN (SELECT status FROM fanouts WHERE fanout_id=NEW.fanout_id)<>'awaiting'
+BEGIN SELECT RAISE(ABORT,'FANOUT_DEPENDENCY_IMMUTABLE'); END;
+CREATE TRIGGER fanout_dependency_delete_guard BEFORE DELETE ON fanout_dependencies
+BEGIN SELECT RAISE(ABORT,'FANOUT_DEPENDENCY_IMMUTABLE'); END;
+CREATE TRIGGER branch_attempt_identity_guard BEFORE UPDATE ON branch_attempts
+BEGIN
+  SELECT CASE
+    WHEN OLD.run_id<>NEW.run_id OR OLD.branch_id<>NEW.branch_id
+      OR OLD.attempt_number<>NEW.attempt_number OR OLD.attempt_id<>NEW.attempt_id
+      OR OLD.claim_digest<>NEW.claim_digest OR OLD.started_at<>NEW.started_at
+      OR OLD.finished_at IS NOT NULL OR (NEW.finished_at IS NULL)<>(NEW.outcome IS NULL)
+    THEN RAISE(ABORT,'ATTEMPT_IMMUTABLE')
+  END;
+END;
+CREATE TRIGGER branch_attempt_delete_guard BEFORE DELETE ON branch_attempts
+BEGIN SELECT RAISE(ABORT,'ATTEMPT_IMMUTABLE'); END;
 """
 
 MUTATION_RUN_STATES = {
@@ -104,9 +183,13 @@ MUTATION_RUN_STATES = {
     "record.skip": {"active"},
     "record.retry": {"initialized", "active"},
     "record.approval": {"initialized", "active"},
+    "record.plan-approval": {"initialized"},
+    "record.heartbeat": {"initialized", "active"},
     "record.budget-use": {"initialized", "active"},
     "record.acceptance-evidence": {"active"},
     "record.check-evidence": {"active"},
+    "record.fanout-assessment": {"active"},
+    "check.run": {"active"},
     "join.advance": {"active"},
     "complete": {"active"},
     "block": {"initialized", "active"},
@@ -122,6 +205,14 @@ class StateError(RuntimeError):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def utc_after(seconds: int) -> str:
+    return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def current_actor() -> str:
+    return getpass.getuser() or "unknown-user"
 
 
 def installed_codex_home() -> Path:
@@ -217,7 +308,6 @@ class StateStore:
     def __init__(self, codex_home: Optional[Path] = None, fault_hook: Optional[Callable[[str], None]] = None):
         self.codex_home = (codex_home or installed_codex_home()).absolute()
         self.fault_hook = fault_hook or (lambda _point: None)
-        self.semantic_validator: Optional[Callable[[sqlite3.Connection, sqlite3.Row], None]] = None
 
     def run_root(self, repository_id: str, run_id: str) -> Path:
         return self.codex_home / "graph-runs" / repository_digest(repository_id) / run_id
@@ -389,6 +479,7 @@ class StateStore:
         ack_permissions: bool,
         ack_durability: bool,
         bootstrap_row: Mapping[str, Any],
+        execution_plan: Mapping[str, Any],
         task_ref: str,
         initial_artifacts: Sequence[Mapping[str, Any]],
     ) -> Dict[str, Any]:
@@ -500,8 +591,16 @@ class StateStore:
                 task_ref,task_path,task_json,request_mode,minimum_route,durability,durability_detail,
                 permission_verification,degraded_permissions_ack,degraded_durability_ack,journal_mode,
                 synchronous,sqlite_version,local_filesystem,host_identity,database_device,database_inode,
-                authoritative) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                row,
+                authoritative,started_at,finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                row + (utc_now(), None),
+            )
+            connection.execute(
+                "INSERT INTO execution_plans(run_id,size,plan_json,plan_digest,status) VALUES(?,?,?,?,?)",
+                (
+                    run_id, execution_plan["size"],
+                    json.dumps(execution_plan, sort_keys=True, separators=(",", ":")),
+                    execution_plan["plan_digest"], "pending",
+                ),
             )
             for artifact in initial_artifacts:
                 connection.execute(
@@ -523,6 +622,8 @@ class StateStore:
             response = {
                 "schema_version": 1, "ok": True, "code": "INITIALIZED", "run_id": run_id,
                 "state_revision": 1, "status": "initialized", "branch": json.loads(bootstrap_row["envelope_json"]),
+                "execution_plan": dict(execution_plan), "execution_plan_digest": execution_plan["plan_digest"],
+                "execution_plan_status": "pending", "approval_required": True,
                 "inbox": str(inbox), "permission_verification": permission_state,
             }
             connection.execute(
@@ -679,6 +780,8 @@ class StateStore:
         op_id: str,
         request: Mapping[str, Any],
         action: Callable[[sqlite3.Connection, sqlite3.Row, int], Dict[str, Any]],
+        *,
+        semantic_validator: SemanticValidator,
     ) -> Dict[str, Any]:
         request_digest = sha256_bytes(canonical_bytes(request))
         try:
@@ -710,8 +813,7 @@ class StateStore:
                 if status == "blocked":
                     raise StateError("GRAPH_BLOCKED")
                 raise StateError("INVALID_RUN_TRANSITION")
-            if self.semantic_validator is not None:
-                self.semantic_validator(connection, run)
+            semantic_validator(connection, run)
             revision = int(run["state_revision"]) + 1
             result = action(connection, run, revision)
             result.update({"schema_version": 1, "ok": True, "run_id": run_id, "state_revision": revision})
@@ -725,9 +827,8 @@ class StateStore:
                 "INSERT INTO events(run_id,revision,event_type,source_id,detail_json) VALUES(?,?,?,?,?)",
                 (run_id, revision, request["command"], op_id, json.dumps(request, sort_keys=True)),
             )
-            if self.semantic_validator is not None:
-                updated_run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
-                self.semantic_validator(connection, updated_run)
+            updated_run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            semantic_validator(connection, updated_run)
             connection.commit()
             return result
         except Exception:

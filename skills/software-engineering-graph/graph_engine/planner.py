@@ -1,10 +1,12 @@
 """Deterministic route expansion and loop generation planning."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+import itertools
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .ids import stable_id
 from .config import ENGINE_ROLE_CAPABILITIES
+from .execution import assignment_for, build_execution_plan
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,107 @@ def branch_id(run_id: str, policy_digest: str, spec: NodeSpec) -> str:
 
 def join_id(run_id: str, policy_digest: str, spec: JoinSpec) -> str:
     return stable_id(run_id, policy_digest, "join", spec.key, spec.generation)
+
+
+def fanout_id(run_id: str, policy_digest: str, stage: str, generation: int) -> str:
+    return stable_id(run_id, policy_digest, "fanout", stage, generation)
+
+
+def _resource_name(value: str, case_sensitive: bool) -> str:
+    normalized = value.replace("\\", "/").rstrip("/")
+    return normalized if case_sensitive else normalized.casefold()
+
+
+def _paths_overlap(left: Mapping[str, Any], right: Mapping[str, Any], case_sensitive: bool) -> bool:
+    left_path = _resource_name(left["path"], case_sensitive)
+    right_path = _resource_name(right["path"], case_sensitive)
+    if left["scope"] == right["scope"] == "exact":
+        return left_path == right_path
+    if left["scope"] == "subtree":
+        if right_path == left_path or right_path.startswith(left_path + "/"):
+            return True
+    if right["scope"] == "subtree":
+        return left_path == right_path or left_path.startswith(right_path + "/")
+    return False
+
+
+def validate_fanout_ordering(
+    members: Sequence[Mapping[str, Any]], dependencies: Sequence[Mapping[str, Any]],
+    *, case_sensitive: bool,
+) -> List[Dict[str, str]]:
+    """Validate that an assessed fixed fan-out is safe without scheduling arbitrary work."""
+    member_ids = [member["branch_id"] for member in members]
+    member_set = set(member_ids)
+    if len(member_set) != len(member_ids):
+        raise ValueError("FANOUT_MEMBER_INVALID")
+    edges: Set[Tuple[str, str]] = set()
+    normalized_dependencies: List[Dict[str, str]] = []
+    for dependency in dependencies:
+        before, after = dependency["before_branch_id"], dependency["after_branch_id"]
+        edge = (before, after)
+        if before not in member_set or after not in member_set:
+            raise ValueError("FANOUT_MEMBER_INVALID")
+        if before == after:
+            raise ValueError("FANOUT_DEPENDENCY_INVALID")
+        if edge in edges:
+            raise ValueError("FANOUT_DEPENDENCY_INVALID")
+        edges.add(edge)
+        normalized_dependencies.append({
+            "before_branch_id": before, "after_branch_id": after, "reason": dependency["reason"],
+        })
+    reach = {member_id: set() for member_id in member_ids}
+    for before, after in edges:
+        reach[before].add(after)
+    for pivot in member_ids:
+        for before in member_ids:
+            if pivot in reach[before]:
+                reach[before].update(reach[pivot])
+    if any(member_id in reach[member_id] for member_id in member_ids):
+        raise ValueError("FANOUT_CYCLE")
+
+    by_id = {member["branch_id"]: member for member in members}
+    conflicts: Set[Tuple[str, str]] = set()
+    service_capacities: Dict[str, int] = {}
+    service_units: Dict[str, Dict[str, int]] = {}
+    for member in members:
+        resources = member["resources"]
+        for service in resources["services"]:
+            name = _resource_name(service["ref"], case_sensitive)
+            capacity = service["capacity"]
+            if name in service_capacities and service_capacities[name] != capacity:
+                raise ValueError("FANOUT_CAPACITY_INVALID")
+            service_capacities[name] = capacity
+            service_units.setdefault(name, {})[member["branch_id"]] = service["units"]
+    for left_id, right_id in itertools.combinations(member_ids, 2):
+        left = by_id[left_id]["resources"]
+        right = by_id[right_id]["resources"]
+        path_conflict = any(
+            _paths_overlap(a, b, case_sensitive)
+            for a in left["writable_paths"] for b in right["writable_paths"]
+        )
+        mutable_conflict = bool(
+            {_resource_name(item, case_sensitive) for item in left["mutable_state_refs"]}
+            & {_resource_name(item, case_sensitive) for item in right["mutable_state_refs"]}
+        )
+        device_conflict = bool(
+            {_resource_name(item, case_sensitive) for item in left["exclusive_device_refs"]}
+            & {_resource_name(item, case_sensitive) for item in right["exclusive_device_refs"]}
+        )
+        if path_conflict or mutable_conflict or device_conflict:
+            conflicts.add((left_id, right_id))
+    if any(right not in reach[left] and left not in reach[right] for left, right in conflicts):
+        raise ValueError("FANOUT_UNORDERED_CONFLICT")
+
+    for size in range(1, len(member_ids) + 1):
+        for subset in itertools.combinations(member_ids, size):
+            if any(b in reach[a] or a in reach[b] for a, b in itertools.combinations(subset, 2)):
+                continue
+            for service, capacity in service_capacities.items():
+                if sum(service_units.get(service, {}).get(member_id, 0) for member_id in subset) > capacity:
+                    raise ValueError("FANOUT_CAPACITY_EXCEEDED")
+    return sorted(normalized_dependencies, key=lambda item: (
+        item["before_branch_id"], item["after_branch_id"], item["reason"],
+    ))
 
 
 def _template(policy: Mapping[str, Any], key: str) -> Mapping[str, Any]:
@@ -142,8 +245,11 @@ def envelope(
     status: str,
     inputs: Sequence[Mapping[str, Any]],
     retry_count: int = 0,
+    execution_plan: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     template = _template(policy, spec.key)
+    plan = execution_plan or build_execution_plan(run_id, task)
+    assignment = assignment_for(plan, spec.key)
     authority = task["authority"]["capabilities"]
     configured = {
         (cap["effect"], cap["action"], cap["target_ref"])
@@ -164,6 +270,8 @@ def envelope(
         "node_instance_id": node_id(run_id, policy_digest, spec),
         "node_key": spec.key,
         "role": spec.role,
+        "model": assignment["model"],
+        "reasoning_effort": assignment["reasoning_effort"],
         "mandatory": spec.mandatory,
         "generation": spec.generation,
         "status": status,
@@ -179,6 +287,9 @@ def envelope(
         "decision": None,
         "retry_count": retry_count,
         "max_retries": max_retries,
+        "attempt_id": None,
+        "claim_digest": None,
+        "lease_expires_at": None,
         "failure_code": None,
         "started_at": None,
         "finished_at": None,
