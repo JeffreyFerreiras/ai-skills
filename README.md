@@ -47,6 +47,7 @@ Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
 | `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |
+| `loop` | Run bounded write and independent review repair cycles. |
 | `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
