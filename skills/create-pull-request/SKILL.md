@@ -5,7 +5,7 @@ description: Write factual GitHub pull request titles and bodies, or create and 
 
 # Create Pull Request
 
-Produce a paste-ready GitHub pull request title and body grounded only in the selected changes. When the user explicitly asks to create, open, submit, or publish a pull request, create a non-draft GitHub pull request that is ready for review.
+Produce a paste-ready GitHub pull request title and body grounded only in the selected changes. The default creation mode is a non-draft GitHub pull request that is ready for review; `--draft` explicitly overrides that default.
 
 ## Establish the Evidence
 
@@ -51,11 +51,13 @@ Use the repository's established PR title convention when one exists. Otherwise 
 
 Make the body factual and proportional to the diff. State what changed, why when evidenced, validation actually run, and material risks or follow-up work. Never invent test results, links, issue references, metrics, motivation, compatibility claims, or checkbox completion. Put unresolved assumptions or questions outside the paste-ready body so they cannot be mistaken for PR facts.
 
-## Create and Publish a Pull Request When Explicitly Requested
+## Creation Mode and Options
 
-Ordinary wording such as "draft a PR," "write a PR," or "prepare a PR" requests text only. Explicit wording such as "create," "open," "submit," or "publish a pull request" authorizes the focused local Git and remote GitHub changes needed to make the selected changes reviewable: creating a branch, committing only the selected changes, pushing that branch, and opening the pull request.
+For an explicit `$create-pull-request` invocation or wording such as "create," "open," "submit," or "publish a pull request," create and publish a normal, review-ready pull request by default. This authorizes the focused local Git and remote GitHub changes needed to make the selected changes reviewable: creating a branch, committing only the selected changes, pushing that branch, and opening the pull request.
 
-An explicit request for a *draft pull request* authorizes the same preparation but must create it with `--draft`. Otherwise create a non-draft pull request. Do not force-push, amend or rewrite existing commits, include unrelated changes, change a PR's base branch, or create a duplicate PR. If the request leaves the repository, selected changes, base branch, or creation intent materially ambiguous, prepare the text and ask one focused question before mutating Git or GitHub.
+`--draft` is a creation-mode override: `$create-pull-request --draft` creates a GitHub draft pull request, not a review-ready one. Treat an explicit request for a draft pull request the same way when it does not conflict with an option. The `--draft` option takes priority over the default state; do not create a second non-draft PR as well. Ordinary wording such as "write a PR" or "prepare PR text" remains text-only unless it also requests creation or invokes `$create-pull-request`.
+
+Do not force-push, amend or rewrite existing commits, include unrelated changes, change a PR's base branch, or create a duplicate PR. If options conflict, or the request leaves the repository, selected changes, base branch, or creation intent materially ambiguous, prepare the text and ask one focused question before mutating Git or GitHub.
 
 Before creation:
 
@@ -74,7 +76,7 @@ Immediately before `gh pr create`, use a read-only GitHub or `gh` query to re-re
 
 Write the body to a securely created temporary file outside the repository. Ensure unconditional cleanup, including on failure. Then:
 
-1. Run exactly one `gh pr create` command with explicit repository, base, head, title, and `--body-file` arguments. Include `--draft` only when the user explicitly requested a draft pull request.
+1. Run exactly one `gh pr create` command with explicit repository, base, head, title, and `--body-file` arguments. Include `--draft` when the user passes `--draft` or explicitly requests a draft pull request; otherwise omit it and create the default review-ready pull request.
 2. Do not use `--dry-run`, blindly retry, or issue a second create command after an uncertain or failed result.
 3. Verify the result read-only with `gh pr view` using the returned URL or PR number, including its draft state, base, head, title, and body.
 4. Remove the temporary body file in all outcomes.
