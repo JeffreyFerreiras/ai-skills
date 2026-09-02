@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Pull Request"
+  short_description: "Create factual GitHub pull requests"
+  default_prompt: "Use $create-pull-request to create a factual GitHub pull request from the selected changes."
