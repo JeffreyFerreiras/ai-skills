@@ -46,7 +46,7 @@ Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when
 | `word-documents` | Create, edit, render, and visually verify DOCX files. |
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
 | `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
-| `create-pull-request` | [Draft factual GitHub PR text or create a guarded review-ready pull request.](skills/create-pull-request/SKILL.md) |
+| `create-pull-request` | [Draft GitHub PR text or create a review-ready pull request.](skills/create-pull-request/SKILL.md) |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |
 | `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
