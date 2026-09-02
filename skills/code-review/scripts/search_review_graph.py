@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search a bounded, manifest-backed graph for code-review pattern candidates."""
+"""Search a bounded, manifest-backed graph for code-review design checks."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ STOP_WORDS = frozenset(
         "with",
     }
 )
-SEARCHABLE_LIST_FIELDS = ("aliases", "cues", "applicability")
+SEARCHABLE_LIST_FIELDS = ("aliases", "cues", "guardrails", "applicability")
 RELATION_WEIGHTS = {
     "suggests": 12.0,
     "complements": 4.0,
@@ -109,8 +109,9 @@ def load_manifest(path: Path) -> ReviewGraph:
 
     if not isinstance(raw, dict):
         raise ManifestError("manifest root must be an object")
-    if raw.get("version") != 1:
-        raise ManifestError("manifest version must be 1")
+    version = raw.get("version")
+    if type(version) is not int or version != 2:
+        raise ManifestError("manifest version must be 2")
 
     raw_nodes = raw.get("nodes")
     if not isinstance(raw_nodes, list) or not raw_nodes:
@@ -125,15 +126,19 @@ def load_manifest(path: Path) -> ReviewGraph:
         if node_id in nodes:
             raise ManifestError(f"duplicate node id: {node_id}")
         kind = _require_string(node.get("kind"), f"{location}.kind")
-        if kind not in {"review-signal", "pattern"}:
+        supported_kinds = {"review-signal", "principle", "pattern"}
+        if kind not in supported_kinds:
             raise ManifestError(
-                f"{location}.kind must be 'review-signal' or 'pattern'"
+                f"{location}.kind is unsupported for manifest version {version}"
             )
         _require_string(node.get("name"), f"{location}.name")
         _require_string(node.get("summary"), f"{location}.summary")
         _require_string_list(node.get("aliases"), f"{location}.aliases")
         if kind == "review-signal":
             _require_string_list(node.get("cues"), f"{location}.cues")
+        elif kind == "principle":
+            for field in ("cues", "guardrails"):
+                _require_string_list(node.get(field), f"{location}.{field}")
         else:
             for field in ("applicability", "tradeoffs", "avoid_when"):
                 _require_string_list(node.get(field), f"{location}.{field}")
@@ -163,7 +168,7 @@ def load_manifest(path: Path) -> ReviewGraph:
         seen_edges.add(identity)
         edges.append(Edge(source, target, relation, rationale))
 
-    return ReviewGraph(version=1, nodes=nodes, edges=tuple(edges))
+    return ReviewGraph(version=version, nodes=nodes, edges=tuple(edges))
 
 
 def tokenize(value: str) -> tuple[str, ...]:
@@ -266,7 +271,7 @@ def traverse(
             (
                 (score_node(node, query), node_id)
                 for node_id, node in graph.nodes.items()
-                if node["kind"] == "review-signal"
+                if node["kind"] in {"review-signal", "principle"}
             ),
             key=lambda item: (-item[0], item[1]),
         )
@@ -333,6 +338,7 @@ def result_payload(
 ) -> dict[str, Any]:
     traversal = []
     candidates = []
+    principles = []
     for visit in visits:
         node = graph.nodes[visit.node_id]
         item = {
@@ -357,10 +363,21 @@ def result_payload(
                     "avoid_when": node["avoid_when"],
                 }
             )
+        elif node["kind"] == "principle":
+            principles.append(
+                {
+                    **item,
+                    "summary": node["summary"],
+                    "cues": node["cues"],
+                    "guardrails": node["guardrails"],
+                }
+            )
     candidates.sort(key=lambda item: (-item["score"], item["id"]))
+    principles.sort(key=lambda item: (-item["score"], item["id"]))
     return {
         "query": query,
         "traversal": traversal,
+        "principles": principles,
         "candidates": candidates,
     }
 
@@ -382,11 +399,15 @@ def _print_text(payload: dict[str, Any]) -> None:
         print("Candidates:")
         for candidate in payload["candidates"]:
             print(f"- {candidate['name']}: {candidate['summary']}")
+    if payload["principles"]:
+        print("Principles:")
+        for principle in payload["principles"]:
+            print(f"- {principle['name']}: {principle['summary']}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Search the code-review design-pattern graph"
+        description="Search the code-review design graph"
     )
     parser.add_argument("query", nargs="?", help="Observed design pressure")
     parser.add_argument(

@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "name": "code-review-design-pattern-graph",
-  "description": "A bounded discovery graph from observable review pressures to candidate design patterns. Candidates require confirmation against the code and are never findings by themselves.",
+  "version": 2,
+  "name": "code-review-design-graph",
+  "description": "A bounded discovery graph from observable review pressures to SOLID principle hypotheses and candidate design patterns. Matches require confirmation against the code and are never findings by themselves.",
   "nodes": [
     {
       "id": "signal.varying-behavior",
@@ -209,6 +209,105 @@
         "queries and mapping repeat across application services",
         "domain decisions depend on ORM or database types",
         "persistence changes force unrelated business changes"
+      ]
+    },
+    {
+      "id": "principle.single-responsibility",
+      "kind": "principle",
+      "name": "Single Responsibility Principle",
+      "aliases": [
+        "SRP",
+        "single responsibility"
+      ],
+      "summary": "A unit should have one cohesive responsibility and one reason to change.",
+      "cues": [
+        "one unit combines responsibilities that change for distinct stakeholders or policies",
+        "a change to one responsibility repeatedly forces edits or regression risk in another",
+        "unrelated behavior must be coordinated because it is owned by the same unit"
+      ],
+      "guardrails": [
+        "require distinct responsibilities or reasons to change and demonstrate their concrete maintenance or correctness cost",
+        "do not infer a violation from file size method count or number of collaborators alone"
+      ]
+    },
+    {
+      "id": "principle.open-closed",
+      "kind": "principle",
+      "name": "Open/Closed Principle",
+      "aliases": [
+        "OCP",
+        "open closed principle",
+        "open for extension closed for modification"
+      ],
+      "summary": "Stable policy should support demonstrated extensions without repeated invasive modification.",
+      "cues": [
+        "new variants repeatedly require edits to a central branch or stable policy",
+        "the same extension repeatedly modifies several established components",
+        "extension friction is visible in the current diff or repository history"
+      ],
+      "guardrails": [
+        "require demonstrated recurring extension friction and its concrete maintenance or correctness cost",
+        "do not introduce extension points for hypothetical reuse or variants"
+      ]
+    },
+    {
+      "id": "principle.liskov-substitution",
+      "kind": "principle",
+      "name": "Liskov Substitution Principle",
+      "aliases": [
+        "LSP",
+        "Liskov substitution",
+        "behavioral subtyping"
+      ],
+      "summary": "A subtype must preserve the contracts and compatible behavior expected through its base type.",
+      "cues": [
+        "a subtype strengthens preconditions weakens postconditions or breaks a base invariant",
+        "a subtype rejects an operation that the base contract promises",
+        "base-typed callers require subtype checks or special handling to remain correct"
+      ],
+      "guardrails": [
+        "identify the violated base contract invariant or incompatible behavior and demonstrate the resulting cost",
+        "different implementation details performance or internal state alone are not violations"
+      ]
+    },
+    {
+      "id": "principle.interface-segregation",
+      "kind": "principle",
+      "name": "Interface Segregation Principle",
+      "aliases": [
+        "ISP",
+        "interface segregation",
+        "client specific interface"
+      ],
+      "summary": "Consumers should depend only on the operations relevant to their actual needs.",
+      "cues": [
+        "a consumer must depend on members it does not use or cannot meaningfully support",
+        "an implementation throws or supplies dummy behavior for inapplicable interface members",
+        "interface changes repeatedly affect consumers unrelated to the changed capability"
+      ],
+      "guardrails": [
+        "identify an actual consumer burden and demonstrate its maintenance or correctness cost",
+        "a broad interface alone is insufficient without unused inapplicable or change-coupled members"
+      ]
+    },
+    {
+      "id": "principle.dependency-inversion",
+      "kind": "principle",
+      "name": "Dependency Inversion Principle",
+      "aliases": [
+        "DIP",
+        "dependency inversion",
+        "depend on abstractions"
+      ],
+      "summary": "High-level policy should not depend directly on replaceable low-level implementation details.",
+      "cues": [
+        "business policy imports or constructs replaceable database network filesystem or framework details",
+        "changing a low-level implementation forces unrelated high-level policy changes",
+        "testing or substitution requires patching concrete infrastructure inside policy code"
+      ],
+      "guardrails": [
+        "identify high-level policy coupled to a replaceable low-level detail and demonstrate the resulting cost",
+        "do not equate dependency inversion with dependency injection because injection alone does not establish dependency direction"
       ]
     },
     {
