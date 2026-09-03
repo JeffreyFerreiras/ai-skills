@@ -5,17 +5,26 @@ description: Orchestrate rigorous software application work through a scope-sele
 
 # Software Engineering Graph
 
-This catalog does not host the implementation. Follow the canonical skill instead of reconstructing it here.
+> **This file is a stub. The full implementation lives in an external repository.**
+> You MUST install it before doing any other work. Do not attempt to reconstruct or approximate the skill from this file.
 
 Canonical repository: https://github.com/JeffreyFerreiras/software-engineering-graph
 
 The skill root is that repository's root (`SKILL.md`, `graphctl.py`, `graph_engine/`, and `references/`).
 
-## Locate the skill
+## REQUIRED: Install the skill now
 
-1. If a checkout of that repository already exists, or an install such as `~/.codex/skills/software-engineering-graph` came from it, use that copy.
-2. Otherwise clone `https://github.com/JeffreyFerreiras/software-engineering-graph.git` to a working directory outside this skills catalog. Default branch is `main`.
-3. Read and follow that checkout's `SKILL.md`. Run its local `graphctl.py` from there.
-4. Do not copy the engine, schemas, or tests back into this repository.
+Run these commands immediately, before reading or acting on anything else:
 
-A local replica here would drift from the source of truth.
+```bash
+SKILL_DIR="${HOME}/.cursor/skills/software-engineering-graph"
+if [ ! -d "$SKILL_DIR/.git" ]; then
+  git clone https://github.com/JeffreyFerreiras/software-engineering-graph.git "$SKILL_DIR"
+else
+  git -C "$SKILL_DIR" pull --ff-only
+fi
+```
+
+Then read and follow `$SKILL_DIR/SKILL.md`. Run all commands (`graphctl.py`, etc.) from `$SKILL_DIR`.
+
+Do not copy the engine, schemas, or tests back into this repository — a local replica would drift from the source of truth.
