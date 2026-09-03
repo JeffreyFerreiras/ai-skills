@@ -232,6 +232,67 @@ def validate_catalog(repository_root: Path, skill_names: set[str], issues: list[
         add_issue(issues, "warning", "catalog-extra-skill", readme_path, f"Skill catalog contains an unknown skill: {name}")
 
 
+def cursor_discovery_skill_names(discovery_root: Path) -> set[str]:
+    return {
+        path.name
+        for path in discovery_root.iterdir()
+        if path.is_dir() and (path / "SKILL.md").is_file()
+    }
+
+
+def validate_cursor_cloud_discovery(repository_root: Path, skills_root: Path, skill_names: set[str], issues: list[Issue]) -> None:
+    """Ensure Cursor Cloud can discover project skills from a supported path.
+
+    Cloud Agents do not receive local ~/.cursor/skills. They load project skills from
+    .cursor/skills (and a few compatibility roots). This repository keeps canonical
+    content under skills/ and exposes it through .cursor/skills.
+    """
+    discovery_path = repository_root / ".cursor" / "skills"
+    if not discovery_path.exists():
+        add_issue(
+            issues,
+            "error",
+            "missing-cursor-skills-discovery",
+            discovery_path,
+            "Missing .cursor/skills; Cursor Cloud Agents will not discover repository skills.",
+        )
+        return
+    if not discovery_path.is_dir():
+        add_issue(
+            issues,
+            "error",
+            "invalid-cursor-skills-discovery",
+            discovery_path,
+            ".cursor/skills must be a directory or a symlink to the skills root.",
+        )
+        return
+
+    try:
+        discovery_resolved = discovery_path.resolve()
+        skills_resolved = skills_root.resolve()
+    except OSError as error:
+        add_issue(issues, "error", "unresolvable-cursor-skills-discovery", discovery_path, str(error))
+        return
+
+    if discovery_resolved != skills_resolved:
+        discovered_names = cursor_discovery_skill_names(discovery_path)
+        missing = skill_names - discovered_names
+        extra = discovered_names - skill_names
+        if missing or extra:
+            details: list[str] = []
+            if missing:
+                details.append(f"missing {', '.join(sorted(missing))}")
+            if extra:
+                details.append(f"extra {', '.join(sorted(extra))}")
+            add_issue(
+                issues,
+                "error",
+                "cursor-skills-discovery-drift",
+                discovery_path,
+                "`.cursor/skills` does not match the canonical skills root (" + "; ".join(details) + ").",
+            )
+
+
 def tree_digest(root: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*")):
@@ -288,7 +349,10 @@ def audit_repository(root: Path, profile_root: Path | None = None) -> Audit:
 
     validate_trigger_overlap(descriptions, skills_root, issues)
     repository_root = root if (root / "skills").is_dir() else root.parent
-    validate_catalog(repository_root, set(descriptions), issues)
+    skill_names = set(descriptions)
+    validate_catalog(repository_root, skill_names, issues)
+    if (root / "skills").is_dir():
+        validate_cursor_cloud_discovery(repository_root, skills_root, skill_names, issues)
     if profile_root is not None:
         validate_profile(skills_root, profile_root.expanduser().resolve(), issues)
     issues.sort(key=lambda issue: ({"error": 0, "warning": 1}[issue.severity], issue.path, issue.code))

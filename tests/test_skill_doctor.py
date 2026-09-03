@@ -31,6 +31,10 @@ class SkillDoctorTests(unittest.TestCase):
             '  default_prompt: "Use $sample-skill to validate this sample."\n',
             encoding="utf-8",
         )
+        cursor_skills = root / ".cursor" / "skills"
+        cursor_skills.parent.mkdir(parents=True, exist_ok=True)
+        if not cursor_skills.exists():
+            cursor_skills.symlink_to(Path("..") / "skills", target_is_directory=True)
 
     def test_valid_skill_has_no_errors(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -45,6 +49,28 @@ class SkillDoctorTests(unittest.TestCase):
             self.create_skill(root, "Reach >=95 percent coverage.")
             audit = skill_doctor.audit_repository(root)
             self.assertIn("description-angle-bracket", {issue.code for issue in audit.issues})
+
+    def test_missing_cursor_skills_discovery_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_skill(root)
+            (root / ".cursor" / "skills").unlink()
+            audit = skill_doctor.audit_repository(root)
+            self.assertIn("missing-cursor-skills-discovery", {issue.code for issue in audit.issues})
+
+    def test_cursor_skills_discovery_drift_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.create_skill(root)
+            (root / ".cursor" / "skills").unlink()
+            drifted = root / ".cursor" / "skills" / "other-skill"
+            drifted.mkdir(parents=True)
+            (drifted / "SKILL.md").write_text(
+                "---\nname: other-skill\ndescription: Drifted skill.\n---\n\n# Other\n",
+                encoding="utf-8",
+            )
+            audit = skill_doctor.audit_repository(root)
+            self.assertIn("cursor-skills-discovery-drift", {issue.code for issue in audit.issues})
 
 
 if __name__ == "__main__":
