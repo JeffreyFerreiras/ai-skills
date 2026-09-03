@@ -10,10 +10,8 @@ Install the validator dependency, then run the repository doctor and tests:
 python -m pip install PyYAML
 python skills/skill-doctor/scripts/skill_doctor.py .
 python -m unittest discover -s tests -v
-Push-Location .\skills\software-engineering-graph
-python -m unittest discover -s tests -v
-Pop-Location
 ```
+
 
 The doctor validates frontmatter, folder naming, UI metadata, referenced resources, Python syntax, overlapping triggers, and optional profile drift.
 
@@ -63,7 +61,7 @@ On Windows clones, enable Git symlinks (`git config core.symlinks true`, or Deve
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
 | `skill-doctor` | Validate this repository and compare it with an installed profile. |
-| `software-engineering-graph` | Orchestrate bounded design, implementation, review, and verification roles. |
+| `software-engineering-graph` | Pointer to the [canonical graph skill](https://github.com/JeffreyFerreiras/software-engineering-graph). |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
 | `run-change-checks` | Select and run focused checks for current changes. |
