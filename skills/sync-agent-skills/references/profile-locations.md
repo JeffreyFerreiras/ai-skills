@@ -19,7 +19,9 @@ Use this as a starting map, then verify paths on the local machine. Agent produc
 
 - Start with `~/.cursor`.
 - If `~/.cursor/skills-cursor` exists, treat it as the active Cursor-managed global skills folder and prefer it over creating a new global folder.
-- Some Cursor setups or third-party guidance use `~/.cursor/skills` or workspace `.cursor/skills`; verify what exists locally before copying.
+- Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills`, `.claude/skills`, and `.codex/skills`). Cloud Agents do not receive local `~/.cursor/skills`.
+- In this repository, `.cursor/skills` is a symlink to the canonical `skills/` tree so every mirrored skill is discoverable in Cursor Cloud without duplicating folders.
+- Some Cursor setups also use `~/.cursor/skills`; verify what exists locally before copying.
 - Also inspect Cursor application user data when relevant, especially on Windows under `%APPDATA%\Cursor\User`.
 - Cursor rule files may use `.mdc` or markdown-like instruction formats. Preserve existing frontmatter conventions.
 

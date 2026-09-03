@@ -21,6 +21,8 @@ The doctor validates frontmatter, folder naming, UI metadata, referenced resourc
 
 ```text
 AGENTS.md
+.cursor/
+  skills -> ../skills   # Cursor / Cursor Cloud discovery alias
 skills/
   skill-name/
     SKILL.md
@@ -32,6 +34,14 @@ tests/
 ```
 
 Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when they directly support the skill.
+
+## Cursor Cloud
+
+Cursor Cloud Agents do not receive local `~/.cursor/skills`. They discover project skills from `.cursor/skills/` (also `.agents/skills/`, `.claude/skills/`, and `.codex/skills/`).
+
+This repository keeps canonical skill content under `skills/` and exposes every skill to Cursor Cloud through `.cursor/skills`, a relative symlink to `../skills`. Keep that alias in place; `skill-doctor` fails if it is missing or drifts from the canonical root.
+
+On Windows clones, enable Git symlinks (`git config core.symlinks true`, or Developer Mode) so `.cursor/skills` resolves. Linux Cloud Agent VMs resolve it by default.
 
 ## Skill Catalog
 
