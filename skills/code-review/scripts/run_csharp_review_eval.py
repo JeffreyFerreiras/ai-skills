@@ -72,6 +72,11 @@ def _copy_tree(source: Path, destination: Path) -> None:
     if not source.is_dir():
         raise EvaluationError(f"Missing fixture directory: {source}")
     shutil.copytree(source, destination, dirs_exist_ok=True)
+    for path in destination.rglob("*"):
+        if path.is_file() and path.suffix in {".cs", ".csproj", ".props", ".sln", ".md", ".json", ".txt"}:
+            content = path.read_bytes()
+            if b"\r\n" in content:
+                path.write_bytes(content.replace(b"\r\n", b"\n"))
 
 
 def initialize_baseline(destination: Path) -> None:
@@ -311,6 +316,7 @@ def grade_review(
     required_count = len(expected["must_find"])
     return {
         "passed": not missing_ids and not false_positive_ids and not malformed,
+        "assessment_scope": "Structural matching only; independent semantic review of evidence is required.",
         "required_recall": len(matched_ids) / required_count if required_count else 1.0,
         "matched": matched_ids,
         "missing": missing_ids,

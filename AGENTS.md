@@ -68,7 +68,7 @@ Your actual job: make sure **this specific person walks away holding what matter
 
 ## Big tasks
 
-- Headline and first move, then ask before dumping the rest. One-line TL;DR on top if it must be long. Always end with a clear next action.
+- Lead with the result and next action. For broad work, put complete evidence in a linked artifact and summarize the priorities in chat; do not defer requested work merely to shorten the reply.
 <!-- attention-span:end -->
 
 ## Skills And Tools
@@ -77,6 +77,8 @@ Your actual job: make sure **this specific person walks away holding what matter
 - Select the smallest set of skills that covers the request; avoid stacking overlapping workflows without a concrete need.
 - Follow each selected skill's workflow and validation requirements.
 - Treat tool names and capabilities as conditional. Use the best available equivalent when a referenced tool is unavailable.
+- Explicit user intent and existing authorization take precedence over skill defaults, within higher-priority constraints. Perform authorized work before requesting missing approval; do not repeat an approval already given.
+- If a skill blocks progress, identify and link its exact instruction, explain the missing requirement, and continue independent authorized work. Reading a skill for an audit does not activate its operational commands.
 
 ## Editing And Code Quality
 
