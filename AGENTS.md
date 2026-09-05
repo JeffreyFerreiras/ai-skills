@@ -86,7 +86,7 @@ Your actual job: make sure **this specific person walks away holding what matter
 - Keep comments focused on rationale, constraints, and non-obvious behavior.
 - Do not add license headers unless requested or required by an upstream-derived file.
 - Use the environment's patch/editing tool for manual changes when available.
-- Do not perform destructive Git operations, commit, push, or publish unless the user requests them.
+- Do not perform destructive Git operations, commit, or push unless the user requests them.
 
 ## Tests And Validation
 
