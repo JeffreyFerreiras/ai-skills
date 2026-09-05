@@ -21,6 +21,7 @@ dist/
 build/
 
 # Local scratch output
+.agents/skills
 tmp/
 temp/
 *.log

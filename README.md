@@ -4,7 +4,7 @@ Canonical, portable source for personal AI-agent skills, instructions, scripts, 
 
 ## Validate
 
-Install the validator dependency, then run the repository doctor and tests:
+Use Python 3.12 or newer. Install the validator dependency, then run the repository doctor and tests:
 
 ```powershell
 python -m pip install PyYAML
@@ -39,7 +39,7 @@ Cursor Cloud Agents do not receive local `~/.cursor/skills`. They discover proje
 
 This repository keeps canonical skill content under `skills/` and exposes every skill to Cursor Cloud through `.cursor/skills`, a relative symlink to `../skills`. Keep that alias in place; `skill-doctor` fails if it is missing or drifts from the canonical root.
 
-On Windows clones, enable Git symlinks (`git config core.symlinks true`, or Developer Mode) so `.cursor/skills` resolves. Linux Cloud Agent VMs resolve it by default.
+On Windows clones where Git checks out the symlink as a plain file, run `./scripts/setup-discovery.ps1`. It creates a local `.agents/skills` junction, another supported discovery root, without changing the tracked alias, global Git settings, or requiring symlink privileges. Then run the doctor. Changing `core.symlinks` alone does not repair an existing placeholder. Linux Cloud Agent VMs resolve the tracked relative symlink by default. A copied discovery directory is also accepted only when every skill's content matches the canonical tree.
 
 ## Skill Catalog
 
@@ -92,3 +92,9 @@ python skills/skill-doctor/scripts/skill_doctor.py . --profile-root (Join-Path $
 ```
 
 Repository content is canonical. Profile updates should use the `sync-agent-skills` workflow, begin with a dry run, and preserve backups of differing targets.
+
+Skills carrying `external-source.json` are externally managed dependencies. Sync reports and skips them, including forced sync; use their resolver to install or update the full implementation.
+
+## Behavioral Evaluation
+
+Use [tests/behavioral/README.md](tests/behavioral/README.md) and its scenario catalog to evaluate skill selection, scope, authorization, and follow-through in isolated workspaces. These checks assess action traces and resulting artifacts; unit tests and structural matching alone do not establish model behavior or semantic review quality.

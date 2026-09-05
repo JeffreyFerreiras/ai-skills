@@ -9,6 +9,8 @@ description: Audit, compare, and synchronize profile-level AI agent skills, inst
 
 Coordinate profile-level agent capability files across local assistants while preserving each tool's native format and avoiding destructive overwrites.
 
+Use this skill for skill folders and their discovery settings. Use `sync-agents-md` for instruction-document synchronization. Restrict writes to the requested tools and roots; an inventory does not authorize synchronization.
+
 Prefer an inventory-first workflow. Treat `.codex/skills`, `.claude`, `.cursor`, and VS Code user-profile files as user-owned configuration unless the user explicitly asks to replace or normalize them.
 
 ## Master Repository (`ai-skills`)
@@ -87,6 +89,8 @@ python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.codex\skil
 ```
 
 The script does not convert formats. Use it to inventory, compare checksums, and copy a finalized artifact after deciding that a direct copy is appropriate.
+
+Target names must be single filenames. The helper rejects overlapping trees, linked source/target entries, and linked backup paths. Skills with `external-source.json` are reported and skipped even with `--force`; use their dependency resolver rather than replacing an installed engine with a stub.
 
 ## Repository and Profile Update from Master
 

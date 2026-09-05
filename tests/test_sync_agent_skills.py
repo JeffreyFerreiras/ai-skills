@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +17,88 @@ SPEC.loader.exec_module(sync_agent_skills)
 
 
 class SyncAgentSkillsTests(unittest.TestCase):
+    def test_rejects_escaped_target_names_before_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.write_text("keep", encoding="utf-8")
+            for name in ("../outside", "..\\outside", "/absolute", "C:\\absolute", "C:relative", "", ".", "..", ".. ", "name.", "NUL", "nested/name"):
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    sync_agent_skills.copy_source(source, root / "targets", name, True, True)
+            self.assertFalse((root / "targets").exists())
+            self.assertEqual("keep", source.read_text(encoding="utf-8"))
+
+    def test_rejects_overlapping_trees(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            child = source / "child"
+            child.mkdir()
+            with self.assertRaisesRegex(ValueError, "overlap"):
+                sync_agent_skills.copy_source(source, source, "nested", True, True)
+            with self.assertRaisesRegex(ValueError, "overlap"):
+                sync_agent_skills.copy_source(child, root, "source", True, True)
+            self.assertTrue(child.exists())
+
+    def test_external_skill_is_never_mirrored_over_installation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "master/graph"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("stub", encoding="utf-8")
+            (source / "external-source.json").write_text('{}', encoding="utf-8")
+            installed = root / "target/graph"
+            installed.mkdir(parents=True)
+            (installed / "SKILL.md").write_text("full implementation", encoding="utf-8")
+            result = sync_agent_skills.sync_skills_from_master(source.parent, installed.parent, apply=True, force=True)
+            self.assertFalse(result[0]["changed"])
+            self.assertEqual("full implementation", (installed / "SKILL.md").read_text(encoding="utf-8"))
+
+    def test_linked_target_and_source_descendant_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            target = root / "targets"
+            target.mkdir()
+            link = target / "source"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"Symlinks unavailable: {error}")
+            with self.assertRaises(ValueError):
+                sync_agent_skills.copy_source(source, target, None, True, True)
+            link.unlink()
+            (source / "linked").symlink_to(outside, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                sync_agent_skills.copy_source(source, target, None, True, True)
+            self.assertEqual([], list(outside.iterdir()))
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction behavior")
+    def test_windows_junction_target_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "keep").write_text("preserved", encoding="utf-8")
+            targets = root / "targets"
+            targets.mkdir()
+            link = targets / "source"
+            quoted_link = str(link).replace("'", "''")
+            quoted_outside = str(outside).replace("'", "''")
+            subprocess.run(["powershell", "-NoProfile", "-Command", f"New-Item -ItemType Junction -Path '{quoted_link}' -Target '{quoted_outside}' | Out-Null"], check=True)
+            try:
+                with self.assertRaises(ValueError):
+                    sync_agent_skills.copy_source(source, targets, None, True, True)
+                self.assertEqual("preserved", (outside / "keep").read_text(encoding="utf-8"))
+            finally:
+                link.rmdir()
+
     def test_load_json_object_accepts_jsonc(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             settings_path = Path(temporary_directory) / "settings.json"
@@ -92,6 +176,9 @@ class SyncAgentSkillsTests(unittest.TestCase):
             self.assertEqual(1, len(apply_results))
             self.assertTrue(apply_results[0]["changed"])
             self.assertIn("v2", (target_skill / "SKILL.md").read_text(encoding="utf-8"))
+            backups = list((target_root / ".sync-agent-skills-backups").glob("my-skill.*"))
+            self.assertEqual(1, len(backups))
+            self.assertIn("v1", (backups[0] / "SKILL.md").read_text(encoding="utf-8"))
 
             # No-op re-run test
             noop_results = sync_agent_skills.sync_skills_from_master(
