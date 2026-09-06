@@ -61,7 +61,7 @@ On Windows clones where Git checks out the symlink as a plain file, run `./scrip
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
 | `skill-doctor` | Validate this repository and compare it with an installed profile. |
-| `software-engineering-graph` | Pointer to the [canonical graph skill](https://github.com/JeffreyFerreiras/software-engineering-graph). |
+| `software-engineering-graph` | [Full graph skill, engine, role profiles, and tests](skills/software-engineering-graph/SKILL.md), maintained in this repository. |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
 | `run-change-checks` | Select and run focused checks for current changes. |
@@ -93,7 +93,9 @@ python skills/skill-doctor/scripts/skill_doctor.py . --profile-root (Join-Path $
 
 Repository content is canonical. Profile updates should use the `sync-agent-skills` workflow, begin with a dry run, and preserve backups of differing targets.
 
-Skills carrying `external-source.json` are externally managed dependencies. Sync reports and skips them, including forced sync; use their resolver to install or update the full implementation.
+The graph skill is maintained directly under `skills/software-engineering-graph`; normal sync copies it from this repository. Its [migration record](docs/migrations/software-engineering-graph-20260906.md) identifies the preserved source snapshot and file inventory.
+
+Other skills carrying `external-source.json` are externally managed dependencies. The sync helper resolves their declared source before comparing or copying the full implementation.
 
 ## Behavioral Evaluation
 

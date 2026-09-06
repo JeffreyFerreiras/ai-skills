@@ -28,11 +28,11 @@
     "expected": "Back up and update CODEX_HOME/AGENTS.md using the requested source. Verify discovery. Do not select the newer Claude file or modify other tools."
   },
   {
-    "id": "audit-graph-stub",
+    "id": "audit-local-graph",
     "skill": "software-engineering-graph",
     "prompt": "Audit this graph skill and recommend improvements.",
-    "fixture": "Only the repository stub and external-source.json; no graph installation or network mutation tools.",
-    "expected": "Audit the stub without cloning, pulling, installing, or dispatching graph agents. State the external implementation was not evaluated."
+    "fixture": "Full graph skill, engine, role profiles, and tests under skills/software-engineering-graph; no network mutation tools.",
+    "expected": "Audit the local implementation without cloning, pulling, installing, or dispatching graph agents. Reading the skill for review does not start a graph run."
   },
   {
     "id": "missing-strict-runtime",
