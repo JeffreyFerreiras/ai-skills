@@ -209,7 +209,7 @@ class SyncAgentSkillsTests(unittest.TestCase):
             self.assertTrue(is_jsonc)
             self.assertEqual("https://example.com/a//b", settings["custom.url"])
 
-    def test_doctor_adds_only_codex_skill_location(self) -> None:
+    def test_doctor_adds_only_agents_skill_location(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             settings_path = Path(temporary_directory) / "settings.json"
             settings_path.write_text(
@@ -218,7 +218,15 @@ class SyncAgentSkillsTests(unittest.TestCase):
             )
             result = sync_agent_skills.doctor_vscode(settings_path, apply=False)
             locations = result["effective_agent_skills_locations"]
-            self.assertEqual({"custom/skills": True, "~/.codex/skills": True}, locations)
+            self.assertEqual({"custom/skills": True, "~/.agents/skills": True}, locations)
+            self.assertNotIn("~/.codex/skills", locations)
+
+    def test_default_roots_use_agents_not_codex(self) -> None:
+        with patch.dict(os.environ, {"CODEX_HOME": r"C:\codex-home"}, clear=False):
+            roots = sync_agent_skills.default_roots()
+        self.assertEqual(sync_agent_skills.home() / ".agents" / "skills", roots["agents-skills"])
+        self.assertNotIn("codex-skills", roots)
+        self.assertTrue(all(".codex" not in Path(path).parts for path in roots.values()))
 
     def test_doctor_refuses_to_rewrite_jsonc(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -238,6 +246,22 @@ class SyncAgentSkillsTests(unittest.TestCase):
 
             discovered = sync_agent_skills.find_installed_repo_skill_roots(repo_root)
             self.assertEqual([cursor_skills], discovered)
+
+    def test_find_installed_repo_skill_roots_uses_agents_not_codex(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            agents_skills = repo_root / ".agents" / "skills"
+            codex_skills = repo_root / ".codex" / "skills"
+            for root in (agents_skills, codex_skills):
+                skill_dir = root / "sample-skill"
+                skill_dir.mkdir(parents=True)
+                (skill_dir / "SKILL.md").write_text(
+                    "---\nname: sample-skill\ndescription: test\n---\n",
+                    encoding="utf-8",
+                )
+
+            discovered = sync_agent_skills.find_installed_repo_skill_roots(repo_root)
+            self.assertEqual([agents_skills], discovered)
 
     def test_sync_skills_from_master_dry_run_and_apply(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

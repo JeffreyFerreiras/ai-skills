@@ -1,6 +1,6 @@
 ---
 name: sync-agent-skills
-description: Audit, compare, and synchronize AI agent skills across installed profiles and local Git repositories/worktrees for Codex, Claude, Cursor, and VS Code. Use for skill sync, inventory, migration, backup, or consistency checks. An unqualified sync includes both profile and repository installations; honor explicit narrower targets.
+description: Audit, compare, and synchronize AI agent skills across installed profiles and local Git repositories/worktrees for Claude, Cursor, VS Code, and other assistants that read .agents/skills. Use for skill sync, inventory, migration, backup, or consistency checks. An unqualified sync includes both profile and repository installations; honor explicit narrower targets. Do not target .codex/skills.
 ---
 
 # Sync Agent Skills
@@ -13,7 +13,7 @@ An unqualified request to sync skills includes installed profiles and local Git 
 
 Use this skill for skill folders and their discovery settings. Use `sync-agents-md` for instruction-document synchronization. Restrict writes to the requested tools and roots; an inventory does not authorize synchronization.
 
-Prefer an inventory-first workflow. Treat `.codex/skills`, `.claude`, `.cursor`, and VS Code user-profile files as user-owned configuration unless the user explicitly asks to replace or normalize them.
+Prefer an inventory-first workflow. Treat `.agents/skills`, `.claude`, `.cursor`, and VS Code user-profile files as user-owned configuration unless the user explicitly asks to replace or normalize them. Do not create, update, or inventory `.codex/skills` unless the user names that path.
 
 ## Master Repository (`ai-skills`)
 
@@ -21,25 +21,25 @@ The master canonical copy for all skills is the `ai-skills` git repository:
 - Git URL: `https://github.com/JeffreyFerreiras/ai-skills.git`
 - Master skills folder: `skills/` within the repository root.
 
-When updating installed skills in local project repositories (such as `.cursor/skills`, `.agents/skills`, `.codex/skills`, `.claude/skills`, or `.github/skills`) or personal assistant profile roots (`~/.codex/skills`, etc.), treat `ai-skills` as the authoritative master copy.
+When updating installed skills in local project repositories (such as `.agents/skills`, `.cursor/skills`, `.claude/skills`, or `.github/skills`) or personal assistant profile roots (`~/.agents/skills`, etc.), treat `ai-skills` as the authoritative master copy. Leave leftover `.codex/skills` copies untouched.
 
 ## Workflow
 
 1. Locate the relevant roots before editing:
    - Master repository: discover or clone `https://github.com/JeffreyFerreiras/ai-skills.git` (or the local checkout of `ai-skills`).
    - Installed repository roots: for broad sync, discover repositories beneath the user's known checkout directories (infer from the current checkout or saved projects) and registered worktrees from `git worktree list --porcelain`. Search to a bounded depth, skip caches/build outputs, and report the searched roots and any limits rather than scanning the whole machine. Recognize both `.git` directories and worktree `.git` files.
-   - Inspect each discovered repository for `.cursor/skills`, `.agents/skills`, `.codex/skills`, `.claude/skills`, `.github/skills`, or `skills/`. Deduplicate resolved roots and exclude the canonical source tree itself. Include worktrees with installed copies; do not create skill folders in repositories that have none.
+   - Inspect each discovered repository for `.agents/skills`, `.cursor/skills`, `.claude/skills`, `.github/skills`, or `skills/`. Do not treat `.codex/skills` as an installed root. Deduplicate resolved roots and exclude the canonical source tree itself. Include worktrees with installed copies; do not create skill folders in repositories that have none.
    - Profile roots:
-     - Codex: `$CODEX_HOME/skills` when set, otherwise `~/.codex/skills`.
+     - Shared agent skills: `~/.agents/skills`.
      - Claude: `~/.claude` and skill/instruction subfolders.
      - Cursor: `~/.cursor` and Cursor user profile settings/rules folders.
      - VS Code: user profile folders such as `%APPDATA%\Code\User` on Windows.
 2. Run an inventory and inspect existing formats, names, and duplicate concepts.
-3. When VS Code should see Codex skills, run `doctor-vscode` before troubleshooting content. VS Code does not discover `~/.codex/skills` unless `chat.agentSkillsLocations` includes it.
+3. When VS Code should see shared agent skills, run `doctor-vscode` before troubleshooting content. VS Code does not discover `~/.agents/skills` unless `chat.agentSkillsLocations` includes it.
 4. Decide the direction of sync with the user request as the source of truth. When syncing to local repos or profiles, pull latest versions from the master `ai-skills` repository.
    - Master skills with `external-source.json` are installation pointers. Resolve the declared repository's latest default-branch commit (or an explicitly pinned `revision`) and install the full skill from that commit. Do not skip the skill, install the pointer itself, or treat an existing installation as current without checking upstream during an authorized sync. Ordinary skill execution does not authorize an update.
 5. Transform content only when needed:
-   - Codex skills require a folder with `SKILL.md` frontmatter.
+   - Shared agent skills require a folder with `SKILL.md` frontmatter.
    - Cursor commonly uses rule or instruction files.
    - VS Code/Copilot commonly uses prompt or instruction markdown files.
    - Claude commonly uses project/user instructions, commands, or skill-like markdown assets depending on the installed product surface.
@@ -49,7 +49,7 @@ When updating installed skills in local project repositories (such as `.cursor/s
    - Keep backups outside consumer repositories when their hygiene rules prohibit generated artifacts. Do not stage, commit, push, switch consumer branches, or update their application code as part of sync unless separately requested.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
    - Verify both profile and repository copies against the source. For external skills, compare against the resolved upstream commit, not the pointer folder, and record repository/revision provenance. Report counts for updated profiles, repositories/worktrees, resolved external skills, and any inaccessible or excluded roots. A failed external resolution is an incomplete sync, not a successful skip.
-   - For Codex targets, also run the [fresh-process discovery check](references/codex-discovery.md) for each affected repository/worktree. Check enabled paths and duplicate names, not just file hashes. After authorized enablement changes, repeat the check in another new process using persisted configuration without command-line overrides.
+   - After authorized enablement changes, re-inventory the affected `.agents` roots. Do not run Codex `.codex` discovery as part of this skill.
 9. When the user asks to update installed skills in a local repository or profile from master:
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
    - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-repo <target-repo-path>` or `--target-root <target-skills-path>`.
@@ -67,7 +67,7 @@ When updating installed skills in local project repositories (such as `.cursor/s
 Use `scripts/sync_agent_skills.py` for repeatable local filesystem operations:
 
 ```powershell
-$syncScript = Join-Path $HOME '.codex\skills\sync-agent-skills\scripts\sync_agent_skills.py'
+$syncScript = Join-Path $HOME '.agents\skills\sync-agent-skills\scripts\sync_agent_skills.py'
 python $syncScript inventory
 ```
 
@@ -81,19 +81,19 @@ python <skill-dir>\scripts\sync_agent_skills.py inventory --json
 python <skill-dir>\scripts\sync_agent_skills.py inventory --max-depth 3 --max-files 100
 
 # Inventory explicit roots.
-python <skill-dir>\scripts\sync_agent_skills.py inventory --root "codex=$HOME\.codex\skills" --root "vscode=$env:APPDATA\Code\User"
+python <skill-dir>\scripts\sync_agent_skills.py inventory --root "agents=$HOME\.agents\skills" --root "vscode=$env:APPDATA\Code\User"
 
-# Check whether VS Code will discover Codex skills.
+# Check whether VS Code will discover shared agent skills.
 python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode
 
 # Apply the VS Code discovery settings after backing up settings.json.
 python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode --apply
 
 # Dry-run a copy from a source skill/file into a target root.
-python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.codex\skills\my-skill" --target-root "$HOME\.claude\skills"
+python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\skills\my-skill" --target-root "$HOME\.claude\skills"
 
 # Apply the copy. Existing targets are backed up first.
-python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.codex\skills\my-skill" --target-root "$HOME\.claude\skills" --apply --force
+python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\skills\my-skill" --target-root "$HOME\.claude\skills" --apply --force
 ```
 
 The script does not convert formats. Use it to inventory, compare checksums, and copy a finalized artifact after deciding that a direct copy is appropriate.
@@ -117,10 +117,10 @@ python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\
 python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\to\my-project' --apply --force
 
 # Dry-run updating installed skills in a user profile root
-python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.codex\skills"
+python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills"
 
 # Apply updates to profile root
-python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.codex\skills" --apply --force
+python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force
 ```
 
 ## Publishing Profile Changes to Master Repository
@@ -130,7 +130,7 @@ When contributing profile changes back into the master repository (`https://gith
 ```powershell
 $repo = (git rev-parse --show-toplevel).Trim()
 $skillName = "sync-agent-skills"
-$source = Join-Path $HOME ".codex\skills\$skillName"
+$source = Join-Path $HOME ".agents\skills\$skillName"
 $target = Join-Path $repo "skills\$skillName"
 
 python (Join-Path $source "scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --apply --force
