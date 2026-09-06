@@ -48,6 +48,7 @@ When updating installed skills in local project repositories (such as `.cursor/s
    - Keep backups outside consumer repositories when their hygiene rules prohibit generated artifacts. Do not stage, commit, push, switch consumer branches, or update their application code as part of sync unless separately requested.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
    - Verify both profile and repository copies against the source. Report counts for updated profiles, repositories/worktrees, skipped external skills, and any inaccessible or excluded roots. State explicitly if either profile or repository synchronization remains incomplete.
+   - For Codex targets, also run the [fresh-process discovery check](references/codex-discovery.md) for each affected repository/worktree. Check enabled paths and duplicate names, not just file hashes. After authorized enablement changes, repeat the check in another new process using persisted configuration without command-line overrides.
 9. When the user asks to update installed skills in a local repository or profile from master:
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
    - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-repo <target-repo-path>` or `--target-root <target-skills-path>`.
