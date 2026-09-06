@@ -9,7 +9,11 @@ This file resolves an externally managed dependency. Reading or auditing it does
 
 Canonical repository: https://github.com/JeffreyFerreiras/software-engineering-graph
 
-The skill root is that repository's root (`SKILL.md`, `scripts/graphctl.py`, `graph_engine/`, and `references/`).
+The full skill lives at that repository's root. Its required runtime resources are declared in [external-source.json](external-source.json).
+
+## Installation and synchronization
+
+This pointer belongs only in the master skills repository. An authorized installation or sync must resolve the canonical repository's latest default-branch commit (or an explicitly pinned revision), verify the declared resources, and install the full skill into the destination. Preserve the prior installation with a backup and record the resolved repository and commit. Do not install this pointer as the usable skill or silently skip updating an existing engine. Use the sync helper's external-source resolution; it excludes nested development skill folders from the installed snapshot.
 
 ## Resolve the dependency
 
@@ -19,7 +23,7 @@ The skill root is that repository's root (`SKILL.md`, `scripts/graphctl.py`, `gr
 4. For authorized installation, resolve the user-requested version or a concrete upstream commit, record that revision, and check out that exact revision using the host's shell. Do not follow a moving branch during execution. Verify the required files and runtime capabilities before dispatch.
 5. Run engine commands from the verified installation root. Treat updates as a separate requested operation.
 
-The `external-source.json` marker tells bulk sync to leave this skill to its external manager, preserving installed engines rather than replacing them with this stub.
+The `external-source.json` marker tells bulk sync to resolve this dependency and install its full implementation rather than copying this stub.
 
 Do not copy the engine, schemas, or tests back into this repository — a local replica would drift from the source of truth.
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -41,7 +43,7 @@ class SyncAgentSkillsTests(unittest.TestCase):
                 sync_agent_skills.copy_source(child, root, "source", True, True)
             self.assertTrue(child.exists())
 
-    def test_external_skill_is_never_mirrored_over_installation(self) -> None:
+    def test_invalid_external_pointer_preserves_installation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "master/graph"
@@ -51,9 +53,106 @@ class SyncAgentSkillsTests(unittest.TestCase):
             installed = root / "target/graph"
             installed.mkdir(parents=True)
             (installed / "SKILL.md").write_text("full implementation", encoding="utf-8")
-            result = sync_agent_skills.sync_skills_from_master(source.parent, installed.parent, apply=True, force=True)
-            self.assertFalse(result[0]["changed"])
+            with self.assertRaises(ValueError):
+                sync_agent_skills.sync_skills_from_master(source.parent, installed.parent, apply=True, force=True)
             self.assertEqual("full implementation", (installed / "SKILL.md").read_text(encoding="utf-8"))
+
+    def make_external_fixture(self, root: Path):
+        upstream = root / "upstream"
+        upstream.mkdir()
+        subprocess.run(["git", "init", str(upstream)], check=True, capture_output=True)
+        (upstream / "SKILL.md").write_text("---\nname: graph\ndescription: full graph\n---\n", encoding="utf-8")
+        (upstream / "engine.py").write_text("VERSION = 1\n", encoding="utf-8")
+        nested = upstream / ".agents/skills/duplicate"
+        nested.mkdir(parents=True)
+        (nested / "SKILL.md").write_text("development skill", encoding="utf-8")
+        self.commit_fixture(upstream)
+        pointer = root / "master/graph"
+        pointer.mkdir(parents=True)
+        (pointer / "SKILL.md").write_text("pointer only", encoding="utf-8")
+        manifest = {"repository": "https://example.test/graph.git", "management": "external",
+                    "required_files": ["SKILL.md", "engine.py"]}
+        (pointer / "external-source.json").write_text(json.dumps(manifest), encoding="utf-8")
+        real_git = sync_agent_skills.run_git
+
+        def local_git(*args):
+            return real_git(*(str(upstream) if arg == manifest["repository"] else arg for arg in args))
+
+        return pointer, upstream, local_git
+
+    def commit_fixture(self, upstream: Path):
+        subprocess.run(["git", "-C", str(upstream), "add", "."], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(upstream), "-c", "user.name=Test", "-c", "user.email=test@example.test",
+                        "-c", "commit.gpgsign=false", "commit", "-m", "fixture"], check=True, capture_output=True)
+
+    def test_external_sync_resolves_latest_with_backup_and_no_nested_skills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, upstream, local_git = self.make_external_fixture(root)
+            target = root / "installed/graph"
+            target.mkdir(parents=True)
+            (target / "SKILL.md").write_text("old installation", encoding="utf-8")
+            backups = root / "backups"
+            with patch.object(sync_agent_skills, "run_git", side_effect=local_git):
+                dry = sync_agent_skills.copy_source(pointer, target.parent, None, False, True, backups)
+                self.assertTrue(dry["changed"])
+                self.assertEqual("old installation", (target / "SKILL.md").read_text())
+                self.assertFalse(backups.exists())
+                refused = sync_agent_skills.copy_source(pointer, target.parent, None, True, False, backups)
+                self.assertFalse(refused["changed"])
+                self.assertEqual("old installation", (target / "SKILL.md").read_text())
+                first = sync_agent_skills.copy_source(pointer, target.parent, None, True, True, backups)
+                self.assertTrue(first["changed"])
+                self.assertTrue((target / "engine.py").is_file())
+                self.assertFalse((target / ".agents").exists())
+                self.assertFalse((target / ".git").exists())
+                self.assertFalse((target / "external-source.json").exists())
+                self.assertEqual("old installation", next(backups.glob("graph.*/SKILL.md")).read_text())
+                self.assertFalse(sync_agent_skills.copy_source(pointer, target.parent, None, True, True, backups)["changed"])
+                (upstream / "engine.py").write_text("VERSION = 2\n", encoding="utf-8")
+                self.commit_fixture(upstream)
+                manifest_file = pointer / "external-source.json"
+                manifest = json.loads(manifest_file.read_text())
+                manifest["revision"] = first["external_source"]["revision"]
+                manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+                pinned = sync_agent_skills.copy_source(pointer, target.parent, None, True, True, backups)
+                self.assertFalse(pinned["changed"])
+                manifest.pop("revision")
+                manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+                updated = sync_agent_skills.copy_source(pointer, target.parent, None, True, True, backups)
+                self.assertNotEqual(first["external_source"]["revision"], updated["external_source"]["revision"])
+                self.assertEqual("VERSION = 2\n", (target / "engine.py").read_text())
+                self.assertEqual(updated["external_source"], json.loads((target / ".skill-source.json").read_text()))
+                self.assertTrue((pointer / "external-source.json").is_file())
+
+    def test_missing_external_resource_leaves_existing_skill_untouched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, upstream, local_git = self.make_external_fixture(root)
+            (upstream / "engine.py").unlink()
+            self.commit_fixture(upstream)
+            target = root / "installed/graph"
+            target.mkdir(parents=True)
+            (target / "SKILL.md").write_text("preserve", encoding="utf-8")
+            with patch.object(sync_agent_skills, "run_git", side_effect=local_git), self.assertRaisesRegex(ValueError, "missing required"):
+                sync_agent_skills.copy_source(pointer, target.parent, None, True, True)
+            self.assertEqual("preserve", (target / "SKILL.md").read_text())
+            self.assertFalse((target.parent / ".sync-agent-skills-backups").exists())
+
+    def test_external_manifest_rejects_escaping_requirements_and_self_installation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pointer, _, _ = self.make_external_fixture(root)
+            manifest_file = pointer / "external-source.json"
+            manifest = json.loads(manifest_file.read_text())
+            manifest["required_files"] = ["../outside"]
+            manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(sync_agent_skills, "run_git") as git:
+                with self.assertRaisesRegex(ValueError, "stay inside"):
+                    sync_agent_skills.copy_source(pointer, root / "target", None, True, True)
+                git.assert_not_called()
+            with self.assertRaisesRegex(ValueError, "canonical pointer"):
+                sync_agent_skills.copy_source(pointer, pointer.parent, None, True, True)
 
     def test_linked_target_and_source_descendant_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
