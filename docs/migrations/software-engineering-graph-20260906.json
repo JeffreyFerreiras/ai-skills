@@ -1,0 +1,988 @@
+{
+  "source_repository": "https://github.com/JeffreyFerreiras/software-engineering-graph",
+  "source_commit": "2b358305b93ac677b45d6c22ec46b25afc965b4b",
+  "files": [
+    {
+      "source_path": ".agents/skills/address-pr-feedback/LICENSE.txt",
+      "source_sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/address-pr-feedback/SKILL.md",
+      "source_sha256": "efb27180b352f00194736e4085f39c9ce55f30a5dd296d9f6e58ca4736d9279c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/address-pr-feedback/agents/openai.yaml",
+      "source_sha256": "6e1fef5523e45c1cdce7ded4edd279cb0d8dbeb92bdd34c7a178bd17be96e1a1",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/address-pr-feedback/assets/github-small.svg",
+      "source_sha256": "ee05e92d373d4d84f4612af3c1090ef67698d421bbe30896a4ed5a00cb86a069",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/address-pr-feedback/assets/github.png",
+      "source_sha256": "d55a9baa41798d8b5108e3058df3a5bda09914ea9fd73b49929cc38a8832424f",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/address-pr-feedback/scripts/fetch_comments.py",
+      "source_sha256": "cdfcc3b0889583a6de99118db91bce1789b1bd25dac4309799d761c8eefe068f",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/andromeda-ssh/SKILL.md",
+      "source_sha256": "48172ebbd332b6b11532ff804f294358fca04e23d96001fd64c1d41ad73c64df",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/andromeda-ssh/agents/openai.yaml",
+      "source_sha256": "c1040ba35b15488d34ee1fecef33c649d8d6d2ae89b56784a398c67f4a73c85d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/api-docs/SKILL.md",
+      "source_sha256": "b4eaeac5c9a3b22e308401ae2827afeb845a6c59f068da696dea5e20e88b00aa",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/api-docs/agents/openai.yaml",
+      "source_sha256": "79a086040bc72cfd21a1c050228679706026db1e1b2fa9bc363d7fffeda99a64",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-architecture-code/SKILL.md",
+      "source_sha256": "0fff6751eb6b9c9866f56b4332987b41d7d9a7c909f45628b5e1ab6166e4bce1",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-architecture-code/agents/openai.yaml",
+      "source_sha256": "296d0ee0571c5f715e52ae92f9b5ed1326d6eaea52b4b5e47c2689e8c4e54016",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-architecture-review/SKILL.md",
+      "source_sha256": "9b540b1578e632a11dbdec266fdca7d57932779eb5921f077e0d6ca88c827c75",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-architecture-review/agents/openai.yaml",
+      "source_sha256": "d07f68c974d0a28e40624f764883e6a7e6b9205c2a98cbcdc7084e31724675ce",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-code/SKILL.md",
+      "source_sha256": "34333040a99d787e922eecec523600fdd99ece94eb52fa819e05b43668e9798c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/clean-code/agents/openai.yaml",
+      "source_sha256": "0aae438d096f4c919efee53c0623dfa018681f3409821be1b4c1ab5a858bfd48",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/SKILL.md",
+      "source_sha256": "0ba37b90932f4588c5ada791575e5b5d741f2d3b09eea4b39597198762bb7e88",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/agents/openai.yaml",
+      "source_sha256": "6cf0d920251cff113fa0685bece84c26ac621d85113f69640323e734fc929acc",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/.gitignore",
+      "source_sha256": "79810615b4063be5474618fd002df934762fe9ccebb448537ce74ce23b319202",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/AGENTS.md",
+      "source_sha256": "7699de6e7eedcca8c8577fb7435c6532daa03acb34bcc6275f3f31dc80bc2112",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/Directory.Build.props",
+      "source_sha256": "a9cf8186eacb2193a8b14e6486718c7607979f3a164cca002f0d3dfeae84b671",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/ParcelPilot.sln",
+      "source_sha256": "f7d0e1a35697294a25ac3a83df7e43623ffaca2135531aad98ea5d491622f0bd",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/README.md",
+      "source_sha256": "b87c0c63ff8674a1c0e63db20b9f85fc5478700dfc952e7a1d20396a8cb44998",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/Audit/IShipmentAuditLog.cs",
+      "source_sha256": "9151751dc1f02ecdf0492e8af30c254bc0cc5eb231ac9b408e263a5ba6151d83",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/Devices/ILabelPrinter.cs",
+      "source_sha256": "2c84093608eb0a8792b412f6de391bfc1db9a554cac4ecb670604fa15663e72a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/Devices/LabelService.cs",
+      "source_sha256": "26b947ce0048518cd82d0cf3ea37a6db2d7a7e4dd5fa89b0262ff72caa699f95",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/DispatchShipmentHandler.cs",
+      "source_sha256": "c92c1eddaae92408947b409e706054ae3b4dfe6d04eb373924a8984e0518e709",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/ParcelPilot.Application.csproj",
+      "source_sha256": "c442a20b36549799210eb18ec77c6c5299e664a86af875b8743f991f061266f2",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/ShipmentWorkflow.cs",
+      "source_sha256": "ad5e0173ef6f1475764c776203620a17be7871d89e40b2402240f07ea46d2c7a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Application/ShippingPolicy.cs",
+      "source_sha256": "a0272924e8a1cd82889f4042759f6ad7b388a7c4ea43332fba4d5d83bff6a873",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Domain/ParcelPilot.Domain.csproj",
+      "source_sha256": "e44c6aa5d69d0526c6b7961331a2020122c313ee9ea087d1daa3f4e7cab34bad",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Domain/RateCalculator.cs",
+      "source_sha256": "2dd55cf48b62ab7ee0616698ef6acf02fce4c08610b1f1cdce70d2f9451d22c1",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Domain/ShipmentRequest.cs",
+      "source_sha256": "8286594e54dcff8fb3fb6e0b533dc21ed8a4a06abb90ec611b981bd7b0016917",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Domain/ShippingMethod.cs",
+      "source_sha256": "f7a5a4838ab5bab33e513742d5487eda65aec4f9bc76edff5afe4fa867698f66",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/Audit/InMemoryShipmentAuditLog.cs",
+      "source_sha256": "df86de0a193f643c27a34cd896a140b246cbb6b8ee3e164ecac90a7ddf5cb275",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/Devices/WarehouseLabelPrinter.cs",
+      "source_sha256": "ff0ca25e2fad6a6070cd72709111ee8db566a75a868b5b99ed723949ede5570d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/FulfillmentComposition.cs",
+      "source_sha256": "ce1e62943cf5013c87e59bcf8fd849524c5fa90176f014bc9132993b172223b0",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/ParcelPilot.Infrastructure.csproj",
+      "source_sha256": "47fdda00b9fd8523631c1feebaf235002f799757ef5329c32cff1c3544dc1e14",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/Rates/ExpressRateCalculator.cs",
+      "source_sha256": "a0c059d1eb970e20acbb5b9ecc1d0ea6033957b747519de0d6af75cf97f7a854",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/Rates/OvernightRateCalculator.cs",
+      "source_sha256": "335c5758483226ddfdc017620823561ea8a06f633f534c7d32708704d5c386b3",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/src/ParcelPilot.Infrastructure/Rates/StandardRateCalculator.cs",
+      "source_sha256": "e71f14cd0e361a4ac4c77be210e7cc7a4c320d175148364556b7ee9ec5b5620c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/tests/ParcelPilot.ContractChecks/ParcelPilot.ContractChecks.csproj",
+      "source_sha256": "68926ef8509e3091a373824696242c6bb913e6cdd3111bec02acfd0a38847ede",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/baseline/tests/ParcelPilot.ContractChecks/Program.cs",
+      "source_sha256": "b407f66c8f4c6004694c77d8245f3ff25ea5d0416296de261d3984ca34f3cd89",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/Audit/FileShipmentAuditLog.cs",
+      "source_sha256": "4a640e4722f2c844509ad57b5123547cee9f4cffb018bfbe3af6f5a34ef5c8d3",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/Devices/IFulfillmentDevice.cs",
+      "source_sha256": "e936bdaaf1ab9b9353b4315bf96714bcac846038512a67fadd880324fd207b94",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/Devices/LabelService.cs",
+      "source_sha256": "72fbf3a210fa4cbddb2d13b47de23ecf4c51e8b4c2280f74c0306234b8926f55",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/DispatchShipmentHandler.cs",
+      "source_sha256": "eeb5139deaa6e08aa8de7c27501ef62dd8bac3ed56d2d9e161b9491febee06dc",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/RetryPolicy.cs",
+      "source_sha256": "3596c8b5fa7d0915577822b31f241263eb8f9acad0cd411ee703bc130e2a159d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/ShipmentSummary.cs",
+      "source_sha256": "f34745759639627ddd001b89100d65cfe537bec89ab1248afeda50015631600d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/ShipmentWorkflow.cs",
+      "source_sha256": "37349ffb6b75f0b9c0a79c44a430f7e2b929447f008fd78d7b61e6b685773b76",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Application/ShippingPolicy.cs",
+      "source_sha256": "d8c74d747c355f40a162f910089d3d07cc46680dfd54ce9d435c924f2a5fafbf",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Domain/ShippingMethod.cs",
+      "source_sha256": "858358ca208b0cc945082d4fa3de33510d5542e5e6fd42e756fa19ac954b54a2",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Infrastructure/Devices/WarehouseFulfillmentDevice.cs",
+      "source_sha256": "6f294d56d0bf98257746b9999015e2eed4923bddb478d539c6b2b59fbe7c7937",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Infrastructure/FulfillmentComposition.cs",
+      "source_sha256": "f609262c163b7ab7e7e3aeed1c95e02429717538cce5911c712517791b997f0a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Infrastructure/Rates/DroneRateCalculator.cs",
+      "source_sha256": "963a7e623959291309c7daf0eb51e0683ef2539b8870ab7f304414dcfe64cf6d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/src/ParcelPilot.Infrastructure/Rates/LocalPickupRateCalculator.cs",
+      "source_sha256": "025f40003d2563b85769044c2f387bb5e0804521dfeb98cdf75868712c07b93c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/change/tests/ParcelPilot.ContractChecks/Program.cs",
+      "source_sha256": "dffbd05ba33b79a7d14cde717314558689895526bc609c18c714e704d19c05f2",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/deleted-files.txt",
+      "source_sha256": "9dbd274e1c24c1f0e51653d063a1bcc6ee8607286477851341aaf02853cfacb7",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/expected-findings.json",
+      "source_sha256": "063fe4be2d585373cc84182cccb4230bfda15ac63e025515024097c00d23319a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/review-output.schema.json",
+      "source_sha256": "9c734623fc61a7e3807a0c8fab5ae091d39a72e75439a18631d30a88ebc1a941",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/assets/evals/csharp-solid-review/review-prompt.md",
+      "source_sha256": "e55085bb29cc2c9b4a7976b2abb2f78010353ef598d77b6de40c6562c4333adb",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/references/review-graph.manifest.json",
+      "source_sha256": "9e268d555248bb27638f3baa12b3a6607e2b825449571e5cacd40e4965571354",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/scripts/run_csharp_review_eval.py",
+      "source_sha256": "2b5745053d314add433a8c13dca29bb86336b426cda712d08b45996316d8bd4a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/scripts/search_review_graph.py",
+      "source_sha256": "c838400a86f35650772dedc95f9bcf33ffedf84dbd658dc2e0285da9fa1ae336",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/tests/test_csharp_review_eval.py",
+      "source_sha256": "39740cb8131b32ca7d678a5ff89aac49096f5ad929a5cdcc43849793a274e74d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/code-review/tests/test_search_review_graph.py",
+      "source_sha256": "0d48aa2790e49600360c417e0327ea101f712dc80025deecabe3651707a4c352",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/create-pull-request/SKILL.md",
+      "source_sha256": "454389f396b30652b6f56a5380b825ed934369afa1feb12b82b0c8a683320e9c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/create-pull-request/agents/openai.yaml",
+      "source_sha256": "c88828ad17f5864e344ca0600012ce05b5ccfde3c7b1eb4690610c5916cb0b62",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/generate-unit-tests/SKILL.md",
+      "source_sha256": "ce1926a8cb962f7124b5f89079d3309e1ce97a0e7146d6e1d3f071a9af57e1ac",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/generate-unit-tests/agents/openai.yaml",
+      "source_sha256": "46485e67cc377e106be06b2ab3fecc79b4df4cc1fd4c64c759283b49f81ae31c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/leetcode/SKILL.md",
+      "source_sha256": "f8a3a4afb1ab24571e4a52ae2fd3aede2577f7d24c6f3aadc348c1f3f1991de8",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/leetcode/agents/openai.yaml",
+      "source_sha256": "78ebb91bd8204a64eda041c88f41cc5a2fb63feff6c949a46400053dc3ef400e",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/loop/SKILL.md",
+      "source_sha256": "3d75ccaa7fa5a95b40f206fa2c755bb13a0e9d0fd5b015d95fc767d6c3fc311d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/loop/agents/openai.yaml",
+      "source_sha256": "6d5adfd02574ee48bba7aad33f9b44fd78350fd9fd0a8e04f577b401d38f9111",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/recommend-model-effort/SKILL.md",
+      "source_sha256": "53cb42e0a9a35c534c0921a0395d3bd739a4f7a9659ebbb6535c5399f58414f0",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/recommend-model-effort/agents/openai.yaml",
+      "source_sha256": "a0f35d70fd33a3f5e9c07992714f888b2a86eee2cb8ed8b27e5cda3b2b27f780",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/remove-agent-skill/SKILL.md",
+      "source_sha256": "eb6100043a3e9dd10629c9b567bb2481e94773215726ee8fb178b54a38f66348",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/remove-agent-skill/agents/openai.yaml",
+      "source_sha256": "8ca56e8f9646bcd8d6aab663e9e3624f5984a45f9fbb1c4dd4e066389103a043",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/remove-slop/SKILL.md",
+      "source_sha256": "67e741256f5f18ee2c628b03387ee963ea977034c8265139b27dfd0a92ff23e4",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/remove-slop/agents/openai.yaml",
+      "source_sha256": "f9a4ab8702f6e4cb2722c6e37aea0aba80372607e577a40061dff83257ff5cf2",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/run-change-checks/SKILL.md",
+      "source_sha256": "94b83b55503e792c07dbfd8cf1f90ca8f40ad3de78c954f0f7771f23561dd407",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/run-change-checks/agents/openai.yaml",
+      "source_sha256": "727e95ff87d8a67a057a04deb73a29ddfc344246bcf1f41c6ce3165ddaa0b040",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/skill-doctor/SKILL.md",
+      "source_sha256": "09d5f049a579ed9ba953db3fd3dccbe8cf619aab5a51789fb6b3283738d08ed4",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/skill-doctor/agents/openai.yaml",
+      "source_sha256": "4a13f529887f4cab3d2196531aa85ac0800493308a71d707f09123ea04795801",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/skill-doctor/scripts/skill_doctor.py",
+      "source_sha256": "2be180d9c418acf40708d2de076666d06d204988bf6fb12c1ddc8ad62b672280",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/software-engineering-graph/SKILL.md",
+      "source_sha256": "a625e9c559a994acfccdcb0e3e6ee9963fc6730f87655084c3bf598dd3568754",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/software-engineering-graph/agents/openai.yaml",
+      "source_sha256": "cdd295116b8c6fe21b34478891a71fe0136497e0963b31b465d0167e4df4142a",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/software-engineering-graph/external-source.json",
+      "source_sha256": "2fb75da0f432c129ec4c9a6be5da4f8d51eec66c99f2f79d691a07b9dc804b54",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agent-skills/SKILL.md",
+      "source_sha256": "472caab556595ae8b17dde9c475126f2aa7b599ba50fc2da07529c4017ae8195",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agent-skills/agents/openai.yaml",
+      "source_sha256": "7a755aee49afc4d64178d30212285656895e7d4ba0acc8a0f9c5789ca4823adc",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agent-skills/references/profile-locations.md",
+      "source_sha256": "915a582b13c63ad97ba8f351e5d59dfc7d9645c9db9c7dd42da079b36f6f30e6",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agent-skills/scripts/sync_agent_skills.py",
+      "source_sha256": "5b6b51e5ef8aec74fda6d391c82f84fcdf262f52768b09e9c2dd193a624cd4fe",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agents-md/SKILL.md",
+      "source_sha256": "fdfbb105786bc858390071cd20e700120ba9203e2986ba98636944bd9fb91085",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agents-md/agents/openai.yaml",
+      "source_sha256": "4acc23a4bc91faa02de001c647a38ead281399bd6ab75f3b9d56d92a70f5e130",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/sync-agents-md/references/profile-files.md",
+      "source_sha256": "5131bff7a6e494fe135032976adf2c84891cf2b78f39c966c2f379e16f497e23",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-answer/SKILL.md",
+      "source_sha256": "6b4981a871f2c16f3dbcbb0a8694864b2b98327333e88cce66d75a5d1efc6389",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-answer/agents/openai.yaml",
+      "source_sha256": "7ca8baf179dd28260b8d263af555f62a556988b8ca67f818b7b6d79c0167382c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-build-graph/SKILL.md",
+      "source_sha256": "ba915451e7f8a1aa4f5d377ec720b6f4fcb07449e1c33adf1d9d2140b10037b3",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-build-graph/agents/openai.yaml",
+      "source_sha256": "0c0e1bbe8c6d7b92c5eaa5b669877b395b68866d11719803cfa400aee3bf0144",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-daily-review/SKILL.md",
+      "source_sha256": "4c7b03076a5a4350960bd41b556a89485ad926fed605103c248c79b0da71190e",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-daily-review/agents/openai.yaml",
+      "source_sha256": "44c68fa02d88916239c16ef25243907c340b194103952ddc3633dc4c9e002cf7",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-find-contradictions/SKILL.md",
+      "source_sha256": "9ebbef9153eedc1275a16e3022e07fa71a2094e71b8f5497866bbc9c40052f5d",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-find-contradictions/agents/openai.yaml",
+      "source_sha256": "d5ceeb9d0734f00879441bfc609497c594995fa116bafd8d3f21470dbb91ccda",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-maintain/SKILL.md",
+      "source_sha256": "05149feb2a976b684d40a3bb234c7a8ac3bb7eba7812ac5f9c11cd85a073c727",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-maintain/agents/openai.yaml",
+      "source_sha256": "85972d947996089aa013d6e6fa4027c386f4fd3bae2141cf66a74f357d0b2736",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-process-inbox/SKILL.md",
+      "source_sha256": "84d4b481c7eb600001d060be6beaa281b084247ae48740537fbdafbedb3320da",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-process-inbox/agents/openai.yaml",
+      "source_sha256": "0f490ad9822e7b0717d3b6c55a2055a89ca18a6c8555a833ea6a48f569bd864e",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-reset/SKILL.md",
+      "source_sha256": "4098bea0b3ec403e501e59a1f18366f7389751e73331b1d2f47b91e28f8351e5",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/vault-reset/agents/openai.yaml",
+      "source_sha256": "fc917a81ecdef5220717198f63b82952a110a3586fbed9de138b921638ac97f9",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/LICENSE.txt",
+      "source_sha256": "4dd13869245e356246a5b770723247bbb80a8f07a181d1d3d873a1734297cdb9",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/SKILL.md",
+      "source_sha256": "ed09704f20cfc7e92d377336e00915306be06f97b3f301304dbd4ec1a1c9778c",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/agents/openai.yaml",
+      "source_sha256": "b2da782222f7b414f18970c188b89ed9cba64e5a74921c0e9a9ffd2535f4a7da",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/assets/doc-small.svg",
+      "source_sha256": "bd5415fbbfe72c66c1527411d61625731fdd2f75b25d1542510b6ddef699ebe0",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/assets/doc.png",
+      "source_sha256": "7eadf1088e5062f681dba6596173a1df13bbfbcddd8a8a9bb78fd2071947dcf8",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".agents/skills/word-documents/scripts/render_docx.py",
+      "source_sha256": "52b3c3158913ebcad2ada7b8193970b70453239e255054aa2d60c1683af08751",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".cursor/skills",
+      "source_sha256": "3c74c93317f015d16370349a76529b6f8332c808bdd589e7640eeba6a1b1b874",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".github/CODEOWNERS",
+      "source_sha256": "5ddca8f6468012bc5ababcb9db79ee1d26d147cd8f830180fb6e8874f3149c1e",
+      "disposition": "retained_in_external_repository"
+    },
+    {
+      "source_path": ".gitignore",
+      "source_sha256": "11f711e5341d31dea0c4dcc3638b39bea778504b36faa4112017ce87cc676b38",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/.gitignore",
+      "destination_sha256": "11f711e5341d31dea0c4dcc3638b39bea778504b36faa4112017ce87cc676b38"
+    },
+    {
+      "source_path": "AGENTS.md",
+      "source_sha256": "9e63133eae0a5cffc7a12213c2cbfe5880fef368383afdddc5bfec09a91099fa",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/AGENTS.md",
+      "destination_sha256": "8e7eb42f78ce1cafd82d1173f6af136fd1215ac2c10730dc9cc8008bc7dfdd75",
+      "adaptation": "Name ai-skills as authoritative."
+    },
+    {
+      "source_path": "LICENSE",
+      "source_sha256": "0d0c770ed6d163078c8006e2016bb1db25afb38e16cb96383297021c085e06bc",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/LICENSE",
+      "destination_sha256": "0d0c770ed6d163078c8006e2016bb1db25afb38e16cb96383297021c085e06bc"
+    },
+    {
+      "source_path": "README.md",
+      "source_sha256": "179e0fb2dea9483a06c331eda5af7606c5f34851ac2c43709863bb720e53c667",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/README.md",
+      "destination_sha256": "7b953f30eb0c3408bb1c82ef2567f15a3eb1a4a42e167598cd79f76e5d7c8091",
+      "adaptation": "Document canonical source; distinguish source contributor validation from operational commands in a verified installed Codex copy."
+    },
+    {
+      "source_path": "SKILL.md",
+      "source_sha256": "b98babf24f4aaf372c140ba4f93fc00059a7193333d2be8797e2c8516b9f86ba",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/SKILL.md",
+      "destination_sha256": "b98babf24f4aaf372c140ba4f93fc00059a7193333d2be8797e2c8516b9f86ba"
+    },
+    {
+      "source_path": "agents/openai.yaml",
+      "source_sha256": "8714e6252e99f1a1897815fc4af870807784476d555a8e7ae4671a95996cb709",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/agents/openai.yaml",
+      "destination_sha256": "8714e6252e99f1a1897815fc4af870807784476d555a8e7ae4671a95996cb709"
+    },
+    {
+      "source_path": "docs/technical-design.md",
+      "source_sha256": "6c41bb99d420f18521a329ccdd2a6392d2a1764bf4e2b91fd9082f24e1938375",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/docs/technical-design.md",
+      "destination_sha256": "6c41bb99d420f18521a329ccdd2a6392d2a1764bf4e2b91fd9082f24e1938375"
+    },
+    {
+      "source_path": "graph_engine/__init__.py",
+      "source_sha256": "86d65c6da48c9dedc17305508adf8a711667215345fe97543f1d24effec23724",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/__init__.py",
+      "destination_sha256": "86d65c6da48c9dedc17305508adf8a711667215345fe97543f1d24effec23724"
+    },
+    {
+      "source_path": "graph_engine/checks.py",
+      "source_sha256": "3ece4835120172e2ddb7eae6bf7df3d4a52ead30ad49498aec8a0041c6520960",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/checks.py",
+      "destination_sha256": "3ece4835120172e2ddb7eae6bf7df3d4a52ead30ad49498aec8a0041c6520960"
+    },
+    {
+      "source_path": "graph_engine/cli.py",
+      "source_sha256": "ddfc4a238b206eec89da62b61be6f4f71cf000d024005c5ad5fd5306691e6775",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/cli.py",
+      "destination_sha256": "ddfc4a238b206eec89da62b61be6f4f71cf000d024005c5ad5fd5306691e6775"
+    },
+    {
+      "source_path": "graph_engine/config.py",
+      "source_sha256": "bdec5c2281fdbff1cfe5b2d770801064ca25e37deff8d5fded1a1c8973148a57",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/config.py",
+      "destination_sha256": "bdec5c2281fdbff1cfe5b2d770801064ca25e37deff8d5fded1a1c8973148a57"
+    },
+    {
+      "source_path": "graph_engine/contracts.py",
+      "source_sha256": "3c1c556e8d9019a580adec6dfdf3d11292d53e3e685f8f1e1220c5bc03b818ce",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/contracts.py",
+      "destination_sha256": "3c1c556e8d9019a580adec6dfdf3d11292d53e3e685f8f1e1220c5bc03b818ce"
+    },
+    {
+      "source_path": "graph_engine/evidence.py",
+      "source_sha256": "fc609e917eb9119927d28677c7d8f3d963b2b7befe87485c5462fd005890ad03",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/evidence.py",
+      "destination_sha256": "fc609e917eb9119927d28677c7d8f3d963b2b7befe87485c5462fd005890ad03"
+    },
+    {
+      "source_path": "graph_engine/execution.py",
+      "source_sha256": "4171b50cf6892cd2ecaff9df8d25281f642dbebf8946a901a4cb5f92fbeb56c1",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/execution.py",
+      "destination_sha256": "4171b50cf6892cd2ecaff9df8d25281f642dbebf8946a901a4cb5f92fbeb56c1"
+    },
+    {
+      "source_path": "graph_engine/hosts.py",
+      "source_sha256": "cc11a3c29d2191564124524d7c0304efb35f570391e25ba20653ef094c4ad9b2",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/hosts.py",
+      "destination_sha256": "cc11a3c29d2191564124524d7c0304efb35f570391e25ba20653ef094c4ad9b2"
+    },
+    {
+      "source_path": "graph_engine/ids.py",
+      "source_sha256": "49e1752cc39d62f0ba225d1527b28187777cd1f7515972e07b690c91d6fcc031",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/ids.py",
+      "destination_sha256": "49e1752cc39d62f0ba225d1527b28187777cd1f7515972e07b690c91d6fcc031"
+    },
+    {
+      "source_path": "graph_engine/planner.py",
+      "source_sha256": "e4e008b13c6fec18d2d852a8678fe16059f098954adeb480665eedc352917c1f",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/planner.py",
+      "destination_sha256": "e4e008b13c6fec18d2d852a8678fe16059f098954adeb480665eedc352917c1f"
+    },
+    {
+      "source_path": "graph_engine/reviewer_delegation.py",
+      "source_sha256": "5258213c14e34bc120a69c4a9f2cc1713eae8431f86f3c516acff422dad17b12",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/reviewer_delegation.py",
+      "destination_sha256": "5258213c14e34bc120a69c4a9f2cc1713eae8431f86f3c516acff422dad17b12"
+    },
+    {
+      "source_path": "graph_engine/state.py",
+      "source_sha256": "d7cfbf9abe79d0417b2d4f1ba33b15864efed344e6fa4bdf8f118d474ab5c2bb",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/state.py",
+      "destination_sha256": "d7cfbf9abe79d0417b2d4f1ba33b15864efed344e6fa4bdf8f118d474ab5c2bb"
+    },
+    {
+      "source_path": "graph_engine/usage.py",
+      "source_sha256": "20befb3933c59b28e007656cd9244d4a229a11f51218b85fddc1472fec61dbf5",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/usage.py",
+      "destination_sha256": "20befb3933c59b28e007656cd9244d4a229a11f51218b85fddc1472fec61dbf5"
+    },
+    {
+      "source_path": "graph_engine/validator.py",
+      "source_sha256": "fd10e856c527558cda170d347c40e92e6922b596489f7cacfb35d556982941f4",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/graph_engine/validator.py",
+      "destination_sha256": "fd10e856c527558cda170d347c40e92e6922b596489f7cacfb35d556982941f4"
+    },
+    {
+      "source_path": "profile-agents/code_reviewer.toml",
+      "source_sha256": "651c73d4da9871003117c9bc3ecd5a90855992a918af619e13b0fb47d8a5376f",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/code_reviewer.toml",
+      "destination_sha256": "651c73d4da9871003117c9bc3ecd5a90855992a918af619e13b0fb47d8a5376f"
+    },
+    {
+      "source_path": "profile-agents/impact_mapper.toml",
+      "source_sha256": "44f35888e0c2f00ad8cbe1921ad57e86e8d01d8d55156cc75d8f4ff9aa9e03b9",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/impact_mapper.toml",
+      "destination_sha256": "44f35888e0c2f00ad8cbe1921ad57e86e8d01d8d55156cc75d8f4ff9aa9e03b9"
+    },
+    {
+      "source_path": "profile-agents/security_reviewer.toml",
+      "source_sha256": "4ce83d1057dba288f5adfeda241a4c817e0ad6ff8345ad9abf61fd13dad2bfd6",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/security_reviewer.toml",
+      "destination_sha256": "4ce83d1057dba288f5adfeda241a4c817e0ad6ff8345ad9abf61fd13dad2bfd6"
+    },
+    {
+      "source_path": "profile-agents/senior_engineer.toml",
+      "source_sha256": "67a87a4bd7303e36206da76e03d8eadb3bc5e5ea0a283850d7a485c9aec089ff",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/senior_engineer.toml",
+      "destination_sha256": "67a87a4bd7303e36206da76e03d8eadb3bc5e5ea0a283850d7a485c9aec089ff"
+    },
+    {
+      "source_path": "profile-agents/software_architect.toml",
+      "source_sha256": "5a75ed04c46d51462f3d0fc13a4d104a8627698e250297c7a1b89447638689bc",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/software_architect.toml",
+      "destination_sha256": "5a75ed04c46d51462f3d0fc13a4d104a8627698e250297c7a1b89447638689bc"
+    },
+    {
+      "source_path": "profile-agents/tech_lead.toml",
+      "source_sha256": "9f55f882cc5d1ff38d36fcddb63bda6f2f7c937aaba9f2db9abefefb601e72ef",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/tech_lead.toml",
+      "destination_sha256": "9f55f882cc5d1ff38d36fcddb63bda6f2f7c937aaba9f2db9abefefb601e72ef"
+    },
+    {
+      "source_path": "profile-agents/test_engineer.toml",
+      "source_sha256": "21ed9b18945c942c4e67a13689ea09fcb718f17790a497e4282bd5ac89f85137",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/profile-agents/test_engineer.toml",
+      "destination_sha256": "21ed9b18945c942c4e67a13689ea09fcb718f17790a497e4282bd5ac89f85137"
+    },
+    {
+      "source_path": "references/behavioral-evaluations.md",
+      "source_sha256": "6c09b6bc4975fa7d23bbb9f7a8b84aedf0f9ec54606db73f8f11876668ca9ae6",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/behavioral-evaluations.md",
+      "destination_sha256": "6c09b6bc4975fa7d23bbb9f7a8b84aedf0f9ec54606db73f8f11876668ca9ae6"
+    },
+    {
+      "source_path": "references/branch-envelope.schema.json",
+      "source_sha256": "485fef91df80b5cffb1eb68509de97dd47737b7cea6e55a97e7b13e955e37b9c",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/branch-envelope.schema.json",
+      "destination_sha256": "485fef91df80b5cffb1eb68509de97dd47737b7cea6e55a97e7b13e955e37b9c"
+    },
+    {
+      "source_path": "references/check-receipt.schema.json",
+      "source_sha256": "7dfc9fb441293368b85cac436b1894e9e9a32a5690d0e0b2841f14db19f53a97",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/check-receipt.schema.json",
+      "destination_sha256": "7dfc9fb441293368b85cac436b1894e9e9a32a5690d0e0b2841f14db19f53a97"
+    },
+    {
+      "source_path": "references/fanout-assessment.schema.json",
+      "source_sha256": "75db213f69b2fb460b5d6b836f5fc1359bd37d6c9f9500f62d521d9461cdfb27",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/fanout-assessment.schema.json",
+      "destination_sha256": "75db213f69b2fb460b5d6b836f5fc1359bd37d6c9f9500f62d521d9461cdfb27"
+    },
+    {
+      "source_path": "references/impact-map.schema.json",
+      "source_sha256": "3d3bfb50006eb8361eade513dbd6e65a104ebbf9807bdb66938f3a95e15c9333",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/impact-map.schema.json",
+      "destination_sha256": "3d3bfb50006eb8361eade513dbd6e65a104ebbf9807bdb66938f3a95e15c9333"
+    },
+    {
+      "source_path": "references/ledger-operations.md",
+      "source_sha256": "7119563acc8b26ebbd30aa1b761f64c80b2f8ef693fcdb5f38a1241a5e0a2ad9",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/ledger-operations.md",
+      "destination_sha256": "fd1107832ecc4da2630f405f02dcd30e36dbdf9b86d6b405ad101de664de2acc",
+      "adaptation": "Make the existing schema path a valid relative Markdown link."
+    },
+    {
+      "source_path": "references/model-catalogs.md",
+      "source_sha256": "e5eb61009500b3a4a10e1898d6c0bb7552d10b941f6e5d6894152f86d2580de3",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/model-catalogs.md",
+      "destination_sha256": "e5eb61009500b3a4a10e1898d6c0bb7552d10b941f6e5d6894152f86d2580de3"
+    },
+    {
+      "source_path": "references/publication.md",
+      "source_sha256": "fa98811fec6d5233ad1e447237135ae1c8707a62f120ccbd70bcde86674cc913",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/publication.md",
+      "destination_sha256": "fa98811fec6d5233ad1e447237135ae1c8707a62f120ccbd70bcde86674cc913"
+    },
+    {
+      "source_path": "references/repository-config.schema.json",
+      "source_sha256": "a8b8d2293f6e6da352862f6a5c425492781b238b416297ee467d188fb54a7785",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/repository-config.schema.json",
+      "destination_sha256": "a8b8d2293f6e6da352862f6a5c425492781b238b416297ee467d188fb54a7785"
+    },
+    {
+      "source_path": "references/review-fanout-request.schema.json",
+      "source_sha256": "51b442093aefc6f0a999e2e26ffd3d2d1e7f396a911bd81c44d352cfd003cc21",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/review-fanout-request.schema.json",
+      "destination_sha256": "51b442093aefc6f0a999e2e26ffd3d2d1e7f396a911bd81c44d352cfd003cc21"
+    },
+    {
+      "source_path": "references/review-preliminary.schema.json",
+      "source_sha256": "57a0864c6c93f61b3903142ea3325656f24aa7e1ab903c82d0e0384c8b00278c",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/review-preliminary.schema.json",
+      "destination_sha256": "57a0864c6c93f61b3903142ea3325656f24aa7e1ab903c82d0e0384c8b00278c"
+    },
+    {
+      "source_path": "references/task-brief.schema.json",
+      "source_sha256": "8ba71c90658cb9218a8442982c02d460c2ca58016e62aa55798faf404e8aa7bd",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/references/task-brief.schema.json",
+      "destination_sha256": "8ba71c90658cb9218a8442982c02d460c2ca58016e62aa55798faf404e8aa7bd"
+    },
+    {
+      "source_path": "scripts/graphctl.py",
+      "source_sha256": "0278191021697ce2f252252953508d5d59d04ccf8f4c47dd9d4778c851ac500a",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/scripts/graphctl.py",
+      "destination_sha256": "0278191021697ce2f252252953508d5d59d04ccf8f4c47dd9d4778c851ac500a"
+    },
+    {
+      "source_path": "tests/fixtures/engineering-graph.json",
+      "source_sha256": "5ebf52202a33a234e5e73f1c4e0eb31fb104412d816817f95d021ad5cc42238c",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/engineering-graph.json",
+      "destination_sha256": "5ebf52202a33a234e5e73f1c4e0eb31fb104412d816817f95d021ad5cc42238c"
+    },
+    {
+      "source_path": "tests/fixtures/result-manifests/golden-traces.json",
+      "source_sha256": "db3a65343ed39a595e4c6857968f76b3d207f2b4a14b56184ba559ac3090f47d",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/result-manifests/golden-traces.json",
+      "destination_sha256": "db3a65343ed39a595e4c6857968f76b3d207f2b4a14b56184ba559ac3090f47d"
+    },
+    {
+      "source_path": "tests/fixtures/reviewer-delegation-csharp/Cache.cs",
+      "source_sha256": "0d49c6dcc7e7f1e61fe74ff39adb1d652b0eea6a11cf79968b306ab4329c7488",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/reviewer-delegation-csharp/Cache.cs",
+      "destination_sha256": "0d49c6dcc7e7f1e61fe74ff39adb1d652b0eea6a11cf79968b306ab4329c7488"
+    },
+    {
+      "source_path": "tests/fixtures/reviewer-delegation-csharp/Worker.cs",
+      "source_sha256": "35a8729207a118ba37fe5a83cca42027153d6a617b2e5546e57f9aec90eb27bf",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/reviewer-delegation-csharp/Worker.cs",
+      "destination_sha256": "35a8729207a118ba37fe5a83cca42027153d6a617b2e5546e57f9aec90eb27bf"
+    },
+    {
+      "source_path": "tests/fixtures/reviewer-delegation-csharp/WorkerTests.cs",
+      "source_sha256": "87fbb58000b52e241c31a8b6aaa8413cb47fef73f096de4f24f342feb77a7309",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/reviewer-delegation-csharp/WorkerTests.cs",
+      "destination_sha256": "87fbb58000b52e241c31a8b6aaa8413cb47fef73f096de4f24f342feb77a7309"
+    },
+    {
+      "source_path": "tests/fixtures/reviewer-delegation-csharp/expected-findings.json",
+      "source_sha256": "0fcfbe43f9aa4b66d904ff648ffbd8773e31717f6a197fc0c2e9c2c6a352bdda",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/fixtures/reviewer-delegation-csharp/expected-findings.json",
+      "destination_sha256": "0fcfbe43f9aa4b66d904ff648ffbd8773e31717f6a197fc0c2e9c2c6a352bdda"
+    },
+    {
+      "source_path": "tests/test_cli.py",
+      "source_sha256": "ce523f220155bea868f003f2772c8701c0c76e7045f900a78813252f0683cb03",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_cli.py",
+      "destination_sha256": "ce523f220155bea868f003f2772c8701c0c76e7045f900a78813252f0683cb03"
+    },
+    {
+      "source_path": "tests/test_contracts.py",
+      "source_sha256": "dc3089d400a727541d08d2dfbe81bf3a1fc69125e6860b4b5529d5cd8984477d",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_contracts.py",
+      "destination_sha256": "314543030fa9324ebe90eb8e4b74b43e3ac3485fea4e987784b51e17f3a4f4ad",
+      "adaptation": "Check canonical dispatch requirements directly; remove the dependency on the old repository contributor-tooling copy."
+    },
+    {
+      "source_path": "tests/test_graph_hardening.py",
+      "source_sha256": "0523508f25d095140c3bba000bf73bec7ce2468dce3758149ba454146dcedef3",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_graph_hardening.py",
+      "destination_sha256": "0523508f25d095140c3bba000bf73bec7ce2468dce3758149ba454146dcedef3"
+    },
+    {
+      "source_path": "tests/test_planner.py",
+      "source_sha256": "380c8805f4114bc18273663054ab7ac067d10ed8f01e2beaca5cac6373f0247c",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_planner.py",
+      "destination_sha256": "380c8805f4114bc18273663054ab7ac067d10ed8f01e2beaca5cac6373f0247c"
+    },
+    {
+      "source_path": "tests/test_reviewer_delegation.py",
+      "source_sha256": "6f781e153b274a1cb902197f3bd8b9d1991e74ebb49340de2feb71801521bdd1",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_reviewer_delegation.py",
+      "destination_sha256": "6f781e153b274a1cb902197f3bd8b9d1991e74ebb49340de2feb71801521bdd1"
+    },
+    {
+      "source_path": "tests/test_standalone_acceptance.py",
+      "source_sha256": "9b0023f3fea4dbd3f1c0dd3e8ba0faa67446d1bc69b2c64e06e355d6d6bf4953",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_standalone_acceptance.py",
+      "destination_sha256": "9b0023f3fea4dbd3f1c0dd3e8ba0faa67446d1bc69b2c64e06e355d6d6bf4953"
+    },
+    {
+      "source_path": "tests/test_state.py",
+      "source_sha256": "d1e1ec55bdc7f364ecccebe2ca2ccf9e35b405257cb7aa14be4eb92d813a89d5",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_state.py",
+      "destination_sha256": "d1e1ec55bdc7f364ecccebe2ca2ccf9e35b405257cb7aa14be4eb92d813a89d5"
+    },
+    {
+      "source_path": "tests/test_support.py",
+      "source_sha256": "0cc3393cce4c61fdcba5ea35aee112feda309666a846773557f6a21ceb637667",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_support.py",
+      "destination_sha256": "20bbea2bbc5918cdc12762802e60ccb925a371d1fd9f8410a97edb3a899ff6f1",
+      "adaptation": "Resolve fixture temporary paths so Windows short-name aliases match the engine repository path."
+    },
+    {
+      "source_path": "tests/test_validator.py",
+      "source_sha256": "9b1d6093ce828dc65b00e41b9f020cf50c9ebd11f9f4a7cfefee317adc1c2bbe",
+      "disposition": "imported",
+      "destination_path": "skills/software-engineering-graph/tests/test_validator.py",
+      "destination_sha256": "9b1d6093ce828dc65b00e41b9f020cf50c9ebd11f9f4a7cfefee317adc1c2bbe"
+    }
+  ]
+}

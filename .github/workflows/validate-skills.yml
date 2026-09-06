@@ -13,6 +13,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,3 +36,9 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Run code-review skill tests
         run: python -m unittest discover -s skills/code-review/tests -v
+      - name: Run graph acceptance tests
+        working-directory: skills/software-engineering-graph
+        run: python -m unittest -v tests.test_contracts tests.test_planner tests.test_validator tests.test_state tests.test_cli tests.test_graph_hardening tests.test_reviewer_delegation
+      - name: Verify graph hygiene last
+        working-directory: skills/software-engineering-graph
+        run: python -m unittest -v tests.test_standalone_acceptance.StandaloneAcceptanceTests.test_hygiene
