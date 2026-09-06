@@ -9,7 +9,7 @@ This file resolves an externally managed dependency. Reading or auditing it does
 
 Canonical repository: https://github.com/JeffreyFerreiras/software-engineering-graph
 
-The skill root is that repository's root (`SKILL.md`, `graphctl.py`, `graph_engine/`, and `references/`).
+The skill root is that repository's root (`SKILL.md`, `scripts/graphctl.py`, `graph_engine/`, and `references/`).
 
 ## Resolve the dependency
 
