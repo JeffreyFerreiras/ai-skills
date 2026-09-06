@@ -974,7 +974,8 @@
       "source_sha256": "0cc3393cce4c61fdcba5ea35aee112feda309666a846773557f6a21ceb637667",
       "disposition": "imported",
       "destination_path": "skills/software-engineering-graph/tests/test_support.py",
-      "destination_sha256": "0cc3393cce4c61fdcba5ea35aee112feda309666a846773557f6a21ceb637667"
+      "destination_sha256": "20bbea2bbc5918cdc12762802e60ccb925a371d1fd9f8410a97edb3a899ff6f1",
+      "adaptation": "Resolve fixture temporary paths so Windows short-name aliases match the engine repository path."
     },
     {
       "source_path": "tests/test_validator.py",

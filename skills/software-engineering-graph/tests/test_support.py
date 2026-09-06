@@ -18,7 +18,8 @@ DIGEST = "a" * 64
 class GraphCase(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        # Hosted Windows runners may expose TEMP through an 8.3 path alias.
+        self.root = Path(self.temp.name).resolve()
         self.repo = self.root / "repo"
         (self.repo / ".codex").mkdir(parents=True)
         (self.repo / "docs" / "artifacts").mkdir(parents=True)
