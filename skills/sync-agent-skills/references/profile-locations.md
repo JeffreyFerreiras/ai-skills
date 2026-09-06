@@ -13,22 +13,21 @@ Use this as a starting map, then verify paths on the local machine. Agent produc
 
 When working in a project repository, installed skills commonly reside in:
 
+- `.agents/skills` (shared cross-agent project skills; the root this skill manages)
 - `.cursor/skills` (Cursor Desktop and Cursor Cloud project skills)
-- `.agents/skills` (Cross-agent project skills)
-- `.codex/skills` (Codex workspace skills)
 - `.claude/skills` (Claude Code workspace skills)
 - `.github/skills` (GitHub Copilot project skills)
 
-`sync_agent_skills.py` scans these locations when using `--target-repo <path>`.
+`sync_agent_skills.py` scans these locations when using `--target-repo <path>`. It does not scan, create, or update `.codex/skills`. Leave leftover Codex copies in place unless the user names that path.
 
 For an unqualified sync, invoke it for every discovered local checkout and worktree as well as the installed profiles. Discover repositories beneath known checkout directories with a bounded scan, include `.git` files and registered worktrees, deduplicate resolved skill roots, and skip the canonical source itself. Do not interpret one `--target-repo` invocation as a machine-wide repository scan. Report the discovery boundary and update only existing installed copies unless installation of additional skills was requested.
 
-## Codex
+## Shared Agent Skills
 
-- Primary skill root: `$CODEX_HOME/skills`.
-- Fallback skill root: `~/.codex/skills`.
+- Primary skill root: `~/.agents/skills`.
 - Skill shape: one folder per skill with required `SKILL.md` frontmatter containing `name` and `description`.
 - Optional resources: `scripts/`, `references/`, `assets/`, and `agents/openai.yaml`.
+- Codex CLI may still read `$CODEX_HOME/skills` or `~/.codex/skills` on its own. This skill does not inventory or sync those paths.
 
 ## Claude
 
@@ -40,7 +39,7 @@ For an unqualified sync, invoke it for every discovered local checkout and workt
 
 - Start with `~/.cursor`.
 - If `~/.cursor/skills-cursor` exists, treat it as the active Cursor-managed global skills folder and prefer it over creating a new global folder.
-- Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills`, `.claude/skills`, and `.codex/skills`). Cloud Agents do not receive local `~/.cursor/skills`.
+- Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills` and `.claude/skills`). Cloud Agents do not receive local `~/.cursor/skills`.
 - In this repository, `.cursor/skills` is a symlink to the canonical `skills/` tree so every mirrored skill is discoverable in Cursor Cloud without duplicating folders.
 - Some Cursor setups also use `~/.cursor/skills`; verify what exists locally before copying.
 - Also inspect Cursor application user data when relevant, especially on Windows under `%APPDATA%\Cursor\User`.
@@ -51,7 +50,7 @@ For an unqualified sync, invoke it for every discovered local checkout and workt
 - On Windows, start with `%APPDATA%\Code\User`.
 - Also check profile-specific folders if the user uses VS Code profiles.
 - Prompt and instruction files are commonly markdown-based. Preserve file suffixes already used in the profile, such as `.prompt.md` or `.instructions.md`.
-- Agent skills are discovered from `chat.agentSkillsLocations`. The documented default locations include `.github/skills`, `.claude/skills`, `~/.copilot/skills`, and `~/.claude/skills`; add `~/.codex/skills` when the user wants VS Code to see Codex profile skills directly.
+- Agent skills are discovered from `chat.agentSkillsLocations`. The documented default locations include `.github/skills`, `.claude/skills`, `~/.copilot/skills`, and `~/.claude/skills`; add `~/.agents/skills` when the user wants VS Code to see the shared agent skill root.
 - Check `chat.useAgentSkills` is `true`. If using the dedicated skill tool, check `github.copilot.chat.skillTool.enabled` as well.
 - If skills do not appear, first run `scripts/sync_agent_skills.py doctor-vscode`, then reload VS Code with `Developer: Reload Window`.
 
@@ -63,4 +62,4 @@ Choose one of three strategies per target:
 2. Thin wrapper: create a native target file that points to or summarizes the shared source.
 3. Native conversion: rewrite the content into the target tool's expected markdown/frontmatter style.
 
-Prefer thin wrappers or native conversion when syncing Codex skills into Cursor, Claude, or VS Code. Codex `SKILL.md` frontmatter is useful for Codex triggering but may be irrelevant elsewhere.
+Prefer thin wrappers or native conversion when syncing shared `SKILL.md` folders into Cursor, Claude, or VS Code. `SKILL.md` frontmatter is useful for skill triggering but may be irrelevant elsewhere.

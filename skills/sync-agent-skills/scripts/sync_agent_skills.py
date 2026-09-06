@@ -31,10 +31,13 @@ INTERESTING_SUFFIXES = {
 
 AI_SKILLS_DEFAULT_REPO_URL = "https://github.com/JeffreyFerreiras/ai-skills.git"
 
+# Shared project and profile skill root. Do not add .codex/skills.
+AGENTS_SKILLS_RELATIVE = Path(".agents/skills")
+VSCODE_AGENTS_SKILLS_LOCATION = "~/.agents/skills"
+
 REPO_SKILL_RELATIVE_LOCATIONS = (
     Path(".cursor/skills"),
-    Path(".agents/skills"),
-    Path(".codex/skills"),
+    AGENTS_SKILLS_RELATIVE,
     Path(".claude/skills"),
     Path(".github/skills"),
     Path("skills"),
@@ -66,10 +69,9 @@ def home() -> Path:
 
 
 def default_roots() -> dict[str, Path]:
-    codex_home = os.environ.get("CODEX_HOME")
     appdata = os.environ.get("APPDATA")
     roots = {
-        "codex-skills": Path(codex_home).expanduser() / "skills" if codex_home else home() / ".codex" / "skills",
+        "agents-skills": home() / AGENTS_SKILLS_RELATIVE,
         "claude": home() / ".claude",
         "cursor-home": home() / ".cursor",
     }
@@ -592,7 +594,7 @@ def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
     desired = dict(settings)
     desired["chat.useAgentSkills"] = True
     desired["github.copilot.chat.skillTool.enabled"] = True
-    desired["chat.agentSkillsLocations"] = {**locations, "~/.codex/skills": True}
+    desired["chat.agentSkillsLocations"] = {**locations, VSCODE_AGENTS_SKILLS_LOCATION: True}
 
     issues = []
     if not shutil.which("code"):
@@ -601,8 +603,8 @@ def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
         issues.append("chat.useAgentSkills is not true")
     if settings.get("github.copilot.chat.skillTool.enabled") is not True:
         issues.append("github.copilot.chat.skillTool.enabled is not true")
-    if locations.get("~/.codex/skills") is not True:
-        issues.append("chat.agentSkillsLocations does not include ~/.codex/skills")
+    if locations.get(VSCODE_AGENTS_SKILLS_LOCATION) is not True:
+        issues.append(f"chat.agentSkillsLocations does not include {VSCODE_AGENTS_SKILLS_LOCATION}")
 
     changed = desired != settings
     actions = []
@@ -620,7 +622,7 @@ def doctor_vscode(settings_path: Path | None, apply: bool) -> dict[str, object]:
                 )
             write_json_object(settings_path, desired)
     else:
-        actions.append("VS Code agent skill settings already include ~/.codex/skills")
+        actions.append(f"VS Code agent skill settings already include {VSCODE_AGENTS_SKILLS_LOCATION}")
 
     return {
         "settings_path": str(settings_path),
@@ -683,7 +685,7 @@ def main() -> int:
     sync_from_master_parser.add_argument(
         "--target-repo",
         type=Path,
-        help="Target repository to scan for installed skills (e.g. .cursor/skills, .codex/skills, etc.)",
+        help="Target repository to scan for installed skills (e.g. .agents/skills, .cursor/skills)",
     )
     sync_from_master_parser.add_argument(
         "--skill",
