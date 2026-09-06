@@ -2,7 +2,11 @@
 
 Canonical source: [ai-skills/skills/software-engineering-graph](https://github.com/JeffreyFerreiras/ai-skills/tree/master/skills/software-engineering-graph).
 Maintain the skill here. The former standalone repository provides a public redirect and preserved history.
-Run the commands below from this skill directory, including when it is nested in the ai-skills repository.
+Run contributor validation from this source skill directory in the ai-skills repository.
+Run operational ledger commands from a verified installed Codex copy, such as
+`~/.codex/skills/software-engineering-graph`, with `--repo` pointing to the target repository.
+The ledger derives its profile root from the engine file's `.codex` ancestor; the source checkout
+cannot initialize runs, even when `CODEX_HOME` is set.
 
 Software Engineering Graph is an **AI-agent skill** for Codex, Cursor, and equivalent agent hosts. It organizes complex software work
 across specialized AI agents and makes scope, human approval, design, implementation, independent

@@ -614,8 +614,8 @@
       "source_sha256": "179e0fb2dea9483a06c331eda5af7606c5f34851ac2c43709863bb720e53c667",
       "disposition": "imported",
       "destination_path": "skills/software-engineering-graph/README.md",
-      "destination_sha256": "0c6eb769c0ff64ba64e83f981566333843f638f21a4e817f958044ac149327fe",
-      "adaptation": "Document canonical source and skill-relative command working directory."
+      "destination_sha256": "7b953f30eb0c3408bb1c82ef2567f15a3eb1a4a42e167598cd79f76e5d7c8091",
+      "adaptation": "Document canonical source; distinguish source contributor validation from operational commands in a verified installed Codex copy."
     },
     {
       "source_path": "SKILL.md",
