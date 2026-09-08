@@ -8,8 +8,9 @@ Select exactly one protocol from the immutable envelope. Never combine their out
 
 Bootstrap classification applies only when node_key=impact_mapper and stage=bootstrap. Classify
 the assigned immutable task brief against the supplied repository policy. Do not edit files,
-implement, run control-ledger mutations, name graph roles or joins, delegate, commit, publish,
-deploy, or claim authority. Return one JSON object and no prose with exactly: schema_version=1,
+implement, run control-ledger mutations, name graph roles or joins, delegate, spawn direct evidence
+children, commit, publish, deploy, or claim authority. Return one JSON object and no prose with
+exactly: schema_version=1,
 the unchanged task_id, one route_label from advisory/design_only/full_delivery/fast_path, a
 duplicate-free lexicographically sorted impact_tags list containing every mandatory task tag, and
 bounded evidence_refs. Respect request_mode and minimum_route. Raise delivery risk to full_delivery
@@ -22,7 +23,8 @@ decision, or findings fields.
 Research inspection applies only when node_key is design_research_architecture or
 design_research_validation and stage=research. Follow that node's assigned research_assignment
 focus and split inspection budget only. Research is bounded repository or authorized external
-inspection. Do not run tests, edit or write files, make decisions, or return findings. Return only
+inspection. Do not run tests, edit or write files, make decisions, return findings, or spawn direct
+evidence children. Return only
 the branch-result fields required by the envelope, with output_kind=evidence_manifest, a verified
 evidence_manifest artifact and non-empty verified evidence for success, decision=null, and
 findings=[]. A failed research result may include only its failure_code and evidence. Research

@@ -111,6 +111,29 @@ the canonical collection and evidence inputs when creating the same-generation T
 Lead exists before that collection is sealed. If a mandatory research branch exhausts its retry,
 the collection advances to a durable blocked run rather than waiting indefinitely.
 
+### Instruction-level direct evidence retrieval
+
+The host may grant a separate direct evidence-child allowance in the approved execution plan. Only
+the Tech Lead, Software Architect, Code Reviewer, and Security Reviewer can use it. The allowance
+records the eligible parent, exact host model and effort, one-level child limit, shared run budget and
+concurrency, read scope, and file, command, and output caps. The Supervisor retains ledger CLI
+mutation and global scope, phase, gate, budget, and concurrency control, while the parent may spawn a
+permitted lookup without a separate Supervisor dispatch.
+
+Direct evidence children receive fresh minimal context, especially for review parents, and perform
+only bounded read-only repository or authorized MCP retrieval. They cannot write source or artifacts,
+run tests or validation commands, mutate the ledger, make decisions, create findings, publish, or
+spawn grandchildren. They return concise source-cited excerpts, locations or URIs, retrieval
+provenance, and uncertainty; the parent interprets the evidence and owns the role decision. A parent
+may read a trivial item directly when delegation would add no value.
+
+The default Codex child assignment is `gpt-5.6-luna` at `max`; Cursor follows the existing economy
+mapping, `composer-2.5` at `high`. An explicit verified plan assignment takes precedence, and an
+unavailable assignment fails that child dispatch without silent fallback. The parent registers each
+child's lifecycle and separately reported usage in an instruction-level run register. Child totals
+never enter the parent or graph-branch total, and the register does not add a table, schema field,
+graph node, ledger mutation, or delivery gate.
+
 ### Required instruction-level pull-request publication
 
 `Pull Request Engineer` is an instruction-only role with no profile, engine node, schema, table,
@@ -119,7 +142,8 @@ plans a fresh host-catalog publication dispatch with exact repository, remote, b
 and non-force actions. Implementation authorization plus initial plan approval is sufficient after all
 gates; no later publication approval is needed. The Supervisor owns control and evidence but performs no
 Git, GitHub, or worktree mutation during publication; its only mutation exception is initial setup
-as described below. The Senior Engineer writes source and tests but never publishes.
+as described below. The Senior Engineer writes source and tests but never publishes. The Pull Request
+Engineer cannot spawn direct evidence children; publication and cleanup remain its only assigned work.
 Successful closure requires one review-ready PR, or the exact existing PR updated and verified; an
 explicit draft request is the only exception.
 
@@ -246,10 +270,12 @@ and the resumed parent's echoed delegated disposition do not independently affec
 
 The chosen design extends the existing SQLite ledger, atomic mutation, artifact registry, fan-out
 assessment, and branch lifecycle. It avoids a second scheduler and keeps recovery under `resume`.
-Direct reviewer spawning was rejected because it bypasses plan approval, budgets, fencing, resource
-assessment, and audit state. Reusing `specialist_tag` was rejected because repeated same-role children
-need explicit assignment and ordinal identity. A standalone Court skill, panel, or orchestration layer
-is out of scope.
+Direct graph-node or reviewer-fanout spawning remains rejected because it would bypass plan approval,
+budgets, fencing, resource assessment, and audit state. The instruction-level evidence children above
+are intentionally narrower: they perform retrieval only, have no engine identity or gate authority,
+and are registered outside the ledger. Reusing `specialist_tag` was rejected because repeated
+same-role reviewer children need explicit assignment and ordinal identity. A standalone Court skill,
+panel, or orchestration layer is out of scope.
 
 ### Compatibility, recovery, and rollback
 

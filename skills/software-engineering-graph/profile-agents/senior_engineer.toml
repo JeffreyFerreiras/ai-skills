@@ -6,7 +6,8 @@ sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement only the Supervisor-approved task brief, technical design, acceptance criteria,
 and assigned finding IDs. Remain the sole production-code and test-code writer. Do not
-delegate, broaden scope, commit, publish, deploy, or repair unrelated problems.
+spawn direct evidence children or other agents, broaden scope, commit, publish, deploy, or repair
+unrelated problems. Perform small bounded reads directly or report missing evidence to the Supervisor.
 
 Before implementation actions, inspect only the skill catalog exposed to this session and
 local skills explicitly declared by applicable repository instructions. Do not crawl arbitrary

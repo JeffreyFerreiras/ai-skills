@@ -65,8 +65,25 @@ review, records evidence, and returns unresolved product or risk decisions to th
 When both repository policy and task brief opt in, an approved execution-plan v2 can also contain
 conditional review assignments. A primary Code Reviewer may then return a frozen preliminary review
 and a typed request using only approved assignment, reason, acceptance, and evidence IDs. The
-Supervisor remains the only dispatcher and ledger mutator. Delegated reviewers receive fresh,
-read-only envelopes and cannot create another delegation level.
+Supervisor alone dispatches engine-managed graph nodes and conditional reviewer-fanout children and
+mutates the ledger. Delegated reviewers receive fresh, read-only envelopes and cannot create another
+reviewer-fanout level.
+
+The approved plan may also grant a separate, instruction-level direct evidence-child allowance to
+exactly four parent roles: Tech Lead, Software Architect, Code Reviewer, and Security Reviewer. Those
+parents may spawn one-level, fresh-context children for bounded repository or authorized MCP retrieval
+without asking the Supervisor to dispatch each lookup. The Supervisor still owns scope, phase and gate
+decisions, ledger CLI mutations, and shared run budget and concurrency. Senior Engineer, Test Engineer,
+Impact Mapper, fixed research workers, and Pull Request Engineer cannot spawn these children.
+
+Direct evidence children use only the plan-approved read scope and exact host assignment, return
+concise source-cited excerpts with uncertainty, and do not write, run tests, mutate the ledger, make
+decisions, create findings, publish, or spawn grandchildren. Codex defaults to `gpt-5.6-luna` at
+`max`; Cursor follows the existing economy mapping, `composer-2.5` at `high`. An explicit verified
+assignment in the approved plan wins, and an unavailable assignment stops the child without silent
+fallback. Parents register lifecycle and separately reported usage so child totals are never folded
+into parent or graph-branch totals. Small direct parent reads remain allowed; trivial reads are not
+forced through a child. See the [direct evidence-child contract](SKILL.md#direct-evidence-children).
 
 A local control ledger tracks assignments, approvals, retries, active-work ownership, and recovery
 so the workflow behaves consistently and deterministically. It coordinates agents but does not
@@ -162,8 +179,10 @@ equal that total. Otherwise the first total becomes a baseline and coverage repo
 Associate a branch session with `--branch-id <id> --attempt-id <id>` instead of `--phase` and
 `--generation`. Role, phase, and generation are derived from that executed attempt. Retries have
 distinct attempt IDs; resumed sessions can bind to the same attempt. Delegated reviewers bind their
-own session and attempt. Parent totals never include child rollups. Do not associate overlapping
-work with multiple runs: the engine checks intervals within a run and does not inspect other runs.
+own session and attempt. Direct evidence children are instruction-level sessions, not ledger branches;
+their lifecycle and usage are registered separately by the parent, and parent totals never include
+child rollups. Do not associate overlapping work with multiple runs: the engine checks intervals within
+a run and does not inspect other runs.
 
 ```text
 python scripts/graphctl.py --repo <repo> record usage --run-id <run> --action collect --binding-id <binding> --session-log <file> --op-id <id>

@@ -21,6 +21,14 @@ different values, use a host-supported bounded fresh agent with the approved rol
 explicit assignment. If the host cannot honor that assignment, stop that dispatch and report the
 specific mismatch; never silently fall back or claim the model was changed.
 
+Direct evidence children use the selected host catalog's economy assignment unless the approved plan
+contains an explicit verified child assignment. Codex and `codex-astra` resolve that default to
+`gpt-5.6-luna` with `max` reasoning; Cursor resolves it to `composer-2.5` with `high` reasoning.
+The child does not inherit the parent model or effort. If the exact approved assignment is unavailable,
+stop that child dispatch and report the mismatch; do not silently substitute a model, effort, or host.
+This is an instruction-level retrieval contract. It does not add a graph role, ledger branch, schema
+field, or reviewer-delegation assignment.
+
 Before plan approval, verify each exact assignment against the current host's exposed capabilities.
 An approved plan is not proof of model availability. Missing Supervisor model metadata selects
 advisory mode but does not cancel existing approval or block unrelated authorized preparation.

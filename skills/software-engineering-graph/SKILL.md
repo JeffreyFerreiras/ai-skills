@@ -7,9 +7,12 @@ description: Orchestrate rigorous software application work through a scope-sele
 
 Use the local control ledger for every new graph run. Treat it as a deterministic coordination and
 recovery aid, not a security boundary or a model-agent executor. Keep the primary agent as Supervisor
-and the sole `graphctl` and ledger CLI mutator and dispatcher. The execution-plan-authorized Pull Request
-Engineer is the sole bounded Git, GitHub, and worktree mutator for publication and cleanup and never
-operates the ledger. Never give branch agents database paths or operation IDs.
+and the sole `graphctl` and ledger CLI mutator. The Supervisor alone dispatches engine-managed graph
+nodes and conditional reviewer-fanout children. Four eligible role parents may spawn bounded direct
+evidence children under the instruction-level contract below; those children never become ledger
+branches or reviewer-fanout members. The execution-plan-authorized Pull Request Engineer is the sole
+bounded Git, GitHub, and worktree mutator for publication and cleanup and never operates the ledger.
+Never give branch agents database paths or operation IDs.
 The first Supervisor step is an execution-plan preflight: T-shirt size the job as small, medium, or
 large, select only pertinent roles, assign each possible role a model and reasoning effort, and explain
 the size, route floor, assignments, and omitted roles to the human. No branch may execute until the
@@ -69,7 +72,9 @@ concrete conflict. Do not infer new approval requirements from optional skill gu
 Before initializing, claiming, recording, joining, resuming, or completing a run, read
 [Ledger operations](references/ledger-operations.md) fully. It defines the required approval,
 attempt fences, research and review fan-outs, budgets, recovery, and platform acknowledgments.
-Use only the claimed envelope for dispatch; the first branch is always the Impact Mapper.
+Use only the claimed envelope for engine-managed graph dispatch; the first branch is always the
+Impact Mapper. Direct evidence children use the separate contract below and never receive ledger
+control metadata.
 
 ## Operating model
 
@@ -88,7 +93,8 @@ At each major phase handoff and in the final response, report observed input/out
 cumulative run usage, and coverage, with role/agent and observed model/effort comparisons when
 available. Use the five accounting phases `scoping`, `research_design`, `implementation`,
 `review_testing`, and `closure`. Close the primary interval and bind the next phase at the returned
-checkpoint; associate each executed branch attempt and separately dispatched child session.
+checkpoint; associate each executed branch attempt and each permitted direct evidence-child session
+separately, without folding child usage into its parent.
 Report gaps, unavailable phases, and provisional running usage explicitly. Never present a skipped
 role as measured consumption or a partial total as complete. The final response itself may add
 tokens beyond its last checkpoint. Accounting is additive metadata and must not introduce a new
@@ -151,10 +157,57 @@ Use these base roles when available:
 - `test_engineer`: independently verify behavior and acceptance criteria.
 - `security_reviewer`: join only when security, privacy, identity, secrets, or trust boundaries are affected.
 
-Use repository-defined specialists when its routing rules require them. If a named profile is unavailable, spawn a bounded agent with the same contract instead of weakening a required gate.
+Use repository-defined specialists when its routing rules require them. If a named profile is unavailable,
+the Supervisor may spawn a bounded agent with the same contract instead of weakening a required gate.
+That graph-role fallback does not grant the role direct evidence-child authority.
 
 The Impact Mapper selects route, risk, and specialist tags only. The Supervisor owns fan-out
 eligibility after checking branch dependencies and shared resources.
+
+### Direct evidence children
+
+Direct evidence children are a bounded, instruction-level host capability for read-only retrieval.
+They are separate from engine-managed graph branches and from conditional reviewer-fanout children.
+Only the Tech Lead, Software Architect, Code Reviewer, and Security Reviewer may spawn them. Senior
+Engineers, Test Engineers, Impact Mappers, fixed research workers, and the Pull Request Engineer
+cannot spawn direct evidence children.
+
+The approved execution plan must explicitly allow this capability before a parent uses it. The
+allowance names the eligible parent role, exact approved model and reasoning effort, maximum children
+per parent and per run, maximum concurrency, file and command limits, output size, and permitted
+repository or MCP read surfaces. The Supervisor owns the shared run budget, concurrency, phase, gate,
+scope, and approval state. A parent checks the current allowance before each spawn, but does not ask
+the Supervisor to dispatch each lookup. A parent may perform a small direct read itself; the contract
+does not force delegation for a trivial question.
+
+Resolve the child assignment from the approved host catalog. The default Codex economy child is
+`gpt-5.6-luna` with `max` reasoning; Cursor uses its existing economy mapping, `composer-2.5` with
+`high` reasoning. An explicit verified assignment in the approved plan takes precedence. If the host
+cannot honor the exact assignment, stop that child dispatch and report the mismatch; never silently
+fall back, inherit the parent assignment, or claim a different model ran.
+
+The parent registers each child before spawning it in the run-local evidence-child register. The
+record includes a child ID, parent role, purpose, allowed scope, approved model and effort, budget,
+concurrency slot, start time, and status. On completion the parent records terminal status, source
+references, uncertainty, and observed usage or an explicit unavailable marker. The register is an
+instruction-level record and does not mutate the ledger, create an engine node, or consume a reviewer
+fan-out slot. The Supervisor receives the register summary with the parent handoff and enforces the
+shared run limits.
+
+Each child is one level deep and receives fresh minimal context: only the lookup question, allowed
+paths or MCP sources, the relevant approved artifact references, and its evidence budget. For review
+parents, do not pass prior review reasoning, tentative findings, or a conclusion; preserve review
+independence. Children may retrieve repository or authorized MCP evidence through bounded read-only
+commands, but may not write source or artifacts, run tests or other validation commands, mutate the
+ledger, change scope or decisions, create findings, publish, or spawn another child. Their response
+is a concise packet of source-cited excerpts, locations or URIs, retrieval provenance, and uncertainty.
+The parent owns interpretation and role decisions.
+
+When host telemetry is available, account for each child session separately from its parent session.
+Never add child totals to the parent checkpoint or graph branch total, and never count one source
+interval in more than one run. If child telemetry is unavailable, report it as unavailable rather
+than estimating it. This contract does not add a database table, schema field, graph node, ledger
+mutation, or delivery gate.
 
 ## Delegation transparency
 
@@ -166,6 +219,10 @@ the concrete identity or any approved assignment value is unavailable, unverifia
 do not infer, substitute, or silently inherit missing values. When dispatching several agents together,
 use one compact announcement that lists every concrete name and identifies which work will run in parallel.
 <!-- dispatch-transparency:end -->
+
+Eligible direct evidence-child parents apply this transparency requirement themselves: announce the
+child identity, bounded scope, exact approved model, and exact approved reasoning effort, then register
+its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
@@ -215,6 +272,9 @@ Request Engineer assignment, exact repository, remote, base, head, and allowed n
 actions. Implementation authorization plus initial plan approval covers those actions after all gates;
 do not seek another publication approval. Cleanup remains conditional on its separately approved
 destructive authority. Neither instruction-level assignment changes engine topology or ledger state.
+If direct evidence children are allowed, the same approved plan must carry the bounded evidence-child
+allowance described above. This is a host instruction contract, not execution-plan v2 reviewer
+delegation, and it does not add a graph role, schema field, or ledger state.
 
 Then apply these route rules:
 
@@ -292,9 +352,12 @@ After implementation reaches a stable checkpoint, run the Code Reviewer and Test
 
 Require the Code Reviewer to evaluate correctness, regressions, design fidelity, maintainability, security implications, and test adequacy against the approved artifacts.
 
-An enabled primary Code Reviewer may request approved read-only review children, but may not choose
-raw roles/models/efforts/capabilities, dispatch them, inspect control metadata, suppress their frozen
-collection, or decide findings. The Supervisor validates and consolidates every child outcome.
+An enabled primary Code Reviewer may request approved read-only reviewer-fanout children, but may not
+choose raw roles/models/efforts/capabilities, dispatch them, inspect control metadata, suppress their
+frozen collection, or decide findings. The Supervisor validates, records, dispatches, and consolidates
+that engine-managed collection. A Code Reviewer may also spawn a direct evidence child under the
+separate contract above; that child supplies retrieval evidence only and is not a reviewer-fanout
+member.
 
 Include the bounded role skill preflight and explicitly require `code-review` and
 `clean-architecture-review`. Keep the reviewer read-only,
@@ -363,7 +426,8 @@ blocker; do not substitute local completion or ask again for already approved pu
 - Serialize all worktree writes. Never assign the same files or responsibility to concurrent writers.
 - Give every node bounded inputs, permitted actions, expected output, and a stopping condition.
 - Research nodes are deliberately evidence-only. The Supervisor owns artifact materialization and
-  collection sealing; research branches never receive write, test, decision, or findings authority.
+  collection sealing; research branches never receive write, test, decision, findings, or child-spawn
+  authority. Direct evidence children are not research nodes and do not alter that gate.
 - Give exploratory nodes a file and command budget. Prefer a useful partial packet over an unbounded repository survey.
 - Prefer repository evidence over assumptions. Cite files, lines, commands, logs, or test output in findings.
 - Keep raw logs and noisy exploration in subagent threads. Return concise evidence packets to the Supervisor.
@@ -382,5 +446,7 @@ Require these minimum handoffs:
 - **Code review:** decision, prioritized findings, evidence, missing tests, design conformance, skill usage.
 - **Review preliminary/request:** frozen findings and evidence plus an exhaustive ID-only conditional
   fan-out request; never raw authority, paths, prompts, operation IDs, or dispatch data.
+- **Direct evidence-child packet:** concise source-cited excerpts, locations or URIs, retrieval
+  provenance, uncertainty, terminal status, and separately reported usage; never a decision or finding.
 - **Test report:** decision, environment, commands, acceptance matrix, failures, untested gaps.
 - **Closure:** delivered outcome, validation, residual risks, approvals, next action.
