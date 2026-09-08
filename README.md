@@ -65,13 +65,6 @@ On Windows clones where Git checks out the symlink as a plain file, run `./scrip
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
 | `run-change-checks` | Select and run focused checks for current changes. |
-| `vault-answer` | Answer questions strictly from evidence in the local knowledge vault. |
-| `vault-build-graph` | Build an evidence-backed knowledge graph from ingested vault sources. |
-| `vault-daily-review` | Create an evidence-backed daily review of vault activity. |
-| `vault-find-contradictions` | Find and record dated contradictions and changed beliefs in the vault. |
-| `vault-maintain` | Audit, validate, and safely maintain the local knowledge vault. |
-| `vault-process-inbox` | Process vault Inbox sources and invoke semantic graph building. |
-| `vault-reset` | Safely reset a knowledge vault with a recoverable backup. |
 
 ## Create A Skill
 

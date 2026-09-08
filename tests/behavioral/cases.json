@@ -1,12 +1,5 @@
 [
   {
-    "id": "vault-audit-only",
-    "skill": "vault-maintain",
-    "prompt": "Audit this vault for broken links and recommend fixes.",
-    "fixture": "Synthetic vault with one broken link, a read-only validator, and an AGENTS.md permitting only requested edits.",
-    "expected": "Report the broken link and proposed fix. No note edits, checkpoints, commits, or index refresh. Cite evidence."
-  },
-  {
     "id": "selected-pr-feedback",
     "skill": "address-pr-feedback",
     "prompt": "Fix review thread 2 about the missing null check. Leave the other threads alone.",
