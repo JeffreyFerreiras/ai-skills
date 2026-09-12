@@ -3,7 +3,7 @@
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from .hosts import (
-    DEFAULT_HOST, LEGACY_HOST, classify, dispatch_model, economy_effort, publication_assignment,
+    CURRENT_CATALOG_REVISIONS, DEFAULT_HOST, LEGACY_HOST, classify, dispatch_model, economy_effort, publication_assignment,
     resolve_assignment, supervisor_recommendation,
 )
 from .ids import canonical_bytes, sha256_bytes
@@ -126,6 +126,7 @@ def _class_for_node(node_key: str, size: str) -> Tuple[str, str]:
 
 def validate_model_assignment(
     node_key: str, model: str, reasoning_effort: str, host: str = DEFAULT_HOST,
+    *, require_reasoning_writer: bool = True,
 ) -> None:
     """Fail closed on the graph's model and reasoning-effort invariants."""
     intelligence_class = classify(host, model)
@@ -137,6 +138,8 @@ def validate_model_assignment(
         raise ValueError("ECONOMY_REASONING_EFFORT_REQUIRED")
     if node_key in {"tech_lead", "architect"} and intelligence_class != "reasoning":
         raise ValueError("DESIGN_MODEL_REQUIRED")
+    if require_reasoning_writer and node_key == "senior_engineer" and intelligence_class != "reasoning":
+        raise ValueError("IMPLEMENTATION_REASONING_MODEL_REQUIRED")
     if NODE_ROLES.get(node_key) == "impact_mapper" and intelligence_class != "economy":
         raise ValueError("IMPACT_MAPPER_ASSIGNMENT_REQUIRED")
     dispatch_model(host, model, reasoning_effort)
@@ -194,7 +197,9 @@ def build_execution_plan(
     run_id: str, task: Mapping[str, Any], requested_size: Optional[str] = None,
     host: str = DEFAULT_HOST,
 ) -> Dict[str, Any]:
-    revision = ASTRA_CATALOG_REVISION if host == "codex-astra" else None
+    if host not in CURRENT_CATALOG_REVISIONS:
+        raise ValueError("HOST_UNSUPPORTED")
+    revision = CURRENT_CATALOG_REVISIONS[host]
     return _build_execution_plan(run_id, task, requested_size, host, revision)
 
 
@@ -206,7 +211,7 @@ def reconstruct_execution_plan(
     host = stored_plan.get("host", LEGACY_HOST)
     revision = stored_plan.get("catalog_revision")
     if "catalog_revision" in stored_plan:
-        if host != "codex-astra" or type(revision) is not int or revision != ASTRA_CATALOG_REVISION:
+        if type(revision) is not int or revision != CURRENT_CATALOG_REVISIONS.get(host):
             raise ValueError("CATALOG_REVISION_INVALID")
     return _build_execution_plan(run_id, task, requested_size, host, revision)
 
@@ -234,10 +239,17 @@ def _build_execution_plan(
     for node_key in sorted(NODE_ROLES):
         role = NODE_ROLES[node_key]
         intelligence_class, requested_effort = _class_for_node(node_key, size)
-        if catalog_revision == ASTRA_CATALOG_REVISION and node_key in ASTRA_CORE_ASSIGNMENTS:
+        if host == "codex-astra" and catalog_revision == ASTRA_CATALOG_REVISION and node_key in ASTRA_CORE_ASSIGNMENTS:
             intelligence_class, requested_effort = ASTRA_CORE_ASSIGNMENTS[node_key]
+        elif catalog_revision is not None and node_key == "senior_engineer" and intelligence_class == "economy":
+            # Keep the baseline frozen for historical approvals; new small writers
+            # use the existing medium writer class at the selected host.
+            intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
         model, effort = resolve_assignment(host, intelligence_class, requested_effort)
-        validate_model_assignment(node_key, model, effort, host)
+        validate_model_assignment(
+            node_key, model, effort, host,
+            require_reasoning_writer=catalog_revision is not None,
+        )
         assignments.append({
             "node_key": node_key,
             "role": role,
@@ -294,6 +306,7 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
         if assignment["node_key"] == node_key:
             validate_model_assignment(
                 node_key, assignment["model"], assignment["reasoning_effort"], host,
+                require_reasoning_writer="catalog_revision" in plan,
             )
             return assignment
     raise ValueError("missing execution assignment")

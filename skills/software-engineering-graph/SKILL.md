@@ -8,8 +8,8 @@ description: Orchestrate rigorous software application work through a scope-sele
 Use the local control ledger for every new graph run. Treat it as a deterministic coordination and
 recovery aid, not a security boundary or a model-agent executor. Keep the primary agent as Supervisor
 and the sole `graphctl` and ledger CLI mutator. The Supervisor alone dispatches engine-managed graph
-nodes and conditional reviewer-fanout children. Four eligible role parents may spawn bounded direct
-evidence children under the instruction-level contract below; those children never become ledger
+nodes and conditional reviewer-fanout children. Eligible role parents may spawn bounded reusable
+helpers under the instruction-level contract below; those children never become ledger
 branches or reviewer-fanout members. The execution-plan-authorized Pull Request Engineer is the sole
 bounded Git, GitHub, and worktree mutator for publication and cleanup and never operates the ledger.
 Never give branch agents database paths or operation IDs.
@@ -52,7 +52,9 @@ Astra `low` for Tech Lead, Senior Engineer, and Test Engineer; and Astra `medium
 Code Reviewer, and Security Reviewer. Supervisor stays Astra `xhigh`, publication stays Luna `max`,
 and unlisted advisory/specialist assignments keep their existing mapping. Unversioned historical
 plans retain their original assignments and digests. Older engines cannot read revision 2 Astra
-plans; never rewrite existing approvals to roll back.
+plans; never rewrite existing approvals to roll back. New Codex and Cursor revision 2 plans
+use their existing reasoning `medium` assignment for a small Senior Engineer. Historical unversioned
+plans retain the frozen writer assignment; changing an approved run requires a new plan and approval.
 Report the actual Supervisor model and effort only when a trusted host runtime assertion makes both
 values verifiable. If either value is missing, unverifiable, or different, operate in advisory mode
 and display this exact warning once per run, repeating only if verification status changes:
@@ -93,7 +95,7 @@ At each major phase handoff and in the final response, report observed input/out
 cumulative run usage, and coverage, with role/agent and observed model/effort comparisons when
 available. Use the five accounting phases `scoping`, `research_design`, `implementation`,
 `review_testing`, and `closure`. Close the primary interval and bind the next phase at the returned
-checkpoint; associate each executed branch attempt and each permitted direct evidence-child session
+checkpoint; associate each executed branch attempt and each permitted helper session
 separately, without folding child usage into its parent.
 Report gaps, unavailable phases, and provisional running usage explicitly. Never present a skipped
 role as measured consumption or a partial total as complete. The final response itself may add
@@ -159,55 +161,29 @@ Use these base roles when available:
 
 Use repository-defined specialists when its routing rules require them. If a named profile is unavailable,
 the Supervisor may spawn a bounded agent with the same contract instead of weakening a required gate.
-That graph-role fallback does not grant the role direct evidence-child authority.
+That graph-role fallback does not grant helper authority; follow the separate approved allowance.
 
 The Impact Mapper selects route, risk, and specialist tags only. The Supervisor owns fan-out
 eligibility after checking branch dependencies and shared resources.
 
-### Direct evidence children
+### Direct evidence children and validation helpers
 
-Direct evidence children are a bounded, instruction-level host capability for read-only retrieval.
-They are separate from engine-managed graph branches and from conditional reviewer-fanout children.
-Only the Tech Lead, Software Architect, Code Reviewer, and Security Reviewer may spawn them. Senior
-Engineers, Test Engineers, Impact Mappers, fixed research workers, and the Pull Request Engineer
-cannot spawn direct evidence children.
+Read [Economy helpers](references/economy-helpers.md) before granting an allowance or spawning
+a helper. It is the canonical parent eligibility, approval, discovery, resource, lifecycle, context,
+and usage contract. Child behavior lives in the referenced reusable helper profiles.
 
-The approved execution plan must explicitly allow this capability before a parent uses it. The
-allowance names the eligible parent role, exact approved model and reasoning effort, maximum children
-per parent and per run, maximum concurrency, file and command limits, output size, and permitted
-repository or MCP read surfaces. The Supervisor owns the shared run budget, concurrency, phase, gate,
-scope, and approval state. A parent checks the current allowance before each spawn, but does not ask
-the Supervisor to dispatch each lookup. A parent may perform a small direct read itself; the contract
-does not force delegation for a trivial question.
+The Evidence Scout formalizes the existing direct evidence-child mechanism. Tech Lead, Software
+Architect, Senior Engineer, Code Reviewer, Test Engineer, and Security Reviewer may invoke it.
+Only Senior Engineer and Test Engineer may invoke Validation Executor for exact parent-selected
+commands. Both parents may directly spawn either helper within an approved allowance, without
+per-call Supervisor dispatch or human approval. Neither helper writes source/tests or makes role
+decisions. No arbitrary agents, graph nodes, reviewer-fanout children, or grandchildren are allowed.
 
-Resolve the child assignment from the approved host catalog. The default Codex economy child is
-`gpt-5.6-luna` with `max` reasoning; Cursor uses its existing economy mapping, `composer-2.5` with
-`high` reasoning. An explicit verified assignment in the approved plan takes precedence. If the host
-cannot honor the exact assignment, stop that child dispatch and report the mismatch; never silently
-fall back, inherit the parent assignment, or claim a different model ran.
-
-The parent registers each child before spawning it in the run-local evidence-child register. The
-record includes a child ID, parent role, purpose, allowed scope, approved model and effort, budget,
-concurrency slot, start time, and status. On completion the parent records terminal status, source
-references, uncertainty, and observed usage or an explicit unavailable marker. The register is an
-instruction-level record and does not mutate the ledger, create an engine node, or consume a reviewer
-fan-out slot. The Supervisor receives the register summary with the parent handoff and enforces the
-shared run limits.
-
-Each child is one level deep and receives fresh minimal context: only the lookup question, allowed
-paths or MCP sources, the relevant approved artifact references, and its evidence budget. For review
-parents, do not pass prior review reasoning, tentative findings, or a conclusion; preserve review
-independence. Children may retrieve repository or authorized MCP evidence through bounded read-only
-commands, but may not write source or artifacts, run tests or other validation commands, mutate the
-ledger, change scope or decisions, create findings, publish, or spawn another child. Their response
-is a concise packet of source-cited excerpts, locations or URIs, retrieval provenance, and uncertainty.
-The parent owns interpretation and role decisions.
-
-When host telemetry is available, account for each child session separately from its parent session.
-Never add child totals to the parent checkpoint or graph branch total, and never count one source
-interval in more than one run. If child telemetry is unavailable, report it as unavailable rather
-than estimating it. This contract does not add a database table, schema field, graph node, ledger
-mutation, or delivery gate.
+These are optional instruction-level host sessions, not engine branches or new gates. Preserve
+the existing allowance and run-local evidence-child register; historical plans gain no new helper
+permissions. Prefer direct permitted tools when delegation overhead exceeds the likely benefit.
+Profile availability and prompt restrictions do not prove host enforcement; verify the actual
+assignment and capabilities before dispatch.
 
 ## Delegation transparency
 
@@ -220,13 +196,13 @@ do not infer, substitute, or silently inherit missing values. When dispatching s
 use one compact announcement that lists every concrete name and identifies which work will run in parallel.
 <!-- dispatch-transparency:end -->
 
-Eligible direct evidence-child parents apply this transparency requirement themselves: announce the
+Eligible helper parents apply this transparency requirement themselves: announce the
 child identity, bounded scope, exact approved model, and exact approved reasoning effort, then register
 its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Reusable Codex profiles match Astra revision 2. If a value is not exposed, state that it is inherited or unavailable instead
+Decision-role Codex profiles match Astra revision 2; helper profiles use the host economy mapping. If a value is not exposed, state that it is inherited or unavailable instead
 of guessing, and do not dispatch that role until the human approves a plan that makes the assignment
 explicit. Dispatch Cursor reasoning roles with `dispatch_model` from the plan (`cursor-grok-4.6-high`,
 not ChatGPT Sol). Any retry, replacement, or follow-up host, model, or effort change requires a new
@@ -272,7 +248,7 @@ Request Engineer assignment, exact repository, remote, base, head, and allowed n
 actions. Implementation authorization plus initial plan approval covers those actions after all gates;
 do not seek another publication approval. Cleanup remains conditional on its separately approved
 destructive authority. Neither instruction-level assignment changes engine topology or ledger state.
-If direct evidence children are allowed, the same approved plan must carry the bounded evidence-child
+If helpers are allowed, the same approved human-facing plan must carry the bounded helper
 allowance described above. This is a host instruction contract, not execution-plan v2 reviewer
 delegation, and it does not add a graph role, schema field, or ledger state.
 
@@ -446,7 +422,7 @@ Require these minimum handoffs:
 - **Code review:** decision, prioritized findings, evidence, missing tests, design conformance, skill usage.
 - **Review preliminary/request:** frozen findings and evidence plus an exhaustive ID-only conditional
   fan-out request; never raw authority, paths, prompts, operation IDs, or dispatch data.
-- **Direct evidence-child packet:** concise source-cited excerpts, locations or URIs, retrieval
-  provenance, uncertainty, terminal status, and separately reported usage; never a decision or finding.
+- **Helper evidence packets:** use the selected canonical helper profile and the
+  [shared lifecycle contract](references/economy-helpers.md); never substitute evidence for a parent decision.
 - **Test report:** decision, environment, commands, acceptance matrix, failures, untested gaps.
 - **Closure:** delivered outcome, validation, residual risks, approvals, next action.

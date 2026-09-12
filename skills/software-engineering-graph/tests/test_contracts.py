@@ -2,6 +2,7 @@ import copy
 import os
 import json
 import re
+import unittest
 from pathlib import Path
 
 from graph_engine.config import (
@@ -12,6 +13,61 @@ from graph_engine.contracts import ContractError, validate_impact_map, validate_
 from graph_engine.ids import sha256_bytes
 
 from tests.test_support import GraphCase
+
+
+class HelperProfileContractsTests(unittest.TestCase):
+    """Static inventory/wiring checks, not enforcement of live-agent instructions."""
+
+    def test_supported_profiles_and_parent_contract_wiring(self):
+        from tests.test_standalone_acceptance import PROFILE_AGENTS
+        from graph_engine.execution import NODE_ROLES
+        from graph_engine.config import ENGINE_ROLE_CAPABILITIES
+
+        root = Path(__file__).resolve().parents[1]
+        helpers = {"evidence_scout", "validation_executor"}
+        original = {"impact_mapper", "tech_lead", "software_architect", "senior_engineer",
+                    "code_reviewer", "test_engineer", "security_reviewer"}
+        self.assertEqual(PROFILE_AGENTS, {name + ".toml" for name in original | helpers})
+        self.assertEqual(PROFILE_AGENTS, {p.name for p in (root / "profile-agents").iterdir()})
+        expected = {
+            "tech_lead": {"evidence_scout"}, "software_architect": {"evidence_scout"},
+            "senior_engineer": helpers, "code_reviewer": {"evidence_scout"},
+            "test_engineer": helpers, "security_reviewer": {"evidence_scout"},
+        }
+        matrix = {}
+        contract = (root / "references/economy-helpers.md").read_text(encoding="utf-8")
+        for parent, scout, executor in re.findall(r"^\| (\w+) \| (yes|no) \| (yes|no) \|$", contract, re.M):
+            matrix[parent] = {name for name, enabled in (("evidence_scout", scout),
+                                                        ("validation_executor", executor)) if enabled == "yes"}
+        self.assertEqual(matrix, expected)
+        for name in original | helpers:
+            text = (root / "profile-agents" / (name + ".toml")).read_text(encoding="utf-8")
+            match = re.search(r"^Approved helper types: ([\w, ]+)\.$", text, re.M)
+            allowed = set(match.group(1).split(", ")) if match else set()
+            self.assertEqual(allowed, expected.get(name, set()), name)
+            if allowed:
+                self.assertIn("references/economy-helpers.md", text)
+        self.assertTrue(helpers.isdisjoint(NODE_ROLES))
+        self.assertTrue(helpers.isdisjoint(NODE_ROLES.values()))
+        self.assertTrue(helpers.isdisjoint(ENGINE_ROLE_CAPABILITIES))
+
+    def test_helper_contract_sources_and_host_defaults(self):
+        from graph_engine.hosts import resolve_assignment
+
+        root = Path(__file__).resolve().parents[1]
+        for name, sandbox in (("evidence_scout", "read-only"),
+                              ("validation_executor", "workspace-write")):
+            text = (root / "profile-agents" / (name + ".toml")).read_text(encoding="utf-8")
+            model = re.search(r'^model = "([^"]+)"$', text, re.M).group(1)
+            effort = re.search(r'^model_reasoning_effort = "([^"]+)"$', text, re.M).group(1)
+            self.assertEqual((model, effort), resolve_assignment("codex-astra", "economy", "max"))
+            self.assertIn('sandbox_mode = "' + sandbox + '"', text)
+            self.assertEqual(text.count('"""'), 2)
+            self.assertIn("references/economy-helpers.md", text)
+        # Safety semantics are exercised by H01-H15 on an actual constrained host.
+        scenarios = (root / "references/behavioral-evaluations.md").read_text(encoding="utf-8")
+        self.assertEqual(set(re.findall(r"^### H(\d+):", scenarios, re.M)),
+                         {"{:02d}".format(index) for index in range(1, 16)})
 
 
 def _validate_json_schema(value, schema, root, path="$", seen_refs=None):

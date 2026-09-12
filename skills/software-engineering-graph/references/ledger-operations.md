@@ -50,31 +50,19 @@ If no metadata is available, say that token usage is unavailable and continue th
    `record branch-result` with the claimed `attempt_id` and `claim_token`. Branch manifests never
    contain control mutations.
 
-### Instruction-level direct evidence children
+### Instruction-level helpers
 
-The entry skill may grant a bounded direct evidence-child allowance in the approved execution plan.
-This is separate from the graph engine and does not create a node, branch attempt, fan-out member,
-ledger operation, or new schema state. Only the Tech Lead, Software Architect, Code Reviewer, and
-Security Reviewer may use it. The Senior Engineer, Test Engineer, Impact Mapper, fixed research
-workers, and Pull Request Engineer cannot spawn these children.
+Read [Economy helpers](economy-helpers.md) for the canonical allowance, eligibility, host discovery,
+lifecycle, and accounting contract, and load the selected helper profile's behavior contract.
+Evidence Scout reuses direct evidence children; Validation Executor is a separate mechanical
+command contract for Senior Engineer and Test Engineer. Both may directly invoke either approved
+helper. Other eligible parents may invoke only Evidence Scout.
 
-The parent checks the approved role, exact host model and effort, read scope, child and run budgets,
-concurrency limit, and file, command, and output caps before each spawn. The Supervisor retains sole
-ledger CLI mutation and global scope, phase, gate, budget, and concurrency control, but does not
-dispatch each lookup. Small direct parent reads remain valid when delegation would add no value.
-
-Each child is one level deep, receives fresh minimal context, and performs only bounded read-only
-repository or authorized MCP retrieval. It must not write source or artifacts, run tests or other
-validation commands, mutate the ledger, make decisions, create findings, publish, or spawn a child.
-Its packet contains concise source-cited excerpts, locations or URIs, retrieval provenance, and
-uncertainty. The parent interprets the packet and owns its role decision.
-
-Before spawning, the parent records a child ID, purpose, parent role, allowed scope, approved model
-and effort, budget, concurrency slot, start time, and status in the run-local evidence-child register.
-On settlement it records terminal status, source references, uncertainty, and observed usage or an
-explicit unavailable marker. If host telemetry exists, bind that session separately from the parent;
-never add child usage to a parent or branch interval and never reuse a source interval across runs.
-The register is informational and cannot substitute for a ledger mutation or review-fanout record.
+Reuse the approved human-facing plan attachment and run-local evidence-child register. These are
+instruction-level records, not engine schema fields, ledger branches, reviewer-fanout members, or
+new gates. Unchanged calls within an allowance need no per-call Supervisor dispatch or approval.
+Historical approvals gain no helper permissions. Exact assignments and actual host restrictions
+must be verified. Helper results cannot replace required ledger check receipts or parent judgments.
 
 ### Optional reviewer delegation
 
@@ -148,8 +136,8 @@ total; otherwise the unknown prefix stays excluded and coverage is partial.
 For an executed branch, replace `--phase` and `--generation` with the exact `--branch-id` and
 `--attempt-id`. The engine derives role, phase, and generation from the attempt. Bind resumed
 sessions separately to that same attempt; retries use their distinct attempt IDs. Bind delegated
-reviewers separately, never copy a child's usage into its parent. Direct evidence-child sessions are
-not engine branches and must remain in the parent register with separate usage accounting. A single
+reviewers separately, never copy a child's usage into its parent. Helper sessions are
+not engine branches and must remain in the existing child register with separate usage accounting. A single
 source cannot have overlapping bound intervals within the run. Do not share counted source intervals
 across runs; the engine never searches other runs or sessions to discover ownership.
 

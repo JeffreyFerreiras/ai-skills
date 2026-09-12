@@ -3,7 +3,7 @@ from pathlib import Path
 
 from graph_engine.config import load_policy
 from graph_engine.execution import (
-    CLASS_ASSIGNMENTS, SIZE_ASSIGNMENTS, build_execution_plan, reconstruct_execution_plan,
+    CLASS_ASSIGNMENTS, SIZE_ASSIGNMENTS, assignment_for, build_execution_plan, reconstruct_execution_plan,
     validate_model_assignment,
 )
 from graph_engine.hosts import (
@@ -224,7 +224,7 @@ class PlannerTests(GraphCase):
         self.assess_fanout(action["fanout_id"], dependencies)
 
     def test_v1_plan_shape_and_digest_remain_frozen(self):
-        plan = build_execution_plan("RUN-1", self.task(), host="codex")
+        plan = reconstruct_execution_plan("RUN-1", self.task(), {"host": "codex"})
         self.assertEqual(
             set(plan), {
                 "approval_id", "approval_required", "assignments", "host",
@@ -343,7 +343,8 @@ class PlannerTests(GraphCase):
         engineer_assignments = {
             size: plan["senior_engineer"] for size, plan in assignments.items()
         }
-        self.assertEqual(len(set(engineer_assignments.values())), 3)
+        self.assertEqual(engineer_assignments["small"], engineer_assignments["medium"])
+        self.assertNotEqual(engineer_assignments["medium"], engineer_assignments["large"])
 
     def test_host_and_supervisor_mappings_are_unchanged_for_v2(self):
         codex = build_execution_plan("RUN-1", self.task_v2(), host="codex")
@@ -360,7 +361,7 @@ class PlannerTests(GraphCase):
             item["node_key"]: (item["model"], item["reasoning_effort"])
             for item in cursor["assignments"]
         }
-        self.assertEqual(cursor_assignments["senior_engineer"], ("composer-2.5", "high"))
+        self.assertEqual(cursor_assignments["senior_engineer"], ("cursor-grok-4.6", "medium"))
         self.assertEqual(cursor_assignments["tech_lead"], ("cursor-grok-4.6", "medium"))
 
     def test_size_assignment_matrix_is_exact(self):
@@ -422,7 +423,7 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan["status"], "approved")
 
     def test_historical_missing_host_keeps_codex_catalog(self):
-        legacy = build_execution_plan("RUN-1", self.task(), "medium", host="codex")
+        legacy = reconstruct_execution_plan("RUN-1", self.task(), {"host": "codex"}, "medium")
         self.assertEqual(reconstruct_execution_plan("RUN-1", self.task(), {}, "medium"), legacy)
 
     def test_astra_catalog_revision_two_core_assignments_for_both_task_versions(self):
@@ -482,8 +483,7 @@ class PlannerTests(GraphCase):
                 plan = reconstruct_execution_plan("RUN-COMPAT", task, {"host": host}, size)
                 self.assertNotIn("catalog_revision", plan)
                 self.assertEqual(plan["plan_digest"], expected_digest, (host, size))
-                if host != "codex-astra":
-                    self.assertEqual(build_execution_plan("RUN-COMPAT", task, size, host), plan)
+                self.assertNotEqual(build_execution_plan("RUN-COMPAT", task, size, host)["plan_digest"], plan["plan_digest"])
 
     def test_catalog_revision_markers_fail_closed(self):
         for host in known_hosts():
@@ -492,10 +492,9 @@ class PlannerTests(GraphCase):
                     with self.assertRaisesRegex(ValueError, "CATALOG_REVISION_INVALID"):
                         reconstruct_execution_plan("RUN-1", self.task(),
                                                    {"host": host, "catalog_revision": marker})
-            if host != "codex-astra":
-                with self.assertRaisesRegex(ValueError, "CATALOG_REVISION_INVALID"):
-                    reconstruct_execution_plan("RUN-1", self.task(),
-                                               {"host": host, "catalog_revision": 2})
+            revised = reconstruct_execution_plan("RUN-1", self.task(),
+                                                 {"host": host, "catalog_revision": 2})
+            self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):
         from tests.test_reviewer_delegation import policy_config
@@ -527,6 +526,35 @@ class PlannerTests(GraphCase):
                     validate_model_assignment("tech_lead", "gpt-6-astra", effort, host="codex-astra")
         with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
             validate_model_assignment("tech_lead", "gpt-6-astra", "high", host="codex")
+
+    def test_new_writers_are_reasoning_and_legacy_writers_remain_loadable(self):
+        for host in known_hosts():
+            for task in (self.task(), self.task_v2()):
+                for size in ("small", "medium", "large"):
+                    with self.subTest(host=host, task=task["schema_version"], size=size):
+                        new = build_execution_plan("RUN-1", task, size, host)
+                        writer = assignment_for(new, "senior_engineer")
+                        self.assertEqual(writer["intelligence_class"], "reasoning")
+                        legacy = reconstruct_execution_plan("RUN-1", task, {"host": host}, size)
+                        self.assertEqual(reconstruct_execution_plan("RUN-1", task, legacy, size), legacy)
+                        recorded = assignment_for(legacy, "senior_engineer")
+                        expected_class = CLASS_ASSIGNMENTS[size]["senior_engineer"][0]
+                        self.assertEqual(recorded["intelligence_class"], expected_class)
+                        for node in new["assignments"]:
+                            if node["node_key"] != "senior_engineer" and host != "codex-astra":
+                                self.assertEqual(node, assignment_for(legacy, node["node_key"]))
+
+    def test_new_writer_validation_rejects_economy_even_with_valid_effort(self):
+        for host in known_hosts():
+            model, effort = resolve_assignment(host, "economy", "max")
+            with self.subTest(host=host):
+                with self.assertRaisesRegex(ValueError, "IMPLEMENTATION_REASONING_MODEL_REQUIRED"):
+                    validate_model_assignment("senior_engineer", model, effort, host)
+                plan = build_execution_plan("RUN-1", self.task(), "small", host)
+                writer = next(row for row in plan["assignments"] if row["node_key"] == "senior_engineer")
+                writer.update(model=model, reasoning_effort=effort, intelligence_class="economy")
+                with self.assertRaisesRegex(ValueError, "IMPLEMENTATION_REASONING_MODEL_REQUIRED"):
+                    assignment_for(plan, "senior_engineer")
 
     def test_execution_plan_prefers_node_assignment_then_role_fallback(self):
         for size in SIZE_ASSIGNMENTS:

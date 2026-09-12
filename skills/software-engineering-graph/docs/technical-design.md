@@ -35,7 +35,7 @@ supported observed JSONL shape, checkpoint arguments, and source-association res
 ## Authority and scope
 
 This repository is authoritative for the workflow engine, command-line adapter, schemas, tests,
-fixtures, documentation, and seven reusable role definitions. The installed profile remains
+fixtures, documentation, and nine supported reusable role definitions. The installed profile remains
 untouched unless a separately approved task explicitly authorizes profile work.
 
 The repository supports Python 3.9 or newer and the standard library only. It has no packaging,
@@ -83,13 +83,16 @@ Omitting `--host` or passing `--host codex-astra` selects default catalog revisi
 Luna max for mapper/research, Astra low for Tech Lead/Senior Engineer/Test Engineer, and Astra medium
 for Architect/Code Reviewer/Security Reviewer. Other advisory/specialist mappings remain unchanged.
 Supervisor stays Astra xhigh, publication stays Luna max, and consolidation stays inherited.
-It does not switch the primary model. Baseline catalogs stay unchanged; the seven reusable profiles
-match the Astra default. Installed profiles require a separately authorized sync.
-New Astra plans include `catalog_revision: 2` in the canonical digest. Reconstruction treats absent
-markers as the frozen historical matrix and accepts only integer 2 on Astra when a marker is present.
+It does not switch the primary model. Frozen baseline catalogs stay unchanged; the seven existing reusable profiles
+match the Astra default and the two helpers use the economy assignment. Installed profiles require a separately authorized sync.
+New Astra plans include `catalog_revision: 2` in the canonical digest. New Codex and Cursor plans also use integer `catalog_revision: 2`, changing only the small
+Senior Engineer to the existing reasoning `medium` assignment. New-plan validation requires a
+reasoning writer; historical reconstruction and assignment loading explicitly preserve unversioned
+writer assignments. Reconstruction accepts the selected host's supported integer revision, rejects
+unknown or malformed markers, and treats absent markers as the frozen historical matrix.
 Exact plan, canonical digest, row digest, and approval digest checks remain mandatory. Historical
 plans keep their original bytes and approvals, including delegation-enabled plans. Older engines
-cannot read new revision 2 Astra plans; rollback must not rewrite approvals.
+cannot read unsupported revision 2 plans; rollback must not rewrite approvals.
 The host must expose each exact approved assignment; see [model catalogs](../references/model-catalogs.md).
 Reviewer delegation accepts Astra medium/high/xhigh/max with weights 3/3/4/5 in schema and runtime;
 Astra low and Sol medium remain unsupported. Weights are not monetary prices. Sizing, topology,
@@ -111,28 +114,20 @@ the canonical collection and evidence inputs when creating the same-generation T
 Lead exists before that collection is sealed. If a mandatory research branch exhausts its retry,
 the collection advances to a durable blocked run rather than waiting indefinitely.
 
-### Instruction-level direct evidence retrieval
+### Instruction-level reusable helpers
 
-The host may grant a separate direct evidence-child allowance in the approved execution plan. Only
-the Tech Lead, Software Architect, Code Reviewer, and Security Reviewer can use it. The allowance
-records the eligible parent, exact host model and effort, one-level child limit, shared run budget and
-concurrency, read scope, and file, command, and output caps. The Supervisor retains ledger CLI
-mutation and global scope, phase, gate, budget, and concurrency control, while the parent may spawn a
-permitted lookup without a separate Supervisor dispatch.
+[Economy helpers](../references/economy-helpers.md) is the canonical parent contract; the two
+helper TOMLs define child behavior. Evidence Scout formalizes the existing direct evidence-child
+mechanism. Validation Executor isolates exact command execution for Senior Engineer and Test
+Engineer. Both parents may invoke either helper within approved allowances. Tech Lead, Architect,
+Code Reviewer, and Security Reviewer may invoke only Evidence Scout. All other restrictions remain.
 
-Direct evidence children receive fresh minimal context, especially for review parents, and perform
-only bounded read-only repository or authorized MCP retrieval. They cannot write source or artifacts,
-run tests or validation commands, mutate the ledger, make decisions, create findings, publish, or
-spawn grandchildren. They return concise source-cited excerpts, locations or URIs, retrieval
-provenance, and uncertainty; the parent interprets the evidence and owns the role decision. A parent
-may read a trivial item directly when delegation would add no value.
-
-The default Codex child assignment is `gpt-5.6-luna` at `max`; Cursor follows the existing economy
-mapping, `composer-2.5` at `high`. An explicit verified plan assignment takes precedence, and an
-unavailable assignment fails that child dispatch without silent fallback. The parent registers each
-child's lifecycle and separately reported usage in an instruction-level run register. Child totals
-never enter the parent or graph-branch total, and the register does not add a table, schema field,
-graph node, ledger mutation, or delivery gate.
+The existing human-facing allowance and run-local evidence-child register cover these optional
+host sessions. They do not become ledger nodes, reviewer-fanout children, scheduler entries,
+schema fields, or gates. Runtime verification, budget settlement, and resource confinement remain
+host/parent obligations, not engine security guarantees. Decisions, writing, independent acceptance,
+publication, and ledger ownership remain with their existing roles. See the canonical contract for
+fresh-context inputs, exact evidence output, stable checkpoints, and separate usage attribution.
 
 ### Required instruction-level pull-request publication
 
@@ -272,8 +267,8 @@ The chosen design extends the existing SQLite ledger, atomic mutation, artifact 
 assessment, and branch lifecycle. It avoids a second scheduler and keeps recovery under `resume`.
 Direct graph-node or reviewer-fanout spawning remains rejected because it would bypass plan approval,
 budgets, fencing, resource assessment, and audit state. The instruction-level evidence children above
-are intentionally narrower: they perform retrieval only, have no engine identity or gate authority,
-and are registered outside the ledger. Reusing `specialist_tag` was rejected because repeated
+and validation helpers have no engine identity or gate authority and are registered outside the
+ledger. Retrieval and exact validation execution remain separate child contracts. Reusing `specialist_tag` was rejected because repeated
 same-role reviewer children need explicit assignment and ordinal identity. A standalone Court skill,
 panel, or orchestration layer is out of scope.
 
@@ -317,7 +312,7 @@ Delegation-disabled CLI behavior, exit codes, stable IDs, routes, specialist pro
 and SQLite transition semantics remain unchanged. State schema 6 is authoritative. Schema 5 and older
 runs fail closed in this engine without migration.
 
-The reusable profile set remains exactly:
+The supported reusable profile inventory is exactly:
 
 - `impact_mapper.toml`
 - `tech_lead.toml`
@@ -326,13 +321,16 @@ The reusable profile set remains exactly:
 - `code_reviewer.toml`
 - `test_engineer.toml`
 - `security_reviewer.toml`
+- `evidence_scout.toml`
+- `validation_executor.toml`
 
 Optional application-specialist protocol identifiers remain supported by topology and contract
 validation even though their role TOMLs are not part of the reusable profile set. No role
 substitution or topology change is introduced.
 
 All economy size assignments use the selected host catalog's economy effort. Tech Lead and Architect
-use that catalog's reasoning model at every size. The centralized execution-plan invariant rejects an
+use that catalog's reasoning model at every size. New plans also require a reasoning-class
+Senior Engineer, without changing historical approvals. The centralized execution-plan invariant rejects an
 invalid host, model, or effort before it can enter a persisted envelope.
 
 The recommended Supervisor assignment comes from the host catalog. Codex defaults to `gpt-6-astra`
@@ -390,6 +388,6 @@ $env:PYTHONDONTWRITEBYTECODE = '1'
 python -m unittest -v tests.test_standalone_acceptance.StandaloneAcceptanceTests.test_hygiene
 ```
 
-Hygiene checks forbidden artifacts, required ignore patterns, the exact seven reusable role files,
+Hygiene checks forbidden artifacts, required ignore patterns, the exact supported nine-profile inventory,
 repository authority wording, skill-discovery guardrails, and absence of stale external requirements.
 It does not repair files or inspect any installed profile or consumer repository.
