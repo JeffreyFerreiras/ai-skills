@@ -147,10 +147,12 @@ allowance and selected host catalog support it. No unavailable assignment is sub
 
 The register is one run-bound canonical JSON record under the selected absolute state root. An OS
 cross-process lock serializes validation and reservation; atomic replace/fsync preserves the old
-record across interruption. It reserves shared and assignment child, concurrency, command, time,
-output, read, and resource budgets together. Settlement releases only active concurrency/resources,
-so failures and replacements never refund consumed allowances. Identical operations replay and
-changed content under the same identity conflicts.
+record across interruption. The reservation ledger depends on a public bound-read/transaction port;
+the filesystem repository keeps path binding, locking, rereads, and atomic persistence behind that
+boundary. It reserves shared and assignment child, concurrency, command, time, output, read, and
+resource budgets together. Settlement releases only active concurrency/resources, so failures and
+replacements never refund consumed allowances. Identical operations replay and changed content under
+the same identity conflicts.
 
 These host sessions do not become ledger nodes, reviewer-fanout children, scheduler entries, or
 gates. The register cannot execute or confine a helper, stop external edits, authenticate an

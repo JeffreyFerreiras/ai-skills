@@ -7,7 +7,9 @@ from pathlib import Path
 from graph_engine.config import load_policy
 from graph_engine.contracts import ContractError, validate_task_brief
 from graph_engine.execution import build_execution_plan
-from graph_engine.helper_register import HelperRegister, HelperRegisterError, validate_allowance
+from graph_engine.helper_register import (
+    HelperRegister, HelperRegisterError, HelperReservationLedger, validate_allowance,
+)
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
@@ -1191,6 +1193,28 @@ class HelperRegisterTests(GraphCase):
         self.assertEqual(
             clean.reserve(path, context, self._request("interrupted"))["code"], "RESERVED",
         )
+
+    def test_ledger_operates_through_public_persistence_port(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+
+        class PublicOnlyPort:
+            def __init__(self, repository):
+                self.repository = repository
+
+            def read_bound(self, register_path, context):
+                return self.repository.read_bound(register_path, context)
+
+            def transaction(self, register_path, context):
+                return self.repository.transaction(register_path, context)
+
+        registry.ledger = HelperReservationLedger(PublicOnlyPort(registry.repository))
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        request = self._request("public-port")
+        self.assertEqual(registry.preflight(path, context, request)["code"], "PREFLIGHT_READY")
+        reserved = registry.reserve(path, context, request)
+        self.assertEqual(reserved["code"], "RESERVED")
+        self.assertEqual(registry.settle(path, context, self._settlement(request))["code"], "SETTLED")
+        self.assertEqual(registry.status(path, context)["usage"]["children"], 1)
 
 
 class TimingMetricTests(unittest.TestCase):

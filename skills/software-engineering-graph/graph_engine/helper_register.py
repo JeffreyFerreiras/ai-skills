@@ -10,7 +10,10 @@ import stat
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any, Callable, ContextManager, Dict, Iterator, List, Mapping, Optional, Protocol,
+    Sequence, Tuple,
+)
 
 from .contracts import (
     ContractError, bounded_string, digest, ensure_safe_components, lexical_relative, opaque,
@@ -740,6 +743,36 @@ class RegisterRecordValidator:
         return value
 
 
+class RegisterTransaction(Protocol):
+    record: Dict[str, Any]
+
+    def commit(self) -> None:
+        ...
+
+
+class HelperRegisterPersistence(Protocol):
+    def read_bound(
+        self, register_path: Path, context_value: Any,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        ...
+
+    def transaction(
+        self, register_path: Path, context_value: Any,
+    ) -> ContextManager[RegisterTransaction]:
+        ...
+
+
+class _FileRegisterTransaction:
+    def __init__(
+        self, record: Dict[str, Any], commit: Callable[[], None],
+    ) -> None:
+        self.record = record
+        self._commit = commit
+
+    def commit(self) -> None:
+        self._commit()
+
+
 class HelperRegisterRepository:
     """Own filesystem identity, locking, and durable register persistence."""
 
@@ -906,15 +939,32 @@ class HelperRegisterRepository:
             raise HelperRegisterError("REGISTER_BINDING_MISMATCH")
         return record, context
 
+    def read_bound(
+        self, register_path: Path, context_value: Any,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        return self._bound_record(register_path, context_value)
+
+    @contextmanager
+    def transaction(
+        self, register_path: Path, context_value: Any,
+    ) -> Iterator[RegisterTransaction]:
+        path, context = self._bound_path(register_path, context_value)
+        lock = path.parent / "register.lock"
+        with _exclusive_lock(lock):
+            record, _ = self._bound_record(path, context)
+            yield _FileRegisterTransaction(
+                record, lambda: self._write(path, record),
+            )
+
 
 class HelperReservationLedger:
     """Apply helper reservation state transitions to a bound repository record."""
 
-    def __init__(self, repository: HelperRegisterRepository):
+    def __init__(self, repository: HelperRegisterPersistence):
         self.repository = repository
 
     def preflight(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
-        record, _ = self.repository._bound_record(register_path, context)
+        record, _ = self.repository.read_bound(register_path, context)
         normalized, amounts, missing = preflight_record(record, request)
         if missing:
             return {
@@ -924,10 +974,8 @@ class HelperReservationLedger:
         return {"ok": True, "code": "PREFLIGHT_READY", "request_id": normalized["request_id"], "reservation": amounts}
 
     def reserve(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
-        path, normalized_context = self.repository._bound_path(register_path, context)
-        lock = path.parent / "register.lock"
-        with _exclusive_lock(lock):
-            record, _ = self.repository._bound_record(path, normalized_context)
+        with self.repository.transaction(register_path, context) as transaction:
+            record = transaction.record
             normalized = _validate_request(request)
             request_digest = sha256_bytes(canonical_bytes(normalized))
             existing = record["reservations"].get(normalized["request_id"])
@@ -970,7 +1018,7 @@ class HelperReservationLedger:
                 "status": "active", "reservation": amounts,
                 "resource_keys": normalized["resource_keys"], "settlement": None,
             }
-            self.repository._write(path, record)
+            transaction.commit()
         return {
             "ok": True, "code": "RESERVED", "request_id": normalized["request_id"],
             "request_digest": request_digest, "status": "active", "new_dispatch_authorized": True,
@@ -1003,10 +1051,8 @@ class HelperReservationLedger:
             "usage_ref": None if value["usage_ref"] is None else validate_ref(value["usage_ref"], "settlement.usage_ref"),
         }
         settlement_digest = sha256_bytes(canonical_bytes(settlement))
-        path, normalized_context = self.repository._bound_path(register_path, context)
-        lock = path.parent / "register.lock"
-        with _exclusive_lock(lock):
-            record, _ = self.repository._bound_record(path, normalized_context)
+        with self.repository.transaction(register_path, context) as transaction:
+            record = transaction.record
             reservation = record["reservations"].get(settlement["request_id"])
             if reservation is None or reservation["request_digest"] != settlement["request_digest"]:
                 raise HelperRegisterError("RESERVATION_NOT_FOUND")
@@ -1024,11 +1070,11 @@ class HelperReservationLedger:
             assignment_usage["concurrency"] -= 1
             for key in reservation["resource_keys"]:
                 record["active_resources"][key] -= 1
-            self.repository._write(path, record)
+            transaction.commit()
         return {"ok": True, "code": "SETTLED", "request_id": settlement["request_id"], "status": settlement["terminal_state"]}
 
     def status(self, register_path: Path, context: Any) -> Dict[str, Any]:
-        record, normalized_context = self.repository._bound_record(register_path, context)
+        record, normalized_context = self.repository.read_bound(register_path, context)
         return {
             "ok": True, "code": "STATUS", "context": normalized_context,
             "usage": record["usage"], "active_concurrency": record["active_concurrency"],
