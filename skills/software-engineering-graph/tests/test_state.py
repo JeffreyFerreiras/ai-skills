@@ -11,7 +11,7 @@ from graph_engine.contracts import ContractError
 from graph_engine.evidence import canonical_ledger_artifact, persist_artifact, resolve_reference
 from graph_engine.state import (
     StateError, StateStore, current_host_identity, installed_codex_home,
-    local_filesystem_identity,
+    local_filesystem_identity, resolve_state_root,
 )
 
 from tests.test_support import GraphCase
@@ -368,14 +368,49 @@ class StateTests(GraphCase):
                 "SELECT 1 FROM events WHERE source_id='rollback-validation'"
             ).fetchone())
 
-    def test_source_checkout_default_store_fails_closed_without_profile_fallback(self):
-        with patch("graph_engine.state.Path.home", side_effect=AssertionError("real profile fallback")):
+    def test_source_checkout_uses_portable_default_and_keeps_strict_legacy_helper(self):
+        portable_home = self.root / "portable-home"
+        with patch("graph_engine.state.Path.home", return_value=portable_home):
             with self.assertRaisesRegex(StateError, "CODEX_PROFILE_ROOT_NOT_FOUND"):
                 installed_codex_home()
-            with self.assertRaisesRegex(StateError, "CODEX_PROFILE_ROOT_NOT_FOUND"):
-                StateStore()
+            default = StateStore()
+        self.assertEqual(
+            default.state_root,
+            portable_home / ".local" / "state" / "software-engineering-graph",
+        )
         explicit = StateStore(self.root / "explicit-codex-home")
         self.assertEqual(explicit.codex_home, (self.root / "explicit-codex-home").absolute())
+
+    def test_state_root_precedence_and_invalid_supplied_values_fail_closed(self):
+        explicit = self.root / "explicit"
+        environment = self.root / "environment"
+        xdg = self.root / "xdg"
+        values = {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": str(environment), "XDG_STATE_HOME": str(xdg)}
+        self.assertEqual(resolve_state_root(explicit, values), explicit.absolute())
+        self.assertEqual(resolve_state_root(None, values), environment.absolute())
+        self.assertEqual(
+            resolve_state_root(None, {"XDG_STATE_HOME": str(xdg)}),
+            xdg.absolute() / "software-engineering-graph",
+        )
+        for values in (
+            {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": ""},
+            {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": "relative"},
+            {"XDG_STATE_HOME": ""},
+            {"XDG_STATE_HOME": "relative"},
+        ):
+            with self.subTest(values=values), self.assertRaises(StateError):
+                resolve_state_root(None, values)
+        with self.assertRaisesRegex(StateError, "STATE_ROOT_CONFLICT"):
+            StateStore(explicit, state_root=environment)
+
+    def test_explicit_legacy_root_is_opened_without_migration_or_discovery(self):
+        self.initialize()
+        legacy = self.store.state_root
+        with patch.dict(os.environ, {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": str(self.root / "new")}, clear=True):
+            selected = StateStore(state_root=legacy)
+            with selected.open_run("albanian-live-translate", "RUN-1") as connection:
+                self.assertEqual(connection.execute("SELECT status FROM runs").fetchone()[0], "active")
+        self.assertFalse((self.root / "new").exists())
 
     def test_semantic_corruption_fails_closed(self):
         cases = [

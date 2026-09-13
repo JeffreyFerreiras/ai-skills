@@ -5,9 +5,10 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from graph_engine.cli import main
+from graph_engine.cli import build_parser, main
 from graph_engine.contracts import ContractError
 from graph_engine.evidence import canonical_ledger_artifact
+from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.validator import canonical_collection_members, join_members
 from graph_engine.state import StateError, StateStore
 
@@ -530,6 +531,57 @@ class UsageTests(GraphCase):
 
 
 class CliGoldenTraceTests(GraphCase):
+    def test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip(self):
+        help_text = build_parser().format_help()
+        self.assertIn("--state-root", help_text)
+        init_help = build_parser()._subparsers._group_actions[0].choices["init"].format_help()
+        self.assertIn("codex-astra (default)", init_help)
+        self.assertIn("Luna/Sol option", init_help)
+        self.assertEqual(build_parser().parse_args([
+            "--repo", str(self.repo), "init", "--run-id", "R", "--task-brief", "T",
+            "--op-id", "O",
+        ]).host, "codex-astra")
+
+    def test_helper_enabled_task_initializes_and_persists_plan_v3(self):
+        allowance = {
+            "schema_version": 1, "allowance_id": "helpers-1", "run_id": "RUN-1",
+            "assignments": [{
+                "assignment_id": "tech-evidence", "parent_role": "tech_lead",
+                "helper_role": "evidence_scout", "contract_revision": 1,
+                "model": "gpt-5.6-luna", "reasoning_effort": "max",
+                "parent_capabilities": [{
+                    "effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/",
+                }],
+                "scope_refs": ["repo:docs/"], "commands": [],
+                "checkpoint_policy": "observed_repository_state",
+                "resource_keys": ["worktree"],
+                "required_host_capabilities": [
+                    "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
+                ],
+                "limits": {
+                    "children": 1, "concurrency": 1, "commands": 0,
+                    "time_seconds": 60, "output_tokens": 1000, "file_reads": 3,
+                },
+            }],
+            "shared_limits": {
+                "children": 1, "concurrency": 1, "commands": 0,
+                "time_seconds": 60, "output_tokens": 1000, "file_reads": 3,
+            },
+            "resources": [{"key": "worktree", "capacity": 1}],
+        }
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(allowance))
+        task = self.task_v2()
+        task["schema_version"] = 3
+        task["helper_allowance"] = {
+            "ref": "repo:docs/helper-allowance.json",
+            "sha256": sha256_bytes(allowance_path.read_bytes()),
+        }
+        initialized = self.initialize_task(task)
+        self.assertEqual(initialized["execution_plan"]["schema_version"], 3)
+        self.assertEqual(initialized["execution_plan"]["helper_allowance"], task["helper_allowance"])
+        self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]["schema_version"], 3)
+
     def setUp(self):
         super().setUp()
         policy_path = self.repo / ".codex" / "engineering-graph.json"

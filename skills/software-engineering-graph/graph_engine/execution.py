@@ -225,7 +225,7 @@ def _build_execution_plan(
         recommended, recommendation_reason = recommend_size(task)
         recommendation_codes: Tuple[str, ...] = ()
         recommendation_inputs: Optional[Dict[str, Any]] = None
-    elif task_schema_version == 2:
+    elif task_schema_version in {2, 3}:
         recommended, recommendation_codes, recommendation_inputs = recommend_size_v2(task)
         recommendation_reason = ", ".join(recommendation_codes)
     else:
@@ -233,7 +233,7 @@ def _build_execution_plan(
     size = requested_size or recommended
     if size not in TSHIRT_SIZES:
         raise ValueError("invalid execution size")
-    if task_schema_version == 2 and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
+    if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     assignments = []
     for node_key in sorted(NODE_ROLES):
@@ -263,7 +263,7 @@ def _build_execution_plan(
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
     publication_model, publication_effort, publication_dispatch = publication_assignment(host)
     plan = {
-        "schema_version": 2 if delegation is not None else 1,
+        "schema_version": 3 if task_schema_version == 3 else 2 if delegation is not None else 1,
         "run_id": run_id,
         "task_id": task["task_id"],
         "host": host,
@@ -290,10 +290,12 @@ def _build_execution_plan(
     if delegation is not None:
         plan["conditional_review_assignments"] = plan_fragment(delegation)
         plan["reviewer_delegation_limits"] = dict(delegation["limits"])
-    if task_schema_version == 2:
+    if task_schema_version in {2, 3}:
         plan["size_policy_version"] = 2
         plan["size_recommendation_inputs"] = recommendation_inputs
         plan["size_recommendation_reason_codes"] = list(recommendation_codes)
+    if task_schema_version == 3:
+        plan["helper_allowance"] = dict(task["helper_allowance"])
     if catalog_revision is not None:
         plan["catalog_revision"] = catalog_revision
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))

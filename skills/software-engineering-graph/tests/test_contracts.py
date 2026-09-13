@@ -7,7 +7,7 @@ from pathlib import Path
 
 from graph_engine.config import (
     ENGINE_ARTIFACT_MAX, ENGINE_COLLECTION_MAX_BYTES, ENGINE_COLLECTION_MAX_MEMBERS,
-    load_policy,
+    load_policy, role_capability_allowed,
 )
 from graph_engine.contracts import ContractError, validate_impact_map, validate_ref, validate_task_brief
 from graph_engine.ids import sha256_bytes
@@ -173,6 +173,39 @@ class ContractTests(GraphCase):
         super().setUp()
         self.policy, self.snapshot = load_policy(self.repo)
 
+    def policy_v2(self):
+        policy = copy.deepcopy(self.policy)
+        policy["schema_version"] = 2
+        policy["artifact_roots"]["repo"] = ["artifacts/"]
+        policy["implementation_roots"] = ["specs/", "app/", "tools/", "pyproject.toml"]
+        policy["required_checks"] = {
+            "focused": {
+                "command_id": "python-focused", "mandatory": True,
+                "argv": ["python", "-m", "unittest", "tests.test_contracts"],
+                "timeout_seconds": 600,
+            }
+        }
+        replacements = {
+            "repo:docs/": "repo:specs/", "repo:src/": "repo:app/",
+            "repo:scripts/": "repo:tools/", "repo:docs/technical-designs/": "repo:artifacts/design/",
+            "npm-run-check": "python-focused",
+        }
+        for capabilities in policy["role_capabilities"].values():
+            for capability in capabilities:
+                capability["target_ref"] = replacements.get(
+                    capability["target_ref"], capability["target_ref"],
+                )
+        for relative in ("artifacts/design", "specs", "app", "tools"):
+            (self.repo / relative).mkdir(parents=True, exist_ok=True)
+        (self.repo / "pyproject.toml").write_text("[tool.test]\n", encoding="utf-8")
+        policy["role_capabilities"]["senior_engineer"].append(
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:pyproject.toml"}
+        )
+        policy["role_capabilities"]["senior_engineer"].append(
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:pyproject.toml"}
+        )
+        return policy
+
     def test_real_policy_and_task_validate(self):
         task = validate_task_brief(self.task(tags=["security_privacy"]), self.snapshot.digest, self.policy)
         self.assertEqual(task["mandatory_impact_tags"], ["security_privacy"])
@@ -198,6 +231,31 @@ class ContractTests(GraphCase):
         with self.assertRaisesRegex(ContractError, "UNKNOWN_FIELD"):
             validate_task_brief(legacy, self.snapshot.digest, self.policy)
 
+    def test_v3_task_requires_and_binds_one_helper_allowance(self):
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_text("{}", encoding="utf-8")
+        task = self.task_v2()
+        task["schema_version"] = 3
+        task["helper_allowance"] = {
+            "ref": "repo:docs/helper-allowance.json",
+            "sha256": sha256_bytes(allowance_path.read_bytes()),
+        }
+        validated = validate_task_brief(task, self.snapshot.digest, self.policy)
+        self.assertEqual(validated["helper_allowance"], task["helper_allowance"])
+        from graph_engine.execution import build_execution_plan
+        plan = build_execution_plan("RUN-1", validated)
+        self.assertEqual(plan["schema_version"], 3)
+        self.assertEqual(plan["helper_allowance"], task["helper_allowance"])
+        for mutation, code in (
+            (lambda value: value.pop("helper_allowance"), "MISSING_FIELD"),
+            (lambda value: value["helper_allowance"].update(extra="no"), "UNKNOWN_FIELD"),
+            (lambda value: value["helper_allowance"].update(ref="authority:test"), "REPOSITORY_REF_REQUIRED"),
+        ):
+            candidate = copy.deepcopy(task)
+            mutation(candidate)
+            with self.subTest(code=code), self.assertRaisesRegex(ContractError, code):
+                validate_task_brief(candidate, self.snapshot.digest, self.policy)
+
     def test_published_task_schema_accepts_exact_v1_and_v2_contracts(self):
         schema = json.loads(
             (Path(__file__).parents[1] / "references" / "task-brief.schema.json").read_text(
@@ -206,6 +264,12 @@ class ContractTests(GraphCase):
         )
         _validate_json_schema(self.task(), schema, schema)
         _validate_json_schema(self.task_v2(), schema, schema)
+        task_v3 = self.task_v2()
+        task_v3["schema_version"] = 3
+        task_v3["helper_allowance"] = {
+            "ref": "repo:docs/helper-allowance.json", "sha256": "a" * 64,
+        }
+        _validate_json_schema(task_v3, schema, schema)
         legacy_with_v2_field = self.task()
         legacy_with_v2_field["model_sizing"] = {
             "scope_extent": "bounded", "uncertainty": "low",
@@ -272,6 +336,204 @@ class ContractTests(GraphCase):
         from graph_engine.config import ENGINE_ROLE_CAPABILITIES
         self.assertNotIn(("command", "run", "*"), ENGINE_ROLE_CAPABILITIES["senior_engineer"])
 
+    def test_policy_v2_allows_bounded_repo_paths_and_exact_configured_commands(self):
+        policy = self.policy_v2()
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        loaded, snapshot = load_policy(self.repo)
+        self.assertEqual(loaded["schema_version"], 2)
+        self.assertEqual(loaded["required_checks"]["focused"]["command_id"], "python-focused")
+        task = self.task()
+        task["policy_approval"]["sha256"] = snapshot.digest
+        task["authority"]["capabilities"] = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:pyproject.toml"},
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:pyproject.toml"},
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:app/"},
+            {"effect": "command", "action": "run", "target_ref": "python-focused"},
+        ]
+        task["required_check_ids"] = ["focused"]
+        validated = validate_task_brief(task, snapshot.digest, loaded)
+        from graph_engine.planner import NodeSpec, envelope
+        branch = envelope(
+            "RUN-1", snapshot.digest, loaded, validated,
+            NodeSpec("senior_engineer", "senior_engineer", "implementation", 0),
+            "ready", [],
+        )
+        self.assertEqual(branch["effect_capabilities"], validated["authority"]["capabilities"])
+
+    def test_policy_v2_rejects_artifact_implementation_overlap_and_unclassified_writes(self):
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        overlap_pairs = (
+            (["artifacts/"], ["artifacts/"]),
+            (["artifacts/"], ["artifacts/design/"]),
+            (["artifacts/design/"], ["artifacts/"]),
+            (["shared"], ["shared/"]),
+        )
+        for implementation_roots, artifact_roots in overlap_pairs:
+            policy = self.policy_v2()
+            policy["implementation_roots"] = implementation_roots
+            policy["artifact_roots"]["repo"] = artifact_roots
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            with self.subTest(
+                implementation=implementation_roots, artifacts=artifact_roots,
+            ), self.assertRaisesRegex(ContractError, "ARTIFACT_IMPLEMENTATION_OVERLAP"):
+                load_policy(self.repo)
+
+        policy = self.policy_v2()
+        (self.repo / "unclassified").mkdir()
+        policy["role_capabilities"]["senior_engineer"].append(
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:unclassified/"}
+        )
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ContractError, "ENGINE_AUTHORITY_EXCEEDED"):
+            load_policy(self.repo)
+
+    def test_policy_v2_uses_platform_path_identity_for_classification_and_duplicates(self):
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        case_insensitive = os.path.normcase("Artifacts") == os.path.normcase("artifacts")
+        case_overlaps = (
+            (["Artifacts/"], ["artifacts/"]),
+            (["Artifacts/Design/"], ["artifacts/"]),
+            (["Artifacts/"], ["artifacts/design/"]),
+        )
+        for implementation_roots, artifact_roots in case_overlaps:
+            policy = self.policy_v2()
+            policy["implementation_roots"] = implementation_roots
+            policy["artifact_roots"]["repo"] = artifact_roots
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            if case_insensitive:
+                with self.subTest(
+                    implementation=implementation_roots, artifacts=artifact_roots,
+                ), self.assertRaisesRegex(ContractError, "ARTIFACT_IMPLEMENTATION_OVERLAP"):
+                    load_policy(self.repo)
+
+        duplicate_sets = (["generated", "generated/"],)
+        if case_insensitive:
+            duplicate_sets += (["RootFile", "rootfile"],)
+        for implementation_roots in duplicate_sets:
+            policy = self.policy_v2()
+            policy["implementation_roots"] = list(implementation_roots)
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            with self.subTest(implementation=implementation_roots), self.assertRaisesRegex(
+                ContractError, "INVALID_OR_DUPLICATE",
+            ):
+                load_policy(self.repo)
+
+        if case_insensitive:
+            policy = self.policy_v2()
+            policy["artifact_roots"]["repo"] = ["Artifacts/", "artifacts/"]
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            with self.assertRaisesRegex(ContractError, "INVALID_OR_DUPLICATE"):
+                load_policy(self.repo)
+
+        policy = self.policy_v2()
+        policy["implementation_roots"] = ["App/"]
+        capability = {
+            "effect": "filesystem_write", "action": "edit", "target_ref": "repo:app/module.py",
+        }
+        self.assertEqual(
+            role_capability_allowed(policy, "senior_engineer", capability), case_insensitive,
+        )
+        policy["implementation_roots"] = ["package.json"]
+        self.assertTrue(role_capability_allowed(
+            policy, "senior_engineer", {**capability, "target_ref": "repo:package.json/"},
+        ))
+        self.assertFalse(role_capability_allowed(
+            policy, "senior_engineer", {**capability, "target_ref": "repo:package.json/child"},
+        ))
+
+    def test_policy_v2_accepts_empty_implementation_roots_without_implementation_writes(self):
+        policy = self.policy_v2()
+        policy["implementation_roots"] = []
+        policy["role_capabilities"]["senior_engineer"] = [
+            capability
+            for capability in policy["role_capabilities"]["senior_engineer"]
+            if capability["effect"] != "filesystem_write"
+            or capability["target_ref"].startswith("repo:artifacts/")
+        ]
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        loaded, _snapshot = load_policy(self.repo)
+        self.assertEqual(loaded["implementation_roots"], [])
+
+    def test_policy_v1_rejects_v2_implementation_classification(self):
+        policy = copy.deepcopy(self.policy)
+        policy["implementation_roots"] = []
+        (self.repo / ".codex" / "engineering-graph.json").write_text(
+            json.dumps(policy), encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ContractError, "UNKNOWN_FIELD"):
+            load_policy(self.repo)
+
+    def test_policy_v2_rejects_path_command_and_role_escalations(self):
+        mutations = (
+            lambda p: p["role_capabilities"]["senior_engineer"].append(
+                {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:.codex/"}
+            ),
+            lambda p: p["role_capabilities"]["tech_lead"].append(
+                {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:app/"}
+            ),
+            lambda p: p["role_capabilities"]["code_reviewer"].append(
+                {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:app/"}
+            ),
+            lambda p: p["role_capabilities"]["senior_engineer"].append(
+                {"effect": "command", "action": "run", "target_ref": "not-configured"}
+            ),
+            lambda p: p["role_capabilities"]["senior_engineer"].append(
+                {"effect": "external_write", "action": "deploy", "target_ref": "production"}
+            ),
+        )
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        for index, mutation in enumerate(mutations):
+            with self.subTest(index=index):
+                policy = self.policy_v2()
+                mutation(policy)
+                policy_path.write_text(json.dumps(policy), encoding="utf-8")
+                with self.assertRaises(ContractError):
+                    load_policy(self.repo)
+
+    def test_policy_v2_rejects_link_escape_and_requires_complete_check_specs(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        link = self.repo / "linked"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            link = None
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        if link is not None:
+            policy = self.policy_v2()
+            policy["role_capabilities"]["senior_engineer"].append(
+                {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:linked/"}
+            )
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            with self.assertRaisesRegex(ContractError, "LINK_OR_REPARSE_POINT"):
+                load_policy(self.repo)
+        for missing in ("argv", "timeout_seconds"):
+            policy = self.policy_v2()
+            del policy["required_checks"]["focused"][missing]
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            with self.assertRaisesRegex(ContractError, "MISSING_FIELD"):
+                load_policy(self.repo)
+        artifact_file = self.repo / "artifact-file"
+        artifact_file.write_text("not a directory", encoding="utf-8")
+        policy = self.policy_v2()
+        policy["artifact_roots"]["repo"] = ["artifact-file/"]
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ContractError, "DIRECTORY_ROOT_REQUIRED"):
+            load_policy(self.repo)
+
+    def test_policy_v1_bytes_digest_and_exact_target_ceiling_remain_frozen(self):
+        self.assertEqual(self.snapshot.digest, sha256_bytes(self.policy_bytes))
+        policy = copy.deepcopy(self.policy)
+        policy["role_capabilities"]["senior_engineer"].append(
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:app/"}
+        )
+        (self.repo / "app").mkdir()
+        (self.repo / ".codex" / "engineering-graph.json").write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaisesRegex(ContractError, "ENGINE_AUTHORITY_EXCEEDED"):
+            load_policy(self.repo)
+
     def test_oversized_manifest_is_rejected(self):
         self.initialize()
         branch = self.claim()
@@ -320,6 +582,11 @@ class ContractTests(GraphCase):
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         _validate_json_schema(fixture, schema, schema)
+        fixture_v2 = self.policy_v2()
+        _validate_json_schema(fixture_v2, schema, schema)
+        fixture["implementation_roots"] = []
+        with self.assertRaises(AssertionError):
+            _validate_json_schema(fixture, schema, schema)
 
     def test_repository_fixture_rejects_schema_missing_research_flags(self):
         schema_path = Path(__file__).parents[1] / "references" / "repository-config.schema.json"

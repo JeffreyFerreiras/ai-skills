@@ -407,6 +407,12 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
             value, required | {"model_sizing"},
             required | {"reviewer_delegation", "model_sizing"}, "task_brief",
         )
+    elif schema_version == 3:
+        require_keys(
+            value, required | {"model_sizing", "helper_allowance"},
+            required | {"reviewer_delegation", "model_sizing", "helper_allowance"},
+            "task_brief",
+        )
     else:
         require_keys(
             value, required, required | {"reviewer_delegation", "model_sizing"},
@@ -448,7 +454,7 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     )
     if value["risk_level"] not in {"low", "medium", "high", "critical"}:
         raise ContractError("risk_level", "UNKNOWN_VALUE")
-    if schema_version == 2:
+    if schema_version in {2, 3}:
         model_sizing = value["model_sizing"]
         if not isinstance(model_sizing, dict):
             raise ContractError("model_sizing", "INVALID_OBJECT")
@@ -460,6 +466,19 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
             raise ContractError("model_sizing.scope_extent", "UNKNOWN_VALUE")
         if model_sizing["uncertainty"] not in {"low", "medium", "high"}:
             raise ContractError("model_sizing.uncertainty", "UNKNOWN_VALUE")
+    if schema_version == 3:
+        allowance = value["helper_allowance"]
+        if not isinstance(allowance, dict):
+            raise ContractError("helper_allowance", "INVALID_OBJECT")
+        require_keys(
+            allowance, {"ref", "sha256"}, {"ref", "sha256"}, "helper_allowance",
+        )
+        allowance_ref = validate_ref(allowance["ref"], "helper_allowance.ref")
+        if not allowance_ref.startswith("repo:") or "#" in allowance_ref:
+            raise ContractError("helper_allowance.ref", "REPOSITORY_REF_REQUIRED")
+        if not allowance_ref.lower().endswith(".json"):
+            raise ContractError("helper_allowance.ref", "JSON_REQUIRED")
+        digest(allowance["sha256"], "helper_allowance.sha256")
     if value["risk_level"] == "critical" and mode == "delivery":
         if minimum != "full_delivery":
             raise ContractError("minimum_route", "CRITICAL_REQUIRES_FULL_DELIVERY")
@@ -523,8 +542,10 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     result = dict(value)
     result["mandatory_impact_tags"] = tags
     result["authority"] = {"capabilities": sorted(canonical_capabilities, key=lambda c: (c["effect"], c["action"], c["target_ref"]))}
-    if schema_version == 2:
+    if schema_version in {2, 3}:
         result["model_sizing"] = dict(value["model_sizing"])
+    if schema_version == 3:
+        result["helper_allowance"] = dict(value["helper_allowance"])
     if reviewer_delegation is not None:
         for assignment in reviewer_delegation["assignments"]:
             role_caps = {
@@ -558,8 +579,10 @@ def authoritative_task_subset(value: Mapping[str, Any]) -> Dict[str, Any]:
         "required_check_ids": list(value["required_check_ids"]),
         "required_human_decisions": list(value["required_human_decisions"]),
     }
-    if value["schema_version"] == 2:
+    if value["schema_version"] in {2, 3}:
         result["model_sizing"] = dict(value["model_sizing"])
+    if value["schema_version"] == 3:
+        result["helper_allowance"] = dict(value["helper_allowance"])
     if value.get("reviewer_delegation") is not None:
         result["reviewer_delegation"] = value["reviewer_delegation"]
     return result

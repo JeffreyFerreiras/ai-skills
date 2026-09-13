@@ -1,7 +1,9 @@
 # Model catalogs
 
 The CLI's existing `--host` field selects a catalog. `codex-astra` is the default;
-`codex` is the explicit Luna/Sol fallback for the same Codex runtime. new `cursor` plans retain existing assignments except for the small writer policy below.
+`codex` is the explicit size-specific Luna/Sol option for the same Codex runtime. It uses the
+existing role matrix, so some review and test assignments remain economy Luna. New `cursor` plans
+retain existing assignments except for the small writer policy below.
 Selecting a catalog does not switch the primary agent's actual model or install role profiles.
 
 The default Astra catalog revision 2 applies this table at every size:
@@ -24,7 +26,8 @@ specific mismatch; never silently fall back or claim the model was changed.
 
 Both reusable helpers use the selected host's economy assignment unless explicitly overridden by
 a verified approved allowance. See [Economy helpers](economy-helpers.md) for the canonical mapping,
-host/profile verification, and failure behavior. This does not add graph assignments or schema fields.
+host/profile verification, and failure behavior. A helper-enabled task/plan v3 binds the allowance,
+but helpers add no graph assignments or ledger state.
 
 Before plan approval, verify each exact assignment against the current host's exposed capabilities.
 An approved plan is not proof of model availability. Missing Supervisor model metadata selects

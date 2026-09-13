@@ -1,10 +1,14 @@
 import json
+import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 from graph_engine.config import load_policy
 from graph_engine.contracts import ContractError, validate_task_brief
-from graph_engine.ids import sha256_bytes
+from graph_engine.execution import build_execution_plan
+from graph_engine.helper_register import HelperRegister, HelperRegisterError, validate_allowance
+from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
 
@@ -723,6 +727,399 @@ class GraphHardeningTests(GraphCase):
             self.graphctl("status", "--run-id", "RUN-1")
         with self.store.connect(database) as connection:
             self.assertEqual(connection.execute("SELECT state_revision FROM runs").fetchone()[0], revision)
+
+
+class HelperRegisterTests(GraphCase):
+    def _assignment(
+        self, assignment_id, parent_role, helper_role, commands,
+        model="gpt-5.6-luna", reasoning_effort="max",
+    ):
+        required = [
+            "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
+        ]
+        if helper_role == "validation_executor":
+            required.append("command_confinement")
+        parent_capabilities = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/"},
+        ]
+        parent_capabilities.extend(
+            {"effect": "command", "action": "run", "target_ref": item["command_id"]}
+            for item in commands
+        )
+        return {
+            "assignment_id": assignment_id, "parent_role": parent_role,
+            "helper_role": helper_role, "contract_revision": 1,
+            "model": model, "reasoning_effort": reasoning_effort,
+            "parent_capabilities": parent_capabilities,
+            "scope_refs": ["repo:docs/"], "commands": commands,
+            "checkpoint_policy": "observed_repository_state",
+            "resource_keys": ["worktree"],
+            "required_host_capabilities": required,
+            "limits": {
+                "children": 2, "concurrency": 1, "commands": 2,
+                "time_seconds": 240, "output_tokens": 4000, "file_reads": 12,
+            },
+        }
+
+    def _materials(
+        self, unsupported=False, model="gpt-5.6-luna", reasoning_effort="max",
+        observed_model=None, observed_effort=None,
+    ):
+        validation_command = {
+            "command_id": "focused-tests",
+            "argv": [sys.executable, "-m", "unittest", "tests.test_contracts"],
+            "timeout_seconds": 120,
+        }
+        allowance = {
+            "schema_version": 1, "allowance_id": "helpers-1", "run_id": "RUN-HELPERS",
+            "assignments": [
+                self._assignment(
+                    "evidence", "tech_lead", "evidence_scout", [], model, reasoning_effort,
+                ),
+                self._assignment(
+                    "validation", "senior_engineer", "validation_executor", [validation_command],
+                    model, reasoning_effort,
+                ),
+            ],
+            "shared_limits": {
+                "children": 2, "concurrency": 1, "commands": 2,
+                "time_seconds": 240, "output_tokens": 4000, "file_reads": 12,
+            },
+            "resources": [{"key": "worktree", "capacity": 1}],
+        }
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(allowance))
+        task = self.task_v2()
+        task["schema_version"] = 3
+        task["task_id"] = "TASK-HELPERS"
+        task["helper_allowance"] = {
+            "ref": "repo:docs/helper-allowance.json",
+            "sha256": sha256_bytes(allowance_path.read_bytes()),
+        }
+        plan = build_execution_plan("RUN-HELPERS", task, host="codex-astra")
+        plan_path = self.repo / "docs" / "helper-plan.json"
+        plan_path.write_bytes(canonical_bytes(plan))
+        capabilities = {}
+        for name in (
+            "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
+            "command_confinement",
+        ):
+            unavailable = unsupported and name == "filesystem_confinement"
+            capabilities[name] = {
+                "status": "unavailable" if unavailable else "verified",
+                "source": "host_api",
+                "uncertainty": "not exposed" if unavailable else "none observed",
+            }
+        host_path = self.repo / "docs" / "host-observation.json"
+        host_path.write_bytes(canonical_bytes({
+            "schema_version": 1, "host_id": "local-host",
+            "observed_at": "2026-09-12T00:00:00Z", "source": "host capability probe",
+            "uncertainty": "trusted caller evidence only", "capabilities": capabilities,
+            "supported_assignments": [{
+                "model": observed_model or model,
+                "reasoning_effort": observed_effort or reasoning_effort, "status": "verified",
+                "source": "host_api", "uncertainty": "none observed",
+            }],
+        }))
+        registry = HelperRegister()
+        initialized = registry.initialize(
+            self.root / "host-state", self.repo, "RUN-HELPERS", plan_path,
+            allowance_path, host_path,
+        )
+        return registry, initialized, validation_command, plan, allowance
+
+    def _request(self, request_id="request-1", assignment="evidence", command=None):
+        helper_role = "validation_executor" if assignment == "validation" else "evidence_scout"
+        parent_role = "senior_engineer" if assignment == "validation" else "tech_lead"
+        checkpoint = self.repo / "docs" / ("checkpoint-" + request_id + ".json")
+        checkpoint.write_text(json.dumps({"request": request_id, "dirty": True}), encoding="utf-8")
+        checkpoint_ref = (
+            "repo:docs/" + checkpoint.name + "#sha256=" + sha256_bytes(checkpoint.read_bytes())
+        )
+        return {
+            "schema_version": 1, "request_id": request_id, "assignment_id": assignment,
+            "parent_role": parent_role, "helper_role": helper_role, "contract_revision": 1,
+            "model": "gpt-5.6-luna", "reasoning_effort": "max",
+            "scope_refs": ["repo:docs/"], "commands": [] if command is None else [command],
+            "checkpoint_ref": checkpoint_ref, "resource_keys": ["worktree"],
+            "budgets": {"time_seconds": 60, "output_tokens": 1000, "file_reads": 3},
+        }
+
+    @staticmethod
+    def _settlement(request, state="failed"):
+        return {
+            "schema_version": 1, "request_id": request["request_id"],
+            "request_digest": sha256_bytes(canonical_bytes(request)),
+            "terminal_state": state, "evidence_refs": [],
+            "uncertainty": "host execution evidence only",
+            "session_identity_sha256": "a" * 64, "usage_ref": None,
+        }
+
+    def test_hash_order_binds_allowance_then_plan_then_register(self):
+        registry, initialized, _command, plan, allowance = self._materials()
+        self.assertEqual(plan["schema_version"], 3)
+        self.assertNotIn("plan_digest", allowance)
+        self.assertEqual(
+            plan["helper_allowance"]["sha256"], initialized["context"]["allowance_digest"],
+        )
+        self.assertEqual(plan["plan_digest"], initialized["context"]["plan_digest"])
+        self.assertEqual(
+            initialized["context"]["allowance_payload_digest"],
+            sha256_bytes(canonical_bytes(validate_allowance(allowance, "RUN-HELPERS", "codex-astra"))),
+        )
+        self.assertEqual(
+            Path(initialized["context"]["register_path"]), Path(initialized["register_path"]),
+        )
+        replay = registry.initialize(
+            self.root / "host-state", self.repo, "RUN-HELPERS",
+            self.repo / "docs" / "helper-plan.json",
+            self.repo / "docs" / "helper-allowance.json",
+            self.repo / "docs" / "host-observation.json",
+        )
+        self.assertEqual(replay["code"], "REPLAYED")
+
+    def test_reopened_register_rejects_mutated_immutable_payloads_and_identities(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        original = path.read_bytes()
+        mutations = (
+            ("allowance", lambda record: record["allowance"]["shared_limits"].update(children=3), "status"),
+            ("host", lambda record: record["host_observation"].update(uncertainty="changed"), "preflight"),
+            ("reference", lambda record: record.update(allowance_ref="repo:docs/other.json"), "reserve"),
+            ("repository", lambda record: record["repository_identity"].update(inode=123), "reopen"),
+        )
+        for name, mutate, operation in mutations:
+            with self.subTest(name=name, operation=operation):
+                record = json.loads(original)
+                mutate(record)
+                path.write_bytes(canonical_bytes(record))
+                reopened = HelperRegister()
+                with self.assertRaisesRegex(HelperRegisterError, "REGISTER_INVALID"):
+                    if operation == "preflight":
+                        reopened.preflight(path, context, self._request("mutated-host"))
+                    elif operation == "reserve":
+                        reopened.reserve(path, context, self._request("mutated-reference"))
+                    else:
+                        reopened.status(path, context)
+                path.write_bytes(original)
+
+    def test_initialization_replay_compares_all_immutable_inputs(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        host_path = self.repo / "docs" / "host-observation.json"
+        host = json.loads(host_path.read_text(encoding="utf-8"))
+        host["uncertainty"] = "new observation bytes"
+        host_path.write_bytes(canonical_bytes(host))
+        with self.assertRaisesRegex(HelperRegisterError, "INITIALIZATION_CONFLICT"):
+            registry.initialize(
+                self.root / "host-state", self.repo, "RUN-HELPERS",
+                self.repo / "docs" / "helper-plan.json",
+                self.repo / "docs" / "helper-allowance.json", host_path,
+            )
+        self.assertEqual(
+            registry.status(Path(initialized["register_path"]), initialized["context"])["code"],
+            "STATUS",
+        )
+
+    def test_reservation_replay_precedes_checkpoint_and_authority_revalidation(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        request = self._request("durable-replay")
+        self.assertTrue(registry.reserve(path, context, request)["new_dispatch_authorized"])
+        checkpoint_body = request["checkpoint_ref"][5:].split("#sha256=", 1)[0]
+        checkpoint = self.repo / checkpoint_body
+        checkpoint.write_text("changed", encoding="utf-8")
+        replay = registry.reserve(path, context, request)
+        self.assertEqual((replay["code"], replay["new_dispatch_authorized"]), ("REPLAYED", False))
+        checkpoint.unlink()
+        self.assertEqual(registry.reserve(path, context, request)["code"], "REPLAYED")
+        for field, value in (
+            ("scope_refs", ["repo:docs/artifacts/"]),
+            ("assignment_id", "validation"),
+        ):
+            changed = json.loads(json.dumps(request))
+            changed[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(
+                HelperRegisterError, "RESERVATION_CONFLICT",
+            ):
+                registry.reserve(path, context, changed)
+
+    def test_state_root_and_register_location_are_bound_to_context(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        original_path = Path(initialized["register_path"])
+        alternate = registry.initialize(
+            self.root / "alternate-state", self.repo, "RUN-HELPERS",
+            self.repo / "docs" / "helper-plan.json",
+            self.repo / "docs" / "helper-allowance.json",
+            self.repo / "docs" / "host-observation.json",
+        )
+        self.assertNotEqual(initialized["context"]["register_id"], alternate["context"]["register_id"])
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_BINDING_MISMATCH"):
+            registry.status(Path(alternate["register_path"]), initialized["context"])
+        copied_directory = self.root / "copied" / initialized["context"]["register_id"]
+        copied_directory.mkdir(parents=True)
+        copied = copied_directory / "register.json"
+        copied.write_bytes(original_path.read_bytes())
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_BINDING_MISMATCH"):
+            registry.status(copied, initialized["context"])
+
+    def test_mutations_reject_external_register_paths_before_touching_locks(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        request = self._request("external-path")
+        settlement = self._settlement(request)
+        for operation, value in (("reserve", request), ("settle", settlement)):
+            for lock_exists in (False, True):
+                with self.subTest(operation=operation, lock_exists=lock_exists):
+                    directory = self.root / "external" / operation / str(lock_exists)
+                    directory.mkdir(parents=True)
+                    register_path = directory / "register.json"
+                    register_path.write_bytes(b"external register sentinel")
+                    lock_path = directory / "register.lock"
+                    if lock_exists:
+                        lock_path.write_bytes(b"external lock sentinel")
+                    before = {
+                        path.name: path.read_bytes()
+                        for path in directory.iterdir()
+                    }
+                    with self.assertRaisesRegex(
+                        HelperRegisterError, "REGISTER_BINDING_MISMATCH",
+                    ):
+                        getattr(registry, operation)(
+                            register_path, initialized["context"], value,
+                        )
+                    after = {
+                        path.name: path.read_bytes()
+                        for path in directory.iterdir()
+                    }
+                    self.assertEqual(after, before)
+
+    def test_missing_observed_host_restriction_blocks_without_reservation(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(unsupported=True)
+        request = self._request()
+        result = registry.preflight(
+            Path(initialized["register_path"]), initialized["context"], request,
+        )
+        self.assertEqual((result["ok"], result["code"]), (False, "BLOCKED_UNSUPPORTED"))
+        self.assertEqual(result["missing_host_capabilities"], ["filesystem_confinement"])
+        status = registry.status(Path(initialized["register_path"]), initialized["context"])
+        self.assertEqual(status["reservations"], {})
+
+    def test_approved_host_supported_assignment_override_is_preserved_exactly(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(
+            model="gpt-6-astra", reasoning_effort="medium",
+        )
+        request = self._request("astra-override")
+        request["model"] = "gpt-6-astra"
+        request["reasoning_effort"] = "medium"
+        result = registry.preflight(
+            Path(initialized["register_path"]), initialized["context"], request,
+        )
+        self.assertEqual(result["code"], "PREFLIGHT_READY")
+
+    def test_observed_assignment_mismatch_blocks_without_substitution(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(
+            observed_model="gpt-5.6-sol", observed_effort="high",
+        )
+        result = registry.preflight(
+            Path(initialized["register_path"]), initialized["context"], self._request("host-mismatch"),
+        )
+        self.assertEqual((result["ok"], result["code"]), (False, "BLOCKED_UNSUPPORTED"))
+        self.assertEqual(result["missing_host_capabilities"], ["model_effort_assignment"])
+
+    def test_assignment_scope_command_and_mandatory_resource_keys_fail_closed(self):
+        registry, initialized, command, _plan, _allowance = self._materials()
+        path = Path(initialized["register_path"])
+        wrong_model = self._request("wrong-model")
+        wrong_model["model"] = "gpt-5.6-sol"
+        wrong_scope = self._request("wrong-scope")
+        wrong_scope["scope_refs"] = ["repo:src/"]
+        missing_resource = self._request("missing-resource")
+        missing_resource["resource_keys"] = []
+        wrong_command = self._request("wrong-command", "validation", command)
+        wrong_command["commands"][0] = {**command, "argv": [sys.executable, "-V"]}
+        for request in (wrong_model, wrong_scope, missing_resource, wrong_command):
+            with self.subTest(request=request["request_id"]), self.assertRaises(ContractError):
+                registry.preflight(path, initialized["context"], request)
+
+    def test_allowance_may_not_exceed_approved_parent_capabilities(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials()
+        exceeded_scope = json.loads(json.dumps(allowance))
+        exceeded_scope["assignments"][0]["scope_refs"] = ["repo:src/"]
+        exceeded_command = json.loads(json.dumps(allowance))
+        exceeded_command["assignments"][1]["parent_capabilities"] = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/"},
+        ]
+        for candidate in (exceeded_scope, exceeded_command):
+            with self.subTest(candidate=candidate["assignments"]), self.assertRaisesRegex(
+                ContractError, "PARENT_AUTHORITY_EXCEEDED",
+            ):
+                validate_allowance(candidate, "RUN-HELPERS", "codex-astra")
+
+    def test_settlement_releases_only_active_resources_and_never_refunds_budgets(self):
+        registry, initialized, command, _plan, _allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        first = self._request("validation-1", "validation", command)
+        reserved = registry.reserve(path, context, first)
+        self.assertEqual(registry.reserve(path, context, first)["code"], "REPLAYED")
+        settlement = self._settlement(first)
+        self.assertEqual(registry.settle(path, context, settlement)["code"], "SETTLED")
+        self.assertEqual(registry.settle(path, context, settlement)["code"], "REPLAYED")
+        changed = dict(first)
+        changed["budgets"] = {**first["budgets"], "output_tokens": 999}
+        with self.assertRaisesRegex(HelperRegisterError, "RESERVATION_CONFLICT"):
+            registry.reserve(path, context, changed)
+        second = self._request("validation-2", "validation", command)
+        registry.reserve(path, context, second)
+        registry.settle(path, context, self._settlement(second, "replaced"))
+        status = registry.status(path, context)
+        self.assertEqual(status["usage"]["children"], 2)
+        self.assertEqual(status["usage"]["commands"], 2)
+        self.assertEqual(status["active_concurrency"], 0)
+        self.assertEqual(status["active_resources"]["worktree"], 0)
+        with self.assertRaisesRegex(HelperRegisterError, "SHARED_LIMIT_EXCEEDED"):
+            registry.reserve(path, context, self._request("validation-3", "validation", command))
+        self.assertEqual(reserved["request_digest"], settlement["request_digest"])
+
+    def test_cross_process_lock_allows_only_one_atomic_active_reservation(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        context_path = self.root / "context.json"
+        context_path.write_bytes(canonical_bytes(initialized["context"]))
+        request_paths = []
+        for request_id in ("parallel-1", "parallel-2"):
+            path = self.root / (request_id + ".json")
+            path.write_bytes(canonical_bytes(self._request(request_id)))
+            request_paths.append(path)
+        script = Path(__file__).parents[1] / "scripts" / "helper-register.py"
+        processes = [subprocess.Popen(
+            [sys.executable, str(script), "reserve", "--register", initialized["register_path"],
+             "--context", str(context_path), "--request", str(request_path)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        ) for request_path in request_paths]
+        results = []
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=15)
+            self.assertEqual(stderr, "")
+            results.append(json.loads(stdout))
+        self.assertEqual(
+            sorted(result["code"] for result in results),
+            ["RESERVED", "SHARED_LIMIT_EXCEEDED"],
+        )
+        status = registry.status(Path(initialized["register_path"]), initialized["context"])
+        self.assertEqual((status["usage"]["children"], status["active_concurrency"]), (1, 1))
+
+    def test_interrupted_atomic_replace_preserves_prior_register(self):
+        _registry, initialized, _command, _plan, _allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        failing = HelperRegister(
+            lambda _point: (_ for _ in ()).throw(RuntimeError("interrupted")),
+        )
+        with self.assertRaisesRegex(RuntimeError, "interrupted"):
+            failing.reserve(path, context, self._request("interrupted"))
+        clean = HelperRegister()
+        self.assertEqual(clean.status(path, context)["reservations"], {})
+        self.assertTrue(list(path.parent.glob(".register.*.tmp")))
+        self.assertEqual(
+            clean.reserve(path, context, self._request("interrupted"))["code"], "RESERVED",
+        )
 
 
 class TimingMetricTests(unittest.TestCase):

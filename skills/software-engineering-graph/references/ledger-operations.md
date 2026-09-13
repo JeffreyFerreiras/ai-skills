@@ -1,7 +1,29 @@
 # Ledger operations
 
-Read this reference fully before operating the ledger. `<skill>` denotes the installed skill root;
-schema paths in CLI instructions are relative to that root. The entry skill controls scope and authority.
+Read the essential invariants below, then the section for the command or route being used. `<skill>`
+denotes the installed skill root; schema paths in CLI instructions are relative to that root. The
+entry skill controls scope and authority.
+
+## Essential ledger invariants
+
+- The Supervisor is the sole ledger and `graphctl` mutator. Branches receive only claimed envelopes,
+  never database paths, operation IDs, sibling claims, or ledger control metadata.
+- No branch executes before explicit approval of the immutable execution plan. Every result,
+  heartbeat, timeout, and other attempt-scoped mutation presents the current attempt ID and claim
+  token. Stale fences fail closed.
+- Budgets, retry ceilings, mandatory gates, and resource assessments remain authoritative. A retry,
+  replacement, restart, or renamed task never refunds or resets consumed allowance.
+- Put input manifests only in the derived run inbox and use unique operation IDs. Identical requests
+  replay; changed content under the same identity conflicts.
+- After interruption, `resume` preserves valid state and requires every running attempt to settle
+  from its actual result or an explicit fenced timeout. Never infer completion from a lost session.
+- Windows permission and durability acknowledgments disclose platform limits; they grant no
+  authority and cannot weaken approval, fencing, or evidence requirements.
+
+Read `Start a run` for initialization, plan approval, fixed research fan-out, and platform
+acknowledgments. Read `Instruction-level helpers` or `Optional reviewer delegation` before those
+paths. Read `Operate the ledger` before claim, record, join, retry, resume, abort, or completion.
+Read `Token accounting at phase handoffs` before binding, collecting, closing, or reporting usage.
 
 ## Start a run
 
@@ -13,6 +35,16 @@ the metadata and the explicit file is authorized to read:
 This read-only preflight runs without `--repo`, policy, initialization, or any ledger write. Retain
 only the returned `checkpoint_schema_version: 1`, hashed `source_id`, `offset`, and `prefix_sha256`.
 If no metadata is available, say that token usage is unavailable and continue the approved workflow.
+
+Before the first stateful command, select one absolute state root for the shell and retain it for
+every later stateful command in the run:
+
+```powershell
+$env:SOFTWARE_ENGINEERING_GRAPH_STATE_HOME = 'C:\graph-state'
+```
+
+An explicit `--state-root` may be used instead, but it must be repeated unchanged on every stateful
+command. The stateless usage checkpoint above is exempt.
 
 1. Inspect the worktree and create a redacted, immutable task brief matching
    [the task-brief schema](task-brief.schema.json) under a repository-policy artifact root.
@@ -58,11 +90,17 @@ Evidence Scout reuses direct evidence children; Validation Executor is a separat
 command contract for Senior Engineer and Test Engineer. Both may directly invoke either approved
 helper. Other eligible parents may invoke only Evidence Scout.
 
-Reuse the approved human-facing plan attachment and run-local evidence-child register. These are
-instruction-level records, not engine schema fields, ledger branches, reviewer-fanout members, or
-new gates. Unchanged calls within an allowance need no per-call Supervisor dispatch or approval.
-Historical approvals gain no helper permissions. Exact assignments and actual host restrictions
-must be verified. Helper results cannot replace required ledger check receipts or parent judgments.
+New deterministic registration requires a task/plan v3 allowance attachment. The Supervisor hashes
+the allowance first, obtains approval for the plan that binds its reference/hash, and initializes the
+separate run-bound helper register. Parents receive only its path and redacted context, never ledger
+control metadata. The register validates requests against the immutable allowance, its approved
+parent capability ceilings, observed host support, shared limits, resources, and current checkpoint.
+Unchanged calls within an allowance need no per-call Supervisor dispatch or approval.
+
+Task/plan v1 and v2 have no authority through the new register. Loading new source does not rewrite
+or revoke a historical run's separately approved instruction-level contract. Exact assignments and
+actual host restrictions must be verified. Helper results cannot replace required ledger check
+receipts or parent judgments.
 
 ### Optional reviewer delegation
 
@@ -136,8 +174,8 @@ total; otherwise the unknown prefix stays excluded and coverage is partial.
 For an executed branch, replace `--phase` and `--generation` with the exact `--branch-id` and
 `--attempt-id`. The engine derives role, phase, and generation from the attempt. Bind resumed
 sessions separately to that same attempt; retries use their distinct attempt IDs. Bind delegated
-reviewers separately, never copy a child's usage into its parent. Helper sessions are
-not engine branches and must remain in the existing child register with separate usage accounting. A single
+    reviewers separately, never copy a child's usage into its parent. Helper sessions are
+    not engine branches and remain in the separate helper register with separate usage accounting. A single
 source cannot have overlapping bound intervals within the run. Do not share counted source intervals
 across runs; the engine never searches other runs or sessions to discover ownership.
 

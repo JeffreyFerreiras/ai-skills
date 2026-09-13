@@ -40,7 +40,7 @@ Name the host catalog in the execution plan as `codex`, `codex-astra`, or `curso
 `codex-astra` is the default model catalog for the Codex runtime. Do not infer the host from a
 task, prompt, environment variable, or agent self-report. Use a trusted host runtime assertion, or
 ask the human. Pass `--host cursor` to `init` when running in Cursor; omit it or pass `--host codex-astra`
-for the default Codex catalog. Use `--host codex` for the explicit Luna/Sol fallback.
+for the default Codex catalog. Use `--host codex` for the explicit size-specific Luna/Sol option.
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
@@ -71,12 +71,18 @@ concrete conflict. Do not infer new approval requirements from optional skill gu
 
 ## Ledger procedures
 
-Before initializing, claiming, recording, joining, resuming, or completing a run, read
-[Ledger operations](references/ledger-operations.md) fully. It defines the required approval,
-attempt fences, research and review fan-outs, budgets, recovery, and platform acknowledgments.
-Use only the claimed envelope for engine-managed graph dispatch; the first branch is always the
-Impact Mapper. Direct evidence children use the separate contract below and never receive ledger
-control metadata.
+Before any ledger operation, preserve these invariants: the Supervisor is the sole ledger mutator;
+the immutable execution plan requires explicit human approval before a claim; every attempt-scoped
+mutation presents the current claim fence; budgets never reset through retries or relabeling; branch
+agents receive only their claimed envelope; resume settles every running attempt from evidence or an
+explicit fenced timeout; and platform degradation acknowledgments grant no authority.
+
+Then read the operation-relevant section of [Ledger operations](references/ledger-operations.md):
+`Start a run` for initialization, approval, research fan-out, and platform acknowledgments;
+`Instruction-level helpers` or `Optional reviewer delegation` before those paths; `Operate the
+ledger` for claim, record, join, retry, resume, abort, or completion; and `Token accounting at phase
+handoffs` for usage commands. The first branch is always the Impact Mapper. Direct evidence children
+use the separate contract below and never receive ledger control metadata.
 
 ## Operating model
 
@@ -179,9 +185,11 @@ commands. Both parents may directly spawn either helper within an approved allow
 per-call Supervisor dispatch or human approval. Neither helper writes source/tests or makes role
 decisions. No arbitrary agents, graph nodes, reviewer-fanout children, or grandchildren are allowed.
 
-These are optional instruction-level host sessions, not engine branches or new gates. Preserve
-the existing allowance and run-local evidence-child register; historical plans gain no new helper
-permissions. Prefer direct permitted tools when delegation overhead exceeds the likely benefit.
+These are optional host-only sessions, not engine branches or new gates. New deterministic
+registration requires a human-approved task/plan v3 allowance attachment and the separate run-bound
+helper register. Task/plan v1 and v2 have no authority through that register; loading new source does
+not rewrite or revoke a historical run's separately approved instruction-level contract. Prefer
+direct permitted tools when delegation overhead exceeds the likely benefit.
 Profile availability and prompt restrictions do not prove host enforcement; verify the actual
 assignment and capabilities before dispatch.
 
@@ -249,8 +257,9 @@ actions. Implementation authorization plus initial plan approval covers those ac
 do not seek another publication approval. Cleanup remains conditional on its separately approved
 destructive authority. Neither instruction-level assignment changes engine topology or ledger state.
 If helpers are allowed, the same approved human-facing plan must carry the bounded helper
-allowance described above. This is a host instruction contract, not execution-plan v2 reviewer
-delegation, and it does not add a graph role, schema field, or ledger state.
+allowance described above. The helper-enabled task and plan use schema v3 and bind the allowance
+reference/hash. This remains separate from execution-plan v2 reviewer delegation and adds no graph
+role, topology, ledger state, scheduler, executor, or token reducer.
 
 Then apply these route rules:
 
@@ -264,165 +273,58 @@ Treat repository routing as authoritative when it requires a stricter route.
 Critical delivery tasks are engine-forced to `full_delivery` and must include the
 `security_privacy` impact tag. The impact mapper cannot remove that floor.
 
-## Manual fallback and graph roles
+## Execute the approved route
 
-### 1. Create the task brief
+Read only the relevant section of [Workflow operations](references/workflow-operations.md) before
+creating a brief, running a design or repair loop, coordinating delivery review, or closing. The
+reference contains detailed packets and mechanics; the gates below remain mandatory.
 
-Have the Supervisor define:
+Every initial design generation, design `REVISE`, and delivery `REDESIGN` runs the fixed
+architecture/validation research pair before the next Tech Lead. The Supervisor seals that evidence,
+then the Tech Lead designs. The Architect and required specialists independently approve, revise, or
+block. Limit design to three revisions. Begin implementation only after required design approval.
 
-- objective and user-visible outcome;
-- scope and explicit non-goals;
-- constraints and preserved behavior;
-- acceptance criteria;
-- affected surfaces and initial risk level;
-- an initial inspection budget and named evidence paths;
-- authorized external or destructive actions;
-- required tests, specialists, and human decisions.
+The Senior Engineer is the sole source/test writer. Every implementation and repair applies
+`clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,
+and reports material design deviations before editing past the approved design. It never publishes.
 
-Inspect the current worktree before delegating. Identify unrelated changes and protect them throughout the workflow.
+At a stable checkpoint, run a fresh Code Reviewer and Test Engineer independently, in parallel only
+when resource assessment permits. The Code Reviewer applies `code-review` and
+`clean-architecture-review`. Neither gate repairs its own findings. Route one consolidated repair
+packet to the Senior Engineer, then return affected findings to their originating gate. Limit delivery
+to three repair rounds; material design or scope changes return to design or the human.
 
-### 2. Run the design loop
+## Publication
 
-Ask the Tech Lead to inspect the repository and produce a technical-design packet covering current behavior, proposed components and interfaces, data and control flow, failure handling, compatibility, observability, rollout, rollback, alternatives, and test strategy.
+For every repository implementation intended for delivery, read
+[Publication contract](references/publication.md) fully while preparing the plan and again before
+publication or cleanup. The approved plan names the Pull Request Engineer assignment, exact
+repository, remote, base, head, allowed non-force actions, and generated-artifact locations.
+Implementation authorization plus initial plan approval covers those exact actions after all gates;
+do not seek another publication approval.
 
-The Tech Lead may return `SCOPE_OBJECTION` without editing the design when a requested finding lacks
-an acceptance-criterion mapping, conflicts with an explicit non-goal, or requires a materially new
-subsystem. The objection must identify the finding, controlling scope text, missing causal link, and
-smallest in-scope alternative. The Supervisor must adjudicate it before requesting another revision.
+A fresh execution-plan-authorized Pull Request Engineer is the sole commit, push, PR, and worktree
+cleanup mutator. The Supervisor verifies its evidence. Successful delivery requires exactly one
+review-ready PR created or the exact existing PR updated and verified. A publication blocker means
+incomplete delivery. Cleanup needs separate destructive authority and the stricter cleanliness rules
+in the publication contract.
 
-Bound the initial design investigation to named architecture, interface, implementation, test, and operations paths. Unless the task brief authorizes more, allow at most 12 file reads and 8 focused discovery commands before requiring a first design packet. Return incomplete evidence as an explicit gap instead of roaming indefinitely. Expand the budget only through a Supervisor follow-up.
+## Closure invariants
 
-Allow the Tech Lead to write only the requested design artifact during this phase. Do not run another writer concurrently.
+Before closing, verify every acceptance criterion has evidence, the approved design still matches,
+all blocking and major findings are resolved, required checks pass, unrelated failures are separated,
+and rollout, rollback, approval, and publication conditions are satisfied. Report observed
+input/output/total tokens and coverage when available; otherwise say unavailable. The final response
+may add tokens after the last checkpoint.
 
-Send the same task brief and design to the Architect. Add required read-only specialists in parallel when their review surfaces are independent.
+Keep one source/test writer and assess dependencies plus writable paths, mutable state, build output,
+databases, ports, devices, and constrained services before each fan-out. Serialize conflicts. Start
+independent reviewers/specialists from verified artifacts and a stable checkpoint, never worker
+reasoning or desired conclusions. Research nodes remain evidence-only and cannot write, test, decide,
+create findings, or spawn children.
 
-Require each reviewer to return `APPROVE`, `REVISE`, or `BLOCK`, with stable finding IDs and concrete evidence. Every blocking finding must name the acceptance criterion it protects, the in-scope surface that introduced or changed the risk, and the concrete impact. Concerns that cannot meet all three conditions are non-blocking separate-task observations, not findings.
-
-Before recording a reviewer result, the Supervisor must verify that traceability against the exact
-task brief. Return a nonconforming result to the same reviewer for correction under its existing
-branch attempt instead of ingesting it or consuming a design revision. Before consolidation, reject
-scope expansion, deduplicate valid findings, and return one bounded revision packet to the Tech
-Lead. A material scope expansion requires user authorization and a new task brief/run.
-
-Limit the design loop to three revision rounds. Escalate unresolved product choices, conflicting constraints, or material risk to the user. Do not begin implementation without approval.
-
-### 3. Implement with one writer
-
-Give the Senior Engineer the approved task brief, technical design, acceptance criteria, and assigned finding IDs.
-
-Include the bounded role skill preflight and explicitly require `clean-code` and
-`clean-architecture-code` in every implementation dispatch and repair continuation. Require its
-`Skill usage` report with concrete actions and validation for both workflows before accepting
-READY_FOR_REVIEW. Apply architecture guidance proportionately to the approved design; do not add
-layers or abstractions merely to demonstrate skill use.
-
-Keep the Senior Engineer as the only production-code and test-code writer. Do not run another worktree writer concurrently. Require the engineer to preserve unrelated changes, add proportionate tests, run focused checks, and report any design deviation before proceeding.
-
-The Senior Engineer does not create commits, push branches, create pull requests, or remove worktrees.
-
-Return to the design loop when implementation reveals a material interface, dependency, persistence, security, deployment, or scope change. Do not silently redesign inside the implementation node.
-
-### 4. Run independent delivery gates
-
-After implementation reaches a stable checkpoint, run the Code Reviewer and Test Engineer in parallel. Add conditional read-only specialists where required.
-
-Require the Code Reviewer to evaluate correctness, regressions, design fidelity, maintainability, security implications, and test adequacy against the approved artifacts.
-
-An enabled primary Code Reviewer may request approved read-only reviewer-fanout children, but may not
-choose raw roles/models/efforts/capabilities, dispatch them, inspect control metadata, suppress their
-frozen collection, or decide findings. The Supervisor validates, records, dispatches, and consolidates
-that engine-managed collection. A Code Reviewer may also spawn a direct evidence child under the
-separate contract above; that child supplies retrieval evidence only and is not a reviewer-fanout
-member.
-
-Include the bounded role skill preflight and explicitly require `code-review` and
-`clean-architecture-review`. Keep the reviewer read-only,
-limit discovery to the assigned review context, and require its `Skill usage` report in the review
-handoff before accepting the result.
-
-Require the Test Engineer to map acceptance criteria to evidence, run the narrowest reliable test set, expand to integration or full checks as risk requires, and distinguish regressions from unrelated pre-existing failures.
-
-Do not let reviewers or testers repair their own findings.
-
-### 5. Run the repair loop
-
-Have the Supervisor deduplicate and prioritize findings. Use stable IDs such as `ARCH-001`, `REV-001`, `TEST-001`, and `SEC-001`. Route one coherent repair packet to the Senior Engineer.
-
-After repair, return the affected findings to the independent gate that raised them. Run required
-checks and affected regression checks. Broaden or repeat verification only for new changes, failures,
-or an identified unresolved risk; stop when those checks and acceptance criteria are satisfied.
-
-Limit the delivery loop to three repair rounds. Return to the design loop for material design changes. Escalate an unresolved blocker after the third round instead of cycling indefinitely.
-
-### 6. Close the graph
-
-Finish only when:
-
-- every acceptance criterion has evidence;
-- when the route includes design gates, the Architect's approved design still matches the implementation;
-- no blocking or major review finding remains;
-- required focused, integration, build, and repository checks pass;
-- unrelated failures are clearly separated and reported;
-- rollout, rollback, and approval requirements are satisfied;
-- the final diff is scoped and explainable;
-- for a repository implementation intended for delivery, exactly one pull request has been created or
-  the exact existing pull request has been updated and verified under the publication contract below.
-
-Validate the required publication evidence before reporting success. The Supervisor retains plan,
-ledger, validation, dispatch, and synthesis ownership. Apart from the bounded initial worktree setup
-above, it performs no Git, GitHub, or worktree mutation.
-Have it deliver the result, validation, risks, and next action.
-
-## Publication and cleanup
-
-For a repository implementation intended for delivery, read [Publication contract](references/publication.md)
-fully before preparing the human-facing plan and again before publication or cleanup. Include exact
-publication authority and generated-artifact locations in that plan. The fresh Pull Request Engineer
-publishes after all gates; the Supervisor verifies its evidence before closure. Cleanup requires
-separate authority and retains stricter worktree cleanliness requirements.
-
-Repository implementation is complete only after the Pull Request Engineer commits the reviewed
-change, pushes without force, and creates one review-ready PR or updates and verifies the exact
-existing PR. Local checks passing is a publication handoff, not successful delivery. Return the
-verified PR URL to the user. If publication is blocked, report incomplete delivery and the concrete
-blocker; do not substitute local completion or ask again for already approved publication actions.
-
-## Concurrency and evidence rules
-
-- Before every Supervisor fan-out, deterministically check branch dependencies and shared resources.
-  Parallelize branches only when neither consumes the other's result and they share no writable
-  files, mutable state, exclusive devices, constrained or rate-limited external services, or other
-  resource that imposes ordering. Otherwise serialize them or add an explicit dependency edge.
-- Start every independent reviewer and read-only specialist in fresh context (`fork_turns: "none"`
-  or an explicitly equivalent fresh-session mechanism). Reconstruct its prompt only from the
-  verified immutable task brief, approved design when applicable, stable diff or reference,
-  acceptance criteria, and required evidence. Do not pass worker chat history, prior reasoning, or
-  Supervisor narration. A same-role repair or revision follow-up may retain that role agent's own
-  context.
-- Serialize all worktree writes. Never assign the same files or responsibility to concurrent writers.
-- Give every node bounded inputs, permitted actions, expected output, and a stopping condition.
-- Research nodes are deliberately evidence-only. The Supervisor owns artifact materialization and
-  collection sealing; research branches never receive write, test, decision, findings, or child-spawn
-  authority. Direct evidence children are not research nodes and do not alter that gate.
-- Give exploratory nodes a file and command budget. Prefer a useful partial packet over an unbounded repository survey.
-- Prefer repository evidence over assumptions. Cite files, lines, commands, logs, or test output in findings.
-- Keep raw logs and noisy exploration in subagent threads. Return concise evidence packets to the Supervisor.
-- Treat external, destructive, costly, production, and scope-expanding actions as explicit approval boundaries.
-
-## Artifact contracts
-
-Require these minimum handoffs:
-
-- **Task brief:** objective, scope, non-goals, constraints, acceptance criteria, risk, authority, named evidence paths, inspection budget.
-- **Research result:** a verified `evidence_manifest` artifact and evidence references, with
-  `decision: null` and `findings: []`.
-- **Technical design:** current state, proposal, interfaces, failure modes, rollout, rollback, observability, test strategy, alternatives.
-- **Design review:** decision, finding IDs, evidence, required revisions, unresolved decisions.
-- **Implementation handoff:** changed files, acceptance mapping, focused checks, deviations, risks, skill usage.
-- **Code review:** decision, prioritized findings, evidence, missing tests, design conformance, skill usage.
-- **Review preliminary/request:** frozen findings and evidence plus an exhaustive ID-only conditional
-  fan-out request; never raw authority, paths, prompts, operation IDs, or dispatch data.
-- **Helper evidence packets:** use the selected canonical helper profile and the
-  [shared lifecycle contract](references/economy-helpers.md); never substitute evidence for a parent decision.
-- **Test report:** decision, environment, commands, acceptance matrix, failures, untested gaps.
-- **Closure:** delivered outcome, validation, residual risks, approvals, next action.
+Minimum handoffs are task brief, verified research evidence, technical design, independent design
+review, implementation report with skill usage, independent code review with skill usage, test report,
+and closure evidence. Helper packets use the canonical profile plus registered lifecycle and never
+replace a parent decision. Conditional reviewer fan-out uses the frozen preliminary/request contracts;
+the Supervisor alone validates, dispatches, seals, and consolidates it.
