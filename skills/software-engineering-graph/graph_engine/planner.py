@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .ids import stable_id
-from .config import ENGINE_RESEARCH_NODES, ENGINE_ROLE_CAPABILITIES
+from .config import ENGINE_RESEARCH_NODES, role_capability_allowed
 from .execution import assignment_for, build_execution_plan
 
 
@@ -244,6 +244,26 @@ def _as_spec(row: Mapping[str, Any]) -> NodeSpec:
     )
 
 
+def effective_role_capabilities(
+    policy: Mapping[str, Any], task: Mapping[str, Any], role: str,
+) -> List[Dict[str, str]]:
+    """Return the approved task/policy/role capability intersection for a role."""
+    authority = task["authority"]["capabilities"]
+    configured = {
+        (cap["effect"], cap["action"], cap["target_ref"])
+        for cap in policy["role_capabilities"].get(role, [])
+        if role_capability_allowed(policy, role, cap)
+    }
+    capabilities = [
+        dict(cap) for cap in authority
+        if (cap["effect"], cap["action"], cap["target_ref"]) in configured
+    ]
+    return sorted(
+        capabilities,
+        key=lambda cap: (cap["effect"], cap["action"], cap["target_ref"]),
+    )
+
+
 def envelope(
     run_id: str,
     policy_digest: str,
@@ -258,16 +278,11 @@ def envelope(
     template = _template(policy, spec.key)
     plan = execution_plan or build_execution_plan(run_id, task)
     assignment = assignment_for(plan, spec.key)
-    authority = task["authority"]["capabilities"]
-    configured = {
-        (cap["effect"], cap["action"], cap["target_ref"])
-        for cap in policy["role_capabilities"].get(spec.role, [])
-        if (cap["effect"], cap["action"], cap["target_ref"]) in ENGINE_ROLE_CAPABILITIES.get(spec.role, set())
-    }
+    effective_capabilities = effective_role_capabilities(policy, task, spec.role)
     capabilities = [
-        cap for cap in authority
-        if (cap["effect"], cap["action"], cap["target_ref"]) in configured
-        and (spec.stage not in {"advisory", "research"} or cap["effect"] in {"filesystem_read", "external_read"})
+        cap for cap in effective_capabilities
+        if (spec.stage not in {"advisory", "research"}
+            or cap["effect"] in {"filesystem_read", "external_read"})
     ]
     output_contract = dict(template["output_contract"])
     max_retries = int(template["max_retries"])

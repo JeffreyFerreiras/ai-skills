@@ -13,6 +13,7 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
+CURRENT_CATALOG_REVISIONS = {"codex": 2, "codex-astra": 2, "cursor": 2}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {("gpt-6-astra", "medium"): 3}
 

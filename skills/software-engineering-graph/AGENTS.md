@@ -2,7 +2,11 @@
 
 - The ai-skills repository is authoritative for this skill. The installed profile remains untouched unless separately
   approved work explicitly changes it.
-- Keep `profile-agents/` limited to the seven exact reusable role TOMLs already present.
+- The supported `profile-agents/` inventory is `impact_mapper`, `tech_lead`, `software_architect`,
+  `senior_engineer`, `code_reviewer`, `test_engineer`, `security_reviewer`, `evidence_scout`, and
+  `validation_executor`, each as one TOML. Preserve every role's responsibilities and validate this
+  exact inventory. The two helpers are optional child contracts, not graph stages. Further profile
+  additions require explicit scope approval.
 - Retain optional specialist protocol identifiers and current executable behavior.
 - Use Python 3.9 or newer and the standard library only. Add no dependency or packaging system.
 - Do not add cache, bytecode, virtual environment, database, run-state, inbox, secret, environment,

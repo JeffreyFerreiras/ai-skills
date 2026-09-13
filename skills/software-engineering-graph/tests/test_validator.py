@@ -17,6 +17,53 @@ from tests.test_support import GraphCase
 
 
 class ValidatorTests(GraphCase):
+    def test_codex_and_cursor_legacy_writer_approval_survives_resume_and_claim(self):
+        for index, host in enumerate(("codex", "cursor")):
+            if index:
+                self.tearDown()
+                self.setUp()
+            task = self.task(route="fast_path")
+            self.initialize_task(task, host=host, approve=False, size="small")
+            legacy = reconstruct_execution_plan("RUN-1", task, {"host": host}, "small")
+            database = self.store.db_path("albanian-live-translate", "RUN-1")
+            with self.store.connect(database) as connection:
+                connection.execute("UPDATE execution_plans SET plan_json=?,plan_digest=? WHERE run_id='RUN-1'",
+                                   (json.dumps(legacy), legacy["plan_digest"]))
+            self.graphctl("record", "plan-approval", "--run-id", "RUN-1", "--plan-digest",
+                          legacy["plan_digest"], "--decision", "APPROVE", "--authority-ref",
+                          "authority:test", "--op-id", "legacy-approval")
+            with self.store.connect(database) as connection:
+                before = dict(connection.execute("SELECT * FROM execution_plans").fetchone())
+            self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability",
+                          "resume", "--run-id", "RUN-1")
+            self.impact("fast_path")
+            writer = self.claim()
+            recorded = next(row for row in legacy["assignments"] if row["node_key"] == "senior_engineer")
+            self.assertEqual(writer["node_key"], "senior_engineer")
+            self.assertEqual(recorded["intelligence_class"], "economy")
+            self.assertEqual((writer["model"], writer["reasoning_effort"]),
+                             (recorded["model"], recorded["reasoning_effort"]))
+            with self.store.connect(database) as connection:
+                after = dict(connection.execute("SELECT * FROM execution_plans").fetchone())
+            self.assertEqual(after, before)
+
+    def test_new_codex_and_cursor_writer_assignment_survives_resume_and_claim(self):
+        for index, host in enumerate(("codex", "cursor")):
+            if index:
+                self.tearDown()
+                self.setUp()
+            initialized = self.initialize(route="fast_path", host=host, size="small")
+            self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability",
+                          "resume", "--run-id", "RUN-1")
+            self.impact("fast_path")
+            writer = self.claim()
+            self.assertEqual(writer["node_key"], "senior_engineer")
+            self.assertEqual(writer["reasoning_effort"], "medium")
+            self.assertIn(writer["model"], {"gpt-5.6-sol", "cursor-grok-4.6"})
+            plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
+            self.assertEqual(plan["plan_digest"], initialized["execution_plan_digest"])
+            self.assertEqual(plan["status"], "approved")
+
     def test_legacy_astra_pending_and_approved_plans_keep_original_digest(self):
         initialized = self.initialize(host="codex-astra", approve=False, size="small")
         legacy = reconstruct_execution_plan("RUN-1", self.task(), {"host": "codex-astra"}, "small")

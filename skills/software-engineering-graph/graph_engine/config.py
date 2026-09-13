@@ -1,12 +1,15 @@
 """Exhaustive repository policy loading and engine-owned validation."""
 
+import fnmatch
+import os
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Dict, Mapping, Set, Tuple
 
 from . import ENGINE_VERSION
 from .contracts import (
-    ContractError, EFFECTS, RISK_TAGS, Snapshot, lexical_relative, opaque, require_keys,
-    safe_json_snapshot, validate_ref,
+    ContractError, EFFECTS, RISK_TAGS, Snapshot, ensure_safe_components, lexical_relative,
+    opaque, require_keys, safe_json_snapshot, validate_ref,
 )
 from .reviewer_delegation import validate_policy_config
 
@@ -187,7 +190,7 @@ def _validate_output_contract(node_key: str, value: Mapping[str, Any]) -> None:
         raise ContractError(f"node_templates.{node_key}.output_contract", "ENGINE_CONTRACT_CHANGED")
 
 
-def _validate_capability(capability: Any, role: str, command_ids: Set[str]) -> Tuple[str, str, str]:
+def _validate_capability_shape(capability: Any, role: str, command_ids: Set[str]) -> Tuple[str, str, str]:
     if not isinstance(capability, dict):
         raise ContractError(f"role_capabilities.{role}", "INVALID_OBJECT")
     require_keys(capability, {"effect", "action", "target_ref"}, {"effect", "action", "target_ref"}, f"role_capabilities.{role}")
@@ -203,10 +206,94 @@ def _validate_capability(capability: Any, role: str, command_ids: Set[str]) -> T
             raise ContractError("capability.target_ref", "UNKNOWN_COMMAND_TARGET")
     else:
         opaque(target, "capability.target_ref")
-    ceiling = ENGINE_ROLE_CAPABILITIES[role]
-    if (effect, action, target) not in ceiling:
-        raise ContractError(f"role_capabilities.{role}", "ENGINE_AUTHORITY_EXCEEDED")
     return effect, action, target
+
+
+def _repository_target(repo: Path, target: str, denied_patterns: Any) -> str:
+    if not target.startswith("repo:"):
+        raise ContractError("capability.target_ref", "REPOSITORY_REF_REQUIRED")
+    relative = lexical_relative(target[5:], "capability.target_ref")
+    if any(character in relative for character in "*?[]{}"):
+        raise ContractError("capability.target_ref", "WILDCARD_FORBIDDEN")
+    normalized = relative.lower()
+    path = PurePosixPath(normalized)
+    for pattern in denied_patterns:
+        lowered = pattern.lower()
+        if fnmatch.fnmatchcase(normalized, lowered) or path.match(lowered):
+            raise ContractError("capability.target_ref", "SENSITIVE_PATH")
+    if normalized.startswith((".codex/", ".agents/", ".claude/", ".cursor/")):
+        raise ContractError("capability.target_ref", "PROFILE_OR_POLICY_ROOT_FORBIDDEN")
+    repository = repo.resolve(strict=True)
+    candidate = repo / relative.rstrip("/")
+    ensure_safe_components(candidate, repository)
+    try:
+        candidate.resolve(strict=False).relative_to(repository)
+    except ValueError:
+        raise ContractError("capability.target_ref", "OUTSIDE_REPOSITORY")
+    return "repo:" + relative
+
+
+def _location_key(path: str) -> str:
+    """Return a platform-aware key for one repository-relative location."""
+    return os.path.normcase(path.rstrip("/"))
+
+
+def _under_configured_root(target: str, roots: Any) -> bool:
+    if not target.startswith("repo:"):
+        return False
+    relative = target[5:]
+    target_key = _location_key(relative)
+    for root in roots:
+        root_key = _location_key(root)
+        if target_key == root_key:
+            return True
+        if root.endswith("/") and target_key.startswith(root_key + os.sep):
+            return True
+    return False
+
+
+def _roots_overlap(left: str, right: str) -> bool:
+    left_key = _location_key(left)
+    right_key = _location_key(right)
+    return (
+        left_key == right_key
+        or (left.endswith("/") and right_key.startswith(left_key + os.sep))
+        or (right.endswith("/") and left_key.startswith(right_key + os.sep))
+    )
+
+
+def _has_location_duplicates(paths: Any) -> bool:
+    keys = [_location_key(path) for path in paths]
+    return len(keys) != len(set(keys))
+
+
+def role_capability_allowed(
+    policy: Mapping[str, Any], role: str, capability: Mapping[str, Any],
+) -> bool:
+    """Apply the same versioned role ceiling during validation and envelope planning."""
+    candidate = (capability["effect"], capability["action"], capability["target_ref"])
+    ceiling = ENGINE_ROLE_CAPABILITIES.get(role, set())
+    if policy["schema_version"] == 1:
+        return candidate in ceiling
+    effect, action, target = candidate
+    allowed_effect_actions = {(item[0], item[1]) for item in ceiling}
+    if (effect, action) not in allowed_effect_actions:
+        return False
+    if effect == "command":
+        return target in {check["command_id"] for check in policy["required_checks"].values()}
+    if effect.startswith("filesystem"):
+        if not target.startswith("repo:"):
+            return False
+        if effect == "filesystem_write":
+            if role == "senior_engineer":
+                return _under_configured_root(
+                    target, policy["implementation_roots"] + policy["artifact_roots"]["repo"],
+                )
+            return role == "tech_lead" and _under_configured_root(
+                target, policy["artifact_roots"]["repo"],
+            )
+        return True
+    return candidate in ceiling
 
 
 def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
@@ -220,9 +307,13 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
         "artifact_kinds", "impact_tags", "routes", "node_templates", "specialists",
         "limits", "required_checks", "role_capabilities", "denied_patterns",
     }
-    require_keys(value, required, required | {"reviewer_delegation"}, "policy")
-    if value["schema_version"] != 1:
+    policy_version = value.get("schema_version")
+    if type(policy_version) is not int or policy_version not in {1, 2}:
+        require_keys(value, required, required | {"reviewer_delegation", "implementation_roots"}, "policy")
         raise ContractError("policy.schema_version", "UNSUPPORTED_SCHEMA")
+    version_required = required | ({"implementation_roots"} if policy_version == 2 else set())
+    version_allowed = version_required | {"reviewer_delegation"}
+    require_keys(value, version_required, version_allowed, "policy")
     opaque(value["repository_id"], "repository_id")
     compatible = value["compatible_engine"]
     if not isinstance(compatible, dict):
@@ -238,15 +329,55 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
         configured = roots[root_kind]
         if not isinstance(configured, list) or not configured or len(configured) != len(set(configured)):
             raise ContractError(f"artifact_roots.{root_kind}", "INVALID_OR_DUPLICATE")
+        normalized_configured = []
         for path in configured:
             normalized = lexical_relative(path, f"artifact_roots.{root_kind}")
+            normalized_configured.append(normalized)
             if not normalized.endswith("/"):
                 raise ContractError(f"artifact_roots.{root_kind}", "DIRECTORY_ROOT_REQUIRED")
             if root_kind == "profile" and not normalized.startswith("references/"):
                 raise ContractError("artifact_roots.profile", "PROFILE_ROOT_FORBIDDEN")
             engine_root = "docs/" if root_kind == "repo" else "references/"
-            if not normalized.startswith(engine_root):
+            if policy_version == 1 and not normalized.startswith(engine_root):
                 raise ContractError(f"artifact_roots.{root_kind}", "ENGINE_ROOT_EXCEEDED")
+            if root_kind == "repo" and policy_version == 2:
+                configured_denials = value["denied_patterns"]
+                _repository_target(
+                    root, "repo:" + normalized,
+                    configured_denials if isinstance(configured_denials, list) else ENGINE_DENIALS,
+                )
+                artifact_root = root / normalized.rstrip("/")
+                if artifact_root.exists() and not artifact_root.is_dir():
+                    raise ContractError("artifact_roots.repo", "DIRECTORY_ROOT_REQUIRED")
+        if policy_version == 2:
+            if _has_location_duplicates(normalized_configured):
+                raise ContractError(f"artifact_roots.{root_kind}", "INVALID_OR_DUPLICATE")
+            roots[root_kind] = normalized_configured
+    if policy_version == 2:
+        configured = value["implementation_roots"]
+        if not isinstance(configured, list) or len(configured) != len(set(configured)):
+            raise ContractError("implementation_roots", "INVALID_OR_DUPLICATE")
+        normalized_roots = []
+        for path in configured:
+            normalized = lexical_relative(path, "implementation_roots")
+            if not normalized.endswith("/") and "/" in normalized:
+                raise ContractError("implementation_roots", "DIRECTORY_OR_ROOT_FILE_REQUIRED")
+            _repository_target(
+                root, "repo:" + normalized,
+                value["denied_patterns"] if isinstance(value["denied_patterns"], list) else ENGINE_DENIALS,
+            )
+            candidate = root / normalized.rstrip("/")
+            if normalized.endswith("/") and candidate.exists() and not candidate.is_dir():
+                raise ContractError("implementation_roots", "DIRECTORY_ROOT_REQUIRED")
+            if not normalized.endswith("/") and candidate.exists() and not candidate.is_file():
+                raise ContractError("implementation_roots", "ROOT_FILE_REQUIRED")
+            normalized_roots.append(normalized)
+        if _has_location_duplicates(normalized_roots):
+            raise ContractError("implementation_roots", "INVALID_OR_DUPLICATE")
+        for implementation_root in normalized_roots:
+            if any(_roots_overlap(implementation_root, artifact_root) for artifact_root in roots["repo"]):
+                raise ContractError("implementation_roots", "ARTIFACT_IMPLEMENTATION_OVERLAP")
+        value["implementation_roots"] = normalized_roots
     if not isinstance(value["impact_tags"], list) or set(value["impact_tags"]) != RISK_TAGS or len(value["impact_tags"]) != len(RISK_TAGS):
         raise ContractError("impact_tags", "ENGINE_INVARIANT_CHANGED")
     if value["routes"] != ENGINE_ROUTES:
@@ -315,7 +446,9 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
         if not isinstance(config["max_bytes"], int) or not 1 <= config["max_bytes"] <= ceiling:
             raise ContractError("artifact_kinds." + kind, "LIMIT_MAY_NOT_INCREASE")
     checks = value["required_checks"]
-    if not isinstance(checks, dict) or not set(ENGINE_REQUIRED_CHECKS).issubset(checks):
+    if not isinstance(checks, dict) or not checks:
+        raise ContractError("required_checks", "ENGINE_COMMAND_SET_CHANGED")
+    if policy_version == 1 and not set(ENGINE_REQUIRED_CHECKS).issubset(checks):
         raise ContractError("required_checks", "ENGINE_COMMAND_SET_CHANGED")
     command_ids: Set[str] = set()
     for check_id, check in checks.items():
@@ -329,14 +462,19 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
             "required_checks." + check_id,
         )
         command_id = opaque(check["command_id"], "required_checks.command_id")
-        if check_id in ENGINE_REQUIRED_CHECKS and command_id != ENGINE_REQUIRED_CHECKS[check_id]["command_id"]:
+        if (policy_version == 1 and check_id in ENGINE_REQUIRED_CHECKS
+                and command_id != ENGINE_REQUIRED_CHECKS[check_id]["command_id"]):
             raise ContractError("required_checks." + check_id, "ENGINE_COMMAND_SET_CHANGED")
         if command_id in command_ids or check["mandatory"] is not True:
             raise ContractError("required_checks", "INVALID_OR_DUPLICATE")
+        if policy_version == 2 and "argv" not in check:
+            raise ContractError("required_checks." + check_id, "MISSING_FIELD")
         if "argv" in check:
             argv = check["argv"]
             if not isinstance(argv, list) or not argv or len(argv) > 32 or any(not isinstance(item, str) or not item or len(item) > 1024 for item in argv):
                 raise ContractError("required_checks." + check_id + ".argv", "INVALID_COMMAND")
+        if policy_version == 2 and "timeout_seconds" not in check:
+            raise ContractError("required_checks." + check_id, "MISSING_FIELD")
         if "timeout_seconds" in check:
             timeout = check["timeout_seconds"]
             if isinstance(timeout, bool) or not isinstance(timeout, int) or not 1 <= timeout <= 3600:
@@ -348,7 +486,20 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
     for role, configured in capabilities.items():
         if not isinstance(configured, list):
             raise ContractError("role_capabilities." + role, "INVALID_LIST")
-        tuples = [_validate_capability(item, role, command_ids) for item in configured]
+        tuples = []
+        for item in configured:
+            capability_tuple = _validate_capability_shape(item, role, command_ids)
+            if policy_version == 2 and item["effect"].startswith("filesystem"):
+                configured_denials = value["denied_patterns"]
+                normalized_target = _repository_target(
+                    root, item["target_ref"],
+                    configured_denials if isinstance(configured_denials, list) else ENGINE_DENIALS,
+                )
+                item["target_ref"] = normalized_target
+                capability_tuple = (item["effect"], item["action"], normalized_target)
+            if not role_capability_allowed(value, role, item):
+                raise ContractError(f"role_capabilities.{role}", "ENGINE_AUTHORITY_EXCEEDED")
+            tuples.append(capability_tuple)
         if len(tuples) != len(set(tuples)):
             raise ContractError("role_capabilities." + role, "DUPLICATE_VALUE")
     denials = value["denied_patterns"]

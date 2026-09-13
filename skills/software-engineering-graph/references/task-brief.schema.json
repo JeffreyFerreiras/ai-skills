@@ -1,16 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:codex:engineering-graph:task-brief:v2",
+  "$id": "urn:codex:engineering-graph:task-brief:v3",
   "title": "Immutable engineering graph task brief",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "task_id", "objective", "user_outcome", "request_mode", "minimum_route", "mandatory_impact_tags", "scope", "constraints", "acceptance_criteria", "risk_level", "authority", "policy_approval", "evidence_paths", "inspection_budget", "required_check_ids", "required_human_decisions"],
   "oneOf": [
-    {"properties": {"schema_version": {"const": 1}}, "not": {"required": ["model_sizing"]}},
-    {"required": ["model_sizing"], "properties": {"schema_version": {"const": 2}}}
+    {"properties": {"schema_version": {"const": 1}}, "not": {"anyOf": [{"required": ["model_sizing"]}, {"required": ["helper_allowance"]}]}},
+    {"required": ["model_sizing"], "properties": {"schema_version": {"const": 2}}, "not": {"required": ["helper_allowance"]}},
+    {"required": ["model_sizing", "helper_allowance"], "properties": {"schema_version": {"const": 3}}}
   ],
   "properties": {
-    "schema_version": {"enum": [1, 2]},
+    "schema_version": {"enum": [1, 2, 3]},
     "task_id": {"$ref": "#/$defs/id"},
     "objective": {"type": "string", "minLength": 1, "maxLength": 4096},
     "user_outcome": {"type": "string", "minLength": 1, "maxLength": 4096},
@@ -28,7 +29,8 @@
     "required_check_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "required_human_decisions": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "reviewer_delegation": {"$ref": "#/$defs/reviewerDelegation"},
-    "model_sizing": {"type": "object", "additionalProperties": false, "required": ["scope_extent", "uncertainty"], "properties": {"scope_extent": {"enum": ["bounded", "cross_file", "broadly_cross_cutting"]}, "uncertainty": {"enum": ["low", "medium", "high"]}}}
+    "model_sizing": {"type": "object", "additionalProperties": false, "required": ["scope_extent", "uncertainty"], "properties": {"scope_extent": {"enum": ["bounded", "cross_file", "broadly_cross_cutting"]}, "uncertainty": {"enum": ["low", "medium", "high"]}}},
+    "helper_allowance": {"type": "object", "additionalProperties": false, "required": ["ref", "sha256"], "properties": {"ref": {"type": "string", "pattern": "^repo:[A-Za-z0-9._/-]+\\.json$", "maxLength": 1200}, "sha256": {"$ref": "#/$defs/digest"}}}
   },
   "$defs": {
     "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},

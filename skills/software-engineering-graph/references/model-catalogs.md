@@ -1,7 +1,9 @@
 # Model catalogs
 
 The CLI's existing `--host` field selects a catalog. `codex-astra` is the default;
-`codex` is the explicit Luna/Sol fallback for the same Codex runtime. `cursor` retains its existing assignments.
+`codex` is the explicit size-specific Luna/Sol option for the same Codex runtime. It uses the
+existing role matrix, so some review and test assignments remain economy Luna. New `cursor` plans
+retain existing assignments except for the small writer policy below.
 Selecting a catalog does not switch the primary agent's actual model or install role profiles.
 
 The default Astra catalog revision 2 applies this table at every size:
@@ -15,19 +17,17 @@ The default Astra catalog revision 2 applies this table at every size:
 Unlisted advisory and specialist assignments retain the baseline size matrix, with reasoning
 classes mapped to Astra. The Supervisor recommendation stays Astra `xhigh`, publication stays
 Luna `max`, and Supervisor consolidation remains inherited. Sizing and graph topology are unchanged.
-The seven reusable profiles match the default Astra assignments; installed profiles are not updated
+The seven existing role profiles match the default Astra assignments; the two helper profiles
+use the selected economy assignment; installed profiles are not updated
 by changing this repository. If a named profile pins
 different values, use a host-supported bounded fresh agent with the approved role contract and
 explicit assignment. If the host cannot honor that assignment, stop that dispatch and report the
 specific mismatch; never silently fall back or claim the model was changed.
 
-Direct evidence children use the selected host catalog's economy assignment unless the approved plan
-contains an explicit verified child assignment. Codex and `codex-astra` resolve that default to
-`gpt-5.6-luna` with `max` reasoning; Cursor resolves it to `composer-2.5` with `high` reasoning.
-The child does not inherit the parent model or effort. If the exact approved assignment is unavailable,
-stop that child dispatch and report the mismatch; do not silently substitute a model, effort, or host.
-This is an instruction-level retrieval contract. It does not add a graph role, ledger branch, schema
-field, or reviewer-delegation assignment.
+Both reusable helpers use the selected host's economy assignment unless explicitly overridden by
+a verified approved allowance. See [Economy helpers](economy-helpers.md) for the canonical mapping,
+host/profile verification, and failure behavior. A helper-enabled task/plan v3 binds the allowance,
+but helpers add no graph assignments or ledger state.
 
 Before plan approval, verify each exact assignment against the current host's exposed capabilities.
 An approved plan is not proof of model availability. Missing Supervisor model metadata selects
@@ -37,8 +37,11 @@ Unknown branch assignments still block that dispatch. Do not request the same ap
 Catalog selection is frozen in the plan digest. New Astra plans include `catalog_revision: 2`;
 unversioned historical Astra plans reconstruct the original size matrix without changing bytes,
 digests, or approvals. Resuming retains that catalog generation; changing it requires a new plan.
-Existing `codex` and `cursor` plan shapes and digests remain unchanged. Older engines cannot read
-revision 2 Astra plans. Do not rewrite approvals to make a rollback work.
+Historical `codex` and `cursor` plan shapes and digests remain unchanged. New plans for both
+catalogs include `catalog_revision: 2`; only the small Senior Engineer changes from economy to the
+existing reasoning `medium` mapping: Sol `medium` on Codex, Grok `medium` on Cursor. Other roles and
+medium/large assignments remain unchanged. Astra revision 2, including its writer at `low`, is
+preserved byte-for-byte. Older engines cannot read unsupported revision 2 plans. Do not rewrite approvals to make a rollback work.
 Reviewer delegation can explicitly approve Astra `medium` or `high` at weight 3, `xhigh` at 4,
 or `max` at 5. Astra `low` and Sol `medium` remain unsupported for delegation. These are
 dispatch-budget weights, not price estimates; token accounting is unchanged.

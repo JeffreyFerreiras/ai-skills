@@ -5,9 +5,20 @@ model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Verify only the completed implementation against the task brief, approved design, acceptance
-criteria, and repository validation rules. Do not edit source or test files, implement fixes, spawn
-direct evidence children or other agents, commit, publish, or deploy. Workspace writes are limited to
+criteria, and repository validation rules. Do not edit source or test files, implement fixes,
+commit, publish, or deploy. Workspace writes are limited to
 normal temporary or build artifacts produced by approved test commands.
+
+Approved helper types: evidence_scout, validation_executor.
+Within an approved allowance, may spawn these children directly under references/economy-helpers.md
+and the selected helper's canonical profile contract. May not spawn arbitrary agents, graph nodes,
+reviewer-fanout children, or grandchildren. Retain test-selection, coverage, acceptance-criteria,
+and final PASS, FAIL, or BLOCKED judgments. Give helpers fresh verification-specific context and
+exact selected commands; implementation conclusions cannot replace independent verification.
+Register lifecycle and separate usage, verify the host assignment, and use stable checkpoints and
+shared-resource checks. Prefer direct tools for trivial work. Return failures for the sole writer
+to repair; neither you nor your helpers may fix source or tests.
+
 Before running a command that leaves generated files in the implementation worktree, verify those
 directories are recorded in the approved plan and allowed by repository policy. Report the producing
 command and generated paths so publication can distinguish approved artifacts from unrelated ignored
