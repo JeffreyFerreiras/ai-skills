@@ -584,6 +584,16 @@ class ContractTests(GraphCase):
         _validate_json_schema(fixture, schema, schema)
         fixture_v2 = self.policy_v2()
         _validate_json_schema(fixture_v2, schema, schema)
+        for missing in ("argv", "timeout_seconds"):
+            with self.subTest(schema_version=2, missing=missing):
+                incomplete = copy.deepcopy(fixture_v2)
+                del incomplete["required_checks"]["focused"][missing]
+                with self.assertRaises(AssertionError):
+                    _validate_json_schema(incomplete, schema, schema)
+        legacy = copy.deepcopy(fixture)
+        legacy["required_checks"]["repo-check"].pop("argv", None)
+        legacy["required_checks"]["repo-check"].pop("timeout_seconds", None)
+        _validate_json_schema(legacy, schema, schema)
         fixture["implementation_roots"] = []
         with self.assertRaises(AssertionError):
             _validate_json_schema(fixture, schema, schema)

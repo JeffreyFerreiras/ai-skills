@@ -37,9 +37,10 @@ attaches exactly one bounded repository JSON reference and SHA-256:
 ```
 
 Hash the allowance first. The plan then binds the same reference/hash and computes its plan digest.
-The registry key binds canonical state-root and repository identities, run ID, plan digest, and
-allowance source-byte digest. Its immutable context also binds the allowance reference, source-byte
-digests, canonical normalized allowance/observation digests, and derived register path.
+The registry key binds canonical state-root and repository identities plus the run ID. Its immutable
+context binds the plan digest, allowance reference and source-byte digest, normalized
+allowance/observation digests, and derived register path. A changed plan or allowance within the same
+run reaches the same register and fails initialization rather than receiving unused budgets.
 The allowance therefore omits its enclosing plan digest, avoiding a circular hash.
 
 Task/plan v1 and v2 bytes and reconstruction remain unchanged and grant zero authority through this
@@ -64,10 +65,12 @@ nonempty exact argv, and a timeout from 1 through 3600 seconds. Never authorize 
 wildcard, or inferred argument.
 
 Every scope must fit a parent `filesystem_read/read` capability, and every executor command ID must
-fit a parent `command/run` capability. The register validates that ceiling during initialization and
-again whenever it reads the record. The Supervisor remains responsible for copying it faithfully from
-the approved parent envelope; task-wide authority alone is insufficient because the role ceiling may
-be narrower. The register does not read ledger control metadata or authenticate the approval source.
+fit a parent `command/run` capability. Graph initialization recomputes the parent's effective
+task/policy/role intersection and rejects declared capabilities outside it. Register initialization
+and every later read validate scopes and commands against the immutable declared ceiling. The
+Supervisor remains responsible for preparing the allowance, but a broader self-declaration cannot
+pass graph initialization. The standalone register does not read ledger control metadata or
+authenticate the approval source, so it assumes the supplied plan already passed graph validation.
 
 A minimal Validation Executor allowance assignment looks like this inside the top-level allowance:
 

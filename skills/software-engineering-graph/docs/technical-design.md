@@ -128,16 +128,20 @@ Engineer. Both parents may invoke either helper within approved allowances. Tech
 Code Reviewer, and Security Reviewer may invoke only Evidence Scout. All other restrictions remain.
 
 New deterministic registration requires a task-brief and execution-plan v3 allowance attachment.
-The allowance is hashed first; the plan binds its reference/hash; the separate register key binds
-repository identity, run ID, plan digest, and allowance digest. Task/plan v1 and v2 bytes and
-reconstruction remain unchanged and provide no authority through this new path. New source does not
-rewrite or revoke a historical run's separately approved instruction-level contract.
+The allowance is hashed first; the plan binds its reference/hash. The separate register key binds
+the state-root identity, repository identity, and run ID, while the immutable register context binds
+the exact plan and allowance digests. A replacement plan or allowance for the same run therefore
+conflicts with the existing register instead of opening a fresh budget namespace. Task/plan v1 and
+v2 bytes and reconstruction remain unchanged and provide no authority through this new path. New
+source does not rewrite or revoke a historical run's separately approved instruction-level contract.
 
 The allowance includes a redacted parent capability ceiling copied from the approved parent
-envelope's effective task/policy/role intersection. Task-wide authority alone is insufficient.
-Initialization validates every helper scope and exact command ID against it. Preflight then requires
-an exact approved assignment, scope subset, command, current content-digested repository checkpoint,
-all mandatory resource keys, remaining limits, and cooperative host evidence for every required
+envelope's effective task/policy/role intersection. Task-wide authority alone is insufficient. Graph
+initialization independently recomputes that intersection from the validated task and repository
+policy, then rejects any declared parent capability outside it. Allowance validation checks every
+helper scope and exact command ID against the declared ceiling. Preflight then requires an exact
+approved assignment, scope subset, command, current content-digested repository checkpoint, all
+mandatory resource keys, remaining limits, and cooperative host evidence for every required
 restriction. An explicit assignment may override the helper default only when both the immutable
 allowance and selected host catalog support it. No unavailable assignment is substituted.
 

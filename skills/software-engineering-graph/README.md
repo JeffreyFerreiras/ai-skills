@@ -150,9 +150,12 @@ mandatory gates, checks, and sole-writer rules. Policy v1 rejects the new field 
 frozen paths, command set, validation behavior, envelopes, and digests.
 
 Task/plan v3 applies only when a run opts into the deterministic helper register. The plan binds one
-allowance reference/hash; the register binds that allowance hash with the resulting plan hash and
-repository/run identity. Task/plan v1 and v2 bytes remain unchanged and grant zero authority through
-the new register. Historical instruction-level helper contracts are not rewritten or revoked.
+allowance reference/hash. The run-local register key binds state-root, repository, and run identity;
+its immutable context binds the resulting plan and allowance hashes. Replacing either input within
+the same run conflicts rather than creating fresh budgets. Graph initialization also recomputes each
+parent's effective task/policy/role capabilities and rejects a broader allowance. Task/plan v1 and
+v2 bytes remain unchanged and grant zero authority through the new register. Historical
+instruction-level helper contracts are not rewritten or revoked.
 
 ## Using the skill
 

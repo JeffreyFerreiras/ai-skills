@@ -4,7 +4,7 @@ from pathlib import Path
 from graph_engine.config import load_policy
 from graph_engine.execution import (
     CLASS_ASSIGNMENTS, SIZE_ASSIGNMENTS, assignment_for, build_execution_plan, reconstruct_execution_plan,
-    validate_model_assignment,
+    validate_model_assignment, validate_new_plan_assignment,
 )
 from graph_engine.hosts import (
     DEFAULT_HOST, dispatch_weight_for, known_hosts, resolve_assignment, supported_dispatch_weights,
@@ -549,7 +549,8 @@ class PlannerTests(GraphCase):
             model, effort = resolve_assignment(host, "economy", "max")
             with self.subTest(host=host):
                 with self.assertRaisesRegex(ValueError, "IMPLEMENTATION_REASONING_MODEL_REQUIRED"):
-                    validate_model_assignment("senior_engineer", model, effort, host)
+                    validate_new_plan_assignment("senior_engineer", model, effort, host)
+                validate_model_assignment("senior_engineer", model, effort, host)
                 plan = build_execution_plan("RUN-1", self.task(), "small", host)
                 writer = next(row for row in plan["assignments"] if row["node_key"] == "senior_engineer")
                 writer.update(model=model, reasoning_effort=effort, intelligence_class="economy")

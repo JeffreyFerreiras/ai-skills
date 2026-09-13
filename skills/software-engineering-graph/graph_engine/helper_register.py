@@ -144,7 +144,10 @@ def _trusted_observation_source(source: str) -> bool:
     return not any(marker in lowered for marker in UNTRUSTED_CAPABILITY_SOURCES)
 
 
-def validate_allowance(value: Any, run_id: str, host: Optional[str] = None) -> Dict[str, Any]:
+def validate_allowance(
+    value: Any, run_id: str, host: Optional[str] = None,
+    approved_parent_capabilities: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
+) -> Dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("allowance", "INVALID_OBJECT")
     required = {
@@ -164,7 +167,7 @@ def validate_allowance(value: Any, run_id: str, host: Optional[str] = None) -> D
         raise ContractError("allowance", "PLAN_BINDING_MISMATCH")
 
     resources = value["resources"]
-    if not isinstance(resources, list) or len(resources) > 64:
+    if not isinstance(resources, list) or not resources or len(resources) > 64:
         raise ContractError("allowance.resources", "INVALID_LIST")
     resource_rows = []
     resource_keys = set()
@@ -228,7 +231,9 @@ def validate_allowance(value: Any, run_id: str, host: Optional[str] = None) -> D
             mandatory_caps.add("command_confinement")
         if not set(required_caps).issubset(HOST_CAPABILITIES) or not mandatory_caps.issubset(required_caps):
             raise ContractError("allowance.required_host_capabilities", "HOST_CAPABILITY_REQUIRED")
-        keys = _unique_ids(item["resource_keys"], "allowance.resource_keys")
+        keys = _unique_ids(
+            item["resource_keys"], "allowance.resource_keys", allow_empty=False,
+        )
         if not set(keys).issubset(resource_keys):
             raise ContractError("allowance.resource_keys", "UNKNOWN_RESOURCE")
         limits = _limits(item["limits"], "allowance.assignment_limits")
@@ -239,6 +244,20 @@ def validate_allowance(value: Any, run_id: str, host: Optional[str] = None) -> D
         parent_capabilities = _parent_capabilities(
             item["parent_capabilities"], "allowance.parent_capabilities",
         )
+        if approved_parent_capabilities is not None:
+            approved = {
+                (cap["effect"], cap["action"], cap["target_ref"])
+                for cap in approved_parent_capabilities.get(parent_role, ())
+                if cap["effect"] in {"filesystem_read", "command"}
+            }
+            declared = {
+                (cap["effect"], cap["action"], cap["target_ref"])
+                for cap in parent_capabilities
+            }
+            if not declared.issubset(approved):
+                raise ContractError(
+                    "allowance.parent_capabilities", "PARENT_AUTHORITY_EXCEEDED",
+                )
         scopes = _scope_refs(item["scope_refs"], "allowance.scope_refs")
         read_ceilings = [
             cap["target_ref"] for cap in parent_capabilities
@@ -370,14 +389,11 @@ def _filesystem_identity(value: Any, field: str) -> Dict[str, Any]:
 
 def _register_key(
     state_root_identity: Mapping[str, Any], repository_key: str, run_id: str,
-    plan_digest: str, allowance_digest: str,
 ) -> str:
     return sha256_bytes(canonical_bytes({
         "state_root_identity": dict(state_root_identity),
         "repository_digest": repository_key,
         "run_id": run_id,
-        "plan_digest": plan_digest,
-        "allowance_digest": allowance_digest,
     }))
 
 
@@ -418,7 +434,6 @@ def _validate_context(value: Any) -> Dict[str, Any]:
     }
     if result["register_id"] != _register_key(
         result["state_root_identity"], result["repository_digest"], result["run_id"],
-        result["plan_digest"], result["allowance_digest"],
     ):
         raise ContractError("context.register_id", "REGISTER_BINDING_MISMATCH")
     expected = (
@@ -597,17 +612,71 @@ def _exclusive_lock(path: Path) -> Iterator[None]:
         os.close(descriptor)
 
 
-class HelperRegister:
-    def __init__(self, fault_hook: Optional[Callable[[str], None]] = None):
-        self.fault_hook = fault_hook or (lambda _point: None)
+class RegisterAccountingInvariantChecker:
+    """Recompute cumulative and active counters from immutable reservations."""
 
     @staticmethod
-    def _read(path: Path) -> Dict[str, Any]:
-        snapshot = safe_json_snapshot(path, [path.parent], MAX_RECORD_BYTES)
-        return HelperRegister._validate_record(snapshot.parsed)
+    def check(value: Mapping[str, Any], allowance: Mapping[str, Any]) -> None:
+        resources = {item["key"]: item["capacity"] for item in allowance["resources"]}
+        assignments = {item["assignment_id"]: item for item in allowance["assignments"]}
+        calculated_usage = {key: 0 for key in LIMIT_KEYS}
+        calculated_active = 0
+        calculated_resources = {key: 0 for key in resources}
+        calculated_assignments = {
+            assignment_id: {key: 0 for key in LIMIT_KEYS}
+            for assignment_id in assignments
+        }
+        for request_id, reservation in value["reservations"].items():
+            opaque(request_id, "register.request_id")
+            if not isinstance(reservation, dict):
+                raise ContractError("register.reservations", "INVALID_OBJECT")
+            base_fields = {
+                "request_digest", "assignment_id", "status", "reservation",
+                "resource_keys", "settlement",
+            }
+            require_keys(
+                reservation, base_fields,
+                base_fields | {"settlement_digest"}, "register.reservations",
+            )
+            digest(reservation["request_digest"], "register.request_digest")
+            assignment_id = opaque(reservation["assignment_id"], "register.assignment_id")
+            if assignment_id not in assignments:
+                raise ContractError("register.assignment_id", "ASSIGNMENT_NOT_APPROVED")
+            amounts = reservation["reservation"]
+            if not isinstance(amounts, dict):
+                raise ContractError("register.reservation", "INVALID_OBJECT")
+            require_keys(amounts, LIMIT_KEYS, LIMIT_KEYS, "register.reservation")
+            for key in LIMIT_KEYS:
+                amount = _integer(amounts[key], "register.reservation." + key)
+                if key != "concurrency":
+                    calculated_usage[key] += amount
+                calculated_assignments[assignment_id][key] += amount
+            keys = _unique_ids(reservation["resource_keys"], "register.resource_keys")
+            if not set(keys).issubset(resources):
+                raise ContractError("register.resource_keys", "UNKNOWN_RESOURCE")
+            if reservation["status"] == "active":
+                if reservation["settlement"] is not None or "settlement_digest" in reservation:
+                    raise ContractError("register.reservations", "SETTLEMENT_CONFLICT")
+                calculated_active += 1
+                for key in keys:
+                    calculated_resources[key] += 1
+            else:
+                if reservation["status"] not in TERMINAL_STATES or reservation["settlement"] is None:
+                    raise ContractError("register.reservations", "INVALID_TERMINAL_STATE")
+                digest(reservation.get("settlement_digest"), "register.settlement_digest")
+                calculated_assignments[assignment_id]["concurrency"] -= amounts["concurrency"]
+        if calculated_usage != value["usage"] or calculated_active != value["active_concurrency"]:
+            raise ContractError("register", "REGISTER_ACCOUNTING_MISMATCH")
+        if (calculated_resources != value["active_resources"]
+                or calculated_assignments != value["assignment_usage"]):
+            raise ContractError("register", "REGISTER_ACCOUNTING_MISMATCH")
+
+
+class RegisterRecordValidator:
+    """Validate a normalized durable record before accounting checks run."""
 
     @staticmethod
-    def _validate_record(value: Any) -> Dict[str, Any]:
+    def validate(value: Any) -> Dict[str, Any]:
         if not isinstance(value, dict):
             raise HelperRegisterError("REGISTER_INVALID")
         fields = {
@@ -665,57 +734,22 @@ class HelperRegister:
             reservations = value["reservations"]
             if not isinstance(reservations, dict) or len(reservations) > 4096:
                 raise ContractError("register.reservations", "INVALID_OBJECT")
-            calculated_usage = {key: 0 for key in LIMIT_KEYS}
-            calculated_active = 0
-            calculated_resources = {key: 0 for key in resources}
-            calculated_assignments = {
-                assignment_id: {key: 0 for key in LIMIT_KEYS}
-                for assignment_id in assignments
-            }
-            for request_id, reservation in reservations.items():
-                opaque(request_id, "register.request_id")
-                if not isinstance(reservation, dict):
-                    raise ContractError("register.reservations", "INVALID_OBJECT")
-                base_fields = {
-                    "request_digest", "assignment_id", "status", "reservation",
-                    "resource_keys", "settlement",
-                }
-                require_keys(
-                    reservation, base_fields,
-                    base_fields | {"settlement_digest"}, "register.reservations",
-                )
-                digest(reservation["request_digest"], "register.request_digest")
-                assignment_id = opaque(reservation["assignment_id"], "register.assignment_id")
-                if assignment_id not in assignments:
-                    raise ContractError("register.assignment_id", "ASSIGNMENT_NOT_APPROVED")
-                amounts = reservation["reservation"]
-                require_keys(amounts, LIMIT_KEYS, LIMIT_KEYS, "register.reservation")
-                for key in LIMIT_KEYS:
-                    amount = _integer(amounts[key], "register.reservation." + key)
-                    if key != "concurrency":
-                        calculated_usage[key] += amount
-                    calculated_assignments[assignment_id][key] += amount
-                keys = _unique_ids(reservation["resource_keys"], "register.resource_keys")
-                if not set(keys).issubset(resources):
-                    raise ContractError("register.resource_keys", "UNKNOWN_RESOURCE")
-                if reservation["status"] == "active":
-                    if reservation["settlement"] is not None or "settlement_digest" in reservation:
-                        raise ContractError("register.reservations", "SETTLEMENT_CONFLICT")
-                    calculated_active += 1
-                    for key in keys:
-                        calculated_resources[key] += 1
-                else:
-                    if reservation["status"] not in TERMINAL_STATES or reservation["settlement"] is None:
-                        raise ContractError("register.reservations", "INVALID_TERMINAL_STATE")
-                    digest(reservation.get("settlement_digest"), "register.settlement_digest")
-                    calculated_assignments[assignment_id]["concurrency"] -= amounts["concurrency"]
-            if calculated_usage != usage or calculated_active != value["active_concurrency"]:
-                raise ContractError("register", "REGISTER_ACCOUNTING_MISMATCH")
-            if calculated_resources != active_resources or calculated_assignments != assignment_usage:
-                raise ContractError("register", "REGISTER_ACCOUNTING_MISMATCH")
-        except ContractError as error:
+            RegisterAccountingInvariantChecker.check(value, allowance)
+        except (ContractError, AttributeError, KeyError, TypeError, ValueError) as error:
             raise HelperRegisterError("REGISTER_INVALID") from error
         return value
+
+
+class HelperRegisterRepository:
+    """Own filesystem identity, locking, and durable register persistence."""
+
+    def __init__(self, fault_hook: Optional[Callable[[str], None]] = None):
+        self.fault_hook = fault_hook or (lambda _point: None)
+
+    @staticmethod
+    def _read(path: Path) -> Dict[str, Any]:
+        snapshot = safe_json_snapshot(path, [path.parent], MAX_RECORD_BYTES)
+        return RegisterRecordValidator.validate(snapshot.parsed)
 
     def _write(self, path: Path, value: Mapping[str, Any]) -> None:
         payload = canonical_bytes(value)
@@ -779,7 +813,7 @@ class HelperRegister:
         )
         host = validate_host_observation(host_snapshot.parsed)
         register_id = _register_key(
-            root_identity, repository_key, run, plan["plan_digest"], allowance_snapshot.digest,
+            root_identity, repository_key, run,
         )
         _private_directory(root / "helper-registers")
         directory = root / "helper-registers" / register_id
@@ -872,8 +906,15 @@ class HelperRegister:
             raise HelperRegisterError("REGISTER_BINDING_MISMATCH")
         return record, context
 
+
+class HelperReservationLedger:
+    """Apply helper reservation state transitions to a bound repository record."""
+
+    def __init__(self, repository: HelperRegisterRepository):
+        self.repository = repository
+
     def preflight(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
-        record, _ = self._bound_record(register_path, context)
+        record, _ = self.repository._bound_record(register_path, context)
         normalized, amounts, missing = preflight_record(record, request)
         if missing:
             return {
@@ -883,10 +924,10 @@ class HelperRegister:
         return {"ok": True, "code": "PREFLIGHT_READY", "request_id": normalized["request_id"], "reservation": amounts}
 
     def reserve(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
-        path, normalized_context = self._bound_path(register_path, context)
+        path, normalized_context = self.repository._bound_path(register_path, context)
         lock = path.parent / "register.lock"
         with _exclusive_lock(lock):
-            record, _ = self._bound_record(path, normalized_context)
+            record, _ = self.repository._bound_record(path, normalized_context)
             normalized = _validate_request(request)
             request_digest = sha256_bytes(canonical_bytes(normalized))
             existing = record["reservations"].get(normalized["request_id"])
@@ -929,7 +970,7 @@ class HelperRegister:
                 "status": "active", "reservation": amounts,
                 "resource_keys": normalized["resource_keys"], "settlement": None,
             }
-            self._write(path, record)
+            self.repository._write(path, record)
         return {
             "ok": True, "code": "RESERVED", "request_id": normalized["request_id"],
             "request_digest": request_digest, "status": "active", "new_dispatch_authorized": True,
@@ -962,10 +1003,10 @@ class HelperRegister:
             "usage_ref": None if value["usage_ref"] is None else validate_ref(value["usage_ref"], "settlement.usage_ref"),
         }
         settlement_digest = sha256_bytes(canonical_bytes(settlement))
-        path, normalized_context = self._bound_path(register_path, context)
+        path, normalized_context = self.repository._bound_path(register_path, context)
         lock = path.parent / "register.lock"
         with _exclusive_lock(lock):
-            record, _ = self._bound_record(path, normalized_context)
+            record, _ = self.repository._bound_record(path, normalized_context)
             reservation = record["reservations"].get(settlement["request_id"])
             if reservation is None or reservation["request_digest"] != settlement["request_digest"]:
                 raise HelperRegisterError("RESERVATION_NOT_FOUND")
@@ -983,11 +1024,11 @@ class HelperRegister:
             assignment_usage["concurrency"] -= 1
             for key in reservation["resource_keys"]:
                 record["active_resources"][key] -= 1
-            self._write(path, record)
+            self.repository._write(path, record)
         return {"ok": True, "code": "SETTLED", "request_id": settlement["request_id"], "status": settlement["terminal_state"]}
 
     def status(self, register_path: Path, context: Any) -> Dict[str, Any]:
-        record, normalized_context = self._bound_record(register_path, context)
+        record, normalized_context = self.repository._bound_record(register_path, context)
         return {
             "ok": True, "code": "STATUS", "context": normalized_context,
             "usage": record["usage"], "active_concurrency": record["active_concurrency"],
@@ -998,3 +1039,31 @@ class HelperRegister:
             },
             "evidence_notice": "trusted-caller evidence; not proof of host confinement or authenticity",
         }
+
+
+class HelperRegister:
+    """Stable façade for register initialization and reservation operations."""
+
+    def __init__(self, fault_hook: Optional[Callable[[str], None]] = None):
+        self.repository = HelperRegisterRepository(fault_hook)
+        self.ledger = HelperReservationLedger(self.repository)
+
+    def initialize(
+        self, state_root: Path, repo: Path, run_id: str, plan_path: Path,
+        allowance_path: Path, host_observation_path: Path,
+    ) -> Dict[str, Any]:
+        return self.repository.initialize(
+            state_root, repo, run_id, plan_path, allowance_path, host_observation_path,
+        )
+
+    def preflight(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
+        return self.ledger.preflight(register_path, context, request)
+
+    def reserve(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
+        return self.ledger.reserve(register_path, context, request)
+
+    def settle(self, register_path: Path, context: Any, value: Any) -> Dict[str, Any]:
+        return self.ledger.settle(register_path, context, value)
+
+    def status(self, register_path: Path, context: Any) -> Dict[str, Any]:
+        return self.ledger.status(register_path, context)

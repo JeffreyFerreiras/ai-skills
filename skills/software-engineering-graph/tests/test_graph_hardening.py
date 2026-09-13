@@ -855,7 +855,7 @@ class HelperRegisterTests(GraphCase):
             "session_identity_sha256": "a" * 64, "usage_ref": None,
         }
 
-    def test_hash_order_binds_allowance_then_plan_then_register(self):
+    def test_plan_binds_allowance_and_register_context_is_immutable(self):
         registry, initialized, _command, plan, allowance = self._materials()
         self.assertEqual(plan["schema_version"], 3)
         self.assertNotIn("plan_digest", allowance)
@@ -918,6 +918,65 @@ class HelperRegisterTests(GraphCase):
         self.assertEqual(
             registry.status(Path(initialized["register_path"]), initialized["context"])["code"],
             "STATUS",
+        )
+
+    def test_same_run_cannot_reset_budgets_with_a_replacement_plan(self):
+        registry, initialized, _command, plan, allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        registry.reserve(path, context, self._request("used-budget"))
+        original_allowance = canonical_bytes(allowance)
+        original_plan = canonical_bytes(plan)
+
+        changed_allowance = json.loads(original_allowance)
+        changed_allowance["allowance_id"] = "helpers-replacement"
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(changed_allowance))
+        changed_plan = json.loads(original_plan)
+        changed_plan["helper_allowance"]["sha256"] = sha256_bytes(allowance_path.read_bytes())
+        changed_plan.pop("plan_digest")
+        changed_plan["plan_digest"] = sha256_bytes(canonical_bytes(changed_plan))
+        plan_path = self.repo / "docs" / "helper-plan.json"
+        plan_path.write_bytes(canonical_bytes(changed_plan))
+
+        with self.assertRaisesRegex(HelperRegisterError, "INITIALIZATION_CONFLICT"):
+            registry.initialize(
+                self.root / "host-state", self.repo, "RUN-HELPERS", plan_path,
+                allowance_path, self.repo / "docs" / "host-observation.json",
+            )
+        self.assertEqual(
+            len(list((self.root / "host-state" / "helper-registers").glob("*/register.json"))),
+            1,
+        )
+
+        allowance_path.write_bytes(original_allowance)
+        plan_path.write_bytes(original_plan)
+        status = registry.status(path, context)
+        self.assertEqual(status["usage"]["children"], 1)
+
+    def test_malformed_nested_register_returns_structured_invalid_error(self):
+        registry, initialized, _command, _plan, _allowance = self._materials()
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        record = json.loads(path.read_bytes())
+        record["usage"] = None
+        path.write_bytes(canonical_bytes(record))
+
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_INVALID"):
+            registry.status(path, context)
+
+        context_path = self.root / "malformed-context.json"
+        context_path.write_bytes(canonical_bytes(context))
+        script = Path(__file__).parents[1] / "scripts" / "helper-register.py"
+        completed = subprocess.run(
+            [
+                sys.executable, str(script), "status", "--register", str(path),
+                "--context", str(context_path),
+            ],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False,
+        )
+        self.assertEqual(completed.returncode, 4)
+        self.assertEqual(completed.stderr, "")
+        self.assertEqual(
+            json.loads(completed.stdout), {"ok": False, "code": "REGISTER_INVALID"},
         )
 
     def test_reservation_replay_precedes_checkpoint_and_authority_revalidation(self):
@@ -1039,6 +1098,18 @@ class HelperRegisterTests(GraphCase):
         for request in (wrong_model, wrong_scope, missing_resource, wrong_command):
             with self.subTest(request=request["request_id"]), self.assertRaises(ContractError):
                 registry.preflight(path, initialized["context"], request)
+
+    def test_allowance_requires_declared_resources_and_assignment_keys(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials()
+        no_resources = json.loads(json.dumps(allowance))
+        no_resources["resources"] = []
+        no_assignment_resources = json.loads(json.dumps(allowance))
+        no_assignment_resources["assignments"][0]["resource_keys"] = []
+        for candidate in (no_resources, no_assignment_resources):
+            with self.subTest(candidate=candidate), self.assertRaisesRegex(
+                ContractError, "INVALID_LIST",
+            ):
+                validate_allowance(candidate, "RUN-HELPERS", "codex-astra")
 
     def test_allowance_may_not_exceed_approved_parent_capabilities(self):
         _registry, _initialized, _command, _plan, allowance = self._materials()

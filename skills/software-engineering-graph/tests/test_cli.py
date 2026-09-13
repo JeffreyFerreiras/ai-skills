@@ -582,6 +582,44 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(initialized["execution_plan"]["helper_allowance"], task["helper_allowance"])
         self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]["schema_version"], 3)
 
+    def test_helper_allowance_cannot_exceed_effective_parent_authority(self):
+        allowance = {
+            "schema_version": 1, "allowance_id": "helpers-1", "run_id": "RUN-1",
+            "assignments": [{
+                "assignment_id": "tech-evidence", "parent_role": "tech_lead",
+                "helper_role": "evidence_scout", "contract_revision": 1,
+                "model": "gpt-5.6-luna", "reasoning_effort": "max",
+                "parent_capabilities": [{
+                    "effect": "filesystem_read", "action": "read", "target_ref": "repo:src/",
+                }],
+                "scope_refs": ["repo:src/"], "commands": [],
+                "checkpoint_policy": "observed_repository_state",
+                "resource_keys": ["worktree"],
+                "required_host_capabilities": [
+                    "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
+                ],
+                "limits": {
+                    "children": 1, "concurrency": 1, "commands": 0,
+                    "time_seconds": 60, "output_tokens": 1000, "file_reads": 3,
+                },
+            }],
+            "shared_limits": {
+                "children": 1, "concurrency": 1, "commands": 0,
+                "time_seconds": 60, "output_tokens": 1000, "file_reads": 3,
+            },
+            "resources": [{"key": "worktree", "capacity": 1}],
+        }
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(allowance))
+        task = self.task_v2()
+        task["schema_version"] = 3
+        task["helper_allowance"] = {
+            "ref": "repo:docs/helper-allowance.json",
+            "sha256": sha256_bytes(allowance_path.read_bytes()),
+        }
+        with self.assertRaisesRegex(ContractError, "PARENT_AUTHORITY_EXCEEDED"):
+            self.initialize_task(task)
+
     def setUp(self):
         super().setUp()
         policy_path = self.repo / ".codex" / "engineering-graph.json"

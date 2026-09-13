@@ -24,7 +24,7 @@ from .evidence import (
 )
 from .execution import build_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST, known_hosts
-from .helper_register import validate_allowance
+from .helper_register import ELIGIBLE_PARENTS, validate_allowance
 from .ids import canonical_bytes, sha256_bytes
 from . import usage
 from .reviewer_delegation import (
@@ -35,7 +35,7 @@ from .planner import (
     JoinSpec, NodeSpec, bootstrap, branch_id, closure_join, collection_join,
     consolidation_join, consolidation_node, delivery_review_nodes, design_review_nodes,
     design_research_nodes, envelope, fanout_id, implementation_node, initial_route_nodes, join_id,
-    next_join_for_success,
+    effective_role_capabilities, next_join_for_success,
     revised_design_node, validate_fanout_ordering,
 )
 from .state import (
@@ -581,6 +581,10 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
             raise ContractError("helper_allowance.sha256", "INPUT_DIGEST_MISMATCH")
         validate_allowance(
             allowance_snapshot.parsed, run_id, getattr(args, "host", DEFAULT_HOST),
+            {
+                role: effective_role_capabilities(policy, full_task, role)
+                for role in ELIGIBLE_PARENTS
+            },
         )
     task = authoritative_task_subset(full_task)
     try:

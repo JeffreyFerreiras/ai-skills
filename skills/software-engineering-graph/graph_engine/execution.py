@@ -126,9 +126,8 @@ def _class_for_node(node_key: str, size: str) -> Tuple[str, str]:
 
 def validate_model_assignment(
     node_key: str, model: str, reasoning_effort: str, host: str = DEFAULT_HOST,
-    *, require_reasoning_writer: bool = True,
 ) -> None:
-    """Fail closed on the graph's model and reasoning-effort invariants."""
+    """Validate host and role dispatch invariants shared by every plan vintage."""
     intelligence_class = classify(host, model)
     if intelligence_class is None:
         raise ValueError("MODEL_ASSIGNMENT_INVALID")
@@ -138,11 +137,18 @@ def validate_model_assignment(
         raise ValueError("ECONOMY_REASONING_EFFORT_REQUIRED")
     if node_key in {"tech_lead", "architect"} and intelligence_class != "reasoning":
         raise ValueError("DESIGN_MODEL_REQUIRED")
-    if require_reasoning_writer and node_key == "senior_engineer" and intelligence_class != "reasoning":
-        raise ValueError("IMPLEMENTATION_REASONING_MODEL_REQUIRED")
     if NODE_ROLES.get(node_key) == "impact_mapper" and intelligence_class != "economy":
         raise ValueError("IMPACT_MAPPER_ASSIGNMENT_REQUIRED")
     dispatch_model(host, model, reasoning_effort)
+
+
+def validate_new_plan_assignment(
+    node_key: str, model: str, reasoning_effort: str, host: str = DEFAULT_HOST,
+) -> None:
+    """Apply the writer-quality policy used only by versioned new-plan catalogs."""
+    validate_model_assignment(node_key, model, reasoning_effort, host)
+    if node_key == "senior_engineer" and classify(host, model) != "reasoning":
+        raise ValueError("IMPLEMENTATION_REASONING_MODEL_REQUIRED")
 
 
 def recommend_size(task: Mapping[str, Any]) -> Tuple[str, str]:
@@ -246,10 +252,11 @@ def _build_execution_plan(
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
         model, effort = resolve_assignment(host, intelligence_class, requested_effort)
-        validate_model_assignment(
-            node_key, model, effort, host,
-            require_reasoning_writer=catalog_revision is not None,
+        assignment_validator = (
+            validate_new_plan_assignment if catalog_revision is not None
+            else validate_model_assignment
         )
+        assignment_validator(node_key, model, effort, host)
         assignments.append({
             "node_key": node_key,
             "role": role,
@@ -306,9 +313,12 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     host = plan.get("host", LEGACY_HOST)
     for assignment in plan["assignments"]:
         if assignment["node_key"] == node_key:
-            validate_model_assignment(
+            assignment_validator = (
+                validate_new_plan_assignment if "catalog_revision" in plan
+                else validate_model_assignment
+            )
+            assignment_validator(
                 node_key, assignment["model"], assignment["reasoning_effort"], host,
-                require_reasoning_writer="catalog_revision" in plan,
             )
             return assignment
     raise ValueError("missing execution assignment")
