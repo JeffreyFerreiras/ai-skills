@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .ids import stable_id
-from .config import ENGINE_RESEARCH_NODES, ENGINE_ROLE_CAPABILITIES
+from .config import ENGINE_RESEARCH_NODES, role_capability_allowed
 from .execution import assignment_for, build_execution_plan
 
 
@@ -262,7 +262,7 @@ def envelope(
     configured = {
         (cap["effect"], cap["action"], cap["target_ref"])
         for cap in policy["role_capabilities"].get(spec.role, [])
-        if (cap["effect"], cap["action"], cap["target_ref"]) in ENGINE_ROLE_CAPABILITIES.get(spec.role, set())
+        if role_capability_allowed(policy, spec.role, cap)
     }
     capabilities = [
         cap for cap in authority

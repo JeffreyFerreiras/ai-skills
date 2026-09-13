@@ -13,6 +13,8 @@ PROFILE_AGENTS = {
     "code_reviewer.toml",
     "test_engineer.toml",
     "security_reviewer.toml",
+    "evidence_scout.toml",
+    "validation_executor.toml",
 }
 SOURCE_EXCLUDED_DIRECTORIES = {
     "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", ".nox",

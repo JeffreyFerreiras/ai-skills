@@ -35,7 +35,7 @@ supported observed JSONL shape, checkpoint arguments, and source-association res
 ## Authority and scope
 
 This repository is authoritative for the workflow engine, command-line adapter, schemas, tests,
-fixtures, documentation, and seven reusable role definitions. The installed profile remains
+fixtures, documentation, and nine supported reusable role definitions. The installed profile remains
 untouched unless a separately approved task explicitly authorizes profile work.
 
 The repository supports Python 3.9 or newer and the standard library only. It has no packaging,
@@ -53,8 +53,13 @@ The engine uses pragmatic inward-pointing boundaries:
 - `graph_engine/validator.py` validates contracts and persisted semantic state. It receives the
   platform case policy explicitly and does not detect runtime environment settings.
 - `graph_engine/state.py` owns SQLite transactions, durability, filesystem identity, and atomic
-  persistence. Mutation semantic validation is a required callable dependency, not mutable store
-  configuration.
+  persistence. It also resolves the host state root by explicit absolute argument, the dedicated
+  environment variable, absolute XDG state, then a portable home default. Old roots open only when
+  passed explicitly; resolution never discovers, migrates, or rewrites them. Mutation semantic
+  validation is a required callable dependency, not mutable store configuration.
+- `graph_engine/helper_register.py` is a separate host-artifact adapter for helper allowance
+  validation and atomic reservation. It does not use the graph database, scheduler, agent executor,
+  graph API, or token reducer.
 - `graph_engine/cli.py` is the composition boundary. Once per invocation it detects whether resource
   names are case-sensitive, builds the semantic-validator closure, and passes both dependencies to
   live, read-only, mutation, and resume paths.
@@ -67,7 +72,7 @@ side effects at the outer boundary.
 Role intelligence is a host-agnostic class plus requested effort, not a vendor model ID.
 `graph_engine/hosts.py` expands `(class, effort)` through `HOST_MATRIX`:
 
-| Class | Requested effort | Explicit Codex fallback | Cursor runtime |
+| Class | Requested effort | Explicit Codex option | Cursor runtime |
 | --- | --- | --- | --- |
 | `economy` | `max` | `gpt-5.6-luna` `max` | `composer-2.5` `high` |
 | `reasoning` | `medium` / `high` / `xhigh` / `max` | `gpt-5.6-sol` at that effort | `cursor-grok-4.6` at medium/high/xhigh |
@@ -83,13 +88,16 @@ Omitting `--host` or passing `--host codex-astra` selects default catalog revisi
 Luna max for mapper/research, Astra low for Tech Lead/Senior Engineer/Test Engineer, and Astra medium
 for Architect/Code Reviewer/Security Reviewer. Other advisory/specialist mappings remain unchanged.
 Supervisor stays Astra xhigh, publication stays Luna max, and consolidation stays inherited.
-It does not switch the primary model. Baseline catalogs stay unchanged; the seven reusable profiles
-match the Astra default. Installed profiles require a separately authorized sync.
-New Astra plans include `catalog_revision: 2` in the canonical digest. Reconstruction treats absent
-markers as the frozen historical matrix and accepts only integer 2 on Astra when a marker is present.
+It does not switch the primary model. Frozen baseline catalogs stay unchanged; the seven existing reusable profiles
+match the Astra default and the two helpers use the economy assignment. Installed profiles require a separately authorized sync.
+New Astra plans include `catalog_revision: 2` in the canonical digest. New Codex and Cursor plans also use integer `catalog_revision: 2`, changing only the small
+Senior Engineer to the existing reasoning `medium` assignment. New-plan validation requires a
+reasoning writer; historical reconstruction and assignment loading explicitly preserve unversioned
+writer assignments. Reconstruction accepts the selected host's supported integer revision, rejects
+unknown or malformed markers, and treats absent markers as the frozen historical matrix.
 Exact plan, canonical digest, row digest, and approval digest checks remain mandatory. Historical
 plans keep their original bytes and approvals, including delegation-enabled plans. Older engines
-cannot read new revision 2 Astra plans; rollback must not rewrite approvals.
+cannot read unsupported revision 2 plans; rollback must not rewrite approvals.
 The host must expose each exact approved assignment; see [model catalogs](../references/model-catalogs.md).
 Reviewer delegation accepts Astra medium/high/xhigh/max with weights 3/3/4/5 in schema and runtime;
 Astra low and Sol medium remain unsupported. Weights are not monetary prices. Sizing, topology,
@@ -111,28 +119,40 @@ the canonical collection and evidence inputs when creating the same-generation T
 Lead exists before that collection is sealed. If a mandatory research branch exhausts its retry,
 the collection advances to a durable blocked run rather than waiting indefinitely.
 
-### Instruction-level direct evidence retrieval
+### Host-only reusable helpers
 
-The host may grant a separate direct evidence-child allowance in the approved execution plan. Only
-the Tech Lead, Software Architect, Code Reviewer, and Security Reviewer can use it. The allowance
-records the eligible parent, exact host model and effort, one-level child limit, shared run budget and
-concurrency, read scope, and file, command, and output caps. The Supervisor retains ledger CLI
-mutation and global scope, phase, gate, budget, and concurrency control, while the parent may spawn a
-permitted lookup without a separate Supervisor dispatch.
+[Economy helpers](../references/economy-helpers.md) is the canonical parent contract; the two
+helper TOMLs define child behavior. Evidence Scout formalizes the existing direct evidence-child
+mechanism. Validation Executor isolates exact command execution for Senior Engineer and Test
+Engineer. Both parents may invoke either helper within approved allowances. Tech Lead, Architect,
+Code Reviewer, and Security Reviewer may invoke only Evidence Scout. All other restrictions remain.
 
-Direct evidence children receive fresh minimal context, especially for review parents, and perform
-only bounded read-only repository or authorized MCP retrieval. They cannot write source or artifacts,
-run tests or validation commands, mutate the ledger, make decisions, create findings, publish, or
-spawn grandchildren. They return concise source-cited excerpts, locations or URIs, retrieval
-provenance, and uncertainty; the parent interprets the evidence and owns the role decision. A parent
-may read a trivial item directly when delegation would add no value.
+New deterministic registration requires a task-brief and execution-plan v3 allowance attachment.
+The allowance is hashed first; the plan binds its reference/hash; the separate register key binds
+repository identity, run ID, plan digest, and allowance digest. Task/plan v1 and v2 bytes and
+reconstruction remain unchanged and provide no authority through this new path. New source does not
+rewrite or revoke a historical run's separately approved instruction-level contract.
 
-The default Codex child assignment is `gpt-5.6-luna` at `max`; Cursor follows the existing economy
-mapping, `composer-2.5` at `high`. An explicit verified plan assignment takes precedence, and an
-unavailable assignment fails that child dispatch without silent fallback. The parent registers each
-child's lifecycle and separately reported usage in an instruction-level run register. Child totals
-never enter the parent or graph-branch total, and the register does not add a table, schema field,
-graph node, ledger mutation, or delivery gate.
+The allowance includes a redacted parent capability ceiling copied from the approved parent
+envelope's effective task/policy/role intersection. Task-wide authority alone is insufficient.
+Initialization validates every helper scope and exact command ID against it. Preflight then requires
+an exact approved assignment, scope subset, command, current content-digested repository checkpoint,
+all mandatory resource keys, remaining limits, and cooperative host evidence for every required
+restriction. An explicit assignment may override the helper default only when both the immutable
+allowance and selected host catalog support it. No unavailable assignment is substituted.
+
+The register is one run-bound canonical JSON record under the selected absolute state root. An OS
+cross-process lock serializes validation and reservation; atomic replace/fsync preserves the old
+record across interruption. It reserves shared and assignment child, concurrency, command, time,
+output, read, and resource budgets together. Settlement releases only active concurrency/resources,
+so failures and replacements never refund consumed allowances. Identical operations replay and
+changed content under the same identity conflicts.
+
+These host sessions do not become ledger nodes, reviewer-fanout children, scheduler entries, or
+gates. The register cannot execute or confine a helper, stop external edits, authenticate an
+observation, or prove that a host enforced its restrictions. Missing or unverified required host
+restrictions block before reservation. Decisions, writing, independent acceptance, publication,
+ledger ownership, and usage authority remain with their existing roles.
 
 ### Required instruction-level pull-request publication
 
@@ -202,8 +222,30 @@ read effects only.
 Execution-plan v2 freezes conditional assignments before human approval. Each assignment contains
 an ID, role, model, effort, review lens and prompt template, reason/acceptance/evidence/scope ceilings,
 derived read-only capabilities, maximum instances, and dispatch weight. Delegation-disabled runs
-continue to emit execution-plan v1. Execution-plan schema remains controlled only by reviewer
-delegation and is not reused to identify the task-brief or size-policy version.
+continue to emit execution-plan v1 unless they opt into helpers. A helper-enabled task emits
+execution-plan v3 and binds its allowance reference/hash. Execution-plan schema does not select the
+size-policy classifier; persisted task-brief schema still does.
+
+## Portable repository policy
+
+Repository-policy v2 keeps the existing graph invariants while allowing project-specific bounded
+repository file or directory references, exact required-check command IDs, and a required
+`implementation_roots` classification. That unique array may be empty and contains repository
+directories or root files. Senior Engineer writes must fit an implementation or artifact root;
+other permitted writers remain confined to artifact roots and their existing role/effect/action
+ceilings. Deliverable documentation is implementation. Equality or ancestor/descendant overlap
+between implementation and repository artifact roots fails closed under the host platform's
+path-case rules, and a trailing slash does not create a distinct location.
+
+Filesystem targets must remain inside the verified repository and reject traversal, secrets,
+links/reparse escapes, repository-wide wildcards, and profile-installation paths. Artifact roots stay
+directories. External, destructive, publish, and deploy targets retain their v1 ceilings.
+
+Every v2 required check is mandatory and supplies nonempty exact argv plus a timeout from 1 through
+3600 seconds. The task authority remains the exact intersection of policy capabilities. Planner
+envelopes use the same versioned capability predicate as policy validation, which prevents a path
+accepted during load from being widened during dispatch. Policy v1 retains its exact paths, check
+set, validation behavior, envelopes, and digests; v1 rejects `implementation_roots`.
 
 ## Route complexity and model-cost sizing
 
@@ -272,8 +314,8 @@ The chosen design extends the existing SQLite ledger, atomic mutation, artifact 
 assessment, and branch lifecycle. It avoids a second scheduler and keeps recovery under `resume`.
 Direct graph-node or reviewer-fanout spawning remains rejected because it would bypass plan approval,
 budgets, fencing, resource assessment, and audit state. The instruction-level evidence children above
-are intentionally narrower: they perform retrieval only, have no engine identity or gate authority,
-and are registered outside the ledger. Reusing `specialist_tag` was rejected because repeated
+and validation helpers have no engine identity or gate authority and are registered outside the
+ledger. Retrieval and exact validation execution remain separate child contracts. Reusing `specialist_tag` was rejected because repeated
 same-role reviewer children need explicit assignment and ordinal identity. A standalone Court skill,
 panel, or orchestration layer is out of scope.
 
@@ -286,6 +328,7 @@ panel, or orchestration layer is out of scope.
 | Schema 6 + old engine | Rejected; never downgraded |
 | Schema 6, delegation absent | Execution-plan schema 1; task-brief v1 retains legacy plan bytes |
 | Schema 6, delegation enabled | Execution-plan v2 conditional assignments |
+| Schema 6, helper attachment present | Task/plan v3 binds one allowance reference/hash |
 
 There is no in-place migration. Rollback means stop creating schema-6 runs, let schema-5 runs finish
 under their prior engine, and restart incomplete schema-6 work under an explicitly selected compatible
@@ -317,7 +360,7 @@ Delegation-disabled CLI behavior, exit codes, stable IDs, routes, specialist pro
 and SQLite transition semantics remain unchanged. State schema 6 is authoritative. Schema 5 and older
 runs fail closed in this engine without migration.
 
-The reusable profile set remains exactly:
+The supported reusable profile inventory is exactly:
 
 - `impact_mapper.toml`
 - `tech_lead.toml`
@@ -326,13 +369,16 @@ The reusable profile set remains exactly:
 - `code_reviewer.toml`
 - `test_engineer.toml`
 - `security_reviewer.toml`
+- `evidence_scout.toml`
+- `validation_executor.toml`
 
 Optional application-specialist protocol identifiers remain supported by topology and contract
 validation even though their role TOMLs are not part of the reusable profile set. No role
 substitution or topology change is introduced.
 
 All economy size assignments use the selected host catalog's economy effort. Tech Lead and Architect
-use that catalog's reasoning model at every size. The centralized execution-plan invariant rejects an
+use that catalog's reasoning model at every size. New plans also require a reasoning-class
+Senior Engineer, without changing historical approvals. The centralized execution-plan invariant rejects an
 invalid host, model, or effort before it can enter a persisted envelope.
 
 The recommended Supervisor assignment comes from the host catalog. Codex defaults to `gpt-6-astra`
@@ -390,6 +436,6 @@ $env:PYTHONDONTWRITEBYTECODE = '1'
 python -m unittest -v tests.test_standalone_acceptance.StandaloneAcceptanceTests.test_hygiene
 ```
 
-Hygiene checks forbidden artifacts, required ignore patterns, the exact seven reusable role files,
+Hygiene checks forbidden artifacts, required ignore patterns, the exact supported nine-profile inventory,
 repository authority wording, skill-discovery guardrails, and absence of stale external requirements.
 It does not repair files or inspect any installed profile or consumer repository.

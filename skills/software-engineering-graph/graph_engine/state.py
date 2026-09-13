@@ -298,7 +298,36 @@ def current_actor() -> str:
     return getpass.getuser() or "unknown-user"
 
 
+STATE_ROOT_ENV = "SOFTWARE_ENGINEERING_GRAPH_STATE_HOME"
+XDG_STATE_ROOT_ENV = "XDG_STATE_HOME"
+STATE_ROOT_DIRECTORY = "software-engineering-graph"
+
+
+def _absolute_state_root(value: Any) -> Path:
+    if not isinstance(value, (str, os.PathLike)) or not os.fspath(value):
+        raise StateError("STATE_ROOT_INVALID")
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        raise StateError("STATE_ROOT_MUST_BE_ABSOLUTE")
+    return candidate.absolute()
+
+
+def resolve_state_root(
+    explicit: Optional[Path] = None, environ: Optional[Mapping[str, str]] = None,
+) -> Path:
+    """Resolve runtime state independently of the installed skill location."""
+    environment = os.environ if environ is None else environ
+    if explicit is not None:
+        return _absolute_state_root(explicit)
+    if STATE_ROOT_ENV in environment:
+        return _absolute_state_root(environment[STATE_ROOT_ENV])
+    if XDG_STATE_ROOT_ENV in environment:
+        return _absolute_state_root(environment[XDG_STATE_ROOT_ENV]) / STATE_ROOT_DIRECTORY
+    return (Path.home() / ".local" / "state" / STATE_ROOT_DIRECTORY).absolute()
+
+
 def installed_codex_home() -> Path:
+    """Return the legacy installed profile root for explicit compatibility callers."""
     resolved = Path(__file__).resolve()
     for parent in resolved.parents:
         if parent.name == ".codex":
@@ -388,8 +417,17 @@ def local_filesystem_identity(path: Path) -> str:
 
 
 class StateStore:
-    def __init__(self, codex_home: Optional[Path] = None, fault_hook: Optional[Callable[[str], None]] = None):
-        self.codex_home = (codex_home or installed_codex_home()).absolute()
+    def __init__(
+        self,
+        codex_home: Optional[Path] = None,
+        fault_hook: Optional[Callable[[str], None]] = None,
+        *,
+        state_root: Optional[Path] = None,
+    ):
+        if codex_home is not None and state_root is not None:
+            raise StateError("STATE_ROOT_CONFLICT")
+        self.state_root = resolve_state_root(state_root if state_root is not None else codex_home)
+        self.codex_home = self.state_root
         self.fault_hook = fault_hook or (lambda _point: None)
 
     def run_root(self, repository_id: str, run_id: str) -> Path:

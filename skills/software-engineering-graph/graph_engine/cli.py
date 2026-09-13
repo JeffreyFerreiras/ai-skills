@@ -14,9 +14,9 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from .checks import configured_check, run_check, validate_check_receipt
 from .config import branch_lease_seconds, load_policy
 from .contracts import (
-    ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, opaque, require_keys,
-    safe_json_snapshot, validate_fanout_assessment, validate_impact_map, validate_ref, validate_result_manifest,
-    validate_task_brief,
+    ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, lexical_relative,
+    opaque, require_keys, safe_json_snapshot, validate_fanout_assessment, validate_impact_map,
+    validate_ref, validate_result_manifest, validate_task_brief,
 )
 from .evidence import (
     VerifiedArtifact, canonical_ledger_artifact, enforce_artifact_size, persist_artifact,
@@ -24,6 +24,7 @@ from .evidence import (
 )
 from .execution import build_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST, known_hosts
+from .helper_register import validate_allowance
 from .ids import canonical_bytes, sha256_bytes
 from . import usage
 from .reviewer_delegation import (
@@ -570,6 +571,17 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
         Path(args.task_brief), _task_roots(repo, policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]
     )
     full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy)
+    if full_task["schema_version"] == 3:
+        allowance = full_task["helper_allowance"]
+        relative = lexical_relative(allowance["ref"][5:], "helper_allowance.ref")
+        allowance_snapshot = safe_json_snapshot(
+            repo / relative, _task_roots(repo, policy), 256 * 1024,
+        )
+        if allowance_snapshot.digest != allowance["sha256"]:
+            raise ContractError("helper_allowance.sha256", "INPUT_DIGEST_MISMATCH")
+        validate_allowance(
+            allowance_snapshot.parsed, run_id, getattr(args, "host", DEFAULT_HOST),
+        )
     task = authoritative_task_subset(full_task)
     try:
         execution_plan = build_execution_plan(
@@ -2174,6 +2186,11 @@ def command_run_control(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="graphctl")
     parser.add_argument("--repo")
+    parser.add_argument(
+        "--state-root",
+        help=("absolute runtime-state root; defaults to SOFTWARE_ENGINEERING_GRAPH_STATE_HOME, "
+              "then XDG_STATE_HOME/software-engineering-graph, then ~/.local/state/software-engineering-graph"),
+    )
     parser.add_argument("--ack-degraded-permissions", action="store_true")
     parser.add_argument("--ack-degraded-durability", action="store_true")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2184,7 +2201,10 @@ def build_parser() -> argparse.ArgumentParser:
     init = commands.add_parser("init")
     init.add_argument("--run-id", required=True); init.add_argument("--task-brief", required=True); init.add_argument("--op-id", required=True)
     init.add_argument("--size", choices=["small", "medium", "large"])
-    init.add_argument("--host", choices=known_hosts(), default=DEFAULT_HOST)
+    init.add_argument(
+        "--host", choices=known_hosts(), default=DEFAULT_HOST,
+        help="model catalog: codex-astra (default), codex (explicit Luna/Sol option), or cursor",
+    )
     init.add_argument("--ack-degraded-permissions", action="store_true", default=argparse.SUPPRESS)
     init.add_argument("--ack-degraded-durability", action="store_true", default=argparse.SUPPRESS)
     record = commands.add_parser("record")
@@ -2243,7 +2263,11 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
     case_sensitive = os.path.normcase("A") != os.path.normcase("a")
     repo = Path(args.repo).resolve(strict=True)
     policy, policy_snapshot = load_policy(repo)
-    state = store or StateStore()
+    requested_root = Path(args.state_root) if args.state_root is not None else None
+    if store is not None and requested_root is not None:
+        if store.state_root != requested_root.absolute():
+            raise StateError("STATE_ROOT_CONFLICT")
+    state = store or StateStore(state_root=requested_root)
     if args.command == "init":
         return command_init(args, repo, policy, policy_snapshot, state), 0
     run_id = opaque(args.run_id, "run_id")

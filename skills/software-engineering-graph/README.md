@@ -3,10 +3,17 @@
 Canonical source: [ai-skills/skills/software-engineering-graph](https://github.com/JeffreyFerreiras/ai-skills/tree/master/skills/software-engineering-graph).
 Maintain the skill here. The former standalone repository provides a public redirect and preserved history.
 Run contributor validation from this source skill directory in the ai-skills repository.
-Run operational ledger commands from a verified installed Codex copy, such as
-`~/.codex/skills/software-engineering-graph`, with `--repo` pointing to the target repository.
-The ledger derives its profile root from the engine file's `.codex` ancestor; the source checkout
-cannot initialize runs, even when `CODEX_HOME` is set.
+Run operational ledger commands from a verified skill copy with `--repo` pointing to the target
+repository. Runtime state is independent of installation: use absolute `--state-root`,
+`SOFTWARE_ENGINEERING_GRAPH_STATE_HOME`, absolute `XDG_STATE_HOME/software-engineering-graph`, or
+the portable default `~/.local/state/software-engineering-graph`, in that order. Pass an old root
+explicitly to open historical state; the engine does not discover, migrate, or rewrite it.
+For a multi-command run, set one absolute root before the first stateful command and keep it for the
+whole shell session. The stateless usage checkpoint does not require it:
+
+```powershell
+$env:SOFTWARE_ENGINEERING_GRAPH_STATE_HOME = 'C:\graph-state'
+```
 
 Software Engineering Graph is an **AI-agent skill** for Codex, Cursor, and equivalent agent hosts. It organizes complex software work
 across specialized AI agents and makes scope, human approval, design, implementation, independent
@@ -15,7 +22,7 @@ review, and testing explicit.
 Use it for non-trivial features, fixes, refactors, migrations, integrations, and
 production-sensitive work. Documentation and mechanical changes can use a smaller, faster route.
 
-This repository is authoritative for the AI skill, its local workflow engine, and its seven reusable
+This repository is authoritative for the AI skill, its local workflow engine, and its nine supported reusable
 agent-role definitions. It is not a general-purpose task scheduler, CI service, or security boundary.
 The installed profile remains untouched unless separately approved work explicitly changes it.
 
@@ -44,7 +51,7 @@ the roles the work needs:
   affected.
 - **Pull Request Engineer** is the required instruction-level publication role for every repository
   implementation intended for delivery. A fresh host-catalog publication dispatch publishes after the gates
-  and may later perform separately approved cleanup. It adds no eighth profile or engine node.
+  and may later perform separately approved cleanup. It adds no reusable profile or engine node.
 
 The workflow is deliberately bounded. It limits design and repair loops, separates writing from
 review, records evidence, and returns unresolved product or risk decisions to the human.
@@ -69,21 +76,18 @@ Supervisor alone dispatches engine-managed graph nodes and conditional reviewer-
 mutates the ledger. Delegated reviewers receive fresh, read-only envelopes and cannot create another
 reviewer-fanout level.
 
-The approved plan may also grant a separate, instruction-level direct evidence-child allowance to
-exactly four parent roles: Tech Lead, Software Architect, Code Reviewer, and Security Reviewer. Those
-parents may spawn one-level, fresh-context children for bounded repository or authorized MCP retrieval
-without asking the Supervisor to dispatch each lookup. The Supervisor still owns scope, phase and gate
-decisions, ledger CLI mutations, and shared run budget and concurrency. Senior Engineer, Test Engineer,
-Impact Mapper, fixed research workers, and Pull Request Engineer cannot spawn these children.
+An approved task/plan v3 may grant optional direct helper allowances. Evidence Scout serves
+Tech Lead, Software Architect, Senior Engineer, Code Reviewer, Test Engineer, and Security Reviewer.
+Validation Executor serves only Senior Engineer and Test Engineer. Both may directly invoke either
+helper within their approved allowance. Helpers retrieve evidence or execute exact selected commands;
+parents retain interpretation, decisions, the sole writer, and independent verification.
 
-Direct evidence children use only the plan-approved read scope and exact host assignment, return
-concise source-cited excerpts with uncertainty, and do not write, run tests, mutate the ledger, make
-decisions, create findings, publish, or spawn grandchildren. Codex defaults to `gpt-5.6-luna` at
-`max`; Cursor follows the existing economy mapping, `composer-2.5` at `high`. An explicit verified
-assignment in the approved plan wins, and an unavailable assignment stops the child without silent
-fallback. Parents register lifecycle and separately reported usage so child totals are never folded
-into parent or graph-branch totals. Small direct parent reads remain allowed; trivial reads are not
-forced through a child. See the [direct evidence-child contract](SKILL.md#direct-evidence-children).
+Read the canonical [economy-helper contract](references/economy-helpers.md) for one-way allowance
+hash binding, deterministic register commands, eligibility, host restrictions, budgets, resource
+checks, and separate usage accounting. Helpers remain
+instruction-level host sessions, never graph branches, reviewer-fanout members, or mandatory gates.
+Use direct permitted tools for trivial work. Historical approvals gain no new helper permissions;
+repository profiles do not prove that a runtime has loaded or enforced their contracts.
 
 A local control ledger tracks assignments, approvals, retries, active-work ownership, and recovery
 so the workflow behaves consistently and deterministically. It coordinates agents but does not
@@ -112,9 +116,11 @@ publication stays Luna `max`; other advisory/specialist assignments retain their
 Historical unversioned Astra plans retain their original assignments and digests. Older engines
 cannot read revision 2 Astra plans; rollback must preserve approvals without rewriting them.
 The actual primary model is not switched by the CLI. Verify host availability and exact dispatch
-assignments before approval. Use `--host codex` for the explicit Luna/Sol fallback; Cursor and
-existing approved plans retain their assignments. The seven reusable role profiles match the Astra
-default; installed profiles require a separately authorized sync.
+assignments before approval. Use `--host codex` for the explicit size-specific Luna/Sol catalog.
+This selects the existing matrix; it does not switch the primary model or make every role Sol.
+Cursor and existing approved plans retain their assignments. New Codex and Cursor revision 2 plans use
+reasoning `medium` for small Senior Engineers; the frozen historical matrix remains unchanged. The seven existing role profiles match the Astra
+default and the two helper profiles use Luna `max`; installed profiles require a separately authorized sync.
 See [model catalogs](references/model-catalogs.md) for compatibility and evaluation.
 
 The four executable routes are `advisory` (read-only review), `design_only` (research and independent
@@ -133,6 +139,20 @@ The route still determines workflow gates. A v2 small `full_delivery` run keeps 
 design, implementation, independent review, testing, specialist, consolidation, and closure topology
 as medium or large; only approved model assignments change. Existing task-brief v1 inputs retain the
 legacy route-influenced classifier, unrestricted explicit override, execution-plan shape, and digest.
+
+Repository-policy schema v2 permits project-specific bounded repository file/directory references,
+exact required-check command IDs, and an `implementation_roots` classification. Senior Engineer
+writes must fit a classified implementation or artifact root; other permitted writes must fit an
+artifact root. Implementation and artifact roots cannot equal, contain, or be contained by each
+other under the host platform's path-case rules; a trailing slash does not create a distinct
+location. It preserves role effect/action and external-target ceilings, link/secret protections,
+mandatory gates, checks, and sole-writer rules. Policy v1 rejects the new field and retains its
+frozen paths, command set, validation behavior, envelopes, and digests.
+
+Task/plan v3 applies only when a run opts into the deterministic helper register. The plan binds one
+allowance reference/hash; the register binds that allowance hash with the resulting plan hash and
+repository/run identity. Task/plan v1 and v2 bytes remain unchanged and grant zero authority through
+the new register. Historical instruction-level helper contracts are not rewritten or revoked.
 
 ## Using the skill
 
@@ -179,7 +199,7 @@ equal that total. Otherwise the first total becomes a baseline and coverage repo
 Associate a branch session with `--branch-id <id> --attempt-id <id>` instead of `--phase` and
 `--generation`. Role, phase, and generation are derived from that executed attempt. Retries have
 distinct attempt IDs; resumed sessions can bind to the same attempt. Delegated reviewers bind their
-own session and attempt. Direct evidence children are instruction-level sessions, not ledger branches;
+own session and attempt. Both reusable helpers are instruction-level sessions, not ledger branches;
 their lifecycle and usage are registered separately by the parent, and parent totals never include
 child rollups. Do not associate overlapping work with multiple runs: the engine checks intervals within
 a run and does not inspect other runs.
@@ -254,11 +274,14 @@ or aborted runs, solely to settle late accounting metadata.
 ## Repository map
 
 - [`SKILL.md`](SKILL.md) defines the AI skill and its operating contract.
-- [`profile-agents/`](profile-agents/) contains the seven reusable Codex role profiles. Cursor runs
+- [`profile-agents/`](profile-agents/) contains the nine supported reusable Codex role profiles. Cursor runs
   keep those files unchanged and resolve models through the host catalog instead.
 - [`graph_engine/`](graph_engine/) implements deterministic planning, validation, and local state.
-  Host catalogs in `graph_engine/hosts.py` map role intelligence classes onto Codex or Cursor models.
+  Host catalogs in `graph_engine/hosts.py` map role intelligence classes onto Codex or Cursor models;
+  `helper_register.py` owns the separate host-only helper reservation record.
 - [`scripts/graphctl.py`](scripts/graphctl.py) is the command-line adapter used by the Supervisor.
+- [`scripts/helper-register.py`](scripts/helper-register.py) initializes, preflights, reserves, settles,
+  and reads the optional task/plan v3 helper register.
 - [`references/`](references/) contains schemas and workflow contracts.
 - [`docs/technical-design.md`](docs/technical-design.md) explains the internal architecture and
   compatibility guarantees.
@@ -273,8 +296,13 @@ or aborted runs, solely to settle late accounting metadata.
   implementation, not an engine-enforced topology or remote provider implementation
 - State schema 6; schema-5 runs finish under the old engine or restart under schema 6, with no
   in-place migration or downgrade
+- Portable state roots are explicit or host-scoped and never inferred from a skill installation;
+  historical roots must be passed explicitly
+- Repository-policy v1 and task/plan v1-v2 retain their historical behavior and bytes; policy v2
+  adds bounded project paths/checks, and task/plan v3 opts into the separate helper register
 - Every economy (Codex Luna / Cursor Composer) size assignment uses that catalog's economy effort.
-  Tech Lead and Architect assignments use the host reasoning model at every size. Research output
+  Tech Lead and Architect assignments use the host reasoning model at every size. New plans
+  also require a reasoning-class Senior Engineer; historical plan loading preserves recorded assignments. Research output
   contracts require an `evidence_manifest`, verified evidence, a null decision, and empty findings.
 
 Implementation authorization and initial plan approval cover the plan's exact non-force commit, push,
@@ -328,6 +356,6 @@ $env:PYTHONDONTWRITEBYTECODE = '1'
 python -m unittest -v tests.test_standalone_acceptance.StandaloneAcceptanceTests.test_hygiene
 ```
 
-The hygiene check verifies forbidden artifacts, required ignore patterns, the exact seven role files,
+The hygiene check verifies forbidden artifacts, required ignore patterns, the exact supported nine-profile inventory,
 repository authority wording, skill-discovery guardrails, and stale external requirements. It does
 not repair files or inspect an installed profile or consumer repository.
