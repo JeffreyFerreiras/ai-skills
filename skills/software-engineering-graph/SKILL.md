@@ -71,6 +71,11 @@ concrete conflict. Do not infer new approval requirements from optional skill gu
 
 ## Ledger procedures
 
+For explicitly enabled format 7 runs, use the repairable evidence and planning-constraint procedures
+in [Ledger operations](references/ledger-operations.md). Produce, check, inspect the cause, correct
+within authority, and retry within the existing allowance. Return repairs to their originating gates;
+fresh checks never refresh an older review's source binding. Keep all mandatory independent gates.
+
 Before any ledger operation, preserve these invariants: the Supervisor is the sole ledger mutator;
 the immutable execution plan requires explicit human approval before a claim; every attempt-scoped
 mutation presents the current claim fence; budgets never reset through retries or relabeling; branch

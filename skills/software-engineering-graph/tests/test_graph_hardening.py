@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from graph_engine.config import load_policy
@@ -13,11 +14,448 @@ from graph_engine.helper_register import (
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
+from graph_engine.checks import capture_source
 
 from tests.test_support import GraphCase
+from tests.test_contracts import _validate_json_schema
 
 
 class GraphHardeningTests(GraphCase):
+    def _assert_repair_packet_schema(self, packet):
+        schema = json.loads((Path(__file__).parents[1] / "references/evidence-lifecycle.schema.json").read_text(encoding="utf-8"))
+        _validate_json_schema(packet, schema, schema)
+        with self.assertRaises(AssertionError):
+            _validate_json_schema({**packet, "unexpected": True}, schema, schema)
+        origin_fields = ("origin_kind", "origin_collection_id", "origin_consolidation_ref", "origin_reports")
+        if "origin_kind" not in packet:
+            for field in origin_fields:
+                with self.subTest(partial_origin=field), self.assertRaises(AssertionError):
+                    _validate_json_schema({**packet, field: "partial"}, schema, schema)
+            return
+        for field in origin_fields:
+            missing = {key: value for key, value in packet.items() if key != field}
+            with self.subTest(missing_origin=field), self.assertRaises(AssertionError):
+                _validate_json_schema(missing, schema, schema)
+        malformed = [
+            {**packet, "origin_kind": "invented"},
+            {**packet, "origin_collection_id": 1},
+            {**packet, "origin_consolidation_ref": {**packet["origin_consolidation_ref"], "sha256": "bad"}},
+            {**packet, "origin_reports": []},
+        ]
+        report = packet["origin_reports"][0]
+        for invalid_report in (
+            {key: value for key, value in report.items() if key != "attempt_id"},
+            {**report, "unexpected": True},
+            {**report, "attempt_id": None},
+            {**report, "result_ref": {**report["result_ref"], "size_bytes": -1}},
+            {**report, "artifact_ref": {**report["artifact_ref"], "unexpected": True}},
+            {**report, "findings": [{"finding_id": "FIX-001", "disposition": "invented"}]},
+            {**report, "evidence": [{"kind": "finding", "ref": "repo:missing", "sha256": "bad"}]},
+        ):
+            malformed.append({**packet, "origin_reports": [invalid_report]})
+        for index, invalid in enumerate(malformed):
+            with self.subTest(malformed_origin=index), self.assertRaises(AssertionError):
+                _validate_json_schema(invalid, schema, schema)
+
+    def test_stale_v1_receipt_can_enable_and_resume_without_waiving_integrity(self):
+        self.initialize()
+        source = self.repo / "docs/source.txt"
+        source.write_text("A", encoding="utf-8")
+        for arguments in [("init",), ("add", "docs/source.txt"),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        receipt = self.graphctl("check", "run", "--run-id", "RUN-1", "--check-id", "repo-check", "--op-id", "legacy-check")
+        source.write_text("B", encoding="utf-8")
+        with self.assertRaisesRegex(StateError, "CHECK_EVIDENCE_PROVENANCE_INVALID"):
+            self.graphctl("status", "--run-id", "RUN-1")
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/source.txt"], "complete": True}]})
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            original = connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (receipt["artifact_ref"],)).fetchone()[0]
+            connection.execute("UPDATE artifacts SET content_json='{}' WHERE ref=?", (receipt["artifact_ref"],))
+            connection.commit()
+        with self.assertRaises((StateError, ContractError)):
+            self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                          "--coverage-manifest", str(coverage), "--op-id", "invalid-enable")
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            connection.execute("UPDATE artifacts SET content_json=? WHERE ref=?", (original, receipt["artifact_ref"]))
+            connection.commit()
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(coverage), "--op-id", "enable")
+        self.graphctl("status", "--run-id", "RUN-1")
+        self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(original, connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (receipt["artifact_ref"],)).fetchone()[0])
+
+    def test_declared_ignored_input_with_only_broad_authority_refuses_execution(self):
+        task = self.task(route="fast_path")
+        task["authority"]["capabilities"].append({"effect": "command", "action": "run", "target_ref": "npm-run-check"})
+        self.initialize_task(task)
+        self.impact("fast_path")
+        writer = self.claim_raw()
+        (self.repo / ".gitignore").write_text("docs/ignored-input.txt\n", encoding="utf-8")
+        ignored = self.repo / "docs/ignored-input.txt"
+        ignored.write_text("A", encoding="utf-8")
+        for arguments in [("init",), ("add", "docs/engineering-graph.md"),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/ignored-input.txt"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(coverage), "--op-id", "enable")
+        with patch("graph_engine.cli.run_check") as execute_check:
+            for value in ("A", "B"):
+                ignored.write_text(value, encoding="utf-8")
+                with self.assertRaisesRegex(StateError, "SOURCE_UNVERIFIABLE"):
+                    self.graphctl("check", "run", "--run-id", "RUN-1", "--check-id", "repo-check",
+                                  "--executor-branch-id", writer["branch_id"], "--executor-attempt-id", writer["attempt_id"],
+                                  "--executor-claim-token", writer["claim_token"], "--source-branch-id", writer["branch_id"],
+                                  "--source-attempt-id", writer["attempt_id"], "--source-claim-digest", writer["claim_digest"],
+                                  "--op-id", "check-" + value)
+            execute_check.assert_not_called()
+        policy, _ = load_policy(self.repo)
+        first = capture_source(self.repo, policy, ["docs/ignored-input.txt"], known_inputs=["docs/ignored-input.txt"])
+        ignored.write_text("C", encoding="utf-8")
+        self.assertNotEqual(first["sha256"], capture_source(self.repo, policy, ["docs/ignored-input.txt"], known_inputs=["docs/ignored-input.txt"])["sha256"])
+
+    def test_format7_retry_packet_retains_failure_and_rejects_scope_expansion(self):
+        self.initialize()
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/engineering-graph.md"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(coverage), "--op-id", "enable")
+        first = self.claim_raw()
+        timeout = self.control_manifest("timeout", "WORKER_TIMEOUT", {"branch_id": first["branch_id"]})
+        payload = json.loads(timeout.read_text(encoding="utf-8"))
+        payload.update({"attempt_id": first["attempt_id"], "claim_digest": first["claim_digest"]})
+        timeout.write_text(json.dumps(payload), encoding="utf-8")
+        self.graphctl("record", "timeout", "--run-id", "RUN-1", "--branch-id", first["branch_id"],
+                      "--attempt-id", first["attempt_id"], "--claim-token", first["claim_token"],
+                      "--reason-code", "WORKER_TIMEOUT", "--evidence-manifest", str(timeout), "--op-id", "timeout")
+        judgment = {"schema_version": 1, "kind": "repair_judgment", "cause": "infrastructure",
+                    "failed_criterion_ids": ["AC-001"], "authorized_scope": []}
+        def retry(value, operation):
+            path = self.inbox_manifest(value)
+            return self.graphctl("record", "retry", "--run-id", "RUN-1", "--branch-id", first["branch_id"],
+                                 "--reason-code", "RETRY", "--repair-manifest", str(path), "--op-id", operation)
+        with self.assertRaisesRegex(ContractError, "UNKNOWN_CRITERION"):
+            retry({**judgment, "failed_criterion_ids": ["AC-999"]}, "bad-criterion")
+        with self.assertRaisesRegex(ContractError, "AUTHORITY_EXCEEDED"):
+            retry({**judgment, "authorized_scope": [{"effect": "filesystem_write", "action": "edit", "target_ref": "repo:src/"}]}, "bad-scope")
+        retry(judgment, "retry")
+        second = self.claim_raw()
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            packets = [json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()[0])
+                       for item in second["inputs"] if item["kind"] == "failure"]
+        self.assertEqual(first["attempt_id"], packets[-1]["attempt_id"])
+        self.assertEqual(["AC-001"], packets[-1]["failed_criterion_ids"])
+        self.assertEqual(["supervisor"], packets[-1]["return_gates"])
+        self.assertNotEqual(first["attempt_id"], second["attempt_id"])
+        self._assert_repair_packet_schema(packets[-1])
+
+    def test_three_checks_across_repair_keep_independent_initial_slots(self):
+        self._exercise_repair_checks(stale_reviews=False)
+
+    def test_stale_reviews_can_repair_and_deliver_packet_to_next_writer(self):
+        self._exercise_repair_checks(stale_reviews=True)
+
+    def _exercise_repair_checks(self, stale_reviews):
+        policy_path = self.repo / ".codex/engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["schema_version"] = 2
+        policy["implementation_roots"] = ["src/", "scripts/"]
+        for check_id in ("unit", "integration"):
+            command_id = "fixture-" + check_id
+            policy["required_checks"][check_id] = {"command_id": command_id, "mandatory": True,
+                                                  "argv": [sys.executable, "-c", "pass"], "timeout_seconds": 30}
+            for role in ("senior_engineer", "test_engineer"):
+                policy["role_capabilities"][role].append({"effect": "command", "action": "run", "target_ref": command_id})
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        task = self.task(route="fast_path")
+        task["required_check_ids"] = sorted(policy["required_checks"])
+        task["authority"]["capabilities"] += [{"effect": "filesystem_write", "action": "edit", "target_ref": "repo:docs/"}]
+        task["authority"]["capabilities"] += [{"effect": "command", "action": "run", "target_ref": check["command_id"]} for check in policy["required_checks"].values()]
+        self.initialize_task(task)
+        self.impact("fast_path")
+        assessment_evidence = self.repo_artifact("finding", "assessment-before-checks")
+        for arguments in [("init",), ("add", "docs/engineering-graph.md"),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": key, "relevant_inputs": ["docs/engineering-graph.md"], "complete": True} for key in task["required_check_ids"]]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2", "--coverage-manifest", str(coverage), "--op-id", "enable")
+        selected = {}
+        def checks(executor, writer, generation):
+            for check_id in task["required_check_ids"]:
+                args = ["check", "run", "--run-id", "RUN-1", "--check-id", check_id,
+                        "--executor-branch-id", executor["branch_id"], "--executor-attempt-id", executor["attempt_id"],
+                        "--executor-claim-token", executor["claim_token"], "--source-branch-id", writer["branch_id"],
+                        "--source-attempt-id", writer["attempt_id"], "--source-claim-digest", writer["claim_digest"],
+                        "--op-id", "check-{}-{}-{}".format(generation, executor["node_key"], check_id)]
+                if check_id in selected:
+                    args += ["--replace-ref", selected[check_id]]
+                result = self.graphctl(*args)
+                self.assertEqual("PASS", result["outcome"])
+                selected[check_id] = result["artifact_ref"]
+        for generation in range(2):
+            writer = self.claim_raw()
+            self.assertEqual("senior_engineer", writer["node_key"])
+            if generation == 1:
+                with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                    packets = [json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()[0])
+                               for item in writer["inputs"] if item["kind"] == "failure"]
+                self.assertEqual(1, len(packets))
+                packet = packets[0]
+                self._assert_repair_packet_schema(packet)
+                self.assertEqual("supervisor_delivery_consolidation", packet["origin_gate"])
+                self.assertEqual(2, packet["remaining_allowances"]["delivery_repairs"])
+                self.assertEqual("unknown", packet["cause"])
+                self.assertEqual([], packet["failed_criterion_ids"])
+                self.assertEqual(2, len(packet["origin_reports"]))
+                self.assertIn("FIX-001", str(packet["origin_reports"]))
+                self.assertEqual([item for item in writer["effect_capabilities"] if item["effect"].startswith("filesystem")], packet["authorized_scope"])
+            checks(writer, writer, generation)
+            self.success(writer, "IMPLEMENTED")
+            outputs = [{"path": "docs/artifacts/{}-{}.json".format(key, generation), "purpose": "review_report",
+                        "producer_node_key": key, "artifact_kind": "delivery_review"} for key in ("code_reviewer", "test_engineer")]
+            outputs.append({"path": "docs/artifacts/acceptance-{}.json".format(generation), "purpose": "acceptance_wrapper",
+                            "producer_node_key": "supervisor_delivery_consolidation", "artifact_kind": "acceptance_evidence"})
+            output_plan = self.inbox_manifest({"schema_version": 1, "kind": "generated_output_plan", "outputs": outputs})
+            join = self.open_join("implementation", generation)
+            self.graphctl("join", "advance", "--run-id", "RUN-1", "--join-id", join["join_id"],
+                          "--generated-output-plan", str(output_plan), "--op-id", "boundary-" + str(generation))
+            fanout = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["fanouts"] if item["stage"] == "delivery" and item["generation"] == generation)
+            assessment = self.inbox_manifest({"schema_version": 1, "kind": "fanout_assessment", "run_id": "RUN-1",
+                "fanout_id": fanout["fanout_id"], "members": [{"branch_id": member, "resources": {
+                    "writable_paths": [], "mutable_state_refs": [], "exclusive_device_refs": [], "services": []}}
+                    for member in fanout["member_branch_ids"]], "dependencies": [], "evidence": [assessment_evidence]})
+            self.graphctl("record", "fanout-assessment", "--run-id", "RUN-1", "--fanout-id", fanout["fanout_id"],
+                          "--assessment-manifest", str(assessment), "--authority-ref", "authority:test", "--op-id", "assess-" + str(generation))
+            tester = None
+            reviewers = [self.claim_raw(), self.claim_raw()]
+            if stale_reviews and generation == 0:
+                (self.repo / "docs/new-source.txt").write_text("changed during reviews", encoding="utf-8")
+            for reviewer in reviewers:
+                artifact = self.repo_artifact("delivery_review", reviewer["node_key"] + "-" + str(generation))
+                repair = generation == 0 and (reviewer["node_key"] == "code_reviewer" or stale_reviews)
+                self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
+                    "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact, "evidence": [],
+                    "findings": [{"finding_id": "FIX-001" if reviewer["node_key"] == "code_reviewer" else "FIX-002", "disposition": "repair"}] if repair else [],
+                    "decision": "REVISE" if repair or (stale_reviews and generation == 0) else "APPROVE"})
+                if reviewer["node_key"] == "test_engineer":
+                    tester = reviewer
+            if not stale_reviews or generation != 0:
+                checks(tester, writer, generation)
+            if generation == 0:
+                self.advance("delivery_collection")
+                dispositions = [{"finding_id": key, "disposition": "repair"} for key in (["FIX-001", "FIX-002"] if stale_reviews else ["FIX-001"])]
+                self.consolidation("delivery", "REPAIR", dispositions=dispositions)
+                self.advance("delivery_consolidation")
+                recovery = self.graphctl("recovery", "show", "--run-id", "RUN-1")
+                self.assertTrue(any(packet.get("origin_kind") == "delivery_review" for packet in recovery["packets"]))
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(1, next(item["used"] for item in status["budgets"] if item["budget_id"] == "delivery_repairs"))
+        self.assertEqual(9 if stale_reviews else 12, len(status["evidence_lifecycle"]["reservations"]))
+        self.assertTrue(all(item["repeat_cost"] == 0 for item in status["evidence_lifecycle"]["reservations"]))
+        self.advance("delivery_collection", 1)
+        self.consolidation("delivery", "ACCEPT", 1)
+        self.advance("delivery_consolidation", 1)
+        artifact = self.repo_artifact("acceptance_evidence", "acceptance-1")
+        self.graphctl("record", "acceptance-evidence", "--run-id", "RUN-1", "--criterion-id", "AC-001",
+                      "--artifact-ref", artifact["ref"], "--artifact-sha256", artifact["sha256"], "--op-id", "acceptance")
+        self.assertEqual("complete", self.graphctl("complete", "--run-id", "RUN-1", "--op-id", "complete")["status"])
+
+    def test_planning_constraints_project_only_applicable_active_records(self):
+        self._exercise_constraint_claim(assigned_scope=True)
+
+    def test_worker_constraints_exclude_broad_read_access_without_assigned_scope(self):
+        self._exercise_constraint_claim(assigned_scope=False)
+
+    def _exercise_constraint_claim(self, assigned_scope):
+        def evidence(name, payload):
+            path = self.repo / "docs/artifacts" / (name + ".json")
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            return "repo:docs/artifacts/" + path.name + "#sha256=" + sha256_bytes(path.read_bytes())
+        finding = evidence("confirmed", {"finding_id": "ARCH-001", "status": "confirmed"})
+        accepted = evidence("accepted", {"finding_id": "ARCH-001", "status": "accepted"})
+        base = {"id": "constraint-1", "revision": 1, "statement": "Verify covered inputs", "rationale": "Confirmed repair",
+                "state": "active", "repository_id": "albanian-live-translate", "paths": ["docs/"], "roles": ["tech_lead", "senior_engineer"],
+                "acceptance_ids": ["AC-001"], "finding_id": "ARCH-001", "confirmed_finding_ref": finding,
+                "accepted_fix_ref": accepted, "authority_ref": "authority:test", "invalidation_reason": None, "supersedes": []}
+        bundle = {"schema_version": 1, "kind": "planning_constraints", "records": [
+            base, {**base, "id": "unrelated", "paths": ["src/"]},
+            {**base, "id": "invalidated", "state": "invalidated", "invalidation_reason": "No longer applies"}]}
+        bundle_path = self.repo / "docs/artifacts/constraints.json"
+        bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+        task = self.task(route="full_delivery" if assigned_scope else "fast_path")
+        if assigned_scope:
+            task["scope"] = {"included": ["repo:docs/"], "excluded": []}
+        task["evidence_paths"].append("repo:docs/artifacts/constraints.json")
+        task["constraints"].append("planning-constraints:v1:" + sha256_bytes(bundle_path.read_bytes()))
+        self.initialize_task(task)
+        with self.assertRaisesRegex(StateError, "EVIDENCE_ENABLE_REQUIRED"):
+            self.claim_raw()
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/engineering-graph.md"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2", "--coverage-manifest", str(coverage), "--op-id", "enable")
+        self.impact("full_delivery" if assigned_scope else "fast_path")
+        lead = self.claim()
+        self.assertEqual("tech_lead" if assigned_scope else "senior_engineer", lead["node_key"])
+        projections = []
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            for item in lead["inputs"]:
+                row = connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()
+                payload = json.loads(row[0] or "{}")
+                if payload.get("kind") == "planning_constraint_projection":
+                    projections.append(payload)
+        self.assertEqual(["constraint-1"] if assigned_scope else [], [item["id"] for item in projections[0]["records"]])
+        if not assigned_scope:
+            self.assertEqual([], projections[0]["scope_paths"])
+            self.assertTrue(any(item["reason"] == "unresolved_scope" for item in projections[0]["diagnostics"]))
+        self.assertFalse(any(item["ref"].startswith("repo:docs/artifacts/constraints.json") for item in lead["inputs"]))
+        bundle_path.write_text(json.dumps({**bundle, "records": []}), encoding="utf-8")
+        with self.assertRaises((ContractError, StateError)):
+            self.graphctl("status", "--run-id", "RUN-1")
+
+    def test_review_binding_allows_declared_reports_but_rejects_later_source(self):
+        task = self.task(route="fast_path")
+        task["authority"]["capabilities"] += [
+            {"effect": "command", "action": "run", "target_ref": "npm-run-check"},
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:docs/"}]
+        self.initialize_task(task)
+        self.impact("fast_path")
+        writer = self.claim_raw()
+        assessment_evidence = self.repo_artifact("finding", "assessment-before-boundary")
+        self.success(writer, "IMPLEMENTED")
+        for arguments in [("init",), ("add", "docs/engineering-graph.md"),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/engineering-graph.md"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2", "--coverage-manifest", str(coverage), "--op-id", "enable")
+        output_plan = self.inbox_manifest({"schema_version": 1, "kind": "generated_output_plan", "outputs": [
+            {"path": "docs/artifacts/" + key + ".json", "purpose": "review_report", "producer_node_key": key,
+             "artifact_kind": "delivery_review"} for key in ("code_reviewer", "test_engineer")]})
+        join = self.open_join("implementation")
+        self.graphctl("join", "advance", "--run-id", "RUN-1", "--join-id", join["join_id"],
+                      "--generated-output-plan", str(output_plan), "--op-id", "review-boundary")
+        fanout = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["fanouts"] if item["stage"] == "delivery")
+        assessment = self.inbox_manifest({"schema_version": 1, "kind": "fanout_assessment", "run_id": "RUN-1",
+            "fanout_id": fanout["fanout_id"], "members": [{"branch_id": member, "resources": {
+                "writable_paths": [], "mutable_state_refs": [], "exclusive_device_refs": [], "services": []}}
+                for member in fanout["member_branch_ids"]], "dependencies": [], "evidence": [assessment_evidence]})
+        self.graphctl("record", "fanout-assessment", "--run-id", "RUN-1", "--fanout-id", fanout["fanout_id"],
+                      "--assessment-manifest", str(assessment), "--authority-ref", "authority:test", "--op-id", "assess")
+        refs = []
+        for _ in range(2):
+            reviewer = self.claim_raw()
+            refs.append(next(item["ref"] for item in reviewer["inputs"] if item["kind"] == "evidence_manifest"))
+            artifact = self.repo_artifact("delivery_review", reviewer["node_key"])
+            self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
+                "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact,
+                "evidence": [], "findings": [], "decision": "APPROVE"})
+        self.assertEqual(refs[0], refs[1])
+        self.advance("delivery_collection")
+        collection = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["joins"] if item["join_key"] == "delivery_collection")
+        draft = self.graphctl("consolidation", "draft", "--run-id", "RUN-1", "--join-id", collection["join_id"])
+        self.assertEqual("ACCEPT", draft["manifest"]["outcome"])
+        self.assertEqual({}, draft["unresolved_issue_identities"])
+        self.consolidation("delivery", "ACCEPT")
+        (self.repo / "docs" / "new-source.txt").write_text("B", encoding="utf-8")
+        with self.assertRaisesRegex(StateError, "REVIEW_SOURCE_CHANGED"):
+            self.advance("delivery_consolidation")
+
+    def test_format7_check_replacement_token_fence_and_budget(self):
+        policy_path = self.repo / ".codex/engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["required_checks"]["repo-check"]["argv"] = [sys.executable, "-c",
+            "from pathlib import Path; p=Path('docs/check-mode.txt'); mode=p.read_text(); "
+            "p.write_text('0') if mode == 'mutate' else None; raise SystemExit(1 if mode == 'fail' else 0)"]
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        mode = self.repo / "docs/check-mode.txt"
+        mode.write_text("fail", encoding="utf-8")
+        task = self.task(route="fast_path")
+        task["authority"]["capabilities"].append({"effect": "command", "action": "run", "target_ref": "npm-run-check"})
+        self.initialize_task(task)
+        self.impact("fast_path")
+        writer = self.claim_raw()
+        for arguments in [("init",), ("add", "docs/engineering-graph.md"),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        manifest = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(manifest), "--op-id", "enable")
+        def run(operation, token, predecessor=None):
+            arguments = ["check", "run", "--run-id", "RUN-1", "--check-id", "repo-check", "--op-id", operation,
+                         "--executor-branch-id", writer["branch_id"], "--executor-attempt-id", writer["attempt_id"],
+                         "--executor-claim-token", token, "--source-branch-id", writer["branch_id"],
+                         "--source-attempt-id", writer["attempt_id"], "--source-claim-digest", writer["claim_digest"]]
+            if predecessor:
+                arguments.extend(["--replace-ref", predecessor])
+            return self.graphctl(*arguments)
+        with self.assertRaisesRegex(StateError, "ATTEMPT_FENCE_MISMATCH"):
+            run("first", writer["claim_digest"])
+        first = run("first", writer["claim_token"])
+        self.assertEqual("FAIL", first["outcome"])
+        self.assertEqual("REPLAYED", run("first", writer["claim_token"])["code"])
+        with self.assertRaisesRegex(StateError, "ATTEMPT_FENCE_MISMATCH"):
+            run("first", "wrong")
+        mode.write_text("0", encoding="utf-8")
+        second = run("second", writer["claim_token"], first["artifact_ref"])
+        self.assertEqual("PASS", second["outcome"])
+        self.assertNotEqual(first["artifact_ref"], second["artifact_ref"])
+        budgets = self.graphctl("status", "--run-id", "RUN-1")["budgets"]
+        self.assertEqual(1, next(item["used"] for item in budgets if item["budget_id"] == "delivery_repairs"))
+        with patch("graph_engine.cli.run_check", side_effect=RuntimeError("interrupted")):
+            with self.assertRaisesRegex(RuntimeError, "interrupted"):
+                run("interrupted", writer["claim_token"], second["artifact_ref"])
+        with self.assertRaisesRegex(StateError, "CHECK_EXECUTION_UNKNOWN"):
+            run("interrupted", writer["claim_token"], second["artifact_ref"])
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        reservation = next(item for item in status["evidence_lifecycle"]["reservations"] if item["state"] == "open")
+        self.graphctl("check", "abandon", "--run-id", "RUN-1", "--reservation-id", reservation["reservation_id"],
+                      "--reason", "Original fixture process stopped", "--op-id", "abandon")
+        mode.write_text("mutate", encoding="utf-8")
+        third = run("after-abandon", writer["claim_token"], second["artifact_ref"])
+        with self.assertRaisesRegex(StateError, "BUDGET_LIMIT"):
+            run("exhausted", writer["claim_token"], third["artifact_ref"])
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            receipt = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (third["artifact_ref"],)).fetchone()[0])
+            self.assertEqual("source_changed", receipt["validity"])
+            rows = connection.execute("SELECT e.detail_json,o.response_json FROM events e JOIN operations o ON o.operation_id=e.source_id AND o.run_id=e.run_id WHERE e.run_id='RUN-1' AND e.event_type LIKE 'check.%'").fetchall()
+            self.assertTrue(rows)
+            self.assertNotIn(writer["claim_token"], json.dumps([list(row) for row in rows]))
+
+    def test_source_capture_hashes_untracked_content_and_rejects_missing_git(self):
+        policy, _ = load_policy(self.repo)
+        with self.assertRaisesRegex(StateError, "SOURCE_UNVERIFIABLE"):
+            capture_source(self.repo, policy, ["docs/"])
+        def git(*arguments):
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        git("init")
+        git("add", "docs/engineering-graph.md")
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")
+        path = self.repo / "docs" / "untracked.txt"
+        path.write_text("first", encoding="utf-8")
+        first = capture_source(self.repo, policy, ["docs/"])
+        path.write_text("second", encoding="utf-8")
+        self.assertNotEqual(first["sha256"], capture_source(self.repo, policy, ["docs/"])["sha256"])
+
+    def test_evidence_enable_preserves_historical_task_and_plan(self):
+        initialized = self.initialize()
+        task_bytes = (self.repo / "docs/task.json").read_bytes()
+        manifest = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/"], "complete": True}]})
+        result = self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                               "--coverage-manifest", str(manifest), "--op-id", "enable")
+        self.assertEqual(7, result["state_schema_version"])
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(initialized["execution_plan_digest"], status["execution_plan"]["plan_digest"])
+        self.assertEqual(task_bytes, (self.repo / "docs/task.json").read_bytes())
+
     def setUp(self):
         super().setUp()
         policy_path = self.repo / ".codex" / "engineering-graph.json"

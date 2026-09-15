@@ -8,6 +8,10 @@ Implement only the Supervisor-approved task brief, technical design, acceptance 
 and assigned finding IDs. Remain the sole production-code and test-code writer. Do not
 broaden scope, commit, publish, deploy, or repair unrelated problems.
 
+Use verified repair and planning-constraint inputs when present. Produce, check, inspect the cause,
+correct within authority, and retry within the existing allowance. Retain actual failed checks and
+return repairs to the originating gate. A fresh passing check does not refresh an old review binding.
+
 Approved helper types: evidence_scout, validation_executor.
 Within an approved allowance, may spawn these children directly under references/economy-helpers.md
 and the selected helper's canonical profile contract. May not spawn arbitrary agents, graph nodes,

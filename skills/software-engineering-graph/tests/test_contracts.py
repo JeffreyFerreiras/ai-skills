@@ -128,6 +128,9 @@ def _validate_json_schema(value, schema, root, path="$", seen_refs=None):
             raise AssertionError("{}: expected {}".format(path, expected_type))
 
     if isinstance(value, dict):
+        if "propertyNames" in schema:
+            for key in value:
+                _validate_json_schema(key, schema["propertyNames"], root, path + ".<property>", seen_refs)
         required = schema.get("required", [])
         missing = [key for key in required if key not in value]
         if missing:

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from . import STATE_SCHEMA_VERSION
-from .checks import configured_check, validate_check_receipt
+from .checks import configured_check, validate_check_receipt, validate_receipt_integrity, validate_lifecycle_integrity
 from .contracts import (
     ContractError, authoritative_task_subset, bounded_string, digest, opaque, safe_json_snapshot,
     validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
@@ -1645,9 +1645,15 @@ def _verify_semantic_state(
     skill_root: Path,
     *,
     case_sensitive: bool,
+    evidence_enable: bool = False,
 ) -> None:
-    if run["state_schema_version"] != STATE_SCHEMA_VERSION:
+    if run["state_schema_version"] not in {STATE_SCHEMA_VERSION, 7}:
         raise StateError("UNSUPPORTED_STATE_SCHEMA")
+    if run["state_schema_version"] == 7:
+        try:
+            validate_lifecycle_integrity(connection, run, policy, json.loads(run["task_json"]))
+        except (KeyError, TypeError, IndexError, ValueError):
+            raise StateError("EVIDENCE_LIFECYCLE_INVALID")
     try:
         compatible_engine = engine_version_compatible(run["engine_version"], policy)
     except ContractError:
@@ -1713,7 +1719,8 @@ def _verify_semantic_state(
                     raise StateError("CHECK_EVIDENCE_PROVENANCE_INVALID")
                 try:
                     receipt = json.loads(artifact["content_json"])
-                    validate_check_receipt(
+                    verifier = validate_receipt_integrity if run["state_schema_version"] == 7 or evidence_enable else validate_check_receipt
+                    verifier(
                         receipt, run["run_id"], row["check_id"],
                         configured_check(policy, row["check_id"]), Path(run["repository_path"]),
                     )
@@ -1757,11 +1764,13 @@ def verify_semantic_state(
     skill_root: Path,
     *,
     case_sensitive: bool,
+    evidence_enable: bool = False,
 ) -> None:
     try:
         _verify_semantic_state(
             connection, run, repo, current_policy_digest, policy, skill_root,
             case_sensitive=case_sensitive,
+            evidence_enable=evidence_enable,
         )
     except sqlite3.DatabaseError:
         raise StateError("DATABASE_STATE_INVALID")

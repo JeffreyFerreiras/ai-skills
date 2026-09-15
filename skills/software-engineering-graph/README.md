@@ -297,8 +297,9 @@ or aborted runs, solely to settle late accounting metadata.
 - Local operation only, with no CI or remote automation added by this repository
 - Pull-request publication is a required instruction-level delivery contract for repository
   implementation, not an engine-enforced topology or remote provider implementation
-- State schema 6; schema-5 runs finish under the old engine or restart under schema 6, with no
-  in-place migration or downgrade
+- Engine 2.6.0 initializes semantic format 6. Explicit `evidence enable --contract-version 2`
+  activates format 7 using the same tables. Historical plans, approvals and policies are unchanged;
+  old engines refuse enabled runs. There is no downgrade. Schema-5 runs still require their old engine.
 - Portable state roots are explicit or host-scoped and never inferred from a skill installation;
   historical roots must be passed explicitly
 - Repository-policy v1 and task/plan v1-v2 retain their historical behavior and bytes; policy v2

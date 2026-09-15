@@ -139,7 +139,7 @@ def ensure_safe_components(path: Path, stop: Optional[Path] = None) -> None:
             break
         current = current.parent
     for component in reversed(checked):
-        if component.exists() and (component.is_symlink() or _is_reparse(component)):
+        if component.is_symlink() or (component.exists() and _is_reparse(component)):
             raise ContractError("path", "LINK_OR_REPARSE_POINT")
 
 
@@ -181,12 +181,16 @@ def safe_file_snapshot(path: Path, roots: Sequence[Path], maximum: int) -> Snaps
     pre = candidate.lstat()
     if not stat.S_ISREG(pre.st_mode) or candidate.is_symlink() or _is_reparse(candidate):
         raise ContractError("path", "NOT_REGULAR_FILE")
-    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    if pre.st_size > maximum:
+        raise ContractError("path", "FILE_TOO_LARGE")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0)
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     fd = os.open(str(candidate), flags)
     try:
         opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_size > maximum:
+            raise ContractError("path", "NOT_REGULAR_FILE")
         if (pre.st_dev, pre.st_ino) != (opened.st_dev, opened.st_ino):
             raise ContractError("path", "FILE_CHANGED")
         chunks: List[bytes] = []

@@ -132,6 +132,131 @@ degraded mode is acceptable. These flags acknowledge platform limitations; they 
 
 ## Operate the ledger
 
+### Repairable evidence, explicit format 7
+
+New runs keep format 6 until the active Supervisor executes:
+
+```text
+evidence enable --run-id RUN --contract-version 2 --coverage-manifest INBOX_JSON --op-id ID
+```
+
+The bounded inbox manifest is `{"schema_version":1,"kind":"check_coverage","checks":[{"check_id":"CHECK","relevant_inputs":["src/"],"complete":true}]}`.
+Include every required check, at most 32 checks and 16 exact/subtree input paths per check. The
+Supervisor attests that these paths cover the configured command's inputs; the engine cannot infer
+dynamic dependencies from argv. Declarations must fit existing task read authority. Actual snapshots
+cover the task/executor read-root intersection, and must cover every declared relevant input.
+Enablement preserves historical bytes and approvals. It tolerates stale legacy source freshness,
+but retains all artifact, command, producer, authority and ledger integrity checks.
+
+In format 7, `check run` also requires `--executor-branch-id`, `--executor-attempt-id`,
+`--executor-claim-token`, `--source-branch-id`, `--source-attempt-id`, and `--source-claim-digest`.
+The executor's actual secret token authorizes execution; a public digest cannot replace it. Keep
+tokens out of transcripts and evidence. The Supervisor supplies them through the existing claim
+transport. Source provenance does not require possessing the writer's secret. Replacing a selected
+receipt requires its exact `--replace-ref`; history remains immutable.
+
+The first check on each actual executor/check attempt is included. Each repeat on that same attempt
+uses one existing delivery-repair unit, or a design-revision unit on a design-only route. A new
+operation ID, source edit or session cannot create a free slot. A normal repaired generation already
+consumes its existing repair unit and gives its fresh writer/tester attempts their own initial slots.
+There is no second allowance system and no refund for failed or abandoned reservations.
+
+The engine commits a reservation before execution and records the receipt afterwards. A completed
+operation replays without executing; an unfinished reservation reports `CHECK_EXECUTION_UNKNOWN`.
+After establishing that the original process has stopped, the Supervisor may use
+`check abandon --reservation-id ID --reason TEXT --run-id RUN --op-id ID`. This records an
+attestation; it does not kill a process. A new execution then requires a new operation and its repeat
+debit. Do not replay an unknown operation to rerun it.
+
+Snapshots include tracked/index identities, deletions and nonignored untracked content within
+approved roots. Explicit exact targets also cover ignored files. Bounds are 10,000 paths, 16 MiB per
+file, 128 MiB content, 2 MiB Git enumeration output and 30 seconds per snapshot. Links, reparse points,
+submodules, sensitive files, incomplete coverage and unavailable Git fail closed. Before/after
+digests detect source changes during checks. They cannot detect malicious change-and-restore;
+retain an exclusive validation window. A PASS exit alone does not make a receipt eligible.
+
+At delivery dependency advancement, the engine captures one source binding for all mandatory review
+members. Final check receipts and acceptance wrappers must match that binding. Preliminary writer
+checks remain history and cannot substitute for checks bound to the final review collection. Changed
+source cannot reuse old approvals, even with fresh passing checks. Failure/non-approving results
+remain recordable for running reviews; use existing repair, block or new-task handling otherwise.
+
+Finalize handoffs and source inputs before the review boundary. Prefer already-permitted staging
+outside covered source or canonical ledger results. For host-persisted reports under covered artifact
+roots, `join advance` accepts `--generated-output-plan INBOX_JSON`. Its payload has `schema_version:1`,
+`kind:generated_output_plan`, and at most 32 `outputs`, each with exact `path`, `purpose`,
+`producer_node_key`, and `artifact_kind`. Purposes are `review_report`, `consolidation`, and
+`acceptance_wrapper`. The last two belong to `supervisor_delivery_consolidation`.
+
+Only absent, untracked exact files within both task write scope and permitted artifact roots qualify.
+Implementation roots, source artifact references and declared check inputs cannot be excluded.
+The host persists returned reports; producer identity indicates report ownership and grants no
+filesystem capability to read-only roles. No directory exclusion or new write authority follows.
+An existing output must be registered by its actual producer before check capture. Optional outputs
+may remain absent. Registered output changes fail ordinary artifact integrity.
+
+A declared consolidation file, when used, must contain the exact submitted inbox result manifest.
+An acceptance output is the staged acceptance evidence file sealed by the engine's acceptance wrapper.
+`record acceptance-evidence --replace-ref REF` replaces a prior wrapper explicitly. All required
+checks and the current accepting collection/consolidation must already be eligible.
+
+### Recovery and deterministic drafts
+
+`recovery show --run-id RUN [--branch-id ID]` reconstructs bounded ordinary failure packets from
+persisted attempts/results. `record retry` may accept `--repair-manifest INBOX_JSON` containing
+`schema_version:1`, `kind:repair_judgment`, `cause`, `failed_criterion_ids`, and `authorized_scope`
+(existing capability objects). Causes are implementation, design, dependency, infrastructure or
+unknown. Criteria must belong to the task and scope must remain within the failed role's authority.
+Missing judgments stay explicit; unavailable source-change summaries are not proof of no change.
+Retry retains the failed result reference and claim refreshes the packet without changing its authority.
+
+`consolidation draft --run-id RUN --join-id COLLECTION_ID` uses the same source/finding reducers as
+validation. It returns a manifest bound to the sealed collection digest. Delegated issues requiring
+judgment remain unresolved and cannot manufacture ACCEPT. The Supervisor still claims, inspects,
+records and advances through every existing gate. Neither read-only command executes or retries work.
+
+### Future-run planning constraints
+
+Use `constraints select --bundle PATH --context PATH` before task finalization. Both bounded JSON
+files must be inside existing policy artifact roots. Context contains `repository_id`,
+`acceptance_ids`, `role`, and `scope_paths`. This scoping view shows candidates without activating them.
+
+A bundle is `planning_constraints` version 1 with at most 32 records. Each record has `id`, positive
+`revision`, `statement`, `rationale`, `state`, `repository_id`, up to 16 exact/subtree `paths`, `roles`,
+`acceptance_ids`, `finding_id`, `confirmed_finding_ref`, `accepted_fix_ref`, `authority_ref`,
+`invalidation_reason` (nullable), and `supersedes` (ID:revision strings). Supporting finding/fix JSON
+must identify the same finding; accepted-fix evidence has `status:accepted`. States are candidate,
+active, invalidated or superseded. Missing support, conflicting revisions and non-applicability
+exclude a record; supersession cycles reject the bundle.
+
+To activate a chosen bundle, include it in task `evidence_paths` and add the exact constraint marker
+`planning-constraints:v1:BUNDLE_SHA256` before ordinary plan approval. Active authority references
+must match the task's approved policy authority. Enable format 7 before any role claim. The full task
+digest binds this choice without changing historical authoritative task projections.
+
+Tech Lead and sole writer receive applicable active records only when immutable task scope identifies
+unambiguous `repo:` paths, without unresolved exclusions. Read capabilities and shared review coverage
+do not establish assigned work scope. Other unverified assignments yield explicit unresolved-scope
+diagnostics and no active records. Claim inputs contain a filtered projection, never an embedded unfiltered
+bundle. The full immutable task remains available by reference. Invalidation/supersession apply to
+future bundles/tasks only; there is no live revoke, registry, history scan or automatic reopen action.
+Changing an approved bundle fails immutable-input checks and requires existing new-task/plan handling.
+
+Declared known check inputs must appear in bounded source acquisition. An ignored file covered only
+by broad directory read authority causes `SOURCE_UNVERIFIABLE` before execution; declaring it does not
+grant an exact read. Already authorized exact file targets remain covered, including ignored content.
+
+When source changes during reviews, the Supervisor can still claim delivery consolidation to return
+REPAIR, REDESIGN, or BLOCK. Immutable binding integrity remains required. Positive review results,
+ACCEPT, acceptance evidence, and completion still require fresh source.
+
+A sealed delivery REPAIR creates a compact packet for the next sole writer and exposes it through
+`recovery show`. It binds the originating collection, consolidation, report findings/evidence/attempts,
+permitted writer scope, return gates, and remaining cumulative allowances. Unknown cause and criteria
+remain explicit. Claim refresh preserves the original evidence while updating revision and allowances.
+Check execution requests persist only token digests; this statement does not describe the existing
+generic claim-operation response store, which retains the returned claim response.
+
 - Use `ready` or `next --all` to inspect dispatchable branches. Use `next --claim --op-id <id>` to
   claim exactly one branch atomically.
 - Multi-member fixed review fan-outs begin pending. After the Supervisor assessment, independent roots

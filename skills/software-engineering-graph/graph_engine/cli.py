@@ -11,7 +11,10 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from .checks import configured_check, run_check, validate_check_receipt
+from .checks import (configured_check, run_check, validate_check_receipt, validate_receipt_integrity,
+                     capture_evidence_source, source_roots, source_path_contains, evidence_activation,
+                     reservation_states, verify_check_fence, current_review_binding, verify_review_source,
+                     receipt_eligibility, prepare_generated_outputs, verify_generated_outputs)
 from .config import branch_lease_seconds, load_policy
 from .contracts import (
     ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, lexical_relative,
@@ -27,6 +30,7 @@ from .hosts import DEFAULT_HOST, known_hosts
 from .helper_register import ELIGIBLE_PARENTS, validate_allowance
 from .ids import canonical_bytes, sha256_bytes
 from . import usage
+from .constraints import validate_bundle, select_constraints
 from .reviewer_delegation import (
     consolidate_findings, delegated_identity, freeze_terminal_member, request_slot_id, validate_fanout_request,
     validate_findings, validate_preliminary,
@@ -43,7 +47,9 @@ from .state import (
 )
 from .validator import (
     canonical_collection_members, compute_timing, join_members, validate_consolidation_manifest,
-    validate_join, verify_resume, verify_semantic_state,
+    validate_join, verify_resume, verify_semantic_state, compute_design_outcome, compute_delivery_outcome,
+    _source_finding_dispositions, _delegated_issue_sources, _delivery_outcome_without_delegated_echoes,
+    _delegated_terminal_precedence, DELIVERY_OUTCOMES,
 )
 
 
@@ -150,6 +156,8 @@ def _insert_spec(
     if plan_row is None:
         raise StateError("EXECUTION_PLAN_STATE_INVALID")
     execution_plan = json.loads(plan_row["plan_json"])
+    if run["state_schema_version"] == 7:
+        inputs = list(inputs) + _planning_constraint_inputs(connection, run, policy, task, spec, inputs)
     graph_envelope = envelope(
         run["run_id"], run["policy_digest"], policy, task, spec, status, inputs,
         execution_plan=execution_plan,
@@ -600,6 +608,18 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
         resolve_unhashed_reference(ref, "acceptance_evidence", repo, skill_root, policy)
         for ref in full_task["evidence_paths"]
     ]
+    constraint_support = []
+    markers = _constraint_markers(full_task)
+    for marker in markers:
+        bundle_artifact = next((item for item in verified_evidence if item.sha256 == marker), None)
+        if bundle_artifact is None or not bundle_artifact.source_path:
+            raise ContractError("planning_constraints", "ACTIVATION_BUNDLE_MISSING")
+        bundle = safe_json_snapshot(Path(bundle_artifact.source_path), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
+        support = _constraint_support(repo, policy, bundle)
+        constraint_support.extend(support)
+        for record in bundle["records"]:
+            if record["state"] == "active" and record["authority_ref"] != full_task["policy_approval"]["authority_ref"]:
+                raise ContractError("planning_constraints", "AUTHORITY_MISMATCH")
     task["evidence_paths"] = sorted(artifact.ref for artifact in verified_evidence)
     spec = bootstrap(policy)
     task_ref = "repo:" + task_snapshot.path.relative_to(repo.absolute()).as_posix() + "#sha256=" + task_snapshot.digest
@@ -627,7 +647,7 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
         run_id, op_id, request_digest, bool(args.ack_degraded_permissions),
         bool(args.ack_degraded_durability), _node_row(spec, graph_envelope),
         execution_plan,
-        task_ref, [asdict(task_artifact)] + [asdict(artifact) for artifact in verified_evidence],
+        task_ref, [asdict(task_artifact)] + [asdict(artifact) for artifact in verified_evidence + constraint_support],
     )
 
 
@@ -748,6 +768,21 @@ def _record_branch_result(
             current_branch["node_key"] == "senior_engineer"
             and decision == "REDESIGN_REQUIRED"
         )
+        if current["state_schema_version"] == 7 and current_branch["node_key"] == "supervisor_delivery_consolidation":
+            binding = current_review_binding(conn, current)
+            if binding:
+                for output in binding[1]["coverage"]["outputs"]:
+                    if output["purpose"] != "consolidation":
+                        continue
+                    if not (repo_path / output["path"]).exists():
+                        continue
+                    staged = resolve_unhashed_reference("repo:" + output["path"], "delivery_consolidation", repo_path, skill_root, policy)
+                    staged_snapshot = safe_json_snapshot(Path(staged.source_path), _task_roots(repo_path, policy), policy["limits"]["manifest_bytes"])
+                    if staged_snapshot.parsed != snapshot.parsed:
+                        raise StateError("GENERATED_OUTPUT_RESULT_MISMATCH")
+                    persist_artifact(conn, current["run_id"], staged)
+                    artifact = {"kind": staged.kind, "ref": staged.ref, "sha256": staged.sha256}
+                    manifest["artifact_ref"] = artifact
         if (result_status == "succeeded" and artifact is None and not redesign_required
                 and not env["output_contract"].get("artifact_required", True)):
             substantive_artifact = canonical_ledger_artifact(
@@ -768,6 +803,11 @@ def _record_branch_result(
             "status": result_status, "artifact_ref": artifact, "evidence": evidence,
             "decision": decision, "failure_code": failure, "finished_at": utc_now(),
         })
+        if (current["state_schema_version"] == 7 and current_branch["stage"] == "delivery"
+                and result_status == "succeeded" and decision in {"APPROVE", "PASS", "ACCEPT"}):
+            binding, _ = verify_review_source(conn, current, policy, (current_branch["node_key"], artifact))
+            if binding["ref"] not in {item["ref"] for item in env["inputs"]}:
+                raise StateError("REVIEW_BINDING_MISMATCH")
         conn.execute(
             """UPDATE nodes SET status=?,envelope_json=?,result_json=?,result_digest=?,failure_code=?,finished_at=?
             WHERE branch_id=?""",
@@ -832,6 +872,11 @@ def _record_control(
             })
     elif kind == "retry":
         request["reason_code"] = opaque(args.reason_code, "reason_code")
+        if args.repair_manifest:
+            if run["state_schema_version"] != 7:
+                raise StateError("EVIDENCE_ENABLE_REQUIRED")
+            snapshot = _manifest_snapshot(store, policy, run["run_id"], args.repair_manifest)
+            request["repair_judgment_digest"] = snapshot.digest
     elif kind == "heartbeat":
         request.update({
             "attempt_id": opaque(args.attempt_id, "attempt_id"),
@@ -867,6 +912,8 @@ def _record_control(
         })
         if kind == "acceptance-evidence":
             request["criterion_id"] = opaque(args.criterion_id, "criterion_id")
+            if run["state_schema_version"] == 7:
+                request["predecessor_ref"] = args.replace_ref
         else:
             request.update({"check_id": opaque(args.check_id, "check_id"), "outcome": args.outcome})
 
@@ -939,6 +986,11 @@ def _record_control(
                         conn.execute("UPDATE runs SET status='blocked',blocked_reason='RETRY_LIMIT',finished_at=COALESCE(finished_at,?) WHERE run_id=?", (utc_now(), current["run_id"]))
                     return {"code": "GRAPH_BLOCKED", "status": "blocked", "reason": "RETRY_LIMIT"}
                 new_status = "ready"
+                if current["state_schema_version"] == 7 and not branch["depth"]:
+                    packet = _repair_packet(conn, current, branch, snapshot.parsed if args.repair_manifest else None)
+                    packet["state_revision"] = revision
+                    artifact = _persist_payload(conn, current, policy, "repair-" + args.op_id, "failure", packet)
+                    env["inputs"] = sorted(env["inputs"] + [artifact.as_input()], key=lambda item: (item["kind"], item["ref"]))
                 env["retry_count"] += 1
                 env["finished_at"] = None
                 env["attempt_id"] = env["claim_digest"] = env["lease_expires_at"] = None
@@ -1059,6 +1111,23 @@ def _record_control(
             )
             persist_artifact(conn, current["run_id"], verified)
             existing = conn.execute("SELECT * FROM acceptance_evidence WHERE run_id=? AND criterion_id=?", (current["run_id"], request["criterion_id"])).fetchone()
+            if current["state_schema_version"] == 7:
+                if (existing["artifact_ref"] if existing else None) != args.replace_ref:
+                    raise StateError("ACCEPTANCE_PREDECESSOR_CONFLICT")
+                checks = _eligible_required_checks(conn, current, policy, task, ("supervisor_delivery_consolidation", verified.as_input()))
+                binding_row, binding, collection_ref, consolidation_digest = _acceptance_gate(
+                    conn, current, policy, checks, ("supervisor_delivery_consolidation", verified.as_input()))
+                wrapper = {"kind": "acceptance_binding", "schema_version": 1, "criterion_id": request["criterion_id"],
+                           "run_id": current["run_id"], "task_digest": current["task_digest"], "plan_digest": binding["plan_digest"],
+                           "source": binding["source"], "source_digest": binding["source_digest"],
+                           "coverage_digest": binding["coverage_digest"], "review_source_binding_ref": binding_row["ref"],
+                           "collection_ref": collection_ref, "consolidation_digest": consolidation_digest,
+                           "checks": checks, "underlying_evidence": verified.as_input(), "actor": current_actor(),
+                           "predecessor_ref": args.replace_ref}
+                wrapped = _persist_payload(conn, current, policy, "acceptance-" + args.op_id, "acceptance_evidence", wrapper)
+                conn.execute("INSERT OR REPLACE INTO acceptance_evidence VALUES(?,?,?,?)",
+                             (current["run_id"], request["criterion_id"], wrapped.ref, wrapped.sha256))
+                return {"code": "ACCEPTANCE_EVIDENCE_RECORDED", "artifact_ref": wrapped.ref}
             if existing and (existing["artifact_ref"], existing["artifact_sha256"]) != (verified.ref, verified.sha256):
                 raise StateError("EVIDENCE_CONFLICT")
             if not existing:
@@ -1417,11 +1486,247 @@ def command_record(
     return _record_control(args, connection, run, policy, task, store, semantic_validator)
 
 
+def _constraint_markers(full_task):
+    prefix = "planning-constraints:v1:"
+    markers = [digest(item[len(prefix):], "planning_constraints") for item in full_task["constraints"] if item.startswith(prefix)]
+    if len(markers) > 1:
+        raise ContractError("planning_constraints", "MULTIPLE_ACTIVE_BUNDLES")
+    return markers
+
+
+def _constraint_support(repo, policy, bundle):
+    validate_bundle(bundle)
+    artifacts = {}
+    for record in bundle["records"]:
+        for key, kind in (("confirmed_finding_ref", "finding"), ("accepted_fix_ref", "acceptance_evidence")):
+            reference = record[key]
+            if reference is None:
+                continue
+            artifact = resolve_reference(reference, reference.rsplit("#sha256=", 1)[1], kind, repo, Path(__file__).resolve().parents[1], policy)
+            if not artifact.source_path:
+                raise ContractError("constraint_support", "FILE_REQUIRED")
+            payload = safe_json_snapshot(Path(artifact.source_path), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
+            if payload.get("finding_id") != record["finding_id"] or (key == "accepted_fix_ref" and payload.get("status") != "accepted"):
+                raise ContractError("constraint_support", "FINDING_FIX_IDENTITY_MISMATCH")
+            artifacts[reference] = artifact
+    return list(artifacts.values())
+
+
+def _planning_constraint_inputs(connection, run, policy, task, spec, inputs):
+    full = safe_json_snapshot(Path(run["task_path"]), _task_roots(Path(run["repository_path"]), policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
+    markers = _constraint_markers(full)
+    if not markers:
+        return []
+    bundle_row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND sha256=? AND kind='acceptance_evidence'", (run["run_id"], markers[0])).fetchone()
+    bundle = safe_json_snapshot(Path(bundle_row["source_path"]), _task_roots(Path(run["repository_path"]), policy), policy["limits"]["manifest_bytes"]).parsed
+    scope = []
+    if spec.key in {"tech_lead", "senior_engineer"}:
+        # These owners cover the immutable task; read access is not an assignment.
+        read_roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
+        declared = full["scope"]["included"]
+        if declared and all(item.startswith("repo:") for item in declared) and not full["scope"]["excluded"]:
+            paths = [lexical_relative(item[5:], "task_scope") for item in declared]
+            if all(any(source_path_contains(root, path) for root in read_roots) for path in paths):
+                scope = paths
+    supported = {row[0] for row in connection.execute("SELECT ref FROM artifacts WHERE run_id=?", (run["run_id"],))}
+    result = select_constraints(bundle, {"repository_id": policy["repository_id"], "acceptance_ids": task["acceptance_ids"],
+                                        "role": spec.role, "scope_paths": scope}, activated=True, supported=supported,
+                                authority_refs=[task["policy_approval"]["authority_ref"]], normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
+    if not result["active"] and not any(item["reason"] == "unresolved_scope" for item in result["excluded"]):
+        return []
+    projection = {"kind": "planning_constraint_projection", "schema_version": 1, "task_digest": run["task_digest"],
+                  "bundle_ref": bundle_row["ref"], "role": spec.role, "scope_paths": scope,
+                  "records": result["active"], "diagnostics": [item for item in result["excluded"] if item["reason"] == "unresolved_scope"]}
+    artifact = _persist_payload(connection, run, policy, "constraints-" + branch_id(run["run_id"], run["policy_digest"], spec), "evidence_manifest", projection)
+    return [artifact.as_input()]
+
+
+def _persist_payload(connection, run, policy, identifier, kind, value):
+    artifact = canonical_ledger_artifact(identifier, kind, value)
+    enforce_artifact_size(kind, artifact.size_bytes, policy)
+    persist_artifact(connection, run["run_id"], artifact)
+    return artifact
+
+
+def command_evidence_enable(args, connection, run, policy, task, store, semantic_validator):
+    snapshot = _manifest_snapshot(store, policy, run["run_id"], args.coverage_manifest)
+    value = snapshot.parsed
+    require_keys(value, {"schema_version", "kind", "checks"}, {"schema_version", "kind", "checks"}, "coverage")
+    if (args.contract_version != 2 or value["schema_version"] != 1 or value["kind"] != "check_coverage"
+            or not isinstance(value["checks"], list) or not 1 <= len(value["checks"]) <= 32):
+        raise ContractError("coverage", "SCHEMA_MISMATCH")
+    roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
+    checks = {}
+    for check in value["checks"]:
+        require_keys(check, {"check_id", "relevant_inputs", "complete"}, {"check_id", "relevant_inputs", "complete"}, "coverage.check")
+        check_id = check["check_id"]
+        if check_id not in task["required_check_ids"] or check_id in checks or check["complete"] is not True:
+            raise ContractError("coverage", "COVERAGE_ATTESTATION_REQUIRED")
+        if not isinstance(check["relevant_inputs"], list) or not 1 <= len(check["relevant_inputs"]) <= 16:
+            raise ContractError("coverage", "INVALID_LIST")
+        inputs = sorted(set(lexical_relative(item, "relevant_inputs") for item in check["relevant_inputs"]))
+        if any(not any(source_path_contains(root, item) for root in roots) for item in inputs):
+            raise StateError("SOURCE_UNVERIFIABLE")
+        checks[check_id] = inputs
+    if set(checks) != set(task["required_check_ids"]):
+        raise ContractError("coverage", "CHECK_SET_MISMATCH")
+    request = {"command": "evidence.enable", "contract_version": 2, "coverage_manifest_digest": snapshot.digest,
+               "checks": checks, "roots": roots}
+
+    def action(conn, current, revision):
+        if current["state_schema_version"] != 6:
+            raise StateError("EVIDENCE_ALREADY_ENABLED")
+        plan = conn.execute("SELECT * FROM execution_plans WHERE run_id=?", (current["run_id"],)).fetchone()
+        if plan["status"] != "approved":
+            raise StateError("EXECUTION_PLAN_NOT_APPROVED")
+        activation = {"kind": "evidence_activation", "schema_version": 1, "original_format": 6,
+                      "run_id": current["run_id"], "task_digest": current["task_digest"],
+                      "plan_digest": plan["plan_digest"], "policy_digest": current["policy_digest"],
+                      "actor": current_actor(), "host_identity": current_host_identity(),
+                      "checks": checks, "coverage_manifest_digest": snapshot.digest,
+                      "complete": True, "roots": roots}
+        artifact = _persist_payload(conn, current, policy, "evidence-activation", "evidence_manifest", activation)
+        conn.execute("UPDATE runs SET state_schema_version=7 WHERE run_id=?", (current["run_id"],))
+        return {"code": "EVIDENCE_ENABLED", "artifact_ref": artifact.ref, "state_schema_version": 7}
+    return store.mutate(connection, run["run_id"], opaque(args.op_id, "op_id"), request, action,
+                        semantic_validator=semantic_validator)
+
+
+def _check_request_fences(args, connection, run):
+    # Only the derived digest enters request persistence or responses.
+    if not args.executor_claim_token:
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    executor = {"branch_id": args.executor_branch_id, "attempt_id": args.executor_attempt_id,
+                "claim_digest": _claim_token_digest(args.executor_claim_token), "result_digest": None}
+    branch, env = verify_check_fence(connection, run, executor, executor=True)
+    executor["result_digest"] = branch["result_digest"]
+    source = {"branch_id": args.source_branch_id, "attempt_id": args.source_attempt_id,
+              "claim_digest": args.source_claim_digest, "result_digest": None}
+    source_branch, _ = verify_check_fence(connection, run, source)
+    source["result_digest"] = source_branch["result_digest"]
+    return executor, source, env, source_branch["generation"]
+
+
+def command_check_v2(args, connection, run, policy, task, store, semantic_validator):
+    executor, source, env, generation = _check_request_fences(args, connection, run)
+    semantic_validator(connection, run)
+    check = configured_check(policy, args.check_id)
+    if args.check_id not in task["required_check_ids"] or not any(
+            item == {"effect": "command", "action": "run", "target_ref": check["command_id"]}
+            for item in env["effect_capabilities"]):
+        raise StateError("CHECK_AUTHORITY_REQUIRED")
+    activation_row, activation = evidence_activation(connection, run)
+    executor_roots = source_roots(Path(run["repository_path"]), policy, env["effect_capabilities"])
+    roots = sorted({root for root in activation["roots"] if any(source_path_contains(outer, root) for outer in executor_roots)}
+                   | {root for root in executor_roots if any(source_path_contains(outer, root) for outer in activation["roots"])})
+    if any(not any(source_path_contains(root, item) for root in roots) for item in activation["checks"][args.check_id]):
+        raise StateError("SOURCE_UNVERIFIABLE")
+    binding = current_review_binding(connection, run)
+    coverage = {"roots": roots, "outputs": [], "activation_ref": activation_row["ref"]}
+    if binding:
+        if roots != binding[1]["coverage"]["roots"]:
+            raise StateError("CHECK_REVIEW_BINDING_MISMATCH")
+        coverage = binding[1]["coverage"]
+    request = {"command": "check.start", "check_id": args.check_id,
+               "executor": {**executor, "result_digest": None}, "source": {**source, "result_digest": None},
+               "source_generation": generation, "predecessor_ref": args.replace_ref,
+               "coverage": coverage, "activation_ref": activation_row["ref"]}
+    operation = opaque(args.op_id, "op_id")
+    start_id = "check-start-" + sha256_bytes(operation.encode())[:40]
+    finish_id = "check-finish-" + sha256_bytes(operation.encode())[:40]
+    prior = connection.execute("SELECT response_json FROM operations WHERE run_id=? AND operation_id=?",
+                               (run["run_id"], finish_id)).fetchone()
+    if prior:
+        start = connection.execute("SELECT request_digest FROM operations WHERE run_id=? AND operation_id=?", (run["run_id"], start_id)).fetchone()
+        if start[0] != sha256_bytes(canonical_bytes(request)):
+            raise StateError("OPERATION_CONFLICT")
+        return {**json.loads(prior[0]), "code": "REPLAYED"}
+
+    def start(conn, current, revision):
+        _check_request_fences(args, conn, current)
+        selected = conn.execute("SELECT artifact_ref FROM check_evidence WHERE run_id=? AND check_id=?", (current["run_id"], args.check_id)).fetchone()
+        if (selected[0] if selected else None) != args.replace_ref:
+            raise StateError("CHECK_PREDECESSOR_CONFLICT")
+        history = list(reservation_states(conn, current["run_id"]).values())
+        if any(item["check_id"] == args.check_id and item["state"] == "open" for item in history):
+            raise StateError("CHECK_EXECUTION_UNKNOWN")
+        repeat = any(item["check_id"] == args.check_id and item["executor"]["branch_id"] == executor["branch_id"]
+                     and item["executor"]["attempt_id"] == executor["attempt_id"] for item in history)
+        verify_generated_outputs(conn, current, policy, coverage["outputs"])
+        before = capture_evidence_source(conn, current, policy, roots, coverage["outputs"])
+        if binding and before["sha256"] != binding[1]["source_digest"]:
+            raise StateError("CHECK_REVIEW_BINDING_MISMATCH")
+        budget_id = "design_revisions" if current["selected_route"] == "design_only" else "delivery_repairs"
+        if repeat and not _consume_loop_budget(conn, current["run_id"], budget_id):
+            raise StateError("BUDGET_LIMIT")
+        reservation = {**request, "kind": "check_reservation", "schema_version": 1,
+                       "executor": executor, "source": source,
+                       "reservation_id": "reservation-" + sha256_bytes(canonical_bytes([current["run_id"], operation]))[:40],
+                       "before_source_digest": before["sha256"], "repeat_cost": int(repeat),
+                       "budget_id": budget_id, "request_digest": sha256_bytes(canonical_bytes(request)),
+                       "review_source_binding_ref": binding[0]["ref"] if binding else None}
+        artifact = _persist_payload(conn, current, policy, reservation["reservation_id"], "evidence_manifest", reservation)
+        return {"code": "CHECK_RESERVED", "reservation_id": reservation["reservation_id"], "artifact_ref": artifact.ref}
+
+    reserved = store.mutate(connection, run["run_id"], start_id, request, start, semantic_validator=semantic_validator)
+    if reserved["code"] == "REPLAYED":
+        raise StateError("CHECK_EXECUTION_UNKNOWN")
+    reservation = reservation_states(connection, run["run_id"])[reserved["reservation_id"]]
+    receipt = run_check(Path(run["repository_path"]), run["run_id"], args.check_id, check["command_id"],
+                        check["argv"], int(check.get("timeout_seconds", 300)), legacy_digest=False)
+    try:
+        after = capture_evidence_source(connection, run, policy, roots, coverage["outputs"])["sha256"]
+        validity = "valid" if after == reservation["before_source_digest"] else "source_changed"
+    except StateError:
+        after, validity = "0" * 64, "unverifiable"
+    receipt.update({"schema_version": 2, "executor": executor, "source": source, "source_generation": generation,
+                    "repo_worktree_sha256": after,
+                    "task_digest": run["task_digest"], "policy_digest": run["policy_digest"], "plan_digest": activation["plan_digest"],
+                    "reservation_id": reservation["reservation_id"], "predecessor_ref": args.replace_ref,
+                    "coverage": coverage, "coverage_digest": sha256_bytes(canonical_bytes(coverage)),
+                    "before_source_digest": reservation["before_source_digest"], "after_source_digest": after,
+                    "validity": validity, "activation_ref": activation_row["ref"],
+                    "review_source_binding_ref": reservation["review_source_binding_ref"]})
+    finish_request = {"command": "check.finish", "reservation_id": reservation["reservation_id"],
+                      "executor": executor, "receipt_digest": sha256_bytes(canonical_bytes(receipt))}
+
+    def finish(conn, current, revision):
+        _check_request_fences(args, conn, current)
+        state = reservation_states(conn, current["run_id"])[reservation["reservation_id"]]
+        if state["state"] != "open":
+            raise StateError("CHECK_RESERVATION_CLOSED")
+        selected = conn.execute("SELECT artifact_ref FROM check_evidence WHERE run_id=? AND check_id=?", (current["run_id"], args.check_id)).fetchone()
+        if (selected[0] if selected else None) != args.replace_ref:
+            raise StateError("CHECK_PREDECESSOR_CONFLICT")
+        validate_receipt_integrity(receipt, current["run_id"], args.check_id, check, Path(current["repository_path"]))
+        artifact = _persist_payload(conn, current, policy, "receipt-" + sha256_bytes(operation.encode())[:40], "check_evidence", receipt)
+        conn.execute("INSERT OR REPLACE INTO check_evidence VALUES(?,?,?,?,?)",
+                     (current["run_id"], args.check_id, receipt["outcome"], artifact.ref, artifact.sha256))
+        return {"code": "CHECK_RECORDED", "artifact_ref": artifact.ref, "outcome": receipt["outcome"], "validity": validity}
+    return store.mutate(connection, run["run_id"], finish_id, finish_request, finish, semantic_validator=semantic_validator)
+
+
+def command_check_abandon(args, connection, run, policy, task, store, semantic_validator):
+    request = {"command": "check.abandon", "reservation_id": opaque(args.reservation_id, "reservation_id"),
+               "reason": bounded_string(args.reason, "reason", 1024), "actor": current_actor()}
+    def action(conn, current, revision):
+        if current["state_schema_version"] != 7:
+            raise StateError("EVIDENCE_ENABLE_REQUIRED")
+        reservation = reservation_states(conn, current["run_id"]).get(args.reservation_id)
+        if reservation is None or reservation["state"] != "open":
+            raise StateError("CHECK_RESERVATION_CLOSED")
+        return {"code": "CHECK_ABANDONED", "reservation_id": args.reservation_id}
+    return store.mutate(connection, run["run_id"], opaque(args.op_id, "op_id"), request, action,
+                        semantic_validator=semantic_validator)
+
+
 def command_check_run(
     args: argparse.Namespace, connection: sqlite3.Connection, run: sqlite3.Row,
     policy: Mapping[str, Any], task: Mapping[str, Any], store: StateStore,
     semantic_validator: SemanticValidator,
 ) -> Dict[str, Any]:
+    if run["state_schema_version"] == 7:
+        return command_check_v2(args, connection, run, policy, task, store, semantic_validator)
     check_id = opaque(args.check_id, "check_id")
     if check_id not in task["required_check_ids"]:
         raise StateError("UNKNOWN_CHECK")
@@ -1668,6 +1973,29 @@ def command_next(
         if dependency or review_dependency:
             raise StateError("FANOUT_DEPENDENCY_STATE_INVALID")
         env["status"] = "running"
+        if current["state_schema_version"] == 7 and not row["depth"]:
+            previous_packets = []
+            for item in env["inputs"]:
+                if item["kind"] != "failure":
+                    continue
+                stored = conn.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()
+                payload = json.loads(stored[0] or "{}")
+                if payload.get("kind") == "repair_packet":
+                    previous_packets.append(item["ref"])
+            if previous_packets:
+                packet = _repair_packet(conn, current, row)
+                packet["state_revision"] = revision
+                refreshed = _persist_payload(conn, current, policy, "repair-claim-" + op_id, "failure", packet)
+                env["inputs"] = sorted([item for item in env["inputs"] if item["ref"] not in previous_packets] + [refreshed.as_input()],
+                                       key=lambda item: (item["kind"], item["ref"]))
+        full_task = safe_json_snapshot(Path(current["task_path"]), _task_roots(repo, policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
+        if _constraint_markers(full_task) and current["state_schema_version"] != 7:
+            raise StateError("EVIDENCE_ENABLE_REQUIRED")
+        if current["state_schema_version"] == 7 and row["stage"] == "delivery":
+            binding, _ = verify_review_source(conn, current, policy,
+                                             check_freshness=row["node_key"] != "supervisor_delivery_consolidation")
+            if binding["ref"] not in {item["ref"] for item in env["inputs"]}:
+                raise StateError("REVIEW_BINDING_MISMATCH")
         attempt_started = utc_now()
         env["started_at"] = row["started_at"] or attempt_started
         env["attempt_id"] = "attempt-" + secrets.token_hex(12)
@@ -1718,6 +2046,13 @@ def command_join_advance(
 ) -> Dict[str, Any]:
     op_id = opaque(args.op_id, "op_id")
     request = {"command": "join.advance", "join_id": opaque(args.join_id, "join_id")}
+    output_snapshot = None
+    if args.generated_output_plan:
+        if run["state_schema_version"] != 7:
+            raise StateError("EVIDENCE_ENABLE_REQUIRED")
+        output_snapshot = _manifest_snapshot(store, policy, run["run_id"], args.generated_output_plan)
+        request["generated_output_plan_digest"] = output_snapshot.digest
+        request["generated_outputs"] = output_snapshot.parsed.get("outputs")
 
     def action(conn: sqlite3.Connection, current: sqlite3.Row, revision: int) -> Dict[str, Any]:
         join = conn.execute("SELECT * FROM joins WHERE join_id=? AND run_id=?", (args.join_id, current["run_id"])).fetchone()
@@ -1789,6 +2124,10 @@ def command_join_advance(
             collection_input["content"] = collection_manifest
             inputs.append(collection_input)
             if join["stage"] == "delivery":
+                if current["state_schema_version"] == 7:
+                    binding = current_review_binding(conn, current)
+                    if binding:
+                        inputs.append(_artifact_input(conn, binding[0]))
                 parent_ids = [member["branch_id"] for member in members]
                 placeholders = ",".join("?" for _ in parent_ids)
                 nested_rows = conn.execute(
@@ -1820,6 +2159,30 @@ def command_join_advance(
                 inputs = _context_inputs(conn, current, [source], include_design=True, include_implementation=True)
                 specs = delivery_review_nodes(policy, tags, join["generation"])
                 stage = "delivery"
+                if current["state_schema_version"] == 7:
+                    activation_row, activation = evidence_activation(conn, current)
+                    source_env = json.loads(source["envelope_json"])
+                    producers = {spec.key: policy["node_templates"][spec.key]["output_contract"]["artifact_kind"] for spec in specs}
+                    producers["supervisor_delivery_consolidation"] = "delivery_consolidation"
+                    outputs = prepare_generated_outputs(
+                        Path(current["repository_path"]), policy, task,
+                        output_snapshot.parsed if output_snapshot else {"kind": "generated_output_plan", "schema_version": 1, "outputs": []},
+                        producers, [item["ref"] for item in inputs],
+                        [path for paths in activation["checks"].values() for path in paths])
+                    coverage = {"roots": activation["roots"], "outputs": outputs, "activation_ref": activation_row["ref"]}
+                    captured = capture_evidence_source(conn, current, policy, coverage["roots"], outputs)
+                    binding = {"kind": "review_source_binding", "schema_version": 1, "run_id": current["run_id"],
+                               "dependency_join_id": join["join_id"], "source_generation": join["generation"],
+                               "source": {"branch_id": source["branch_id"], "attempt_id": source_env["attempt_id"],
+                                          "claim_digest": source_env["claim_digest"], "result_digest": source["result_digest"]},
+                               "handoff_ref": source_env["artifact_ref"], "task_digest": current["task_digest"],
+                               "policy_digest": current["policy_digest"], "plan_digest": activation["plan_digest"],
+                               "coverage": coverage, "coverage_digest": sha256_bytes(canonical_bytes(coverage)),
+                               "source_digest": captured["sha256"], "outputs_digest": sha256_bytes(canonical_bytes(outputs))}
+                    artifact = _persist_payload(conn, current, policy, "review-source-" + join["join_id"], "evidence_manifest", binding)
+                    inputs.append(artifact.as_input())
+                    if capture_evidence_source(conn, current, policy, coverage["roots"], outputs)["sha256"] != captured["sha256"]:
+                        raise StateError("REVIEW_SOURCE_CHANGED")
             successor_rows = []
             successor_status = "pending" if len(specs) > 1 else "ready"
             for spec in specs:
@@ -1863,6 +2226,8 @@ def command_join_advance(
                 manifest, join["stage"], current["run_id"], source_join["join_id"], join["generation"], source_members,
                 nested_collections,
             )
+            if current["state_schema_version"] == 7 and join["stage"] == "delivery" and outcome == "ACCEPT":
+                verify_review_source(conn, current, policy)
             design_context = _context_inputs(conn, current, [consolidation], include_design=True)
             delivery_context = _context_inputs(
                 conn, current, [consolidation], include_design=True, include_implementation=True
@@ -1901,7 +2266,15 @@ def command_join_advance(
                 else:
                     generation = current["implementation_generation"] + 1
                     spec = implementation_node(policy, generation)
-                    successor_ids.append(_insert_spec(store, conn, current, policy, task, spec, delivery_context)["branch_id"])
+                    successor = _insert_spec(store, conn, current, policy, task, spec, delivery_context)
+                    successor_ids.append(successor["branch_id"])
+                    if current["state_schema_version"] == 7:
+                        packet = _delivery_repair_packet(conn, current, successor, source_join, source_members, consolidation)
+                        packet["state_revision"] = revision
+                        artifact = _persist_payload(conn, current, policy, "delivery-repair-" + join["join_id"], "failure", packet)
+                        successor_env = json.loads(successor["envelope_json"])
+                        successor_env["inputs"] = sorted(successor_env["inputs"] + [artifact.as_input()], key=lambda item: (item["kind"], item["ref"]))
+                        conn.execute("UPDATE nodes SET envelope_json=? WHERE branch_id=?", (json.dumps(successor_env, sort_keys=True), successor["branch_id"]))
                     conn.execute("UPDATE runs SET implementation_generation=? WHERE run_id=?", (generation, current["run_id"]))
             elif join["stage"] == "delivery" and outcome == "REDESIGN":
                 if not _consume_loop_budget(conn, current["run_id"], "design_revisions"):
@@ -1932,6 +2305,155 @@ def command_join_advance(
         connection, run["run_id"], op_id, request, action,
         semantic_validator=semantic_validator,
     )
+
+
+def _delivery_repair_packet(connection, run, writer, collection, members, consolidation):
+    writer = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (writer["branch_id"],)).fetchone()
+    packet = _repair_packet(connection, run, writer)
+    origins = []
+    for member in members:
+        env = json.loads(member["envelope_json"])
+        result = json.loads(member["result_json"])
+        origins.append({"branch_id": member["branch_id"], "attempt_id": env["attempt_id"],
+                        "result_ref": _ledger_input(connection, member), "artifact_ref": env["artifact_ref"],
+                        "findings": result.get("findings", []), "evidence": env["evidence"]})
+    packet.update({"origin_kind": "delivery_review", "origin_gate": consolidation["node_key"],
+                   "origin_collection_id": collection["join_id"], "origin_consolidation_ref": _ledger_input(connection, consolidation),
+                   "origin_reports": origins, "return_gates": ["senior_engineer"] + sorted({member["node_key"] for member in members}) + [consolidation["node_key"]],
+                   "next_permitted_action": "implement_repair"})
+    return packet
+
+
+def _repair_packet(connection, run, branch, judgment=None):
+    env = json.loads(branch["envelope_json"])
+    plan = connection.execute("SELECT plan_digest FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    allowances = {row["budget_id"]: row["limit_value"] - row["used"] for row in connection.execute(
+        "SELECT * FROM budgets WHERE run_id=?", (run["run_id"],))}
+    sealed = connection.execute("SELECT 1 FROM joins j JOIN join_members m USING(join_id) WHERE m.branch_id=? AND j.status='sealed'",
+                                (branch["branch_id"],)).fetchone()
+    retryable = branch["status"] in {"failed", "timed_out"} and branch["retry_count"] < branch["max_retries"] and not sealed
+    packet = {"kind": "repair_packet", "schema_version": 1, "run_id": run["run_id"],
+            "task_digest": run["task_digest"], "plan_digest": plan[0], "branch_id": branch["branch_id"],
+            "attempt_id": env.get("attempt_id"), "generation": branch["generation"], "state_revision": run["state_revision"],
+            "origin_gate": branch["node_key"], "failure_evidence": list(env.get("evidence", [])),
+            "failure_result_ref": "ledger:" + branch["branch_id"] + "#sha256=" + branch["result_digest"] if branch["result_digest"] else None,
+            "failed_criterion_ids": [], "cause": "unknown", "source_changes": [],
+            "authorized_scope": [item for item in env["effect_capabilities"] if item["effect"].startswith("filesystem")],
+            "relevant_inputs": list(env["inputs"]), "return_gates": [branch["node_key"]],
+            "remaining_retries": branch["max_retries"] - branch["retry_count"], "remaining_allowances": allowances,
+            "next_permitted_action": "retry" if retryable else "supervisor_assessment",
+            "unresolved_judgments": ["failure_cause", "failed_criteria", "repair_scope", "source_change_summary_unavailable"]}
+    if not branch["result_digest"]:
+        for item in env["inputs"]:
+            if item["kind"] == "failure":
+                prior_row = connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()
+                prior = json.loads(prior_row[0] or "{}")
+                if prior.get("kind") == "repair_packet" and prior.get("branch_id") == branch["branch_id"]:
+                    for key in ("attempt_id", "failure_evidence", "failure_result_ref", "failed_criterion_ids", "cause", "authorized_scope", "relevant_inputs", "return_gates", "unresolved_judgments", "origin_gate"):
+                        packet[key] = prior[key]
+                    if prior.get("origin_kind") == "delivery_review":
+                        for key in ("origin_kind", "origin_collection_id", "origin_consolidation_ref", "origin_reports"):
+                            packet[key] = prior[key]
+                        packet["next_permitted_action"] = "implement_repair"
+    if judgment is not None:
+        fields = {"schema_version", "kind", "cause", "failed_criterion_ids", "authorized_scope"}
+        require_keys(judgment, fields, fields, "repair_judgment")
+        if judgment["schema_version"] != 1 or judgment["kind"] != "repair_judgment" or judgment["cause"] not in {"implementation", "design", "dependency", "infrastructure", "unknown"}:
+            raise ContractError("repair_judgment", "SCHEMA_MISMATCH")
+        task = json.loads(run["task_json"])
+        criteria = judgment["failed_criterion_ids"]
+        if not isinstance(criteria, list) or len(set(criteria)) != len(criteria) or not set(criteria).issubset(task["acceptance_ids"]):
+            raise ContractError("repair_judgment", "UNKNOWN_CRITERION")
+        scope = judgment["authorized_scope"]
+        if not isinstance(scope, list) or len(scope) > 32:
+            raise ContractError("repair_judgment", "INVALID_SCOPE")
+        for capability in scope:
+            require_keys(capability, {"effect", "action", "target_ref"}, {"effect", "action", "target_ref"}, "repair_scope")
+            validate_ref(capability["target_ref"], "repair_scope")
+            if not any(capability["effect"] == allowed["effect"] and capability["action"] == allowed["action"]
+                       and source_path_contains(allowed["target_ref"], capability["target_ref"])
+                       for allowed in packet["authorized_scope"]):
+                raise ContractError("repair_scope", "AUTHORITY_EXCEEDED")
+        packet.update({"cause": judgment["cause"], "failed_criterion_ids": sorted(criteria), "authorized_scope": scope,
+                       "unresolved_judgments": ["source_change_summary_unavailable"]})
+        if judgment["cause"] == "design":
+            packet["return_gates"] = ["tech_lead", "architect"]
+        elif judgment["cause"] in {"dependency", "infrastructure", "unknown"}:
+            packet["return_gates"] = ["supervisor"]
+    return packet
+
+
+def command_recovery(connection, run, branch_id=None):
+    branches = connection.execute("SELECT * FROM nodes WHERE run_id=? AND depth=0 ORDER BY branch_id", (run["run_id"],)).fetchall()
+    packets = [_repair_packet(connection, run, branch) for branch in branches
+               if (branch_id == branch["branch_id"] if branch_id else branch["status"] in {"failed", "timed_out"}
+                   or (branch["status"] in {"ready", "pending", "running"}
+                       and any(item["kind"] == "failure" for item in json.loads(branch["envelope_json"])["inputs"])))]
+    if branch_id and not packets:
+        raise StateError("BRANCH_NOT_FOUND")
+    return _json_result(True, "RECOVERY", run["run_id"], run["state_revision"], packets=packets)
+
+
+def command_consolidation_draft(connection, run, requested_join):
+    join = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_id=?", (run["run_id"], requested_join)).fetchone()
+    if join is None or join["kind"] != "collection" or join["stage"] not in {"design", "delivery"} or join["status"] != "sealed":
+        raise StateError("SOURCE_COLLECTION_NOT_SEALED")
+    members = join_members(connection, join["join_id"])
+    nested = []
+    if join["stage"] == "delivery":
+        for member in members:
+            nested.extend(json.loads(row[0]) for row in connection.execute(
+                "SELECT c.content_json FROM review_delegation_requests r JOIN review_delegation_collections c USING(request_slot_id) WHERE r.parent_branch_id=? AND r.status='sealed' ORDER BY r.round_number",
+                (member["branch_id"],)))
+    outcome, _ = (compute_design_outcome(members) if join["stage"] == "design"
+                  else _delivery_outcome_without_delegated_echoes(members, nested) if nested else compute_delivery_outcome(members))
+    dispositions = _source_finding_dispositions(members)
+    manifest = {"schema_version": 1, "kind": join["stage"] + "_consolidation", "run_id": run["run_id"],
+                "join_id": join["join_id"], "generation": join["generation"],
+                "source_branch_ids": sorted(member["branch_id"] for member in members),
+                "finding_dispositions": [{"finding_id": key, "disposition": value} for key, value in sorted(dispositions.items())]}
+    unresolved = _delegated_issue_sources(nested) if nested else {}
+    if not unresolved:
+        if nested:
+            outcome = DELIVERY_OUTCOMES[max({value: key for key, value in DELIVERY_OUTCOMES.items()}[outcome],
+                                            _delegated_terminal_precedence(nested))]
+        manifest["outcome"] = outcome
+    artifact = canonical_ledger_artifact(join["join_id"], "collection", {
+        "schema_version": 1, "kind": "collection", "join_id": join["join_id"],
+        "members": canonical_collection_members(connection, members)})
+    return _json_result(True, "CONSOLIDATION_DRAFT", run["run_id"], run["state_revision"],
+                        collection_digest=artifact.sha256, manifest=manifest, unresolved_issue_identities=unresolved)
+
+
+def _evidence_status(connection, run):
+    if run["state_schema_version"] != 7:
+        return None
+    policy = json.loads(run["policy_json"])
+    reservations = list(reservation_states(connection, run["run_id"]).values())
+    checks = []
+    for selected in connection.execute("SELECT * FROM check_evidence WHERE run_id=? ORDER BY check_id", (run["run_id"],)):
+        receipt = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (selected["artifact_ref"],)).fetchone()[0])
+        options = []
+        for branch in connection.execute("SELECT * FROM nodes WHERE run_id=? AND status IN ('running','succeeded') ORDER BY branch_id", (run["run_id"],)):
+            env = json.loads(branch["envelope_json"])
+            command = configured_check(policy, selected["check_id"])["command_id"]
+            if {"effect": "command", "action": "run", "target_ref": command} not in env["effect_capabilities"]:
+                continue
+            fence = {"branch_id": branch["branch_id"], "attempt_id": env["attempt_id"], "claim_digest": env["claim_digest"]}
+            try:
+                verify_check_fence(connection, run, fence, executor=True)
+            except StateError:
+                continue
+            cost = int(any(item["executor"]["branch_id"] == branch["branch_id"] and item["executor"]["attempt_id"] == env["attempt_id"]
+                           and item["check_id"] == selected["check_id"] for item in reservations))
+            options.append({"branch_id": branch["branch_id"], "attempt_id": env["attempt_id"], "repeat_cost": cost})
+        checks.append({"check_id": selected["check_id"], "artifact_ref": selected["artifact_ref"],
+                       "eligibility": receipt_eligibility(connection, run, policy, receipt),
+                       "source": receipt.get("source"), "executor": receipt.get("executor"),
+                       "predecessor_ref": receipt.get("predecessor_ref"), "coverage": receipt.get("coverage"),
+                       "review_source_binding_ref": receipt.get("review_source_binding_ref"), "executor_options": options})
+    return {"checks": checks, "reservations": [{key: item[key] for key in ("reservation_id", "check_id", "state", "repeat_cost", "budget_id")}
+                                               for item in reservations]}
 
 
 def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict[str, Any]:
@@ -1971,6 +2493,15 @@ def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict
     ready = connection.execute("SELECT branch_id FROM nodes WHERE run_id=? AND status='ready' ORDER BY branch_id LIMIT 1", (run["run_id"],)).fetchone()
     if ready:
         return {"kind": "claim", "branch_id": ready["branch_id"]}
+    lifecycle = _evidence_status(connection, run)
+    if lifecycle:
+        unknown = [item["reservation_id"] for item in lifecycle["reservations"] if item["state"] == "open"]
+        if unknown:
+            return {"kind": "check_execution_unknown", "reservation_ids": sorted(unknown)}
+        stale = next((item for item in lifecycle["checks"] if item["eligibility"] != "eligible"), None)
+        if stale:
+            return {"kind": "replace_check", "check_id": stale["check_id"], "replace_ref": stale["artifact_ref"],
+                    "eligibility": stale["eligibility"], "executor_options": stale["executor_options"]}
     ready_join = []
     for join in connection.execute("SELECT * FROM joins WHERE run_id=? AND status='open' ORDER BY join_id", (run["run_id"],)):
         if validate_join(connection, run, join)["join_status"] == "READY":
@@ -1984,6 +2515,14 @@ def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict
     ).fetchone()
     if retryable_child:
         return {"kind": "retry_review_child", "branch_id": retryable_child["branch_id"]}
+    if run["state_schema_version"] == 7:
+        failed = connection.execute("SELECT * FROM nodes WHERE run_id=? AND depth=0 AND status IN ('failed','timed_out') ORDER BY branch_id LIMIT 1", (run["run_id"],)).fetchone()
+        if failed:
+            packet = _repair_packet(connection, run, failed)
+            return {"kind": packet["next_permitted_action"], "branch_id": failed["branch_id"], "repair_packet": packet}
+        unknown = [item for item in reservation_states(connection, run["run_id"]).values() if item["state"] == "open"]
+        if unknown:
+            return {"kind": "check_execution_unknown", "reservation_ids": sorted(item["reservation_id"] for item in unknown)}
     running = connection.execute("SELECT branch_id,envelope_json FROM nodes WHERE run_id=? AND status='running' ORDER BY branch_id", (run["run_id"],)).fetchall()
     expired = [
         (row["branch_id"], json.loads(row["envelope_json"]))
@@ -2036,6 +2575,7 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
         durability=run["durability"], durability_detail=run["durability_detail"],
         permission_verification=run["permission_verification"],
         execution_plan=execution_plan, usage=usage.report(connection, run),
+        **({"evidence_lifecycle": _evidence_status(connection, run)} if run["state_schema_version"] == 7 else {}),
         acknowledgments={
             "host_identity": run["host_identity"],
             "degraded_permissions": bool(run["degraded_permissions_ack"]),
@@ -2070,6 +2610,53 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
     )
 
 
+def _acceptance_gate(connection, run, policy, checks, registering=None):
+    delivery = run["selected_route"] in {"full_delivery", "fast_path"}
+    if delivery:
+        row, binding = verify_review_source(connection, run, policy, registering)
+    else:
+        receipts = [json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (reference,)).fetchone()[0]) for reference in checks.values()]
+        first = receipts[0]
+        if any(receipt["source"] != first["source"] or receipt["coverage_digest"] != first["coverage_digest"]
+               or receipt["after_source_digest"] != first["after_source_digest"] for receipt in receipts):
+            raise StateError("ACCEPTANCE_BINDING_MISMATCH")
+        source, _ = verify_check_fence(connection, run, first["source"])
+        if source["status"] != "succeeded" or source["result_digest"] != first["source"]["result_digest"]:
+            raise StateError("ACCEPTANCE_BINDING_MISMATCH")
+        row = {"ref": None}
+        binding = {"source": first["source"], "source_digest": first["after_source_digest"],
+                   "coverage_digest": first["coverage_digest"], "plan_digest": first["plan_digest"]}
+    stage = "delivery" if delivery else "design"
+    generation = run["implementation_generation"] if delivery else run["design_generation"]
+    if run["selected_route"] == "advisory":
+        terminal = connection.execute("SELECT result_digest FROM nodes WHERE run_id=? AND node_key='advisory_reviewer' AND status='succeeded'", (run["run_id"],)).fetchone()
+        if terminal is None:
+            raise StateError("ACCEPTANCE_GATE_INCOMPLETE")
+        return row, binding, None, terminal[0]
+    collection = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_key=? AND generation=? AND status='sealed'",
+                                    (run["run_id"], stage + "_collection", generation)).fetchone()
+    consolidation = connection.execute("SELECT * FROM nodes WHERE run_id=? AND node_key=? AND generation=? AND status='succeeded'",
+                                       (run["run_id"], "supervisor_" + stage + "_consolidation", generation)).fetchone()
+    if collection is None or consolidation is None or json.loads(consolidation["result_json"])["outcome"] != ("ACCEPT" if delivery else "APPROVE"):
+        raise StateError("ACCEPTANCE_GATE_INCOMPLETE")
+    collection_artifact = canonical_ledger_artifact(collection["join_id"], "collection", {
+        "schema_version": 1, "kind": "collection", "join_id": collection["join_id"],
+        "members": canonical_collection_members(connection, join_members(connection, collection["join_id"]))})
+    return row, binding, collection_artifact.ref, consolidation["result_digest"]
+
+
+def _eligible_required_checks(connection, run, policy, task, registering=None):
+    selected = {}
+    for row in connection.execute("SELECT * FROM check_evidence WHERE run_id=?", (run["run_id"],)):
+        artifact = connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (row["artifact_ref"],)).fetchone()
+        receipt = json.loads(artifact[0])
+        if receipt_eligibility(connection, run, policy, receipt, registering) == "eligible":
+            selected[row["check_id"]] = row["artifact_ref"]
+    if set(selected) != set(task["required_check_ids"]):
+        raise StateError("REQUIRED_CHECKS_INCOMPLETE")
+    return selected
+
+
 def command_complete(
     args: argparse.Namespace, connection: sqlite3.Connection, run: sqlite3.Row,
     policy: Mapping[str, Any], task: Mapping[str, Any], store: StateStore,
@@ -2080,6 +2667,15 @@ def command_complete(
     def action(conn: sqlite3.Connection, current: sqlite3.Row, revision: int) -> Dict[str, Any]:
         if current["status"] != "active":
             raise StateError("INVALID_RUN_TRANSITION")
+        if current["state_schema_version"] == 7:
+            checks = _eligible_required_checks(conn, current, policy, task)
+            binding_row, binding, collection_ref, consolidation_digest = _acceptance_gate(conn, current, policy, checks)
+            for selected in conn.execute("SELECT * FROM acceptance_evidence WHERE run_id=?", (current["run_id"],)):
+                wrapper = json.loads(conn.execute("SELECT content_json FROM artifacts WHERE ref=?", (selected["artifact_ref"],)).fetchone()[0] or "{}")
+                if (wrapper.get("kind") != "acceptance_binding" or wrapper.get("review_source_binding_ref") != binding_row["ref"]
+                        or wrapper.get("source_digest") != binding["source_digest"] or wrapper.get("checks") != checks
+                        or wrapper.get("collection_ref") != collection_ref or wrapper.get("consolidation_digest") != consolidation_digest):
+                    raise StateError("ACCEPTANCE_BINDING_MISMATCH")
         closure = conn.execute("SELECT * FROM joins WHERE run_id=? AND join_key='closure' AND status='open' ORDER BY generation DESC LIMIT 1", (current["run_id"],)).fetchone()
         if not closure or validate_join(conn, current, closure)["join_status"] != "READY":
             raise StateError("CLOSURE_NOT_READY")
@@ -2095,7 +2691,12 @@ def command_complete(
             try:
                 receipt = json.loads(artifact["content_json"])
                 configured = configured_check(policy, check["check_id"])
-                validate_check_receipt(receipt, current["run_id"], check["check_id"], configured, Path(current["repository_path"]))
+                if current["state_schema_version"] == 7:
+                    validate_receipt_integrity(receipt, current["run_id"], check["check_id"], configured, Path(current["repository_path"]))
+                    if receipt_eligibility(conn, current, policy, receipt) != "eligible":
+                        continue
+                else:
+                    validate_check_receipt(receipt, current["run_id"], check["check_id"], configured, Path(current["repository_path"]))
             except (StateError, ContractError, json.JSONDecodeError):
                 continue
             if check["outcome"] == "PASS" and receipt["outcome"] == "PASS":
@@ -2202,6 +2803,10 @@ def build_parser() -> argparse.ArgumentParser:
     usage_commands = usage_command.add_subparsers(dest="usage_kind", required=True)
     usage_checkpoint = usage_commands.add_parser("checkpoint")
     usage_checkpoint.add_argument("--session-log", required=True)
+    constraints = commands.add_parser("constraints")
+    selectors = constraints.add_subparsers(dest="constraint_kind", required=True)
+    selector = selectors.add_parser("select")
+    selector.add_argument("--bundle", required=True); selector.add_argument("--context", required=True)
     init = commands.add_parser("init")
     init.add_argument("--run-id", required=True); init.add_argument("--task-brief", required=True); init.add_argument("--op-id", required=True)
     init.add_argument("--size", choices=["small", "medium", "large"])
@@ -2232,6 +2837,7 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "timeout":
             sub.add_argument("--attempt-id", required=True); sub.add_argument("--claim-token", required=True)
     retry = records.add_parser("retry"); retry.add_argument("--run-id", required=True); retry.add_argument("--branch-id", required=True); retry.add_argument("--reason-code", required=True); retry.add_argument("--op-id", required=True)
+    retry.add_argument("--repair-manifest")
     heartbeat = records.add_parser("heartbeat"); heartbeat.add_argument("--run-id", required=True); heartbeat.add_argument("--branch-id", required=True); heartbeat.add_argument("--attempt-id", required=True); heartbeat.add_argument("--claim-token", required=True); heartbeat.add_argument("--op-id", required=True)
     approval = records.add_parser("approval"); approval.add_argument("--run-id", required=True); approval.add_argument("--approval-id", required=True); approval.add_argument("--scope-ref", required=True); approval.add_argument("--decision", choices=["APPROVE", "REJECT"], required=True); approval.add_argument("--authority-ref", required=True); approval.add_argument("--artifact-sha256", required=True); approval.add_argument("--actor"); approval.add_argument("--op-id", required=True)
     plan_approval = records.add_parser("plan-approval"); plan_approval.add_argument("--run-id", required=True); plan_approval.add_argument("--plan-digest", required=True); plan_approval.add_argument("--decision", choices=["APPROVE", "REJECT"], required=True); plan_approval.add_argument("--authority-ref", required=True); plan_approval.add_argument("--actor"); plan_approval.add_argument("--op-id", required=True)
@@ -2240,14 +2846,36 @@ def build_parser() -> argparse.ArgumentParser:
     review_assessment = records.add_parser("review-fanout-assessment"); review_assessment.add_argument("--run-id", required=True); review_assessment.add_argument("--request-slot-id", required=True); review_assessment.add_argument("--assessment-manifest", required=True); review_assessment.add_argument("--authority-ref", required=True); review_assessment.add_argument("--op-id", required=True)
     budget = records.add_parser("budget-use"); budget.add_argument("--run-id", required=True); budget.add_argument("--budget-id", required=True); budget.add_argument("--amount", type=int, required=True); budget.add_argument("--source-branch-id", required=True); budget.add_argument("--op-id", required=True)
     acceptance = records.add_parser("acceptance-evidence"); acceptance.add_argument("--run-id", required=True); acceptance.add_argument("--criterion-id", required=True); acceptance.add_argument("--artifact-ref", required=True); acceptance.add_argument("--artifact-sha256", required=True); acceptance.add_argument("--op-id", required=True)
+    acceptance.add_argument("--replace-ref")
     check = records.add_parser("check-evidence"); check.add_argument("--run-id", required=True); check.add_argument("--check-id", required=True); check.add_argument("--outcome", choices=["PASS", "FAIL", "NOT_RUN"], required=True); check.add_argument("--artifact-ref", required=True); check.add_argument("--artifact-sha256", required=True); check.add_argument("--op-id", required=True)
     check_command = commands.add_parser("check"); check_commands = check_command.add_subparsers(dest="check_kind", required=True)
     check_run = check_commands.add_parser("run"); check_run.add_argument("--run-id", required=True); check_run.add_argument("--check-id", required=True); check_run.add_argument("--op-id", required=True)
+    abandon = check_commands.add_parser("abandon")
+    for option in ("run-id", "reservation-id", "reason", "op-id"):
+        abandon.add_argument("--" + option, required=True)
+    for option in ("executor-branch-id", "executor-attempt-id", "executor-claim-token", "source-branch-id", "source-attempt-id", "source-claim-digest", "replace-ref"):
+        check_run.add_argument("--" + option)
+    evidence = commands.add_parser("evidence")
+    evidence_commands = evidence.add_subparsers(dest="evidence_kind", required=True)
+    enable = evidence_commands.add_parser("enable")
+    enable.add_argument("--run-id", required=True)
+    enable.add_argument("--contract-version", type=int, required=True)
+    enable.add_argument("--coverage-manifest", required=True)
+    enable.add_argument("--op-id", required=True)
+    recovery = commands.add_parser("recovery")
+    recoveries = recovery.add_subparsers(dest="recovery_kind", required=True)
+    show = recoveries.add_parser("show")
+    show.add_argument("--run-id", required=True); show.add_argument("--branch-id")
+    consolidation = commands.add_parser("consolidation")
+    drafts = consolidation.add_subparsers(dest="consolidation_kind", required=True)
+    draft = drafts.add_parser("draft")
+    draft.add_argument("--run-id", required=True); draft.add_argument("--join-id", required=True)
     for name in ("next", "ready"):
         sub = commands.add_parser(name); sub.add_argument("--run-id", required=True); sub.add_argument("--all", action="store_true"); sub.add_argument("--claim", action="store_true"); sub.add_argument("--op-id")
     join = commands.add_parser("join"); joins = join.add_subparsers(dest="join_kind", required=True)
     validate = joins.add_parser("validate"); validate.add_argument("--run-id", required=True); validate.add_argument("--join-id", required=True)
     advance = joins.add_parser("advance"); advance.add_argument("--run-id", required=True); advance.add_argument("--join-id", required=True); advance.add_argument("--op-id", required=True)
+    advance.add_argument("--generated-output-plan")
     status = commands.add_parser("status"); status.add_argument("--run-id", required=True); status.add_argument("--json", action="store_true")
     complete = commands.add_parser("complete"); complete.add_argument("--run-id", required=True); complete.add_argument("--op-id", required=True)
     block = commands.add_parser("block"); block.add_argument("--run-id", required=True); block.add_argument("--reason-code", required=True); block.add_argument("--evidence-manifest", required=True); block.add_argument("--op-id", required=True)
@@ -2267,6 +2895,13 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
     case_sensitive = os.path.normcase("A") != os.path.normcase("a")
     repo = Path(args.repo).resolve(strict=True)
     policy, policy_snapshot = load_policy(repo)
+    if args.command == "constraints":
+        bundle = safe_json_snapshot(Path(args.bundle), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
+        context = safe_json_snapshot(Path(args.context), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
+        support = _constraint_support(repo, policy, bundle)
+        result = select_constraints(bundle, context, supported={item.ref for item in support},
+                                    normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
+        return _json_result(True, "CONSTRAINTS_SELECTED", None, None, **result), 0
     requested_root = Path(args.state_root) if args.state_root is not None else None
     if store is not None and requested_root is not None:
         if store.state_root != requested_root.absolute():
@@ -2281,9 +2916,10 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
         semantic_validator = lambda conn, current: verify_semantic_state(
             conn, current, repo, policy_snapshot.digest, policy, skill_root,
             case_sensitive=case_sensitive,
+            evidence_enable=args.command == "evidence" and current["state_schema_version"] == 6,
         )
         is_mutation = (
-            args.command in {"record", "complete", "block", "abort", "check"}
+            args.command in {"record", "complete", "block", "abort", "check", "evidence"}
             or (args.command in {"next", "ready"} and args.claim)
             or (args.command == "join" and args.join_kind == "advance")
         )
@@ -2292,13 +2928,20 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
                 connection, run, repo, policy_snapshot.digest, policy, skill_root,
                 case_sensitive=case_sensitive,
             )
-        if args.command == "record":
+        if args.command == "recovery":
+            result = command_recovery(connection, run, args.branch_id)
+        elif args.command == "consolidation":
+            result = command_consolidation_draft(connection, run, args.join_id)
+        elif args.command == "evidence":
+            result = command_evidence_enable(args, connection, run, stored_policy, task, state, semantic_validator)
+        elif args.command == "record":
             result = command_record(
                 args, connection, run, stored_policy, task, state, semantic_validator,
                 case_sensitive=case_sensitive,
             )
         elif args.command == "check":
-            result = command_check_run(
+            handler = command_check_abandon if args.check_kind == "abandon" else command_check_run
+            result = handler(
                 args, connection, run, stored_policy, task, state, semantic_validator,
             )
         elif args.command in {"next", "ready"}:

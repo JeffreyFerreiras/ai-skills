@@ -67,6 +67,14 @@ expanding effects remain explicit authority boundaries.
 
 ## Closure and handoffs
 
+For format 7 repairs, produce, check, inspect the cause, correct within existing authority, then retry
+within the remaining allowance. Preserve the failed attempt and return each finding to its originating
+gate. Design causes return to Tech Lead/Architect; dependency or infrastructure ambiguity returns to
+the Supervisor. Unknown causes require judgment rather than inferred permission. Read the verified
+repair/constraint projection supplied with the claim, and retain the full brief by reference.
+All mandatory review and assembled integration gates remain required for each repaired generation.
+Fresh passing checks cannot refresh a source binding captured for an earlier review collection.
+
 Close only when every acceptance criterion has evidence, the approved design still matches, no
 blocking or major finding remains, required checks pass, unrelated failures are separated, and
 rollout/rollback/approval conditions are satisfied. Repository delivery also requires exactly one
