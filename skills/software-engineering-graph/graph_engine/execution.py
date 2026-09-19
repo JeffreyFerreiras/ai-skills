@@ -118,10 +118,27 @@ DISPATCH_WHEN = {
     "supervisor_delivery_consolidation": "delivery consolidation",
 }
 
+DISPATCH_WHEN_BY_MINIMUM_ROUTE = {
+    "senior_engineer": {
+        "delivery_only": "delivery_only or full_delivery route",
+    },
+    "code_reviewer": {
+        "delivery_only": "delivery_only or full_delivery route",
+    },
+    "test_engineer": {
+        "delivery_only": "delivery_only or full_delivery route",
+    },
+}
+
 
 def _class_for_node(node_key: str, size: str) -> Tuple[str, str]:
     assignment_key = node_key if node_key in CLASS_ASSIGNMENTS[size] else NODE_ROLES[node_key]
     return CLASS_ASSIGNMENTS[size][assignment_key]
+
+
+def _dispatch_when(node_key: str, task: Mapping[str, Any]) -> str:
+    route_overrides = DISPATCH_WHEN_BY_MINIMUM_ROUTE.get(node_key, {})
+    return route_overrides.get(task["minimum_route"], DISPATCH_WHEN[node_key])
 
 
 def validate_model_assignment(
@@ -155,7 +172,7 @@ def recommend_size(task: Mapping[str, Any]) -> Tuple[str, str]:
     """Return the legacy v1 recommendation without changing its plan contract."""
     if task["risk_level"] == "critical" or task["minimum_route"] == "full_delivery":
         return "large", "critical risk or full-delivery route floor"
-    if task["risk_level"] == "high" or task["mandatory_impact_tags"] or task["minimum_route"] in {"design_only", "fast_path"}:
+    if task["risk_level"] == "high" or task["mandatory_impact_tags"] or task["minimum_route"] in {"design_only", "delivery_only", "fast_path"}:
         return "medium", "elevated risk, impact tags, or a delivery/design route"
     return "small", "low-risk advisory work with no mandatory impact tags"
 
@@ -264,7 +281,7 @@ def _build_execution_plan(
             "model": model,
             "reasoning_effort": effort,
             "dispatch_model": dispatch_model(host, model, effort),
-            "dispatch_when": DISPATCH_WHEN[node_key],
+            "dispatch_when": _dispatch_when(node_key, task),
         })
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)

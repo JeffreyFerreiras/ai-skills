@@ -100,6 +100,19 @@ def _validate_json_schema(value, schema, root, path="$", seen_refs=None):
         if keyword == "oneOf" and matches != 1:
             raise AssertionError("{}: multiple oneOf alternatives matched".format(path))
 
+    for candidate in schema.get("allOf", []):
+        _validate_json_schema(value, candidate, root, path, seen_refs)
+
+    if "if" in schema:
+        try:
+            _validate_json_schema(value, schema["if"], root, path, seen_refs)
+        except AssertionError:
+            branch = schema.get("else")
+        else:
+            branch = schema.get("then")
+        if branch is not None:
+            _validate_json_schema(value, branch, root, path, seen_refs)
+
     if "not" in schema:
         try:
             _validate_json_schema(value, schema["not"], root, path, seen_refs)
@@ -161,6 +174,12 @@ def _validate_json_schema(value, schema, root, path="$", seen_refs=None):
         if "items" in schema:
             for index, item in enumerate(value):
                 _validate_json_schema(item, schema["items"], root, "{}[{}]".format(path, index), seen_refs)
+        if "contains" in schema:
+            if not any(
+                _schema_matches(item, schema["contains"], root, path, seen_refs)
+                for item in value
+            ):
+                raise AssertionError("{}: contains constraint not satisfied".format(path))
     elif isinstance(value, str):
         if len(value) < schema.get("minLength", 0) or len(value) > schema.get("maxLength", len(value)):
             raise AssertionError("{}: invalid string length".format(path))
@@ -169,6 +188,14 @@ def _validate_json_schema(value, schema, root, path="$", seen_refs=None):
     elif isinstance(value, int) and not isinstance(value, bool):
         if value < schema.get("minimum", value) or value > schema.get("maximum", value):
             raise AssertionError("{}: number outside bounds".format(path))
+
+
+def _schema_matches(value, schema, root, path, seen_refs):
+    try:
+        _validate_json_schema(value, schema, root, path, seen_refs)
+    except AssertionError:
+        return False
+    return True
 
 
 class ContractTests(GraphCase):
@@ -259,6 +286,35 @@ class ContractTests(GraphCase):
             with self.subTest(code=code), self.assertRaisesRegex(ContractError, code):
                 validate_task_brief(candidate, self.snapshot.digest, self.policy)
 
+    def test_delivery_only_requires_complete_bounded_readiness(self):
+        task = self.task_delivery_only(
+            tags=["production_behavior"], risk="medium", scope_extent="cross_file",
+            uncertainty="medium",
+        )
+        validated = validate_task_brief(task, self.snapshot.digest, self.policy)
+        self.assertEqual(validated["minimum_route"], "delivery_only")
+        self.assertEqual(validated["delivery_readiness"], task["delivery_readiness"])
+
+        cases = (
+            (lambda value: value.pop("delivery_readiness"), "DELIVERY_READINESS_REQUIRED"),
+            (lambda value: value["delivery_readiness"].update(requirements_complete=False), "READINESS_ASSERTION_REQUIRED"),
+            (lambda value: value["delivery_readiness"].update(unresolved_items=["Choose storage"]), "UNRESOLVED_ITEMS_PRESENT"),
+            (lambda value: value.update(required_human_decisions=["choose-storage"]), "DELIVERY_ONLY_UNRESOLVED_DECISION"),
+            (lambda value: value.update(risk_level="high"), "DELIVERY_ONLY_INELIGIBLE"),
+            (lambda value: value.update(mandatory_impact_tags=["security_privacy"]), "DELIVERY_ONLY_INELIGIBLE"),
+            (lambda value: value["model_sizing"].update(scope_extent="broadly_cross_cutting"), "DELIVERY_ONLY_INELIGIBLE"),
+            (lambda value: value["model_sizing"].update(uncertainty="high"), "DELIVERY_ONLY_INELIGIBLE"),
+        )
+        for mutation, code in cases:
+            candidate = self.task_delivery_only()
+            mutation(candidate)
+            with self.subTest(code=code), self.assertRaisesRegex(ContractError, code):
+                validate_task_brief(candidate, self.snapshot.digest, self.policy)
+
+        legacy = self.task(route="delivery_only")
+        with self.assertRaisesRegex(ContractError, "DELIVERY_READINESS_REQUIRED"):
+            validate_task_brief(legacy, self.snapshot.digest, self.policy)
+
     def test_published_task_schema_accepts_exact_v1_and_v2_contracts(self):
         schema = json.loads(
             (Path(__file__).parents[1] / "references" / "task-brief.schema.json").read_text(
@@ -273,6 +329,11 @@ class ContractTests(GraphCase):
             "ref": "repo:docs/helper-allowance.json", "sha256": "a" * 64,
         }
         _validate_json_schema(task_v3, schema, schema)
+        delivery_only = self.task_delivery_only()
+        _validate_json_schema(delivery_only, schema, schema)
+        invalid_delivery_only = self.task_v2(route="delivery_only")
+        with self.assertRaises(AssertionError):
+            _validate_json_schema(invalid_delivery_only, schema, schema)
         legacy_with_v2_field = self.task()
         legacy_with_v2_field["model_sizing"] = {
             "scope_extent": "bounded", "uncertainty": "low",
@@ -289,6 +350,15 @@ class ContractTests(GraphCase):
         fast_task = validate_task_brief(self.task(route="fast_path"), self.snapshot.digest, self.policy)
         with self.assertRaisesRegex(ContractError, "FAST_PATH_INVARIANT"):
             validate_impact_map({"schema_version": 1, "task_id": "TASK-1", "route_label": "fast_path", "impact_tags": ["security_privacy"], "evidence_refs": [], "attempt_id": "attempt", "claim_digest": "a" * 64}, fast_task, self.policy)
+
+        delivery_task = validate_task_brief(
+            self.task_delivery_only(), self.snapshot.digest, self.policy,
+        )
+        with self.assertRaisesRegex(ContractError, "ROUTE_DOWNGRADE"):
+            validate_impact_map({"schema_version": 1, "task_id": "TASK-1", "route_label": "fast_path", "impact_tags": [], "evidence_refs": [], "attempt_id": "attempt", "claim_digest": "a" * 64}, delivery_task, self.policy)
+        validate_impact_map({"schema_version": 1, "task_id": "TASK-1", "route_label": "delivery_only", "impact_tags": ["production_behavior"], "evidence_refs": [], "attempt_id": "attempt", "claim_digest": "a" * 64}, delivery_task, self.policy)
+        with self.assertRaisesRegex(ContractError, "DELIVERY_ONLY_INELIGIBLE"):
+            validate_impact_map({"schema_version": 1, "task_id": "TASK-1", "route_label": "delivery_only", "impact_tags": ["security_privacy"], "evidence_refs": [], "attempt_id": "attempt", "claim_digest": "a" * 64}, delivery_task, self.policy)
 
     def test_advisory_task_cannot_receive_write_authority(self):
         task = self.task("advisory", "advisory")
@@ -309,7 +379,7 @@ class ContractTests(GraphCase):
 
     def test_policy_cannot_raise_loop_limit(self):
         policy = copy.deepcopy(self.policy)
-        policy["limits"]["design_revisions"] = 4
+        policy["limits"]["design_revisions"] = 3
         (self.repo / ".codex" / "engineering-graph.json").write_text(__import__("json").dumps(policy), encoding="utf-8")
         with self.assertRaisesRegex(ContractError, "LIMIT_MAY_NOT_INCREASE"):
             load_policy(self.repo)
@@ -647,6 +717,21 @@ class ContractTests(GraphCase):
         )
         with self.assertRaisesRegex(ContractError, "ENGINE_TOPOLOGY_CHANGED"):
             load_policy(self.repo)
+
+    def test_legacy_four_route_policy_gains_engine_owned_delivery_only_route(self):
+        policy = copy.deepcopy(self.policy)
+        policy["routes"].pop("delivery_only")
+        (self.repo / ".codex" / "engineering-graph.json").write_text(
+            json.dumps(policy), encoding="utf-8",
+        )
+        loaded, _ = load_policy(self.repo)
+        self.assertEqual(
+            loaded["routes"]["delivery_only"],
+            {
+                "entry_node": "senior_engineer", "design_gates": False,
+                "delivery_gates": True, "closure": "closure",
+            },
+        )
 
     def test_policy_topology_roots_contracts_and_targets_are_engine_bounded(self):
         mutations = [

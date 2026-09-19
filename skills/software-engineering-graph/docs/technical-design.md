@@ -72,14 +72,14 @@ side effects at the outer boundary.
 Role intelligence is a host-agnostic class plus requested effort, not a vendor model ID.
 `graph_engine/hosts.py` expands `(class, effort)` through `HOST_MATRIX`:
 
-| Class | Requested effort | Explicit Codex option | Cursor runtime |
-| --- | --- | --- | --- |
-| `economy` | `max` | `gpt-5.6-luna` `max` | `composer-2.5` `high` |
-| `reasoning` | `medium` / `high` / `xhigh` / `max` | `gpt-5.6-sol` at that effort | `cursor-grok-4.6` at medium/high/xhigh |
-| `primary-thread` | `inherited` | inherited | inherited |
+| Class | Requested effort | Explicit Codex option | Cursor runtime | Claude Code |
+| --- | --- | --- | --- | --- |
+| `economy` | `max` | `gpt-5.6-luna` `max` | `composer-2.5` `high` | `claude-sonnet-5` `low` |
+| `reasoning` | `medium` / `high` / `xhigh` / `max` | `gpt-5.6-sol` at that effort | `cursor-grok-4.6` at medium/high/xhigh | `claude-opus-5` at the requested effort |
+| `primary-thread` | `inherited` | inherited | inherited | inherited |
 
-The frozen baseline uses the Codex catalog. Cursor can dispatch those same Codex model IDs, so
-Codex-config assertions are valid on both hosts. `--host cursor` is the cheaper runtime mapping.
+The frozen baseline uses the Codex catalog. Use `--host claude` in Claude Code and `--host cursor`
+in Cursor. The Claude catalog dispatches the full recommended model ID and exact effort.
 The execution plan records `host`, `intelligence_class`, resolved `model`/`reasoning_effort`, and
 `dispatch_model`. Human approval covers the mapped vendor IDs. Host detection does not use
 environment variables or agent self-reports.
@@ -233,6 +233,15 @@ execution-plan v3 and binds its allowance reference/hash. Execution-plan schema 
 size-policy classifier; persisted task-brief schema still does.
 
 ## Portable repository policy
+
+Repository policy is optional for the execution-plan preflight. When the policy file is absent, the
+Supervisor uses a policyless planning fallback defined by the skill entrypoint: bounded read-only
+inspection can inform route, size, assignments, assumptions, and proposed validation, but the engine
+does not initialize a ledger or grant branch, policy-declared validation or execution command, write,
+publication, deployment, helper, or external-system authority. Bounded read-only discovery commands
+remain available. The fallback creates no consumer-repository files and keeps the plan in the
+conversation. A present policy is validated normally and any invalid or incompatible policy fails
+closed.
 
 Repository-policy v2 keeps the existing graph invariants while allowing project-specific bounded
 repository file or directory references, exact required-check command IDs, and a required
@@ -388,7 +397,7 @@ Senior Engineer, without changing historical approvals. The centralized executio
 invalid host, model, or effort before it can enter a persisted envelope.
 
 The recommended Supervisor assignment comes from the host catalog. Codex defaults to `gpt-6-astra`
-with `xhigh` reasoning. Cursor recommends `cursor-grok-4.6` with `high` reasoning rather than
+with `xhigh` reasoning. Claude Code recommends `claude-opus-5` with `xhigh` effort. Cursor recommends `cursor-grok-4.6` with `high` reasoning rather than
 ChatGPT Sol. Actual model and effort are considered verified only when supplied by a trusted host
 runtime assertion. Missing, unverifiable, or mismatched values select advisory mode and require this
 exact warning:
@@ -404,8 +413,16 @@ budgets. Material changes to scope, authority, route, roles, host, model, or eff
 The Supervisor owns initial worktree and branch creation within existing implementation authority,
 after bounded read-only inspection of instructions, status, registrations, and the intended base.
 This setup exception never permits commits, publication, cleanup, force, or mutation of an existing
-checkout. All non-trivial implementation uses `full_delivery`; a reduced focused-implementation
-route is not implemented. The documentation fast path still requires independent review and testing.
+checkout. Implementation-ready work may use `delivery_only` when its immutable v2 or v3 task brief
+identifies the requirements source and asserts complete requirements and acceptance criteria,
+resolved implementation and architecture decisions, and no unresolved items. Eligibility excludes
+high or critical risk, high uncertainty, broadly cross-cutting scope, security/privacy impact, and
+unresolved human decisions. The Impact Mapper may escalate to `full_delivery` when repository
+evidence contradicts readiness. Both `delivery_only` and the documentation fast path retain
+independent review and testing; a `REDESIGN` outcome inserts fresh research and design gates.
+The policy loader recognizes the exact legacy four-route topology and adds `delivery_only` only to
+the validated in-memory policy. Any other route drift still fails closed, and the repository file is
+never rewritten.
 
 ## Contributor contract
 

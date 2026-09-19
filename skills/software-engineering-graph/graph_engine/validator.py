@@ -1525,11 +1525,13 @@ def _validate_route_and_topology(
 
     design_outcomes = _sealed_consolidation_outcomes(connection, run["run_id"], "design")
     delivery_outcomes = _sealed_consolidation_outcomes(connection, run["run_id"], "delivery")
-    fast_redesign = route == "fast_path" and any(outcome == "REDESIGN" for _, outcome, _ in delivery_outcomes)
+    design_skipping_redesign = route in {"fast_path", "delivery_only"} and any(
+        outcome == "REDESIGN" for _, outcome, _ in delivery_outcomes
+    )
     allowed_bindings = {("impact_mapper", "bootstrap")}
     if route == "advisory":
         allowed_bindings.add(("advisory_reviewer", "advisory"))
-    if route in {"design_only", "full_delivery"} or fast_redesign:
+    if route in {"design_only", "full_delivery"} or design_skipping_redesign:
         allowed_bindings.update({
             ("design_research_architecture", "research"),
             ("design_research_validation", "research"),
@@ -1540,7 +1542,7 @@ def _validate_route_and_topology(
             (policy["specialists"][tag]["node_key"], "design")
             for tag in tags if tag in policy["specialists"]
         )
-    if route in {"fast_path", "full_delivery"}:
+    if route in {"fast_path", "delivery_only", "full_delivery"}:
         allowed_bindings.update({
             ("senior_engineer", "implementation"), ("code_reviewer", "delivery"),
             ("test_engineer", "delivery"),
@@ -1566,18 +1568,18 @@ def _validate_route_and_topology(
     senior_generations = sorted({node["generation"] for node in senior_nodes})
     if route in {"design_only", "full_delivery"} and (not research_generations or research_generations[0] != 0):
         raise StateError("TOPOLOGY_STATE_INVALID")
-    if fast_redesign and (not research_generations or research_generations[0] != 1):
+    if design_skipping_redesign and (not research_generations or research_generations[0] != 1):
         raise StateError("TOPOLOGY_STATE_INVALID")
     if tech_generations and (
         (route in {"design_only", "full_delivery"} and tech_generations[0] != 0)
-        or (fast_redesign and tech_generations[0] != 1)
+        or (design_skipping_redesign and tech_generations[0] != 1)
     ):
         raise StateError("TOPOLOGY_STATE_INVALID")
-    if route == "fast_path" and (not senior_generations or senior_generations[0] != 0):
+    if route in {"fast_path", "delivery_only"} and (not senior_generations or senior_generations[0] != 0):
         raise StateError("TOPOLOGY_STATE_INVALID")
     if route == "full_delivery" and senior_generations and senior_generations[0] != 0:
         raise StateError("TOPOLOGY_STATE_INVALID")
-    if route == "fast_path" and tech_generations and tech_generations[0] != 1:
+    if route in {"fast_path", "delivery_only"} and tech_generations and tech_generations[0] != 1:
         raise StateError("TOPOLOGY_STATE_INVALID")
     if tech_generations:
         first_design = tech_generations[0]

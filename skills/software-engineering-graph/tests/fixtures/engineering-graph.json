@@ -32,6 +32,7 @@
   "routes": {
     "advisory": {"entry_node": "advisory_reviewer", "design_gates": false, "delivery_gates": false, "closure": "closure"},
     "design_only": {"entry_node": "tech_lead", "design_gates": true, "delivery_gates": false, "closure": "closure"},
+    "delivery_only": {"entry_node": "senior_engineer", "design_gates": false, "delivery_gates": true, "closure": "closure"},
     "fast_path": {"entry_node": "senior_engineer", "design_gates": false, "delivery_gates": true, "closure": "closure"},
     "full_delivery": {"entry_node": "tech_lead", "design_gates": true, "delivery_gates": true, "closure": "closure"}
   },
@@ -58,7 +59,7 @@
     "release_operations": {"node_key": "release_operations_reviewer", "role": "release_operations_reviewer", "stages": ["design", "delivery"], "mandatory": true},
     "security_privacy": {"node_key": "security_reviewer", "role": "security_reviewer", "stages": ["design", "delivery"], "mandatory": true}
   },
-  "limits": {"design_revisions": 3, "delivery_repairs": 3, "inspection": {"file_reads": 12, "discovery_commands": 8}, "manifest_bytes": 262144, "artifact_bytes": 4194304},
+  "limits": {"design_revisions": 2, "delivery_repairs": 3, "inspection": {"file_reads": 12, "discovery_commands": 8}, "manifest_bytes": 262144, "artifact_bytes": 4194304},
   "required_checks": {"repo-check": {"command_id": "npm-run-check", "mandatory": true, "argv": ["npm", "run", "check"], "timeout_seconds": 900}},
   "role_capabilities": {
     "impact_mapper": [

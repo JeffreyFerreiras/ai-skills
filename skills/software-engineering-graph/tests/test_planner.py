@@ -7,7 +7,8 @@ from graph_engine.execution import (
     validate_model_assignment, validate_new_plan_assignment,
 )
 from graph_engine.hosts import (
-    DEFAULT_HOST, dispatch_weight_for, known_hosts, resolve_assignment, supported_dispatch_weights,
+    CURRENT_CATALOG_REVISIONS, DEFAULT_HOST, dispatch_weight_for, known_hosts, resolve_assignment,
+    supported_dispatch_weights,
 )
 from graph_engine.ids import stable_id
 from graph_engine.planner import (
@@ -410,6 +411,22 @@ class PlannerTests(GraphCase):
                     self.assertTrue(model, (host, size, role))
                     self.assertTrue(resolved, (host, size, role))
 
+    def test_claude_catalog_recommends_exact_models_and_efforts(self):
+        plan = build_execution_plan("RUN-1", self.task_v2(), host="claude")
+        self.assertEqual(plan["catalog_revision"], 1)
+        self.assertEqual(plan["supervisor_recommendation"], {
+            "model": "claude-opus-5", "reasoning_effort": "xhigh", "dispatch_model": "claude-opus-5",
+        })
+        self.assertEqual(plan["publication_assignment"], {
+            "model": "claude-sonnet-5", "reasoning_effort": "low", "dispatch_model": "claude-sonnet-5",
+        })
+        assignments = {
+            item["node_key"]: (item["model"], item["reasoning_effort"], item["dispatch_model"])
+            for item in plan["assignments"]
+        }
+        self.assertEqual(assignments["impact_mapper"], ("claude-sonnet-5", "low", "claude-sonnet-5"))
+        self.assertEqual(assignments["senior_engineer"], ("claude-opus-5", "medium", "claude-opus-5"))
+
     def test_default_cli_plan_survives_approval_claim_and_resume(self):
         initialized = self.initialize(size="medium")
         self.impact("full_delivery")
@@ -487,13 +504,16 @@ class PlannerTests(GraphCase):
 
     def test_catalog_revision_markers_fail_closed(self):
         for host in known_hosts():
-            for marker in (None, True, False, 2.0, "2", 0, 1, 3, [], {}):
+            revision = CURRENT_CATALOG_REVISIONS[host]
+            invalid_markers = (None, True, False, float(revision), str(revision), 0,
+                               revision + 1, [], {})
+            for marker in invalid_markers:
                 with self.subTest(host=host, marker=marker):
                     with self.assertRaisesRegex(ValueError, "CATALOG_REVISION_INVALID"):
                         reconstruct_execution_plan("RUN-1", self.task(),
                                                    {"host": host, "catalog_revision": marker})
             revised = reconstruct_execution_plan("RUN-1", self.task(),
-                                                 {"host": host, "catalog_revision": 2})
+                                                 {"host": host, "catalog_revision": revision})
             self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):
@@ -592,12 +612,27 @@ class PlannerTests(GraphCase):
 
     def test_every_route_has_exact_entry(self):
         policy, _ = load_policy(self.repo)
-        expected = {"advisory": "advisory_reviewer", "fast_path": "senior_engineer"}
+        expected = {
+            "advisory": "advisory_reviewer",
+            "delivery_only": "senior_engineer",
+            "fast_path": "senior_engineer",
+        }
         self.assertEqual({route: initial_route_nodes(policy, route)[0].key for route in expected}, expected)
         for route in ("design_only", "full_delivery"):
             self.assertEqual(
                 [node.key for node in initial_route_nodes(policy, route)],
                 ["design_research_architecture", "design_research_validation"],
+            )
+
+    def test_delivery_only_plan_uses_route_aware_dispatch_metadata(self):
+        assignments = {
+            item["node_key"]: item
+            for item in build_execution_plan("RUN-1", self.task_delivery_only())["assignments"]
+        }
+        for node_key in ("senior_engineer", "code_reviewer", "test_engineer"):
+            self.assertEqual(
+                assignments[node_key]["dispatch_when"],
+                "delivery_only or full_delivery route",
             )
 
     def test_research_envelopes_split_budget_and_project_read_only_capabilities(self):

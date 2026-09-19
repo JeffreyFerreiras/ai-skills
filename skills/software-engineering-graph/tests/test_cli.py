@@ -537,6 +537,7 @@ class CliGoldenTraceTests(GraphCase):
         init_help = build_parser()._subparsers._group_actions[0].choices["init"].format_help()
         self.assertIn("codex-astra (default)", init_help)
         self.assertIn("Luna/Sol option", init_help)
+        self.assertIn("claude", init_help)
         self.assertEqual(build_parser().parse_args([
             "--repo", str(self.repo), "init", "--run-id", "R", "--task-brief", "T",
             "--op-id", "O",
@@ -948,6 +949,47 @@ class CliGoldenTraceTests(GraphCase):
         self.assess_fanout(fanout["fanout_id"])
         ready = self.graphctl("ready", "--run-id", "RUN-1")["branches"]
         self.assertEqual({branch["role"] for branch in ready}, {"code_reviewer", "test_engineer"})
+
+    def test_delivery_only_has_writer_then_independent_delivery_gates(self):
+        task = self.task_delivery_only(
+            tags=["production_behavior"], risk="medium", scope_extent="cross_file",
+        )
+        self.initialize_task(task)
+        self.impact("delivery_only", ["production_behavior"])
+        engineer = self.claim()
+        self.assertEqual((engineer["node_key"], engineer["role"]), ("senior_engineer", "senior_engineer"))
+        self.success(engineer, "IMPLEMENTED")
+        self.advance("implementation")
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        fanout = status["fanouts"][0]
+        self.assess_fanout(fanout["fanout_id"])
+        ready = self.graphctl("ready", "--run-id", "RUN-1")["branches"]
+        self.assertEqual({branch["role"] for branch in ready}, {"code_reviewer", "test_engineer"})
+        self.assertFalse(any(branch["role"] in {"tech_lead", "software_architect"} for branch in status["branches"]))
+
+    def test_delivery_only_redesign_activates_fresh_design_gates(self):
+        self.initialize_task(self.task_delivery_only())
+        self.impact("delivery_only")
+        engineer = self.claim()
+        rationale = self.repo_artifact("finding", "delivery-only-redesign-rationale")
+        self.record(engineer, {
+            "schema_version": 1, "run_id": "RUN-1", "branch_id": engineer["branch_id"],
+            "status": "succeeded", "output_kind": "implementation_handoff",
+            "evidence": [rationale], "decision": "REDESIGN_REQUIRED",
+            "findings": [{"finding_id": "REV-778", "disposition": "redesign"}],
+        })
+        self.advance("delivery_collection")
+        self.consolidation(
+            "delivery", "REDESIGN", 0,
+            [{"finding_id": "REV-778", "disposition": "redesign"}],
+        )
+        self.advance("delivery_consolidation")
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(status["route"], "delivery_only")
+        self.assertEqual(
+            {branch["node_key"] for branch in status["branches"] if branch["stage"] == "research"},
+            {"design_research_architecture", "design_research_validation"},
+        )
 
     def test_fast_path_redesign_runs_fresh_design_implementation_and_delivery_to_closure(self):
         self.initialize("delivery", "fast_path")

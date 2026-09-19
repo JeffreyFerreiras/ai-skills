@@ -179,7 +179,7 @@ def design_research_nodes(policy: Mapping[str, Any], generation: int) -> List[No
 def initial_route_nodes(policy: Mapping[str, Any], route: str) -> List[NodeSpec]:
     if route in {"design_only", "full_delivery"}:
         return design_research_nodes(policy, 0)
-    if route == "fast_path":
+    if route in {"fast_path", "delivery_only"}:
         return [make_node(policy, "senior_engineer", "implementation", 0)]
     return [make_node(policy, "advisory_reviewer", "advisory", 0)]
 
@@ -192,8 +192,6 @@ def next_join_for_success(
     if key == "tech_lead":
         return JoinSpec("design_inputs", "dependency", "design", generation, (_as_spec(node),))
     if key == "senior_engineer":
-        if route == "fast_path":
-            return JoinSpec("implementation", "dependency", "delivery", generation, (_as_spec(node),))
         return JoinSpec("implementation", "dependency", "delivery", generation, (_as_spec(node),))
     if key == "advisory_reviewer":
         return JoinSpec("closure", "closure", "closure", generation, (_as_spec(node),))

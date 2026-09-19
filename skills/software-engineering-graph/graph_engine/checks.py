@@ -268,8 +268,13 @@ def verify_check_fence(connection, run, fence, *, executor=False):
     if branch["generation"] != expected_generation:
         raise StateError("ATTEMPT_FENCE_MISMATCH")
     if not executor:
-        expected_source = {"full_delivery": "senior_engineer", "fast_path": "senior_engineer",
-                           "design_only": "tech_lead", "advisory": "advisory_reviewer"}.get(run["selected_route"])
+        expected_source = {
+            "full_delivery": "senior_engineer",
+            "delivery_only": "senior_engineer",
+            "fast_path": "senior_engineer",
+            "design_only": "tech_lead",
+            "advisory": "advisory_reviewer",
+        }.get(run["selected_route"])
         if branch["node_key"] != expected_source:
             raise StateError("SOURCE_ATTEMPT_INVALID")
     return branch, env

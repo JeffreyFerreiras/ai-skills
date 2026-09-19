@@ -2253,7 +2253,7 @@ def command_join_advance(
                         consolidation["node_key"], consolidation["role"], consolidation["stage"], consolidation["generation"],
                         bool(consolidation["mandatory"]), consolidation["specialist_tag"],
                     ), join["generation"]))["join_id"])
-                elif route in {"full_delivery", "fast_path"}:
+                elif route in {"full_delivery", "delivery_only", "fast_path"}:
                     generation = current["implementation_generation"]
                     spec = implementation_node(policy, generation)
                     successor_ids.append(_insert_spec(store, conn, current, policy, task, spec, design_context)["branch_id"])
@@ -2611,7 +2611,7 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
 
 
 def _acceptance_gate(connection, run, policy, checks, registering=None):
-    delivery = run["selected_route"] in {"full_delivery", "fast_path"}
+    delivery = run["selected_route"] in {"full_delivery", "delivery_only", "fast_path"}
     if delivery:
         row, binding = verify_review_source(connection, run, policy, registering)
     else:
@@ -2812,7 +2812,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--size", choices=["small", "medium", "large"])
     init.add_argument(
         "--host", choices=known_hosts(), default=DEFAULT_HOST,
-        help="model catalog: codex-astra (default), codex (explicit Luna/Sol option), or cursor",
+        help="model catalog: codex-astra (default), codex (explicit Luna/Sol option), cursor, or claude",
     )
     init.add_argument("--ack-degraded-permissions", action="store_true", default=argparse.SUPPRESS)
     init.add_argument("--ack-degraded-durability", action="store_true", default=argparse.SUPPRESS)

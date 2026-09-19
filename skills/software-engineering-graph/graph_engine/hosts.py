@@ -13,12 +13,22 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"codex": 2, "codex-astra": 2, "cursor": 2}
+CURRENT_CATALOG_REVISIONS = {"claude": 1, "codex": 2, "codex-astra": 2, "cursor": 2}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {("gpt-6-astra", "medium"): 3}
 
 # (intelligence_class, requested_effort) -> (model, reasoning_effort, dispatch_model)
 HOST_MATRIX: Dict[str, Dict[Tuple[str, str], Tuple[str, str, str]]] = {
+    "claude": {
+        # Haiku 4.5 does not expose effort. Use Sonnet at low effort for
+        # economical branches so every approved assignment remains exact.
+        ("economy", "max"): ("claude-sonnet-5", "low", "claude-sonnet-5"),
+        ("reasoning", "medium"): ("claude-opus-5", "medium", "claude-opus-5"),
+        ("reasoning", "high"): ("claude-opus-5", "high", "claude-opus-5"),
+        ("reasoning", "xhigh"): ("claude-opus-5", "xhigh", "claude-opus-5"),
+        ("reasoning", "max"): ("claude-opus-5", "max", "claude-opus-5"),
+        ("primary-thread", "inherited"): ("primary-thread", "inherited", "primary-thread"),
+    },
     "codex": {
         ("economy", "max"): ("gpt-5.6-luna", "max", "gpt-5.6-luna"),
         ("reasoning", "medium"): ("gpt-5.6-sol", "medium", "gpt-5.6-sol"),
@@ -47,11 +57,13 @@ HOST_MATRIX: Dict[str, Dict[Tuple[str, str], Tuple[str, str, str]]] = {
 }
 
 SUPERVISOR_CLASS = {
+    "claude": ("reasoning", "xhigh"),
     "codex": ("reasoning", "xhigh"),
     "codex-astra": ("reasoning", "xhigh"),
     "cursor": ("reasoning", "high"),
 }
 PUBLICATION_CLASS = {
+    "claude": ("economy", "max"),
     "codex": ("economy", "max"),
     "codex-astra": ("economy", "max"),
     "cursor": ("economy", "max"),

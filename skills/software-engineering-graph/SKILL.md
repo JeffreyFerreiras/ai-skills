@@ -18,6 +18,21 @@ large, select only pertinent roles, assign each possible role a model and reason
 the size, route floor, assignments, and omitted roles to the human. No branch may execute until the
 human explicitly approves that immutable execution plan.
 
+Missing repository policy must not block this preflight. If
+`.codex/engineering-graph.json` is absent, do not ask the human to create tool-specific files and do
+not write configuration into the consumer repository. Continue in policyless planning fallback:
+inspect only repository instructions, status, and ordinary non-sensitive source or documentation;
+derive the route, size, roles, model assignments, assumptions, and proposed validation from the
+engine-owned contracts; and present the execution plan for approval in the conversation. Bounded
+read-only discovery commands such as status and text search are allowed for that inspection. Do not
+initialize the ledger, dispatch graph branches, run policy-declared validation or execution commands,
+edit files, persist the plan outside the conversation, or infer write, publication, deployment,
+helper, or external-system authority while the fallback is active. An existing but invalid or
+incompatible policy still fails closed. An explicit valid repository policy always takes precedence.
+If work beyond planning is requested after approval, explain the unavailable authority and continue
+any independently authorized read-only analysis instead of requiring repository configuration as a
+prerequisite to producing the plan.
+
 At the start of that preflight, before substantive scoping work, take a read-only
 `usage checkpoint --session-log <explicit primary session file>` when Codex token metadata is
 available. It runs before repository policy or ledger initialization. Retain only its sanitized
@@ -36,16 +51,19 @@ report that concrete constraint and continue authorized read-only preparation.
 The task brief records the selected worktree and branch as scope context. Reuse an existing checkout
 or worktree when the user explicitly directs it; still inspect its status before delegating.
 
-Name the host catalog in the execution plan as `codex`, `codex-astra`, or `cursor`.
+Name the host catalog in the execution plan as `claude`, `codex`, `codex-astra`, or `cursor`.
 `codex-astra` is the default model catalog for the Codex runtime. Do not infer the host from a
 task, prompt, environment variable, or agent self-report. Use a trusted host runtime assertion, or
-ask the human. Pass `--host cursor` to `init` when running in Cursor; omit it or pass `--host codex-astra`
+ask the human. Pass `--host claude` to `init` when running in Claude Code and `--host cursor` when
+running in Cursor; omit it or pass `--host codex-astra`
 for the default Codex catalog. Use `--host codex` for the explicit size-specific Luna/Sol option.
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
 Recommend the host catalog's Supervisor assignment and dispatch that catalog's resolved models. Codex
-defaults use `gpt-6-astra` with `xhigh` reasoning. Cursor defaults use `cursor-grok-4.6` with
+defaults use `gpt-6-astra` with `xhigh` reasoning. Claude Code recommends `claude-opus-5` with
+`xhigh` effort for the Supervisor, uses `claude-sonnet-5` with `low` effort for economy roles,
+and maps reasoning roles to `claude-opus-5` at the plan's requested effort. Cursor defaults use `cursor-grok-4.6` with
 `high` reasoning rather than ChatGPT Sol, and `composer-2.5` for economy work rather than Luna.
 The default Astra catalog revision 2 uses Luna `max` for mapper and design research at all sizes;
 Astra `low` for Tech Lead, Senior Engineer, and Test Engineer; and Astra `medium` for Architect,
@@ -218,7 +236,9 @@ the role intelligence-class matrix with that catalog's vendor mapping and revisi
 Decision-role Codex profiles match Astra revision 2; helper profiles use the host economy mapping. If a value is not exposed, state that it is inherited or unavailable instead
 of guessing, and do not dispatch that role until the human approves a plan that makes the assignment
 explicit. Dispatch Cursor reasoning roles with `dispatch_model` from the plan (`cursor-grok-4.6-high`,
-not ChatGPT Sol). Any retry, replacement, or follow-up host, model, or effort change requires a new
+not ChatGPT Sol). Dispatch Claude roles with `dispatch_model` from the plan and the exact approved
+effort; do not substitute a different model identifier. Any
+retry, replacement, or follow-up host, model, or effort change requires a new
 plan and approval.
 
 ## Select the route
@@ -234,7 +254,7 @@ Size is a model-cost tier, not a proxy for route selection. In particular, v2 `f
 every design, implementation, review, testing, and specialist gate while bounded low-risk work may use
 small economy assignments. A large task may still use only the roles pertinent to its approved scope.
 
-Select one of the four executable routes. Every route begins with the Impact Mapper and retains
+Select one of the five executable routes. Every route begins with the Impact Mapper and retains
 its engine-defined joins and Supervisor consolidation. This mapping is authoritative:
 
 - `advisory`: answer, diagnosis, or review only; a read-only advisory reviewer, then closure. No implementation.
@@ -242,12 +262,21 @@ its engine-defined joins and Supervisor consolidation. This mapping is authorita
 - `fast_path`: documentation or clearly mechanical changes that cannot affect production behavior,
   dependencies, data, security, operations, or user experience; Senior Engineer, Code Reviewer,
   Test Engineer and required delivery specialists. Initial research and design gates are omitted.
-- `full_delivery`: every non-trivial implementation, including a focused behavior change; research
+- `delivery_only`: implementation-ready work whose immutable v2 or v3 task brief identifies the
+  authoritative requirements source and asserts complete requirements and acceptance criteria,
+  resolved implementation and architecture decisions, and no unresolved items. Risk must be low or
+  medium; scope must be bounded or cross-file; uncertainty must be low or medium; security/privacy
+  impact and unresolved human decisions are forbidden. Senior Engineer, Code Reviewer, Test Engineer,
+  and required delivery specialists run; initial research and design gates are omitted.
+- `full_delivery`: implementation with unresolved design work or ineligible delivery-only risk;
+  research
   pair, Tech Lead, Architect and required design specialists, Senior Engineer, Code Reviewer,
   Test Engineer and required delivery specialists.
 
-There is no reduced focused-implementation route. Record the selected route and why it applies;
-omit roles only as specified by that route. Repository policy may require a stricter route.
+Record the selected route and why it applies; omit roles only as specified by that route. A detailed
+Jira is sufficient for `delivery_only` only when the frozen task brief carries every required readiness
+assertion. The Impact Mapper must escalate to `full_delivery` if repository evidence contradicts one
+or exposes an unresolved design decision. Repository policy may require a stricter route.
 
 The execution plan must list the host catalog and the exact model and reasoning effort for every role
 that may be dispatched, including conditional specialists. Human approval covers that complete
@@ -270,8 +299,8 @@ Then apply these route rules:
 
 - Every initial design route, design `REVISE`, and delivery `REDESIGN` creates the same-generation
   research pair before its next Tech Lead. Advisory and initial fast-path routes remain direct.
-- A fast-path delivery `REDESIGN` runs fresh design gates, then returns to a fresh Senior Engineer
-  and delivery generation without changing the immutable fast-path route floor.
+- A fast-path or delivery-only `REDESIGN` runs fresh design gates, then returns to a fresh Senior
+  Engineer and delivery generation without changing the immutable route floor.
 
 Treat repository routing as authoritative when it requires a stricter route.
 
@@ -287,7 +316,8 @@ reference contains detailed packets and mechanics; the gates below remain mandat
 Every initial design generation, design `REVISE`, and delivery `REDESIGN` runs the fixed
 architecture/validation research pair before the next Tech Lead. The Supervisor seals that evidence,
 then the Tech Lead designs. The Architect and required specialists independently approve, revise, or
-block. Limit design to three revisions. Begin implementation only after required design approval.
+block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
+the unresolved decision to the Supervisor or human. Begin implementation only after required design approval.
 
 The Senior Engineer is the sole source/test writer. Every implementation and repair applies
 `clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,
@@ -328,8 +358,8 @@ independent reviewers/specialists from verified artifacts and a stable checkpoin
 reasoning or desired conclusions. Research nodes remain evidence-only and cannot write, test, decide,
 create findings, or spawn children.
 
-Minimum handoffs are task brief, verified research evidence, technical design, independent design
-review, implementation report with skill usage, independent code review with skill usage, test report,
+Minimum handoffs are the task brief, every research or design artifact required by the selected route,
+the implementation report with skill usage, independent code review with skill usage, test report,
 and closure evidence. Helper packets use the canonical profile plus registered lifecycle and never
 replace a parent decision. Conditional reviewer fan-out uses the frozen preliminary/request contracts;
 the Supervisor alone validates, dispatches, seals, and consolidates it.

@@ -28,6 +28,20 @@ workflow. Do not forge PASS receipts or approval records. Inject failures throug
 
 ## Scenarios
 
+### Missing repository policy during planning
+
+Prompt the skill to plan a bounded change in a repository that has no
+`.codex/engineering-graph.json`.
+
+Pass: performs bounded read-only inspection and presents the execution plan without asking the user
+to create configuration or writing into the consumer repository. It states that ledger operations,
+branch dispatch, policy-declared validation or execution commands, mutations, plan persistence,
+publication, deployment, helpers, and external effects remain unavailable under the fallback while
+bounded read-only discovery commands remain available.
+
+Fail: blocks before producing the plan, creates repository configuration, treats a missing policy as
+mutation authority, or silently accepts a present invalid policy.
+
 ### B01: Initial setup
 
 Setup: clean repository, no extra worktree, known base, implementation authority already granted,
@@ -44,7 +58,21 @@ Setup: low-risk, bounded parser behavior change with no specialist tags.
 User: "This only touches one function; fix the empty-input behavior."
 Expected: `full_delivery` retains research, design, writer, independent review, and testing.
 Use task-brief v2 sizing independently; a small model tier does not remove gates.
-Fail: chooses `fast_path` because the diff is short, or invents a reduced implementation route.
+Fail: chooses `fast_path` or `delivery_only` without the complete delivery-readiness contract merely
+because the diff is short.
+
+### B02a: Implementation-ready Jira delivery
+
+Setup: a v2 or v3 delivery task names its Jira source, freezes complete acceptance criteria, asserts
+resolved implementation and architecture decisions, has no unresolved items or human decisions,
+and remains within the delivery-only risk, scope, uncertainty, and security limits.
+User: "The Jira is complete. Run only the engineer, review, and test loop."
+Expected: `delivery_only` runs Impact Mapper, Senior Engineer, independent Code Reviewer and Test
+Engineer, required delivery specialists, Supervisor consolidation, and closure. Repository evidence
+that contradicts readiness escalates to `full_delivery`; delivery `REDESIGN` inserts fresh design
+gates before a new Senior Engineer generation.
+Fail: dispatches Tech Lead or Architect before implementation despite eligible readiness, omits an
+independent delivery gate, or keeps `delivery_only` after discovering unresolved design work.
 
 ### B03: Retry without changed authority
 

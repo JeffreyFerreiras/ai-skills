@@ -23,11 +23,11 @@ SECRET_KEYS = {
     "token", "password", "secret", "authorization", "cookie", "private_key",
     "api_key", "access_key", "client_secret",
 }
-ROUTES = {"advisory", "design_only", "full_delivery", "fast_path"}
+ROUTES = {"advisory", "design_only", "delivery_only", "full_delivery", "fast_path"}
 REQUEST_ROUTES = {
     "advisory": {"advisory"},
     "design_only": {"design_only"},
-    "delivery": {"fast_path", "full_delivery"},
+    "delivery": {"fast_path", "delivery_only", "full_delivery"},
 }
 EFFECTS = {
     "filesystem_read", "filesystem_write", "command", "external_read",
@@ -409,12 +409,15 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     elif schema_version == 2:
         require_keys(
             value, required | {"model_sizing"},
-            required | {"reviewer_delegation", "model_sizing"}, "task_brief",
+            required | {"reviewer_delegation", "model_sizing", "delivery_readiness"}, "task_brief",
         )
     elif schema_version == 3:
         require_keys(
             value, required | {"model_sizing", "helper_allowance"},
-            required | {"reviewer_delegation", "model_sizing", "helper_allowance"},
+            required | {
+                "reviewer_delegation", "model_sizing", "helper_allowance",
+                "delivery_readiness",
+            },
             "task_brief",
         )
     else:
@@ -433,6 +436,8 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     tags = _unique_strings(value["mandatory_impact_tags"], "mandatory_impact_tags", set(policy["impact_tags"]))
     if mode == "delivery" and minimum == "fast_path" and set(tags) & RISK_TAGS:
         raise ContractError("minimum_route", "FAST_PATH_INVARIANT")
+    if minimum == "delivery_only" and schema_version not in {2, 3}:
+        raise ContractError("delivery_readiness", "DELIVERY_READINESS_REQUIRED")
     scope = value["scope"]
     if not isinstance(scope, dict):
         raise ContractError("scope", "INVALID_OBJECT")
@@ -470,6 +475,49 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
             raise ContractError("model_sizing.scope_extent", "UNKNOWN_VALUE")
         if model_sizing["uncertainty"] not in {"low", "medium", "high"}:
             raise ContractError("model_sizing.uncertainty", "UNKNOWN_VALUE")
+    delivery_readiness = value.get("delivery_readiness")
+    if delivery_readiness is not None:
+        if schema_version not in {2, 3}:
+            raise ContractError("delivery_readiness", "UNSUPPORTED_SCHEMA")
+        if not isinstance(delivery_readiness, dict):
+            raise ContractError("delivery_readiness", "INVALID_OBJECT")
+        readiness_fields = {
+            "requirements_source", "requirements_complete",
+            "acceptance_criteria_complete", "implementation_decisions_resolved",
+            "architecture_decisions_resolved", "unresolved_items",
+        }
+        require_keys(
+            delivery_readiness, readiness_fields, readiness_fields,
+            "delivery_readiness",
+        )
+        bounded_string(
+            delivery_readiness["requirements_source"],
+            "delivery_readiness.requirements_source", 1024,
+        )
+        for field in (
+            "requirements_complete", "acceptance_criteria_complete",
+            "implementation_decisions_resolved", "architecture_decisions_resolved",
+        ):
+            if delivery_readiness[field] is not True:
+                raise ContractError("delivery_readiness." + field, "READINESS_ASSERTION_REQUIRED")
+        unresolved_items = _unique_strings(
+            delivery_readiness["unresolved_items"],
+            "delivery_readiness.unresolved_items",
+        )
+        if unresolved_items:
+            raise ContractError("delivery_readiness.unresolved_items", "UNRESOLVED_ITEMS_PRESENT")
+    if minimum == "delivery_only":
+        if delivery_readiness is None:
+            raise ContractError("delivery_readiness", "DELIVERY_READINESS_REQUIRED")
+        if value["risk_level"] in {"high", "critical"}:
+            raise ContractError("minimum_route", "DELIVERY_ONLY_INELIGIBLE")
+        if "security_privacy" in tags:
+            raise ContractError("minimum_route", "DELIVERY_ONLY_INELIGIBLE")
+        if (
+            value["model_sizing"]["scope_extent"] == "broadly_cross_cutting"
+            or value["model_sizing"]["uncertainty"] == "high"
+        ):
+            raise ContractError("minimum_route", "DELIVERY_ONLY_INELIGIBLE")
     if schema_version == 3:
         allowance = value["helper_allowance"]
         if not isinstance(allowance, dict):
@@ -542,12 +590,16 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     required_policy_checks = {key for key, cfg in policy["required_checks"].items() if cfg["mandatory"]}
     if not required_policy_checks.issubset(check_ids):
         raise ContractError("required_check_ids", "MISSING_REQUIRED_CHECK")
-    _unique_strings(value["required_human_decisions"], "required_human_decisions")
+    human_decisions = _unique_strings(value["required_human_decisions"], "required_human_decisions")
+    if minimum == "delivery_only" and human_decisions:
+        raise ContractError("required_human_decisions", "DELIVERY_ONLY_UNRESOLVED_DECISION")
     result = dict(value)
     result["mandatory_impact_tags"] = tags
     result["authority"] = {"capabilities": sorted(canonical_capabilities, key=lambda c: (c["effect"], c["action"], c["target_ref"]))}
     if schema_version in {2, 3}:
         result["model_sizing"] = dict(value["model_sizing"])
+    if delivery_readiness is not None:
+        result["delivery_readiness"] = dict(delivery_readiness)
     if schema_version == 3:
         result["helper_allowance"] = dict(value["helper_allowance"])
     if reviewer_delegation is not None:
@@ -585,6 +637,8 @@ def authoritative_task_subset(value: Mapping[str, Any]) -> Dict[str, Any]:
     }
     if value["schema_version"] in {2, 3}:
         result["model_sizing"] = dict(value["model_sizing"])
+    if value.get("delivery_readiness") is not None:
+        result["delivery_readiness"] = dict(value["delivery_readiness"])
     if value["schema_version"] == 3:
         result["helper_allowance"] = dict(value["helper_allowance"])
     if value.get("reviewer_delegation") is not None:
@@ -608,6 +662,10 @@ def validate_impact_map(value: Any, task: Mapping[str, Any], policy: Mapping[str
         raise ContractError("route_label", "ROUTE_MODE_MISMATCH")
     if mode == "delivery" and task["minimum_route"] == "full_delivery" and route != "full_delivery":
         raise ContractError("route_label", "ROUTE_DOWNGRADE")
+    if mode == "delivery" and task["minimum_route"] == "delivery_only" and route not in {"delivery_only", "full_delivery"}:
+        raise ContractError("route_label", "ROUTE_DOWNGRADE")
+    if mode == "delivery" and task["minimum_route"] == "fast_path" and route == "delivery_only":
+        raise ContractError("route_label", "DELIVERY_READINESS_REQUIRED")
     tags = _unique_strings(value["impact_tags"], "impact_tags", set(policy["impact_tags"]))
     if not set(task["mandatory_impact_tags"]).issubset(tags):
         raise ContractError("impact_tags", "MANDATORY_TAG_REMOVED")
@@ -618,6 +676,8 @@ def validate_impact_map(value: Any, task: Mapping[str, Any], policy: Mapping[str
             raise ContractError("impact_tags", "CRITICAL_REQUIRES_SECURITY_REVIEW")
     if mode == "delivery" and route == "fast_path" and set(tags) & RISK_TAGS:
         raise ContractError("route_label", "FAST_PATH_INVARIANT")
+    if mode == "delivery" and route == "delivery_only" and "security_privacy" in tags:
+        raise ContractError("route_label", "DELIVERY_ONLY_INELIGIBLE")
     for ref in value["evidence_refs"]:
         validate_ref(ref, "evidence_refs")
     result = dict(value)

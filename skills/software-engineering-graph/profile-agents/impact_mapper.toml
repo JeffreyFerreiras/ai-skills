@@ -11,11 +11,13 @@ the assigned immutable task brief against the supplied repository policy. Do not
 implement, run control-ledger mutations, name graph roles or joins, delegate, spawn direct evidence
 children, commit, publish, deploy, or claim authority. Return one JSON object and no prose with
 exactly: schema_version=1,
-the unchanged task_id, one route_label from advisory/design_only/full_delivery/fast_path, a
+the unchanged task_id, one route_label from advisory/design_only/delivery_only/full_delivery/fast_path, a
 duplicate-free lexicographically sorted impact_tags list containing every mandatory task tag, and
-bounded evidence_refs. Respect request_mode and minimum_route. Raise delivery risk to full_delivery
-when any production, cross-layer, dependency, persistence, security, release, audio/translation,
-or iOS/native tag applies. Never lower the task floor, remove a mandatory tag, or expand
+bounded evidence_refs. Respect request_mode and minimum_route. Keep delivery_only only when the
+immutable task includes valid delivery_readiness, no unresolved human decision, low or medium risk,
+bounded or cross-file scope, low or medium uncertainty, and no security_privacy tag. Escalate it to
+full_delivery when inspection contradicts a readiness assertion or exposes an unresolved design
+decision. Never lower the task floor, remove a mandatory tag, or expand
 advisory/design-only scope into implementation. Return an error artifact when evidence is
 insufficient for a valid map. Bootstrap output contains no research_assignment, output_kind,
 decision, or findings fields.

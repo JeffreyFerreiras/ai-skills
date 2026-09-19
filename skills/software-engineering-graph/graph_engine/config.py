@@ -17,6 +17,7 @@ from .reviewer_delegation import validate_policy_config
 ENGINE_ROUTES = {
     "advisory": {"entry_node": "advisory_reviewer", "design_gates": False, "delivery_gates": False, "closure": "closure"},
     "design_only": {"entry_node": "tech_lead", "design_gates": True, "delivery_gates": False, "closure": "closure"},
+    "delivery_only": {"entry_node": "senior_engineer", "design_gates": False, "delivery_gates": True, "closure": "closure"},
     "fast_path": {"entry_node": "senior_engineer", "design_gates": False, "delivery_gates": True, "closure": "closure"},
     "full_delivery": {"entry_node": "tech_lead", "design_gates": True, "delivery_gates": True, "closure": "closure"},
 }
@@ -380,7 +381,15 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
         value["implementation_roots"] = normalized_roots
     if not isinstance(value["impact_tags"], list) or set(value["impact_tags"]) != RISK_TAGS or len(value["impact_tags"]) != len(RISK_TAGS):
         raise ContractError("impact_tags", "ENGINE_INVARIANT_CHANGED")
-    if value["routes"] != ENGINE_ROUTES:
+    legacy_routes = {
+        key: route for key, route in ENGINE_ROUTES.items()
+        if key != "delivery_only"
+    }
+    if value["routes"] == legacy_routes:
+        value["routes"] = {
+            key: dict(route) for key, route in ENGINE_ROUTES.items()
+        }
+    elif value["routes"] != ENGINE_ROUTES:
         raise ContractError("routes", "ENGINE_TOPOLOGY_CHANGED")
     templates = value["node_templates"]
     if not isinstance(templates, dict) or set(templates) != set(ENGINE_NODE_SPECS):
@@ -415,7 +424,7 @@ def load_policy(repo: Path) -> Tuple[Dict[str, Any], Snapshot]:
     if "branch_lease_seconds" in limits:
         if isinstance(limits["branch_lease_seconds"], bool) or not isinstance(limits["branch_lease_seconds"], int) or not 30 <= limits["branch_lease_seconds"] <= ENGINE_MAX_BRANCH_LEASE_SECONDS:
             raise ContractError("limits.branch_lease_seconds", "INVALID_LEASE")
-    if isinstance(limits["design_revisions"], bool) or not isinstance(limits["design_revisions"], int) or not 0 <= limits["design_revisions"] <= 3:
+    if isinstance(limits["design_revisions"], bool) or not isinstance(limits["design_revisions"], int) or not 0 <= limits["design_revisions"] <= 2:
         raise ContractError("limits.design_revisions", "LIMIT_MAY_NOT_INCREASE")
     if isinstance(limits["delivery_repairs"], bool) or not isinstance(limits["delivery_repairs"], int) or not 0 <= limits["delivery_repairs"] <= 3:
         raise ContractError("limits.delivery_repairs", "LIMIT_MAY_NOT_INCREASE")

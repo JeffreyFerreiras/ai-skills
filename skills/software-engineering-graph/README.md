@@ -98,8 +98,10 @@ authorize modifying existing worktrees. It validates publication evidence but ne
 creates a pull request, or removes a worktree. The Senior Engineer remains the sole source and test
 writer and never publishes.
 
-The Supervisor preflight names a host catalog (`codex`, `codex-astra`, or `cursor`) and recommends that catalog's
-Supervisor assignment. Codex defaults to `gpt-6-astra` with `xhigh` reasoning. Cursor defaults to
+The Supervisor preflight names a host catalog (`claude`, `codex`, `codex-astra`, or `cursor`) and recommends that catalog's
+Supervisor assignment. Codex defaults to `gpt-6-astra` with `xhigh` reasoning. Claude Code recommends
+`claude-opus-5` with `xhigh` effort for the Supervisor, `claude-sonnet-5` with `low` effort for
+economy roles, and `claude-opus-5` at the requested effort for reasoning roles. Cursor defaults to
 `cursor-grok-4.6` with `high` reasoning instead of ChatGPT Sol. Unless a trusted host runtime
 assertion verifies that exact actual assignment, the Supervisor operates in advisory mode and displays:
 
@@ -115,7 +117,8 @@ and design research, Astra `low` for Tech Lead, Senior Engineer, and Test Engine
 publication stays Luna `max`; other advisory/specialist assignments retain their existing mapping.
 Historical unversioned Astra plans retain their original assignments and digests. Older engines
 cannot read revision 2 Astra plans; rollback must preserve approvals without rewriting them.
-The actual primary model is not switched by the CLI. Verify host availability and exact dispatch
+The actual primary model is not switched by the CLI. In Claude Code, pass `--host claude`; the plan's
+`dispatch_model` records the full recommended model ID and exact effort. Verify host availability and exact dispatch
 assignments before approval. Use `--host codex` for the explicit size-specific Luna/Sol catalog.
 This selects the existing matrix; it does not switch the primary model or make every role Sol.
 Cursor and existing approved plans retain their assignments. New Codex and Cursor revision 2 plans use
@@ -123,10 +126,15 @@ reasoning `medium` for small Senior Engineers; the frozen historical matrix rema
 default and the two helper profiles use Luna `max`; installed profiles require a separately authorized sync.
 See [model catalogs](references/model-catalogs.md) for compatibility and evaluation.
 
-The four executable routes are `advisory` (read-only review), `design_only` (research and independent
+The five executable routes are `advisory` (read-only review), `design_only` (research and independent
 design approval), `fast_path` (mechanical/documentation implementation plus independent review and
-testing), and `full_delivery` (research, design, implementation, review, and testing). Every
-non-trivial implementation uses `full_delivery`; no reduced focused-implementation route exists.
+testing), `delivery_only` (implementation-ready work plus independent review and testing), and
+`full_delivery` (research, design, implementation, review, and testing). `delivery_only` requires a
+v2 or v3 task brief with complete acceptance criteria, resolved implementation and architecture
+decisions, no unresolved human decisions, no high-risk sizing inputs, and no security/privacy tag.
+The Impact Mapper may escalate it to `full_delivery` when repository evidence contradicts readiness.
+Legacy valid repository policies with the prior four-route topology gain this engine-owned route in
+memory, so adopting the updated skill does not require editing the consumer repository configuration.
 
 Task-brief schema v2 makes model sizing explicit with `scope_extent` and `uncertainty`. Bounded,
 low-risk, low-uncertainty work with no mandatory impact tag selects `small`, even when the approved
@@ -166,10 +174,16 @@ In a Codex or Cursor environment where this skill is installed, ask the host age
 > show me the exact AI-agent roles, models, and reasoning-effort levels you propose, and ask me to
 > approve the plan.
 
-The consumer repository supplies its own `.codex/engineering-graph.json` policy, including the local
-commands that count as required checks. This source repository does not install itself or modify a
-consumer repository, an installed profile, or any remote system outside an approved repository
-implementation scope and the publication contract below.
+A consumer repository may supply `.codex/engineering-graph.json`, including the local commands that
+count as required checks. When that file is absent, the Supervisor still performs the read-only
+preflight and presents an execution plan using the engine-owned route and model contracts. This
+policyless planning fallback never creates repository configuration, initializes the ledger,
+dispatches branches, runs policy-declared validation or execution commands, persists the plan outside
+the conversation, or grants mutation or external-system authority. Bounded read-only discovery
+commands remain available for preflight inspection. Existing malformed or incompatible policies
+still fail closed, and an explicit valid policy takes precedence. This source repository does not
+install itself or modify a consumer repository, an installed profile, or any remote system outside
+an approved repository implementation scope and the publication contract below.
 
 ## Observed token usage
 

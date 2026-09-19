@@ -6,6 +6,14 @@ existing role matrix, so some review and test assignments remain economy Luna. N
 retain existing assignments except for the small writer policy below.
 Selecting a catalog does not switch the primary agent's actual model or install role profiles.
 
+Use `--host claude` in Claude Code. The Claude catalog records `claude-opus-5` with `xhigh`
+effort as the Supervisor recommendation. Economy assignments use `claude-sonnet-5` at `low`
+effort because Haiku 4.5 does not support the effort field required by this workflow. Reasoning
+assignments use `claude-opus-5` at `medium`, `high`, `xhigh`, or `max` as selected by the size
+matrix. Dispatch uses the full Claude model ID so the approved assignment does not drift with an
+alias. Verify both the model and supported effort before approval; account availability can change
+independently of this catalog.
+
 The default Astra catalog revision 2 applies this table at every size:
 
 | Assignments | Model and effort |
@@ -53,6 +61,13 @@ The published API efforts include `low`, `medium`, `high`, `xhigh`, and `max`. T
 only its catalog's explicit assignments; host-specific additional efforts are not implied.
 This engine coordinates agents and makes no API requests, so API transport or parameter migration
 does not belong in the ledger.
+
+Claude guidance checked September 18, 2026:
+[Claude Code subagent model and effort fields](https://code.claude.com/docs/en/sub-agents),
+[Claude model selection](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model),
+and [Claude effort levels](https://platform.claude.com/docs/en/build-with-claude/effort).
+Claude Code accepts full model IDs and per-subagent effort. Anthropic recommends Opus 5
+as the general starting point, `low` for simple subagents, and `xhigh` for long-running agentic coding.
 
 Astra is the default at the user's explicit request after confirming account access.
 This preference change does not establish comparative quality, latency, or cost benefits.

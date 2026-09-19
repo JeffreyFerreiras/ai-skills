@@ -740,6 +740,9 @@ class ReviewerDelegationFlowTests(GraphCase):
             "child_members": continuation["child_members"], "terminal_non_successes": continuation["terminal_non_successes"],
             "finding_sources": continuation["finding_sources"],
         })
+        remaining = self.graphctl("ready", "--run-id", "RUN-1")["branches"]
+        for _ in remaining:
+            self.success(self.claim(), "APPROVE")
         self.advance("delivery_collection")
         supervisor = self.claim()
         nested = [item["content"] for item in supervisor["inputs"]

@@ -11,8 +11,15 @@ specialists, and human decisions. Inspect the selected worktree and protect unre
 
 Each initial design generation, design revision, and delivery redesign begins with the fixed
 architecture and validation research pair. The Supervisor assesses dependencies/resources, seals
-their evidence collection, and then creates the same-generation Tech Lead branch. Advisory and
-initial fast-path routes omit this research pair.
+their evidence collection, and then creates the same-generation Tech Lead branch. Advisory,
+initial fast-path, and initial delivery-only routes omit this research pair.
+
+The linked Jira issue remains authoritative for settled requirements, scope, non-goals, and
+acceptance criteria. When no Jira issue applies, the immutable task brief is the normalized
+authority. The Tech Lead does not restate, reinterpret, or expand settled requirements. It focuses
+on implementation decisions and maps each acceptance criterion by identifier to affected
+components, code paths, and tests. It prefers established repository patterns and raises only
+material gaps, contradictions, or human decisions.
 
 The Tech Lead produces current behavior, interfaces, data/control flow, failure handling,
 compatibility, observability, rollout, rollback, alternatives, and test strategy. It writes only
@@ -26,8 +33,9 @@ correction without ingesting them, rejects scope expansion, deduplicates valid f
 one bounded revision packet. The Tech Lead may return `SCOPE_OBJECTION` with the controlling scope
 text, missing causal link, and smallest in-scope alternative. The Supervisor adjudicates it.
 
-The design loop allows at most three revision rounds. A material scope expansion requires the
-human-authorized new brief and plan path. Implementation waits for design approval.
+The design loop allows at most two revision rounds. After the second unsuccessful revision, block
+and return the unresolved decision to the Supervisor or human. A material scope expansion requires
+the human-authorized new brief and plan path. Implementation waits for design approval.
 
 ## Implementation and delivery review
 

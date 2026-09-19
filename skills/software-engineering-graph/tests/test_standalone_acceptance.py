@@ -158,6 +158,19 @@ class StandaloneAcceptanceTests(unittest.TestCase):
                 self.assertIn("substitute a generic review", guidance)
                 self.assertIn("concrete checks performed and conclusions for each", guidance)
         self.assertIn("reject a successful review handoff missing either report", skill_guidance)
+        self.assertIn("missing repository policy must not block this preflight", skill_guidance)
+        self.assertIn("do not ask the human to create tool-specific files", skill_guidance)
+        self.assertIn("policyless planning fallback", skill_guidance)
+        self.assertIn("bounded read-only discovery commands", skill_guidance)
+        self.assertIn("do not initialize the ledger", skill_guidance)
+        self.assertIn("dispatch graph branches", skill_guidance)
+        self.assertIn("policy-declared validation or execution commands", skill_guidance)
+        self.assertIn("edit files", skill_guidance)
+        self.assertIn("persist the plan outside the conversation", skill_guidance)
+        self.assertIn("write, publication, deployment", skill_guidance)
+        self.assertIn("helper, or external-system authority", skill_guidance)
+        self.assertIn("do not write configuration into the consumer repository", skill_guidance)
+        self.assertIn("an existing but invalid or incompatible policy still fails closed", skill_guidance)
         self.assertIn(
             "senior engineer and code reviewer handoffs must each include a `skill usage` section",
             skill_guidance,
@@ -166,6 +179,33 @@ class StandaloneAcceptanceTests(unittest.TestCase):
         self.assertIn('sandbox_mode = "workspace-write"', senior_guidance)
         self.assertIn('sandbox_mode = "read-only"', reviewer_guidance)
         self.assertIn("remain read-only", reviewer_guidance)
+
+        tech_lead_guidance = " ".join(
+            (profile_root / "tech_lead.toml").read_text(encoding="utf-8").lower().split()
+        )
+        workflow_guidance = " ".join(
+            (REPOSITORY_ROOT / "references" / "workflow-operations.md")
+            .read_text(encoding="utf-8").lower().split()
+        )
+        for name, guidance in (
+            ("tech lead", tech_lead_guidance),
+            ("workflow operations", workflow_guidance),
+        ):
+            with self.subTest(jira_design_authority=name):
+                self.assertIn("linked jira issue", guidance)
+                self.assertIn("authoritative for settled requirements, scope, non-goals", guidance)
+                self.assertIn("immutable task brief", guidance)
+                self.assertIn("restate, reinterpret, or expand settled requirements", guidance)
+                self.assertTrue("do not restate" in guidance or "does not restate" in guidance)
+                self.assertIn("implementation decisions", guidance)
+                self.assertIn("acceptance criterion", guidance)
+                self.assertIn("affected components", guidance)
+                self.assertIn("code paths", guidance)
+                self.assertIn("tests", guidance)
+                self.assertIn("established repository patterns", guidance)
+                self.assertIn("material gaps, contradictions, or", guidance)
+                self.assertIn("decisions", guidance)
+
         for name in AUTHORITY_DOCUMENTS:
             headings = [
                 line.lower() for line in (REPOSITORY_ROOT / name).read_text(encoding="utf-8").splitlines()

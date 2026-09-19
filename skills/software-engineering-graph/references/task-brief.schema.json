@@ -6,9 +6,12 @@
   "additionalProperties": false,
   "required": ["schema_version", "task_id", "objective", "user_outcome", "request_mode", "minimum_route", "mandatory_impact_tags", "scope", "constraints", "acceptance_criteria", "risk_level", "authority", "policy_approval", "evidence_paths", "inspection_budget", "required_check_ids", "required_human_decisions"],
   "oneOf": [
-    {"properties": {"schema_version": {"const": 1}}, "not": {"anyOf": [{"required": ["model_sizing"]}, {"required": ["helper_allowance"]}]}},
+    {"properties": {"schema_version": {"const": 1}}, "not": {"anyOf": [{"required": ["model_sizing"]}, {"required": ["helper_allowance"]}, {"required": ["delivery_readiness"]}]}},
     {"required": ["model_sizing"], "properties": {"schema_version": {"const": 2}}, "not": {"required": ["helper_allowance"]}},
     {"required": ["model_sizing", "helper_allowance"], "properties": {"schema_version": {"const": 3}}}
+  ],
+  "allOf": [
+    {"if": {"properties": {"minimum_route": {"const": "delivery_only"}}, "required": ["minimum_route"]}, "then": {"required": ["delivery_readiness"], "properties": {"schema_version": {"enum": [2, 3]}, "risk_level": {"enum": ["low", "medium"]}, "required_human_decisions": {"maxItems": 0}, "model_sizing": {"properties": {"scope_extent": {"enum": ["bounded", "cross_file"]}, "uncertainty": {"enum": ["low", "medium"]}}}, "mandatory_impact_tags": {"not": {"contains": {"const": "security_privacy"}}}}}}
   ],
   "properties": {
     "schema_version": {"enum": [1, 2, 3]},
@@ -16,7 +19,7 @@
     "objective": {"type": "string", "minLength": 1, "maxLength": 4096},
     "user_outcome": {"type": "string", "minLength": 1, "maxLength": 4096},
     "request_mode": {"enum": ["advisory", "design_only", "delivery"]},
-    "minimum_route": {"enum": ["advisory", "design_only", "fast_path", "full_delivery"]},
+    "minimum_route": {"enum": ["advisory", "design_only", "delivery_only", "fast_path", "full_delivery"]},
     "mandatory_impact_tags": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "scope": {"type": "object", "additionalProperties": false, "required": ["included", "excluded"], "properties": {"included": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "excluded": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}},
     "constraints": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
@@ -30,7 +33,8 @@
     "required_human_decisions": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "reviewer_delegation": {"$ref": "#/$defs/reviewerDelegation"},
     "model_sizing": {"type": "object", "additionalProperties": false, "required": ["scope_extent", "uncertainty"], "properties": {"scope_extent": {"enum": ["bounded", "cross_file", "broadly_cross_cutting"]}, "uncertainty": {"enum": ["low", "medium", "high"]}}},
-    "helper_allowance": {"type": "object", "additionalProperties": false, "required": ["ref", "sha256"], "properties": {"ref": {"type": "string", "pattern": "^repo:[A-Za-z0-9._/-]+\\.json$", "maxLength": 1200}, "sha256": {"$ref": "#/$defs/digest"}}}
+    "helper_allowance": {"type": "object", "additionalProperties": false, "required": ["ref", "sha256"], "properties": {"ref": {"type": "string", "pattern": "^repo:[A-Za-z0-9._/-]+\\.json$", "maxLength": 1200}, "sha256": {"$ref": "#/$defs/digest"}}},
+    "delivery_readiness": {"type": "object", "additionalProperties": false, "required": ["requirements_source", "requirements_complete", "acceptance_criteria_complete", "implementation_decisions_resolved", "architecture_decisions_resolved", "unresolved_items"], "properties": {"requirements_source": {"type": "string", "minLength": 1, "maxLength": 1024}, "requirements_complete": {"const": true}, "acceptance_criteria_complete": {"const": true}, "implementation_decisions_resolved": {"const": true}, "architecture_decisions_resolved": {"const": true}, "unresolved_items": {"type": "array", "maxItems": 0}}}
   },
   "$defs": {
     "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},

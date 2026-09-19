@@ -69,6 +69,24 @@ class GraphCase(unittest.TestCase):
         }
         return task
 
+    def task_delivery_only(
+        self, *, tags: Optional[List[str]] = None, risk: str = "low",
+        scope_extent: str = "bounded", uncertainty: str = "low",
+    ) -> Dict[str, Any]:
+        task = self.task_v2(
+            route="delivery_only", tags=tags, risk=risk,
+            scope_extent=scope_extent, uncertainty=uncertainty,
+        )
+        task["delivery_readiness"] = {
+            "requirements_source": "JIRA-123",
+            "requirements_complete": True,
+            "acceptance_criteria_complete": True,
+            "implementation_decisions_resolved": True,
+            "architecture_decisions_resolved": True,
+            "unresolved_items": [],
+        }
+        return task
+
     def graphctl(self, *args: str):
         return execute(["--repo", str(self.repo), *args], self.store)[0]
 

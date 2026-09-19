@@ -53,7 +53,7 @@ command. The stateless usage checkpoint above is exempt.
 3. Initialize the ledger and generate the execution-plan summary. Pass `--size small|medium|large`
    when the Supervisor chooses an explicit size; otherwise the engine records its bounded recommendation:
 
-  `python <skill>/scripts/graphctl.py --repo <repo> [degraded acknowledgments] init --run-id <id> --task-brief <path> --size <size> [--host codex|codex-astra|cursor] --op-id <id>`
+  `python <skill>/scripts/graphctl.py --repo <repo> [degraded acknowledgments] init --run-id <id> --task-brief <path> --size <size> [--host claude|codex|codex-astra|cursor] --op-id <id>`
 
 4. Present the returned `execution_plan` and its digest to the human. Record an explicit local approval
    or rejection before dispatching anything:
