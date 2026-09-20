@@ -50,6 +50,7 @@ On Windows clones where Git checks out the symlink as a plain file, run `./scrip
 | `clean-architecture-code` | Implement code with pragmatic inward-pointing boundaries. |
 | `clean-architecture-review` | Review architecture boundaries and dependency direction. |
 | `clean-code` | Write or refactor clear, maintainable code while preserving behavior. |
+| `explain` | Explain changes, implementation rationale, and behavior with a sequence diagram. |
 | `code-review` | Review local changes with evidence-backed, severity-ranked findings. |
 | `word-documents` | Create, edit, render, and visually verify DOCX files. |
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
