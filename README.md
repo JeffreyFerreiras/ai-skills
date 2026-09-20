@@ -58,6 +58,7 @@ On Windows clones where Git checks out the symlink as a plain file, run `./scrip
 | `create-pull-request` | [Draft GitHub PR text or create a review-ready pull request.](skills/create-pull-request/SKILL.md) |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |
 | `loop` | Run bounded write and independent review repair cycles. |
+| `opencode-muse-spark` | Delegate a bounded task to Muse Spark through the OpenCode CLI. |
 | `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |

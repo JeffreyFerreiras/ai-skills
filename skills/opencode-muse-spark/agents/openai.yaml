@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCode Muse Spark"
+  short_description: "Delegate scoped tasks to Muse Spark via OpenCode"
+  default_prompt: "Use $opencode-muse-spark to delegate this task to a Muse Spark worker through OpenCode."
