@@ -1,0 +1,20 @@
+name: quality-loop
+version: 0.1.0
+price_list: 39
+positioning: graph-first — software-engineering-graph is the headline; review→repair is the payoff
+title_store: Quality Loop Kit — Software Engineering Graph for Agents
+tagline: Map the system first. Then review and repair without thrashing.
+skills:
+  - software-engineering-graph
+  - clean-code
+  - clean-architecture-code
+  - clean-architecture-review
+  - code-review
+  - loop
+companions:
+  - skill-doctor
+playbooks:
+  - playbooks/graph-review-loop.md
+entrypoints:
+  agents_md: AGENTS.md
+  install: INSTALL.md
