@@ -34,6 +34,9 @@ HOST_CAPABILITIES = {
     "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
     "command_confinement",
 }
+CONFINEMENT_CAPABILITIES = {
+    "filesystem_confinement", "tool_confinement", "command_confinement",
+}
 LIMIT_KEYS = {
     "children", "concurrency", "commands", "time_seconds", "output_tokens", "file_reads",
 }
@@ -147,6 +150,54 @@ def _trusted_observation_source(source: str) -> bool:
     return not any(marker in lowered for marker in UNTRUSTED_CAPABILITY_SOURCES)
 
 
+def _validate_test_mode(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ContractError("allowance.test_mode", "INVALID_OBJECT")
+    fields = {"disposable_repository", "acknowledge_unenforced_isolation", "external_effects"}
+    require_keys(value, fields, fields, "allowance.test_mode")
+    repository = bounded_string(value["disposable_repository"], "test_mode.disposable_repository", 4096)
+    if not Path(repository).is_absolute():
+        raise ContractError("test_mode.disposable_repository", "ABSOLUTE_PATH_REQUIRED")
+    if (value["acknowledge_unenforced_isolation"] is not True
+            or value["external_effects"] != "mocked"):
+        raise ContractError("allowance.test_mode", "TEST_ACKNOWLEDGMENT_REQUIRED")
+    return dict(value)
+
+
+def _verify_test_repository(allowance: Mapping[str, Any], repository: Path) -> None:
+    if "test_mode" not in allowance:
+        return
+    # This is an accidental-target guard, not a filesystem sandbox or proof of trust.
+    declared = Path(allowance["test_mode"]["disposable_repository"])
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    skill_root = Path(__file__).resolve().parents[1]
+    if (declared != repository or temporary_root not in repository.parents
+            or skill_root == repository or skill_root in repository.parents
+            or repository in skill_root.parents or (repository / ".git").is_file()):
+        raise HelperRegisterError("TEST_REPOSITORY_REQUIRED")
+
+
+def _test_mode_metadata(record: Mapping[str, Any]) -> Dict[str, Any]:
+    if "test_mode" not in record["allowance"]:
+        return {}
+    observations = record["host_observation"]["capabilities"]
+    required = {
+        capability for assignment in record["allowance"]["assignments"]
+        for capability in assignment["required_host_capabilities"]
+    }
+    unenforced = []
+    for capability in sorted(required & CONFINEMENT_CAPABILITIES):
+        observation = observations.get(capability)
+        if (observation is None or observation["status"] != "verified"
+                or not _trusted_observation_source(observation["source"])):
+            unenforced.append(capability)
+    return {
+        "execution_mode": "cooperative_test", "production_evidence": False,
+        "unenforced_capabilities": unenforced,
+        "isolation_notice": "Disposable evaluation only; instructions and checks do not enforce isolation.",
+    }
+
+
 def validate_allowance(
     value: Any, run_id: str, host: Optional[str] = None,
     approved_parent_capabilities: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
@@ -157,15 +208,20 @@ def validate_allowance(
         "schema_version", "allowance_id", "run_id", "assignments",
         "shared_limits", "resources",
     }
-    require_keys(value, required, required, "allowance")
-    if value["schema_version"] != 1:
+    schema_version = value.get("schema_version")
+    if type(schema_version) is not int or schema_version not in {1, 2}:
         raise ContractError("allowance.schema_version", "UNSUPPORTED_SCHEMA")
+    if schema_version == 2:
+        required.add("test_mode")
+    require_keys(value, required, required, "allowance")
     result = {
-        "schema_version": 1,
+        "schema_version": schema_version,
         "allowance_id": opaque(value["allowance_id"], "allowance.allowance_id"),
         "run_id": opaque(value["run_id"], "allowance.run_id"),
         "shared_limits": _limits(value["shared_limits"], "allowance.shared_limits"),
     }
+    if schema_version == 2:
+        result["test_mode"] = _validate_test_mode(value["test_mode"])
     if result["run_id"] != run_id:
         raise ContractError("allowance", "PLAN_BINDING_MISMATCH")
 
@@ -562,6 +618,8 @@ def preflight_record(
             or not _trusted_observation_source(observed_assignment["source"])):
         missing.append("model_effort_assignment")
     for capability in assignment["required_host_capabilities"]:
+        if "test_mode" in allowance and capability in CONFINEMENT_CAPABILITIES:
+            continue
         observation = host_capabilities.get(capability)
         if (observation is None or observation["status"] != "verified"
                 or not _trusted_observation_source(observation["source"])):
@@ -841,6 +899,7 @@ class HelperRegisterRepository:
         if allowance_snapshot.digest != attachment["sha256"]:
             raise ContractError("allowance", "INPUT_DIGEST_MISMATCH")
         allowance = validate_allowance(allowance_snapshot.parsed, run, plan["host"])
+        _verify_test_repository(allowance, repository)
         host_snapshot = safe_json_snapshot(
             host_observation_path, [host_observation_path.parent], MAX_RECORD_BYTES,
         )
@@ -889,7 +948,8 @@ class HelperRegisterRepository:
             else:
                 self._write(path, record)
                 code = "INITIALIZED"
-        return {"ok": True, "code": code, "register_path": str(path), "context": context}
+        return {"ok": True, "code": code, "register_path": str(path), "context": context,
+                **_test_mode_metadata(record)}
 
     @staticmethod
     def _bound_path(register_path: Path, context_value: Any) -> Tuple[Path, Dict[str, Any]]:
@@ -937,6 +997,7 @@ class HelperRegisterRepository:
         if (allowance_snapshot.digest != context["allowance_digest"]
                 or current_allowance != record["allowance"]):
             raise HelperRegisterError("REGISTER_BINDING_MISMATCH")
+        _verify_test_repository(current_allowance, repository)
         return record, context
 
     def read_bound(
@@ -970,8 +1031,10 @@ class HelperReservationLedger:
             return {
                 "ok": False, "code": "BLOCKED_UNSUPPORTED", "request_id": normalized["request_id"],
                 "missing_host_capabilities": missing,
+                **_test_mode_metadata(record),
             }
-        return {"ok": True, "code": "PREFLIGHT_READY", "request_id": normalized["request_id"], "reservation": amounts}
+        return {"ok": True, "code": "PREFLIGHT_READY", "request_id": normalized["request_id"],
+                "reservation": amounts, **_test_mode_metadata(record)}
 
     def reserve(self, register_path: Path, context: Any, request: Any) -> Dict[str, Any]:
         with self.repository.transaction(register_path, context) as transaction:
@@ -986,12 +1049,14 @@ class HelperReservationLedger:
                     "ok": True, "code": "REPLAYED", "request_id": normalized["request_id"],
                     "request_digest": request_digest, "status": existing["status"],
                     "new_dispatch_authorized": False,
+                    **_test_mode_metadata(record),
                 }
             normalized, amounts, missing = preflight_record(record, normalized)
             if missing:
                 return {
                     "ok": False, "code": "BLOCKED_UNSUPPORTED", "request_id": normalized["request_id"],
                     "missing_host_capabilities": missing,
+                    **_test_mode_metadata(record),
                 }
             assignment_usage = record["assignment_usage"][normalized["assignment_id"]]
             assignment = _assignment_for(record["allowance"], normalized["assignment_id"])
@@ -1022,6 +1087,7 @@ class HelperReservationLedger:
         return {
             "ok": True, "code": "RESERVED", "request_id": normalized["request_id"],
             "request_digest": request_digest, "status": "active", "new_dispatch_authorized": True,
+            **_test_mode_metadata(record),
         }
 
     def settle(self, register_path: Path, context: Any, value: Any) -> Dict[str, Any]:
@@ -1059,7 +1125,8 @@ class HelperReservationLedger:
             if reservation["settlement"] is not None:
                 if reservation["settlement_digest"] != settlement_digest:
                     raise HelperRegisterError("SETTLEMENT_CONFLICT")
-                return {"ok": True, "code": "REPLAYED", "request_id": settlement["request_id"], "status": reservation["status"]}
+                return {"ok": True, "code": "REPLAYED", "request_id": settlement["request_id"],
+                        "status": reservation["status"], **_test_mode_metadata(record)}
             if reservation["status"] != "active":
                 raise HelperRegisterError("SETTLEMENT_CONFLICT")
             reservation["status"] = settlement["terminal_state"]
@@ -1071,7 +1138,8 @@ class HelperReservationLedger:
             for key in reservation["resource_keys"]:
                 record["active_resources"][key] -= 1
             transaction.commit()
-        return {"ok": True, "code": "SETTLED", "request_id": settlement["request_id"], "status": settlement["terminal_state"]}
+        return {"ok": True, "code": "SETTLED", "request_id": settlement["request_id"],
+                "status": settlement["terminal_state"], **_test_mode_metadata(record)}
 
     def status(self, register_path: Path, context: Any) -> Dict[str, Any]:
         record, normalized_context = self.repository.read_bound(register_path, context)
@@ -1084,6 +1152,7 @@ class HelperReservationLedger:
                 for key, item in sorted(record["reservations"].items())
             },
             "evidence_notice": "trusted-caller evidence; not proof of host confinement or authenticity",
+            **_test_mode_metadata(record),
         }
 
 

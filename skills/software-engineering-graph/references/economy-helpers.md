@@ -142,6 +142,44 @@ filesystem, tool, or command confinement, so its affected preflights remain
 installed contract does not confer those restrictions. Do not claim live helper enforcement,
 H01-H15 success, or savings from static tests.
 
+## Cooperative test mode
+
+Use this mode only when the user explicitly requests a helper evaluation on a disposable local
+fixture. Normal allowances remain schema version 1 and retain every confinement requirement.
+For a new approved test plan, use allowance schema version 2 and add:
+
+```json
+"test_mode": {
+  "disposable_repository": "<absolute resolved path to the disposable fixture>",
+  "acknowledge_unenforced_isolation": true,
+  "external_effects": "mocked"
+}
+```
+
+Keep all other allowance fields, including required host capabilities. Bind the complete allowance
+hash in the task/plan v3 attachment before approval. There is no per-call bypass flag, environment
+switch, or migration of existing runs. The register checks the declared path against the actual
+repository on initialization and every read/mutation. It must be strictly beneath the operating
+system temporary directory, must not overlap the running skill installation, and cannot be a
+linked Git worktree. This catches accidental targets; it does not prove the fixture is harmless.
+The Supervisor must create a fresh fixture containing only synthetic/non-sensitive data, with no
+real remotes or credentials, and keep publication, cleanup, profile changes, and external effects
+mocked. Use approved exact local commands only.
+
+Test preflight waives only the filesystem, tool, and command confinement requirements. Preserve
+their observed `unavailable` or `unverified` values. Exact model/effort availability and fresh model
+selection remain required, as do eligibility, scope, commands, checkpoint binding, resource limits,
+reservation/replay protection, and settlement. Every normal register response, including
+blocked preflights and replay responses, carries `execution_mode: "cooperative_test"`,
+`production_evidence: false`, and the `unenforced_capabilities` list.
+
+Snapshot fixture files before dispatch and compare them afterward, excluding only explicitly
+approved generated outputs. Settle unexpected mutations as failed, retain evidence, and stop;
+never silently restore or erase evidence. Helpers still receive bounded instructions and cannot
+spawn children. These checks detect some mistakes after execution; they cannot prevent unauthorized
+reads, out-of-scope writes, or external actions. Report live test behavior separately from strict
+host-confinement verification and production acceptance. Passing a test does not enable strict mode.
+
 ## Initialize and operate the register
 
 The Supervisor initializes one register under an explicit absolute host state root. It gives parents

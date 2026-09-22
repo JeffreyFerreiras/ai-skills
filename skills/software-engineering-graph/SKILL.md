@@ -223,6 +223,11 @@ direct permitted tools when delegation overhead exceeds the likely benefit.
 Profile availability and prompt restrictions do not prove host enforcement; verify the actual
 assignment and capabilities before dispatch.
 
+For explicitly requested disposable evaluations, the [helper test mode](references/economy-helpers.md#cooperative-test-mode)
+can waive unavailable confinement checks without pretending they passed. It requires a new approved
+allowance bound to that temporary repository. It is never an automatic production fallback; model,
+scope, command, role, and budget checks still apply, and its results are not production evidence.
+
 ## Delegation transparency
 
 <!-- dispatch-transparency:start -->

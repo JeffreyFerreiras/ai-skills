@@ -121,6 +121,13 @@ the collection advances to a durable blocked run rather than waiting indefinitel
 
 ### Host-only reusable helpers
 
+Normal helper allowances use schema 1 with strict host capability checks. An explicit schema-2
+test allowance binds a named disposable repository under the system temporary directory and
+acknowledges cooperative isolation with mocked external effects. The filesystem adapter rechecks
+that binding; reservation policy waives only confinement capabilities, while retaining model,
+scope, command, eligibility, resource, and budget checks. Test responses carry mode, missing
+confinement, and non-production-evidence labels. No existing plan or schema-1 allowance is upgraded.
+
 [Economy helpers](../references/economy-helpers.md) is the canonical parent contract; the two
 helper TOMLs define child behavior. Evidence Scout formalizes the existing direct evidence-child
 mechanism. Validation Executor isolates exact command execution for Senior Engineer and Test

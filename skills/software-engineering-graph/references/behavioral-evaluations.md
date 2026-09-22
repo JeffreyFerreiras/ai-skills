@@ -148,6 +148,13 @@ install profiles or alter this checkout. Repository inventory tests check contra
 
 ### H01: Explicit eligibility and direct invocation
 
+For an explicitly requested smoke test when confinement is unavailable, use the versioned
+[cooperative test allowance](economy-helpers.md#cooperative-test-mode) in a fresh temporary fixture.
+Label the result `cooperative_test` and keep it separate from this protocol's strict controlled
+comparison. The smoke test can demonstrate dispatch, evidence return, budgeting, and unchanged
+fixture contents; it cannot count as passing H06 or establish production isolation. Never replace
+unavailable capability observations with fabricated verified values.
+
 Supply each parent in the economy-helper eligibility table with an approved bounded allowance.
 Expected: all six parents can directly invoke Evidence Scout; Senior Engineer and Test Engineer
 can also directly invoke Validation Executor. Test rejected combinations and Impact Mapper, fixed

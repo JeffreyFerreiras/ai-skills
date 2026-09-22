@@ -91,6 +91,11 @@ instruction-level host sessions, never graph branches, reviewer-fanout members, 
 Use direct permitted tools for trivial work. Historical approvals gain no new helper permissions;
 repository profiles do not prove that a runtime has loaded or enforced their contracts.
 
+Explicitly requested disposable evaluations may use [cooperative test mode](references/economy-helpers.md#cooperative-test-mode).
+An approved schema-2 allowance binds a temporary fixture and acknowledges missing isolation. Only
+confinement checks are waived; all other helper checks stay active. Responses are marked
+`cooperative_test` and `production_evidence: false`. Normal runs keep strict requirements.
+
 A local control ledger tracks assignments, approvals, retries, active-work ownership, and recovery
 so the workflow behaves consistently and deterministically. It coordinates agents but does not
 execute them. The Supervisor is the sole ledger operator and remains the user-facing decision maker.

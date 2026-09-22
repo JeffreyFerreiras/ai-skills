@@ -1203,7 +1203,8 @@ class HelperRegisterTests(GraphCase):
 
     def _materials(
         self, unsupported=False, model="gpt-5.6-luna", reasoning_effort="max",
-        observed_model=None, observed_effort=None,
+        observed_model=None, observed_effort=None, test_mode=False,
+        fresh_selection=True,
     ):
         validation_command = {
             "command_id": "focused-tests",
@@ -1227,6 +1228,13 @@ class HelperRegisterTests(GraphCase):
             },
             "resources": [{"key": "worktree", "capacity": 1}],
         }
+        if test_mode:
+            allowance["schema_version"] = 2
+            allowance["test_mode"] = {
+                "disposable_repository": str(self.repo),
+                "acknowledge_unenforced_isolation": True,
+                "external_effects": "mocked",
+            }
         allowance_path = self.repo / "docs" / "helper-allowance.json"
         allowance_path.write_bytes(canonical_bytes(allowance))
         task = self.task_v2()
@@ -1244,12 +1252,16 @@ class HelperRegisterTests(GraphCase):
             "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
             "command_confinement",
         ):
-            unavailable = unsupported and name == "filesystem_confinement"
+            unavailable = unsupported and (
+                name == "filesystem_confinement" or (test_mode and name.endswith("_confinement"))
+            )
             capabilities[name] = {
                 "status": "unavailable" if unavailable else "verified",
                 "source": "host_api",
                 "uncertainty": "not exposed" if unavailable else "none observed",
             }
+        if not fresh_selection:
+            capabilities["fresh_model_effort_selection"]["status"] = "unverified"
         host_path = self.repo / "docs" / "host-observation.json"
         host_path.write_bytes(canonical_bytes({
             "schema_version": 1, "host_id": "local-host",
@@ -1501,6 +1513,117 @@ class HelperRegisterTests(GraphCase):
         self.assertEqual(result["missing_host_capabilities"], ["filesystem_confinement"])
         status = registry.status(Path(initialized["register_path"]), initialized["context"])
         self.assertEqual(status["reservations"], {})
+
+    def test_test_mode_reserves_and_labels_unenforced_isolation_without_faking_observation(self):
+        registry, initialized, command, _plan, _allowance = self._materials(
+            unsupported=True, test_mode=True,
+        )
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        request = self._request("cooperative-validation", "validation", command)
+        results = [initialized, registry.preflight(path, context, request),
+                   registry.reserve(path, context, request), registry.reserve(path, context, request),
+                   registry.settle(path, context, self._settlement(request, "succeeded")),
+                   registry.settle(path, context, self._settlement(request, "succeeded")),
+                   registry.status(path, context)]
+        for result in results:
+            with self.subTest(code=result["code"]):
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["execution_mode"], "cooperative_test")
+                self.assertFalse(result["production_evidence"])
+                self.assertEqual(result["unenforced_capabilities"], [
+                    "command_confinement", "filesystem_confinement", "tool_confinement",
+                ])
+        self.assertFalse(results[3]["new_dispatch_authorized"])
+        record = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(record["host_observation"]["capabilities"]["filesystem_confinement"]["status"], "unavailable")
+        self.assertEqual(results[-1]["usage"]["children"], 1)
+
+    def test_test_mode_still_blocks_unverified_model_and_fresh_assignment_support(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(
+            unsupported=True, test_mode=True, observed_model="gpt-5.6-sol",
+        )
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        result = registry.reserve(path, context, self._request())
+        self.assertEqual(result["code"], "BLOCKED_UNSUPPORTED")
+        self.assertEqual(result["missing_host_capabilities"], ["model_effort_assignment"])
+        self.assertFalse(result["production_evidence"])
+        self.assertEqual(registry.status(path, context)["reservations"], {})
+
+    def test_test_mode_does_not_relax_scope_commands_or_shared_budgets(self):
+        registry, initialized, command, _plan, _allowance = self._materials(
+            unsupported=True, test_mode=True,
+        )
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        wrong_scope = self._request("outside")
+        wrong_scope["scope_refs"] = ["repo:src/"]
+        with self.assertRaisesRegex(ContractError, "SCOPE_EXCEEDED"):
+            registry.reserve(path, context, wrong_scope)
+        wrong_command = self._request("wrong-command", "validation", command)
+        wrong_command["commands"][0] = {**command, "argv": [sys.executable, "-V"]}
+        with self.assertRaisesRegex(ContractError, "COMMAND_NOT_APPROVED"):
+            registry.reserve(path, context, wrong_command)
+        for request_id in ("one", "two"):
+            request = self._request(request_id)
+            registry.reserve(path, context, request)
+            registry.settle(path, context, self._settlement(request))
+        with self.assertRaisesRegex(HelperRegisterError, "SHARED_LIMIT_EXCEEDED"):
+            registry.reserve(path, context, self._request("three"))
+
+    def test_test_mode_requires_explicit_versioned_acknowledgment(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials(test_mode=True)
+        candidates = []
+        for field, value in (("acknowledge_unenforced_isolation", False),
+                             ("acknowledge_unenforced_isolation", 1),
+                             ("external_effects", "live"),
+                             ("disposable_repository", "relative/repo")):
+            candidate = json.loads(json.dumps(allowance))
+            candidate["test_mode"][field] = value
+            candidates.append(candidate)
+        candidates.append({**allowance, "schema_version": 1})
+        candidates.append({key: value for key, value in allowance.items() if key != "test_mode"})
+        for candidate in candidates:
+            with self.subTest(candidate=candidate), self.assertRaises(ContractError):
+                validate_allowance(candidate, "RUN-HELPERS", "codex-astra")
+
+    def test_test_mode_requires_verified_fresh_model_selection(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(
+            unsupported=True, test_mode=True, fresh_selection=False,
+        )
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        result = registry.preflight(path, context, self._request())
+        self.assertEqual(result["code"], "BLOCKED_UNSUPPORTED")
+        self.assertEqual(result["missing_host_capabilities"], ["fresh_model_effort_selection"])
+        self.assertEqual(registry.status(path, context)["reservations"], {})
+
+    def test_test_mode_rejects_wrong_repository_before_register_initialization(self):
+        registry, _initialized, _command, plan, allowance = self._materials(test_mode=True)
+        allowance["test_mode"]["disposable_repository"] = str(self.root / "different-repo")
+        allowance_path = self.repo / "docs" / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(allowance))
+        plan["helper_allowance"]["sha256"] = sha256_bytes(allowance_path.read_bytes())
+        unsigned = {key: value for key, value in plan.items() if key != "plan_digest"}
+        plan["plan_digest"] = sha256_bytes(canonical_bytes(unsigned))
+        plan_path = self.repo / "docs" / "helper-plan.json"
+        plan_path.write_bytes(canonical_bytes(plan))
+        state_root = self.root / "different-state"
+        with self.assertRaisesRegex(HelperRegisterError, "TEST_REPOSITORY_REQUIRED"):
+            registry.initialize(state_root, self.repo, "RUN-HELPERS", plan_path,
+                                allowance_path, self.repo / "docs" / "host-observation.json")
+        self.assertFalse((state_root / "helper-registers").exists())
+
+    def test_test_mode_cannot_change_after_approval(self):
+        registry, initialized, _command, _plan, allowance = self._materials(test_mode=True)
+        allowance["schema_version"] = 1
+        del allowance["test_mode"]
+        (self.repo / "docs" / "helper-allowance.json").write_bytes(canonical_bytes(allowance))
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_BINDING_MISMATCH"):
+            registry.status(Path(initialized["register_path"]), initialized["context"])
+
+    def test_test_mode_rechecks_disposable_repository_binding(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(test_mode=True)
+        with patch("graph_engine.helper_register.tempfile.gettempdir", return_value=str(self.root / "other")):
+            with self.assertRaisesRegex(HelperRegisterError, "TEST_REPOSITORY_REQUIRED"):
+                registry.status(Path(initialized["register_path"]), initialized["context"])
 
     def test_approved_host_supported_assignment_override_is_preserved_exactly(self):
         registry, initialized, _command, _plan, _allowance = self._materials(
