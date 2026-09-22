@@ -105,33 +105,39 @@ authorize modifying existing worktrees. It validates publication evidence but ne
 creates a pull request, or removes a worktree. The Senior Engineer remains the sole source and test
 writer and never publishes.
 
-The Supervisor preflight names a host catalog (`claude`, `codex`, `codex-astra`, or `cursor`) and recommends that catalog's
-Supervisor assignment. Codex defaults to `gpt-6-astra` with `xhigh` reasoning. Claude Code recommends
-`claude-opus-5` with `xhigh` effort for the Supervisor, `claude-sonnet-5` with `low` effort for
-economy roles, and `claude-opus-5` at the requested effort for reasoning roles. Cursor defaults to
-`cursor-grok-4.6` with `high` reasoning instead of ChatGPT Sol. Unless a trusted host runtime
-assertion verifies that exact actual assignment, the Supervisor operates in advisory mode and displays:
+The Supervisor presents an adjustable execution plan before starting branches. Catalog revision 3
+recommends these assignments; they are defaults, not required models:
+
+| Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
+| --- | --- | --- | --- |
+| `codex-astra` | Luna `low` | Astra `medium` | Astra `high` |
+| `codex` | Luna `low` | Sol `medium` | Sol `high` |
+| `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
+| `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
+
+The Astra catalog also permits Sol and Terra selections. Other supported alternatives appear in
+the preview's `model_options`. Verify actual host/account support before approval and dispatch.
+Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
+assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.
+
+With valid repository policy, run `graphctl plan --run-id <id> --task-brief <path> --host <catalog>`
+to preview without initializing ledger state. Adjust `model_overrides` in task-brief v2/v3, preview
+again, then `init` and approve the exact plan digest. After initialization the brief is immutable,
+including while approval is pending; changed choices require a new run, not edits to stored JSON.
+Without policy, the skill presents the plan conversationally under its policyless restrictions.
+
+The plan lists assignments and dispatch conditions, Supervisor/publication choices, model options,
+and a helper recommendation. The Supervisor explains the actual work sequence, conditional roles,
+cost/quality tradeoffs and uncertainty, and lets the human choose. The actual primary model is not
+switched by the CLI. Missing trusted Supervisor model/effort metadata retains advisory mode:
 
 > Supervisor warning: This Supervisor is an advisory role and thought partner. Treat its plans, decisions, and synthesis as recommendations requiring your approval.
 
-This warning describes model verification; it does not add approval gates. The approved plan covers
-routine in-scope decisions and unchanged retries, replacements, and continuations within existing
-budgets. Material changes to scope, authority, route, roles, host, model, or effort need a new plan.
-
-`init` defaults to `codex-astra` catalog revision 2 at every size: Luna `max` for mapper
-and design research, Astra `low` for Tech Lead, Senior Engineer, and Test Engineer, and Astra
-`medium` for Architect, Code Reviewer, and Security Reviewer. Supervisor stays Astra `xhigh` and
-publication stays Luna `max`; other advisory/specialist assignments retain their existing mapping.
-Historical unversioned Astra plans retain their original assignments and digests. Older engines
-cannot read revision 2 Astra plans; rollback must preserve approvals without rewriting them.
-The actual primary model is not switched by the CLI. In Claude Code, pass `--host claude`; the plan's
-`dispatch_model` records the full recommended model ID and exact effort. Verify host availability and exact dispatch
-assignments before approval. Use `--host codex` for the explicit size-specific Luna/Sol catalog.
-This selects the existing matrix; it does not switch the primary model or make every role Sol.
-Cursor and existing approved plans retain their assignments. New Codex and Cursor revision 2 plans use
-reasoning `medium` for small Senior Engineers; the frozen historical matrix remains unchanged. The seven existing role profiles match the Astra
-default and the two helper profiles use Luna `max`; installed profiles require a separately authorized sync.
-See [model catalogs](references/model-catalogs.md) for compatibility and evaluation.
+Advisory mode adds no approval gate. Routine work uses the existing approval; material assignment
+changes require a new plan. Historical unversioned and prior explicit catalog revisions keep exact
+assignments and digests. Codex role TOMLs are installable defaults, not requirements on Claude,
+Cursor, or a differently approved Codex plan. Installed copies require separately authorized sync.
+See [model catalogs](references/model-catalogs.md) for selections, compatibility, and limitations.
 
 The five executable routes are `advisory` (read-only review), `design_only` (research and independent
 design approval), `fast_path` (mechanical/documentation implementation plus independent review and
@@ -152,7 +158,8 @@ overrides may raise cost but cannot go below the computed safety floor.
 
 The route still determines workflow gates. A v2 small `full_delivery` run keeps the same research,
 design, implementation, independent review, testing, specialist, consolidation, and closure topology
-as medium or large; only approved model assignments change. Existing task-brief v1 inputs retain the
+as medium or large. Revision 3 recommends the same baseline models across sizes; the human can adjust
+them to the task before approval. Existing task-brief v1 inputs retain the
 legacy route-influenced classifier, unrestricted explicit override, execution-plan shape, and digest.
 
 Repository-policy schema v2 permits project-specific bounded repository file/directory references,
@@ -325,9 +332,8 @@ or aborted runs, solely to settle late accounting metadata.
   historical roots must be passed explicitly
 - Repository-policy v1 and task/plan v1-v2 retain their historical behavior and bytes; policy v2
   adds bounded project paths/checks, and task/plan v3 opts into the separate helper register
-- Every economy (Codex Luna / Cursor Composer) size assignment uses that catalog's economy effort.
-  Tech Lead and Architect assignments use the host reasoning model at every size. New plans
-  also require a reasoning-class Senior Engineer; historical plan loading preserves recorded assignments. Research output
+- Revision 3 assignments are adjustable recommendations; the chosen supported model/effort is
+  bound to approval. Historical plans preserve their model-class constraints and recorded assignments. Research output
   contracts require an `evidence_manifest`, verified evidence, a null decision, and empty findings.
 
 Implementation authorization and initial plan approval cover the plan's exact non-force commit, push,
@@ -351,7 +357,7 @@ naming an optional skill. Skills cannot expand authority or effects; controlling
 conflicts or unavailable content are reported. Each handoff reports `Skill usage`, including provenance,
 relevance, failures, or `None`.
 
-After required PR approval and separate cleanup approval, a fresh Luna-max dispatch may run from any
+After required PR approval and separate cleanup approval, a fresh approved publication-model dispatch may run from any
 safe checkout or execution context outside the exact clean, registered target; no cleanup worktree is
 created. It uses only non-forced `git worktree remove`, preserves the branch, and refuses dirty,
 untracked, ignored, locked, or ambiguous state, recursive deletion, force, prune, or branch deletion.

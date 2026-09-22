@@ -754,8 +754,8 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(
             {(branch["node_key"], branch["role"], branch["generation"], branch["status"], branch["model"], branch["reasoning_effort"]) for branch in research},
             {
-                ("design_research_architecture", "impact_mapper", 0, "ready", "gpt-5.6-luna", "max"),
-                ("design_research_validation", "impact_mapper", 0, "ready", "gpt-5.6-luna", "max"),
+                ("design_research_architecture", "impact_mapper", 0, "ready", "gpt-5.6-luna", "low"),
+                ("design_research_validation", "impact_mapper", 0, "ready", "gpt-5.6-luna", "low"),
             },
         )
         self.assertFalse(any(branch["node_key"] == "tech_lead" for branch in status["branches"]))

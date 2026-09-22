@@ -20,7 +20,7 @@ from .contracts import (
     require_keys, safe_file_snapshot, safe_json_snapshot, validate_ref,
 )
 from .ids import canonical_bytes, repository_digest, sha256_bytes
-from .hosts import dispatch_model, known_hosts
+from .hosts import selected_dispatch_model, known_hosts
 from .state import StateError, local_filesystem_identity, repository_identity
 
 
@@ -271,7 +271,7 @@ def validate_allowance(
         reasoning_effort = opaque(item["reasoning_effort"], "allowance.reasoning_effort")
         if host is not None:
             try:
-                dispatch_model(host, model, reasoning_effort)
+                selected_dispatch_model(host, model, reasoning_effort)
             except ValueError:
                 raise ContractError("allowance.assignments", "HELPER_ASSIGNMENT_MISMATCH")
         commands = _commands(item["commands"], "allowance.commands")

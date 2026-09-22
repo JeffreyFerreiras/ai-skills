@@ -7,8 +7,10 @@ The entry skill controls scope and authority.
 ## Required pull-request publication
 
 For every repository implementation intended for delivery, dispatch a fresh `Pull Request Engineer`
-using the approved host publication assignment after all gates and before successful closure. Codex
-uses exactly `gpt-5.6-luna` with `max` reasoning. Cursor uses `composer-2.5` with `high` reasoning.
+using the approved host publication assignment after all gates and before successful closure.
+Revision 3 recommends the host's helper model/effort, but the human may select a supported
+alternative through `model_overrides.publication_assignment` before initialization and approval.
+Historical plans retain their exact publication assignment. Never silently replace it with a new default.
 The initial implementation authorization and plan approval authorize the plan's exact non-force commit,
 push, and PR actions; no later publication approval is required. This is an instruction-only role with
 no profile, engine node, table, or specialist identifier. The Senior Engineer writes source and tests

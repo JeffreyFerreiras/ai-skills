@@ -13,7 +13,8 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 1, "codex": 2, "codex-astra": 2, "cursor": 2}
+CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 3, "codex-astra": 3, "cursor": 3}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3), "codex-astra": (2, 3), "cursor": (2, 3)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {("gpt-6-astra", "medium"): 3}
 
@@ -68,6 +69,56 @@ PUBLICATION_CLASS = {
     "codex-astra": ("economy", "max"),
     "cursor": ("economy", "max"),
 }
+
+# Defaults and selectable pairs are separate. HOST_MATRIX stays frozen for old approvals.
+# These pairs are catalog knowledge, not evidence of account/runtime availability.
+MODEL_OPTIONS = {
+    "codex": {
+        "gpt-5.6-luna": ("low", "medium", "high", "xhigh", "max"),
+        "gpt-5.6-sol": ("low", "medium", "high", "xhigh", "max"),
+        "gpt-5.6-terra": ("low", "medium", "high", "xhigh", "max"),
+        "gpt-6-astra": ("low", "medium", "high", "xhigh", "max"),
+    },
+    "claude": {
+        "claude-sonnet-5": ("low", "medium", "high", "xhigh", "max"),
+        "claude-opus-5": ("low", "medium", "high", "xhigh", "max"),
+        "claude-fable-5-1": ("low", "medium", "high", "xhigh", "max"),
+    },
+    "cursor": {
+        "gemini-3.8-flash": ("low", "medium", "high"),
+        "grok-4.7": ("low", "medium", "high", "xhigh"),
+        "composer-2.5": ("high",),
+        "claude-sonnet-5": ("low", "medium", "high", "xhigh", "max"),
+        "claude-opus-5": ("low", "medium", "high", "xhigh", "max"),
+        "claude-fable-5-1": ("low", "medium", "high", "xhigh", "max"),
+        "gpt-5.6-sol": ("low", "medium", "high", "xhigh", "max"),
+    },
+}
+MODEL_OPTIONS["codex-astra"] = MODEL_OPTIONS["codex"]
+
+
+def selected_dispatch_model(host: str, model: str, effort: str) -> str:
+    """Resolve a human selection without treating recommendations as requirements."""
+    catalog_for(host)
+    if effort in MODEL_OPTIONS[host].get(model, ()):
+        return model
+    return dispatch_model(host, model, effort)
+
+
+def recommended_assignment(host: str, workload: str) -> Tuple[str, str]:
+    """Revision 3 suggestions; actual assignments remain subject to human approval."""
+    catalog_for(host)
+    if workload == "helper":
+        return {"claude": ("claude-sonnet-5", "low"),
+                "cursor": ("gemini-3.8-flash", "low")}.get(host, ("gpt-5.6-luna", "low"))
+    model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
+             "codex": "gpt-5.6-sol", "codex-astra": "gpt-6-astra"}[host]
+    return model, "high" if workload == "review" else "medium"
+
+
+def model_options(host: str) -> Dict[str, Tuple[str, ...]]:
+    catalog_for(host)
+    return dict(MODEL_OPTIONS[host])
 
 
 def known_hosts() -> Tuple[str, ...]:

@@ -66,6 +66,77 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerTests(GraphCase):
+    def test_revision_three_recommendations_and_available_alternatives(self):
+        expected = {
+            "codex-astra": ("gpt-6-astra", "gpt-5.6-luna"),
+            "codex": ("gpt-5.6-sol", "gpt-5.6-luna"),
+            "claude": ("claude-opus-5", "claude-sonnet-5"),
+            "cursor": ("grok-4.7", "gemini-3.8-flash"),
+        }
+        for host, (core, scout) in expected.items():
+            plan = build_execution_plan("RUN-1", self.task_v2(), host=host)
+            self.assertEqual(plan["catalog_revision"], 3)
+            for node in ("tech_lead", "senior_engineer", "test_engineer"):
+                row = assignment_for(plan, node)
+                self.assertEqual((row["model"], row["reasoning_effort"]), (core, "medium"))
+            self.assertEqual(plan["helper_recommendation"], {"model": scout, "reasoning_effort": "low"})
+            self.assertIn(core, plan["model_options"])
+            self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
+        self.assertIn("gpt-5.6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+
+    def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
+        task = self.task_v2(route="fast_path")
+        path = self.repo / "docs" / "task.json"
+        path.write_text(json.dumps(task), encoding="utf-8")
+        before = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path))["execution_plan"]
+        self.assertFalse(self.store.db_path("albanian-live-translate", "RUN-1").exists())
+        task["model_overrides"] = {
+            "senior_engineer": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"},
+            "supervisor_recommendation": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
+        }
+        path.write_text(json.dumps(task), encoding="utf-8")
+        adjusted = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path))["execution_plan"]
+        self.assertNotEqual(before["plan_digest"], adjusted["plan_digest"])
+        initialized = self.initialize_task(task)
+        self.assertEqual(initialized["execution_plan_digest"], adjusted["plan_digest"])
+        self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume", "--run-id", "RUN-1")
+        self.impact("fast_path")
+        writer = self.claim()
+        self.assertEqual((writer["model"], writer["reasoning_effort"]), ("gpt-5.6-sol", "medium"))
+
+    def test_alternative_models_are_not_rejected_as_nondefault(self):
+        for host, model, effort in (("cursor", "gemini-3.8-flash", "medium"),
+                                    ("claude", "claude-sonnet-5", "high"),
+                                    ("codex-astra", "gpt-5.6-terra", "medium")):
+            task = self.task_v2()
+            task["model_overrides"] = {"tech_lead": {"model": model, "reasoning_effort": effort}}
+            plan = build_execution_plan("RUN-1", task, host=host)
+            selected = assignment_for(plan, "tech_lead")
+            self.assertEqual((selected["model"], selected["reasoning_effort"]), (model, effort))
+            self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+
+    def test_invalid_model_overrides_fail_without_creating_state(self):
+        from graph_engine.contracts import ContractError
+        for overrides in ([], {"unknown_role": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"}},
+                          {"tech_lead": {"model": "primary-thread", "reasoning_effort": "inherited"}},
+                          {"tech_lead": {"model": "gpt-5.6-sol", "reasoning_effort": "ultra"}},
+                          {"tech_lead": {"model": "grok-4.7", "reasoning_effort": "medium"}}):
+            task = self.task_v2()
+            task["model_overrides"] = overrides
+            with self.subTest(overrides=overrides), self.assertRaises(ContractError):
+                self.initialize_task(task)
+            self.assertFalse(self.store.db_path("albanian-live-translate", "RUN-1").exists())
+
+    def test_selected_plan_cannot_be_reinterpreted_as_historical(self):
+        task = self.task_v2()
+        task["model_overrides"] = {"tech_lead": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"}}
+        for revision in (None, 2):
+            stored = {"host": "codex-astra"}
+            if revision is not None:
+                stored["catalog_revision"] = revision
+            with self.assertRaisesRegex(ValueError, "MODEL_OVERRIDES_REQUIRE_CATALOG_3"):
+                reconstruct_execution_plan("RUN-1", task, stored)
+
     def _normalized_topology(self):
         database = self.store.db_path("albanian-live-translate", "RUN-1")
         with self.store.connect(database) as connection:
@@ -345,11 +416,11 @@ class PlannerTests(GraphCase):
             size: plan["senior_engineer"] for size, plan in assignments.items()
         }
         self.assertEqual(engineer_assignments["small"], engineer_assignments["medium"])
-        self.assertNotEqual(engineer_assignments["medium"], engineer_assignments["large"])
+        self.assertEqual(engineer_assignments["medium"], engineer_assignments["large"])
 
     def test_host_and_supervisor_mappings_are_unchanged_for_v2(self):
-        codex = build_execution_plan("RUN-1", self.task_v2(), host="codex")
-        cursor = build_execution_plan("RUN-1", self.task_v2(), host="cursor")
+        codex = reconstruct_execution_plan("RUN-1", self.task_v2(), {"host": "codex", "catalog_revision": 2})
+        cursor = reconstruct_execution_plan("RUN-1", self.task_v2(), {"host": "cursor", "catalog_revision": 2})
         self.assertEqual(
             (codex["supervisor_recommendation"]["model"], codex["supervisor_recommendation"]["reasoning_effort"]),
             ("gpt-5.6-sol", "xhigh"),
@@ -395,9 +466,9 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 2)
+        self.assertEqual(plan["catalog_revision"], 3)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
-        self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "low")
+        self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
         self.assertEqual(by_key["impact_mapper"]["model"], "gpt-5.6-luna")
         self.assertEqual(plan["supervisor_recommendation"]["model"], "gpt-6-astra")
@@ -413,9 +484,9 @@ class PlannerTests(GraphCase):
 
     def test_claude_catalog_recommends_exact_models_and_efforts(self):
         plan = build_execution_plan("RUN-1", self.task_v2(), host="claude")
-        self.assertEqual(plan["catalog_revision"], 1)
+        self.assertEqual(plan["catalog_revision"], 3)
         self.assertEqual(plan["supervisor_recommendation"], {
-            "model": "claude-opus-5", "reasoning_effort": "xhigh", "dispatch_model": "claude-opus-5",
+            "model": "claude-opus-5", "reasoning_effort": "high", "dispatch_model": "claude-opus-5",
         })
         self.assertEqual(plan["publication_assignment"], {
             "model": "claude-sonnet-5", "reasoning_effort": "low", "dispatch_model": "claude-sonnet-5",
@@ -431,7 +502,7 @@ class PlannerTests(GraphCase):
         initialized = self.initialize(size="medium")
         self.impact("full_delivery")
         lead = self.claim()
-        self.assertEqual((lead["model"], lead["reasoning_effort"]), ("gpt-6-astra", "low"))
+        self.assertEqual((lead["model"], lead["reasoning_effort"]), ("gpt-6-astra", "medium"))
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability",
                       "resume", "--run-id", "RUN-1")
         plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
@@ -446,8 +517,8 @@ class PlannerTests(GraphCase):
     def test_astra_catalog_revision_two_core_assignments_for_both_task_versions(self):
         for task, size in ((task, size) for task in (self.task(), self.task_v2())
                            for size in ("small", "medium", "large")):
-            default = build_execution_plan("RUN-1", task, size, host="codex")
-            astra = build_execution_plan("RUN-1", task, size, host="codex-astra")
+            default = reconstruct_execution_plan("RUN-1", task, {"host": "codex", "catalog_revision": 2}, size)
+            astra = reconstruct_execution_plan("RUN-1", task, {"host": "codex-astra", "catalog_revision": 2}, size)
             self.assertEqual(astra["catalog_revision"], 2)
             self.assertNotEqual(astra["plan_digest"], default["plan_digest"])
             self.assertEqual(astra["minimum_route"], default["minimum_route"])
@@ -473,7 +544,7 @@ class PlannerTests(GraphCase):
         lead = self.claim()
         self.assertEqual(lead["node_key"], "tech_lead")
         self.assertEqual(lead["model"], "gpt-6-astra")
-        self.assertEqual(lead["reasoning_effort"], "low")
+        self.assertEqual(lead["reasoning_effort"], "medium")
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability",
                       "resume", "--run-id", "RUN-1")
         plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
@@ -552,7 +623,7 @@ class PlannerTests(GraphCase):
             for task in (self.task(), self.task_v2()):
                 for size in ("small", "medium", "large"):
                     with self.subTest(host=host, task=task["schema_version"], size=size):
-                        new = build_execution_plan("RUN-1", task, size, host)
+                        new = reconstruct_execution_plan("RUN-1", task, {"host": host, "catalog_revision": 1 if host == "claude" else 2}, size)
                         writer = assignment_for(new, "senior_engineer")
                         self.assertEqual(writer["intelligence_class"], "reasoning")
                         legacy = reconstruct_execution_plan("RUN-1", task, {"host": host}, size)
@@ -571,7 +642,7 @@ class PlannerTests(GraphCase):
                 with self.assertRaisesRegex(ValueError, "IMPLEMENTATION_REASONING_MODEL_REQUIRED"):
                     validate_new_plan_assignment("senior_engineer", model, effort, host)
                 validate_model_assignment("senior_engineer", model, effort, host)
-                plan = build_execution_plan("RUN-1", self.task(), "small", host)
+                plan = reconstruct_execution_plan("RUN-1", self.task(), {"host": host, "catalog_revision": 1 if host == "claude" else 2}, "small")
                 writer = next(row for row in plan["assignments"] if row["node_key"] == "senior_engineer")
                 writer.update(model=model, reasoning_effort=effort, intelligence_class="economy")
                 with self.assertRaisesRegex(ValueError, "IMPLEMENTATION_REASONING_MODEL_REQUIRED"):
@@ -581,7 +652,7 @@ class PlannerTests(GraphCase):
         for size in SIZE_ASSIGNMENTS:
             assignments = {
                 item["node_key"]: (item["model"], item["reasoning_effort"])
-                for item in build_execution_plan("RUN-1", self.task(), size, host="codex")["assignments"]
+                for item in reconstruct_execution_plan("RUN-1", self.task(), {"host": "codex"}, size)["assignments"]
             }
             self.assertEqual(assignments["advisory_reviewer"], SIZE_ASSIGNMENTS[size]["advisory_reviewer"])
             self.assertEqual(assignments["supervisor_design_consolidation"], SIZE_ASSIGNMENTS[size]["supervisor"])
@@ -669,7 +740,7 @@ class PlannerTests(GraphCase):
         for node in design_research_nodes(policy, 0):
             self.assertEqual(
                 (node.role, by_key[node.key]["model"], by_key[node.key]["reasoning_effort"]),
-                ("impact_mapper", "gpt-5.6-luna", "max"),
+                ("impact_mapper", "gpt-5.6-luna", "low"),
             )
 
     def test_model_assignment_invariant_fails_closed(self):

@@ -50,7 +50,15 @@ command. The stateless usage checkpoint above is exempt.
    [the task-brief schema](task-brief.schema.json) under a repository-policy artifact root.
 2. Hash the exact `.codex/engineering-graph.json` bytes and put that digest in the brief's
    `policy_approval`.
-3. Initialize the ledger and generate the execution-plan summary. Pass `--size small|medium|large`
+3. Preview the execution plan without writing state. Present roles, work sequence, model/effort
+   recommendations, options, helper allowance, and availability gaps. Apply the human's selections
+   to task-brief v2/v3 `model_overrides` (helper pairs belong in the allowance), then preview again:
+
+   `python <skill>/scripts/graphctl.py --repo <repo> plan --run-id <id> --task-brief <path> [--size small|medium|large] [--host claude|codex|codex-astra|cursor]`
+
+   Initialize only after choices are settled; the task brief becomes immutable at initialization,
+   even before approval. Use a new run for changes after that point, never edit stored plan JSON.
+   Pass `--size small|medium|large`
    when the Supervisor chooses an explicit size; otherwise the engine records its bounded recommendation:
 
   `python <skill>/scripts/graphctl.py --repo <repo> [degraded acknowledgments] init --run-id <id> --task-brief <path> --size <size> [--host claude|codex|codex-astra|cursor] --op-id <id>`

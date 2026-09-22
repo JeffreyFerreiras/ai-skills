@@ -1,7 +1,7 @@
 name = "security_reviewer"
 description = "Conditional independent reviewer for security, privacy, identity, secrets, and trust-boundary changes."
 model = "gpt-6-astra"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
 Default to delegating useful independent work to the approved helpers below when an allowance is

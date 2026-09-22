@@ -69,39 +69,39 @@ side effects at the outer boundary.
 
 ### Host model catalogs
 
-Role intelligence is a host-agnostic class plus requested effort, not a vendor model ID.
-`graph_engine/hosts.py` expands `(class, effort)` through `HOST_MATRIX`:
+Revision 3 separates suggested assignments from supported selections. `hosts.py` keeps the original
+`HOST_MATRIX` unchanged for historical reconstruction, maintains supported model/effort options,
+and supplies helper/core/review recommendations. `execution.py` selects the correct revision and
+applies task-bound `model_overrides` before deriving dispatch IDs and the canonical plan digest.
+Its intelligence-class field describes the assigned workload, not an enforced vendor or price tier.
 
-| Class | Requested effort | Explicit Codex option | Cursor runtime | Claude Code |
-| --- | --- | --- | --- | --- |
-| `economy` | `max` | `gpt-5.6-luna` `max` | `composer-2.5` `high` | `claude-sonnet-5` `low` |
-| `reasoning` | `medium` / `high` / `xhigh` / `max` | `gpt-5.6-sol` at that effort | `cursor-grok-4.6` at medium/high/xhigh | `claude-opus-5` at the requested effort |
-| `primary-thread` | `inherited` | inherited | inherited | inherited |
+Task-brief v2/v3 accepts exact per-node selections plus Supervisor recommendation and publication
+overrides. Contracts preserve them in authoritative task metadata. The existing semantic validator
+reconstructs the plan from that metadata and compares full content, row digest, and approval digest.
+Changing only persisted plan JSON, even with a recomputed hash, cannot change an approved selection.
 
-The frozen baseline uses the Codex catalog. Use `--host claude` in Claude Code and `--host cursor`
-in Cursor. The Claude catalog dispatches the full recommended model ID and exact effort.
-The execution plan records `host`, `intelligence_class`, resolved `model`/`reasoning_effort`, and
-`dispatch_model`. Human approval covers the mapped vendor IDs. Host detection does not use
-environment variables or agent self-reports.
+The stateless `graphctl plan` command shares input preparation with initialization. It validates
+policy, task, selections and any helper attachment without creating ledger state. The Supervisor
+presents the execution sequence, roles, options, and capability gaps. The human adjusts the brief
+before initialization; afterward even a pending brief is immutable. New choices require a new run
+and approval. The command does not bypass missing policy or create a model API executor.
 
-Omitting `--host` or passing `--host codex-astra` selects default catalog revision 2 for the Codex runtime. At every size it uses
-Luna max for mapper/research, Astra low for Tech Lead/Senior Engineer/Test Engineer, and Astra medium
-for Architect/Code Reviewer/Security Reviewer. Other advisory/specialist mappings remain unchanged.
-Supervisor stays Astra xhigh, publication stays Luna max, and consolidation stays inherited.
-It does not switch the primary model. Frozen baseline catalogs stay unchanged; the seven existing reusable profiles
-match the Astra default and the two helpers use the economy assignment. Installed profiles require a separately authorized sync.
-New Astra plans include `catalog_revision: 2` in the canonical digest. New Codex and Cursor plans also use integer `catalog_revision: 2`, changing only the small
-Senior Engineer to the existing reasoning `medium` assignment. New-plan validation requires a
-reasoning writer; historical reconstruction and assignment loading explicitly preserve unversioned
-writer assignments. Reconstruction accepts the selected host's supported integer revision, rejects
-unknown or malformed markers, and treats absent markers as the frozen historical matrix.
-Exact plan, canonical digest, row digest, and approval digest checks remain mandatory. Historical
-plans keep their original bytes and approvals, including delegation-enabled plans. Older engines
-cannot read unsupported revision 2 plans; rollback must not rewrite approvals.
-The host must expose each exact approved assignment; see [model catalogs](../references/model-catalogs.md).
-Reviewer delegation accepts Astra medium/high/xhigh/max with weights 3/3/4/5 in schema and runtime;
-Astra low and Sol medium remain unsupported. Weights are not monetary prices. Sizing, topology,
-and token accounting are unchanged; this candidate table makes no live benchmark claim.
+New recommendations: Codex uses Luna low helpers and Astra medium core/high review, with Sol and
+Terra alternatives; explicit Codex uses Sol as its preferred core/review model. Claude uses Sonnet 5
+low helpers and Opus 5 medium core/high review. Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
+medium core/high review. See [model catalogs](../references/model-catalogs.md) for all supported
+options, exact sources, native role configuration, and runtime verification limits.
+
+Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
+defaults, bytes, digests and approvals. The engine accepts each known revision explicitly; unknown
+or malformed revisions fail closed. New revision 3 plans require this engine or newer. Catalog
+changes must not silently alter reconstruction of prior plans.
+
+Conditional reviewer fan-out policy and budget weights are unchanged. Those assignments remain
+in their separately approved policy rather than graph-node overrides. Helpers use their own bound
+allowance and can select any supported exact host pair; capability verification, scope, budgets,
+reservations and settlement remain mandatory. Model recommendations grant no authority and
+make no live benchmark or cross-harness compatibility claim.
 
 ### Pre-design research gate
 
@@ -398,14 +398,12 @@ Optional application-specialist protocol identifiers remain supported by topolog
 validation even though their role TOMLs are not part of the reusable profile set. No role
 substitution or topology change is introduced.
 
-All economy size assignments use the selected host catalog's economy effort. Tech Lead and Architect
-use that catalog's reasoning model at every size. New plans also require a reasoning-class
-Senior Engineer, without changing historical approvals. The centralized execution-plan invariant rejects an
-invalid host, model, or effort before it can enter a persisted envelope.
+Revision 3 defaults are recommendations, and explicit human-selected supported pairs are bound to
+the task and approval. Historical model-class constraints remain unchanged for older plans.
+Invalid host/model/effort combinations cannot enter a persisted envelope.
 
-The recommended Supervisor assignment comes from the host catalog. Codex defaults to `gpt-6-astra`
-with `xhigh` reasoning. Claude Code recommends `claude-opus-5` with `xhigh` effort. Cursor recommends `cursor-grok-4.6` with `high` reasoning rather than
-ChatGPT Sol. Actual model and effort are considered verified only when supplied by a trusted host
+The Supervisor recommendation is adjustable like other assignments; it does not switch the
+actual primary model. Actual model and effort are considered verified only when supplied by a trusted host
 runtime assertion. Missing, unverifiable, or mismatched values select advisory mode and require this
 exact warning:
 

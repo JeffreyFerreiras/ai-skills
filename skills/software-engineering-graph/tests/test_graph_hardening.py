@@ -21,6 +21,16 @@ from tests.test_contracts import _validate_json_schema
 
 
 class GraphHardeningTests(GraphCase):
+    def test_selected_model_options_remain_recognizable_in_usage_context(self):
+        from graph_engine.usage import _context
+
+        for model in ("gpt-5.6-terra", "grok-4.7", "gemini-3.8-flash", "claude-fable-5-1",
+                      "cursor-grok-4.6", "gpt-6-astra"):
+            self.assertEqual(_context({"model": model, "effort": "medium"}),
+                             {"model": model, "effort": "medium"})
+        self.assertEqual(_context({"model": "untrusted-arbitrary-model", "effort": "medium"})["model"],
+                         "unknown")
+
     def _assert_repair_packet_schema(self, packet):
         schema = json.loads((Path(__file__).parents[1] / "references/evidence-lifecycle.schema.json").read_text(encoding="utf-8"))
         _validate_json_schema(packet, schema, schema)
@@ -679,7 +689,7 @@ class GraphHardeningTests(GraphCase):
         self.assertEqual(plan["size"], "small")
         self.assertTrue(plan["approval_required"])
         senior = next(item for item in plan["assignments"] if item["node_key"] == "senior_engineer")
-        self.assertEqual((senior["model"], senior["reasoning_effort"]), ("gpt-6-astra", "low"))
+        self.assertEqual((senior["model"], senior["reasoning_effort"]), ("gpt-6-astra", "medium"))
         ready = self.graphctl("next", "--run-id", "RUN-1")
         self.assertEqual(ready["code"], "EXECUTION_PLAN_APPROVAL_REQUIRED")
         with self.assertRaisesRegex(StateError, "EXECUTION_PLAN_APPROVAL_REQUIRED"):
@@ -690,7 +700,7 @@ class GraphHardeningTests(GraphCase):
             "--authority-ref", "authority:test", "--op-id", "plan-approval-1",
         )
         branch = self.claim()
-        self.assertEqual((branch["model"], branch["reasoning_effort"]), ("gpt-5.6-luna", "max"))
+        self.assertEqual((branch["model"], branch["reasoning_effort"]), ("gpt-5.6-luna", "low"))
 
     def test_rejected_execution_plan_blocks_the_run(self):
         initialized = self.initialize(approve=False)
@@ -1636,6 +1646,21 @@ class HelperRegisterTests(GraphCase):
             Path(initialized["register_path"]), initialized["context"], request,
         )
         self.assertEqual(result["code"], "PREFLIGHT_READY")
+
+    def test_helper_allowances_accept_selected_models_from_each_harness(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials()
+        for host, model, effort in (("codex-astra", "gpt-5.6-sol", "medium"),
+                                    ("codex-astra", "gpt-5.6-luna", "low"),
+                                    ("claude", "claude-opus-5", "medium"),
+                                    ("claude", "claude-sonnet-5", "low"),
+                                    ("cursor", "grok-4.7", "medium"),
+                                    ("cursor", "gemini-3.8-flash", "low")):
+            selected = json.loads(json.dumps(allowance))
+            for assignment in selected["assignments"]:
+                assignment.update(model=model, reasoning_effort=effort)
+            with self.subTest(host=host, model=model):
+                normalized = validate_allowance(selected, "RUN-HELPERS", host)
+                self.assertTrue(all(row["model"] == model for row in normalized["assignments"]))
 
     def test_observed_assignment_mismatch_blocks_without_substitution(self):
         registry, initialized, _command, _plan, _allowance = self._materials(

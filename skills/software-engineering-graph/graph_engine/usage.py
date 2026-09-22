@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from .contracts import ContractError, digest, opaque, require_keys
-from .hosts import HOST_MATRIX
+from .hosts import HOST_MATRIX, MODEL_OPTIONS
 from .ids import canonical_bytes, sha256_bytes, stable_id
 from .state import StateError
 
@@ -18,6 +18,7 @@ from .state import StateError
 PHASES = ("scoping", "research_design", "implementation", "review_testing", "closure")
 EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "unknown"}
 MODELS = {row[0] for catalog in HOST_MATRIX.values() for row in catalog.values()} - {"primary-thread"}
+MODELS.update(model for catalog in MODEL_OPTIONS.values() for model in catalog)
 MODELS.add("unknown")
 REQUIRED = ("input_tokens", "output_tokens", "total_tokens")
 OPTIONAL = ("cached_input_tokens", "reasoning_output_tokens", "cache_write_tokens")

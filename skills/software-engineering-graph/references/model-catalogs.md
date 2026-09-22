@@ -1,77 +1,99 @@
 # Model catalogs
 
-The CLI's existing `--host` field selects a catalog. `codex-astra` is the default;
-`codex` is the explicit size-specific Luna/Sol option for the same Codex runtime. It uses the
-existing role matrix, so some review and test assignments remain economy Luna. New `cursor` plans
-retain existing assignments except for the small writer policy below.
-Selecting a catalog does not switch the primary agent's actual model or install role profiles.
+## Present, adjust, approve
 
-Use `--host claude` in Claude Code. The Claude catalog records `claude-opus-5` with `xhigh`
-effort as the Supervisor recommendation. Economy assignments use `claude-sonnet-5` at `low`
-effort because Haiku 4.5 does not support the effort field required by this workflow. Reasoning
-assignments use `claude-opus-5` at `medium`, `high`, `xhigh`, or `max` as selected by the size
-matrix. Dispatch uses the full Claude model ID so the approved assignment does not drift with an
-alias. Verify both the model and supported effort before approval; account availability can change
-independently of this catalog.
+The graph recommends assignments; it does not require its preferred models. Select the actual
+harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
+`claude`, or `cursor`. All new plans use catalog revision 3. Verify the selected pair against
+the host's current exposed capabilities; catalog entries do not establish account access.
 
-The default Astra catalog revision 2 applies this table at every size:
+| Catalog | Helpers and fixed research | Core roles | Architecture and review |
+| --- | --- | --- | --- |
+| codex-astra | gpt-5.6-luna / low | gpt-6-astra / medium | gpt-6-astra / high |
+| codex | gpt-5.6-luna / low | gpt-5.6-sol / medium | gpt-5.6-sol / high |
+| claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
+| cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
 
-| Assignments | Model and effort |
-| --- | --- |
-| Impact Mapper and both design research nodes | Luna `max` |
-| Tech Lead, Senior Engineer, Test Engineer | Astra `low` |
-| Architect, Code Reviewer, Security Reviewer | Astra `medium` |
+Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, Code Reviewer,
+Security Reviewer, and Release Operations Reviewer receive the review suggestion. Other advisory
+and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
+suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
+thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
 
-Unlisted advisory and specialist assignments retain the baseline size matrix, with reasoning
-classes mapped to Astra. The Supervisor recommendation stays Astra `xhigh`, publication stays
-Luna `max`, and Supervisor consolidation remains inherited. Sizing and graph topology are unchanged.
-The seven existing role profiles match the default Astra assignments; the two helper profiles
-use the selected economy assignment; installed profiles are not updated
-by changing this repository. If a named profile pins
-different values, use a host-supported bounded fresh agent with the approved role contract and
-explicit assignment. If the host cannot honor that assignment, stop that dispatch and report the
-specific mismatch; never silently fall back or claim the model was changed.
+Before initialization, present the actual execution sequence and relevant/conditional roles,
+each model and effort, helper allowance, alternatives, assumptions, and availability gaps.
+Invite changes and show the revised plan before approval. Use this optional field in task-brief
+v2/v3 to record selections (node keys, not role-profile names):
 
-Both reusable helpers use the selected host's economy assignment unless explicitly overridden by
-a verified approved allowance. See [Economy helpers](economy-helpers.md) for the canonical mapping,
-host/profile verification, and failure behavior. A helper-enabled task/plan v3 binds the allowance,
-but helpers add no graph assignments or ledger state.
+```json
+"model_overrides": {
+  "tech_lead": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"},
+  "senior_engineer": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
+  "supervisor_recommendation": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
+  "publication_assignment": {"model": "gpt-5.6-luna", "reasoning_effort": "low"}
+}
+```
 
-Before plan approval, verify each exact assignment against the current host's exposed capabilities.
-An approved plan is not proof of model availability. Missing Supervisor model metadata selects
-advisory mode but does not cancel existing approval or block unrelated authorized preparation.
-Unknown branch assignments still block that dispatch. Do not request the same approval again.
+Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
+worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
+The preview lists `model_options` for deliberate selection. The supported set is separate from
+the recommendation matrix, so Sol and Terra are selectable without changing the Astra catalog.
+Cursor also offers Gemini, Composer, Sonnet, Opus, Fable, and Sol alternatives. Claude offers
+Sonnet, Opus, and Fable. Do not map an effort the selected model does not expose: Grok 4.7 stops
+at xhigh; Gemini 3.8 Flash stops at high. A newly available pair requires a reviewed catalog update,
+not an arbitrary unchecked string. Such updates must preserve prior revision reconstruction.
 
-Catalog selection is frozen in the plan digest. New Astra plans include `catalog_revision: 2`;
-unversioned historical Astra plans reconstruct the original size matrix without changing bytes,
-digests, or approvals. Resuming retains that catalog generation; changing it requires a new plan.
-Historical `codex` and `cursor` plan shapes and digests remain unchanged. New plans for both
-catalogs include `catalog_revision: 2`; only the small Senior Engineer changes from economy to the
-existing reasoning `medium` mapping: Sol `medium` on Codex, Grok `medium` on Cursor. Other roles and
-medium/large assignments remain unchanged. Astra revision 2, including its writer at `low`, is
-preserved byte-for-byte. Older engines cannot read unsupported revision 2 plans. Do not rewrite approvals to make a rollback work.
-Reviewer delegation can explicitly approve Astra `medium` or `high` at weight 3, `xhigh` at 4,
-or `max` at 5. Astra `low` and Sol `medium` remain unsupported for delegation. These are
-dispatch-budget weights, not price estimates; token accounting is unchanged.
+With valid repository policy:
 
-Official guidance checked September 5, 2026:
-[Astra model](https://developers.openai.com/api/docs/models/gpt-6-astra) and
-[Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra).
-The published API efforts include `low`, `medium`, `high`, `xhigh`, and `max`. This graph uses
-only its catalog's explicit assignments; host-specific additional efforts are not implied.
-This engine coordinates agents and makes no API requests, so API transport or parameter migration
-does not belong in the ledger.
+```text
+python <skill>/scripts/graphctl.py --repo <repo> plan --run-id <id> --task-brief <path> --host cursor
+```
 
-Claude guidance checked September 18, 2026:
-[Claude Code subagent model and effort fields](https://code.claude.com/docs/en/sub-agents),
-[Claude model selection](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model),
-and [Claude effort levels](https://platform.claude.com/docs/en/build-with-claude/effort).
-Claude Code accepts full model IDs and per-subagent effort. Anthropic recommends Opus 5
-as the general starting point, `low` for simple subagents, and `xhigh` for long-running agentic coding.
+This performs bounded input validation and returns the unsigned-for-approval candidate plan without
+creating state or dispatching agents. Edit the uninitialized task brief and repeat this preview
+until selections are settled. Then initialize with the same brief/host/size and approve the exact
+returned digest. Approval covers every possible assignment, including conditional roles.
+Policyless planning stays conversational; this command does not bypass missing or invalid policy.
 
-Astra is the default at the user's explicit request after confirming account access.
-This preference change does not establish comparative quality, latency, or cost benefits.
-Use [behavioral-evaluations.md](behavioral-evaluations.md) with both catalogs under equivalent host
-capabilities before making an evidence-based recommendation. Record task completion, unauthorized
-effects, avoidable approval pauses, verification repeats, dispatch accuracy, elapsed time, and measured
-usage. No live-model evaluation has been established by this default change.
+The brief is immutable immediately after initialization, even while approval is pending.
+Changing selections then requires a new run and approval. Never edit stored task/plan JSON or
+reset consumed budgets to obtain another retry. An unavailable selected model blocks only that
+dispatch while the Supervisor proposes an alternative for approval. Never silently substitute.
+Approval establishes permission, not runtime capability.
+
+## Helpers and native roles
+
+Prepare the [helper allowance](economy-helpers.md) using the preview's `helper_recommendation`
+or an explicitly selected supported alternative. The allowance is separately hash-bound; a graph
+node override does not rewrite it. Actual helper dispatch still requires exact observed availability,
+host capability checks, scope, budgets, reservation, and settlement.
+
+Codex TOMLs are installation defaults, not requirements on every harness. Claude and Cursor use
+their native subagent configuration or a supported fresh-agent mechanism with the same role
+contract and the approved model/effort. A pinned native role must not override the approved
+selection. Do not claim that catalog support installs native roles or proves live delegation.
+
+## Historical compatibility
+
+The original HOST_MATRIX is frozen. Missing revisions preserve the historical class/size matrix;
+explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults,
+plan bytes, digests, and approvals. Only new revision 3 plans use these recommendations and
+task-bound overrides. Older engines reject revision 3 rather than reinterpret it.
+Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
+remain separately selected in repository policy, not through graph-node overrides.
+
+## Source and evaluation scope
+
+Selection guidance checked September 21, 2026:
+[OpenAI models](https://developers.openai.com/api/docs/models),
+[Claude models](https://platform.claude.com/docs/en/models/overview),
+[Claude effort](https://platform.claude.com/docs/en/build-with-claude/effort),
+[Cursor Grok 4.7](https://cursor.com/docs/models/grok-4-7),
+[Cursor Gemini 3.8 Flash](https://prod.cursor.com/docs/models/gemini-3-8-flash),
+[Cursor subagent selection](https://prod.cursor.com/help/models-and-usage/available-models).
+Native dispatch interfaces may expose model IDs and effort separately; do not invent suffixed aliases.
+
+These are configured recommendations. Deterministic tests establish selection, binding, and
+compatibility, not model quality or live Claude/Cursor operation. Use the authorized disposable
+[behavioral evaluations](behavioral-evaluations.md) before claiming cross-harness execution,
+savings, or reliability. Report unavailable telemetry rather than estimating it.

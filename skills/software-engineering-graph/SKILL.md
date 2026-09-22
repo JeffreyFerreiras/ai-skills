@@ -56,23 +56,34 @@ Name the host catalog in the execution plan as `claude`, `codex`, `codex-astra`,
 task, prompt, environment variable, or agent self-report. Use a trusted host runtime assertion, or
 ask the human. Pass `--host claude` to `init` when running in Claude Code and `--host cursor` when
 running in Cursor; omit it or pass `--host codex-astra`
-for the default Codex catalog. Use `--host codex` for the explicit size-specific Luna/Sol option.
+for the default Codex catalog. Use `--host codex` to recommend Sol for core roles instead of Astra.
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Recommend the host catalog's Supervisor assignment and dispatch that catalog's resolved models. Codex
-defaults use `gpt-6-astra` with `xhigh` reasoning. Claude Code recommends `claude-opus-5` with
-`xhigh` effort for the Supervisor, uses `claude-sonnet-5` with `low` effort for economy roles,
-and maps reasoning roles to `claude-opus-5` at the plan's requested effort. Cursor defaults use `cursor-grok-4.6` with
-`high` reasoning rather than ChatGPT Sol, and `composer-2.5` for economy work rather than Luna.
-The default Astra catalog revision 2 uses Luna `max` for mapper and design research at all sizes;
-Astra `low` for Tech Lead, Senior Engineer, and Test Engineer; and Astra `medium` for Architect,
-Code Reviewer, and Security Reviewer. Supervisor stays Astra `xhigh`, publication stays Luna `max`,
-and unlisted advisory/specialist assignments keep their existing mapping. Unversioned historical
-plans retain their original assignments and digests. Older engines cannot read revision 2 Astra
-plans; never rewrite existing approvals to roll back. New Codex and Cursor revision 2 plans
-use their existing reasoning `medium` assignment for a small Senior Engineer. Historical unversioned
-plans retain the frozen writer assignment; changing an approved run requires a new plan and approval.
+Present model assignments as recommendations, not prerequisites. New catalog revision 3 suggests
+Luna `low` for Codex helpers, Astra `medium` for core work and `high` for review; the explicit
+`codex` catalog suggests Sol instead of Astra. Sol and Terra are also selectable within the
+Astra catalog. Claude suggests Sonnet 5 `low` for helpers, Opus 5 `medium` for core work and
+`high` for review. Cursor suggests Gemini 3.8 Flash `low` for helpers, Grok 4.7 `medium` for
+core work and `high` for review. These are human-selected starting preferences, not benchmark claims.
+
+Before initialization, present the execution sequence, relevant and conditional roles, model/effort
+for each role, the bounded helper allowance, available alternatives, and known availability gaps.
+Invite the human to adjust assignments. Use task-brief v2/v3 `model_overrides` for graph nodes,
+Supervisor recommendation, and publication assignment. Helper selections live in the separately
+bound allowance. `graphctl plan` previews the candidate without writing state when valid repository
+policy exists; policyless preflight remains conversational and follows the restrictions above.
+Repeat the preview after requested changes, then initialize the final brief and approve its exact
+plan digest. Do not edit a brief after initialization, even while approval is pending. Such changes
+require a new run and approval; never reset consumed budgets for equivalent retries.
+A preferred model being unavailable is a reason to propose an available alternative, not insist on
+the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
+
+Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
+New revision 3 plans cannot be consumed by older engines. Role TOML pins are Codex installation
+defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
+when a named profile does not match the approved plan. Models listed as options are not proof of
+runtime availability or live cross-harness delegation.
 Report the actual Supervisor model and effort only when a trusted host runtime assertion makes both
 values verifiable. If either value is missing, unverifiable, or different, operate in advisory mode
 and display this exact warning once per run, repeating only if verification status changes:
@@ -245,13 +256,12 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Decision-role Codex profiles match Astra revision 2; helper profiles use the host economy mapping. If a value is not exposed, state that it is inherited or unavailable instead
-of guessing, and do not dispatch that role until the human approves a plan that makes the assignment
-explicit. Dispatch Cursor reasoning roles with `dispatch_model` from the plan (`cursor-grok-4.6-high`,
-not ChatGPT Sol). Dispatch Claude roles with `dispatch_model` from the plan and the exact approved
-effort; do not substitute a different model identifier. Any
-retry, replacement, or follow-up host, model, or effort change requires a new
-plan and approval.
+Decision-role Codex profiles match Astra revision 3 recommendations; helper profiles use Luna `low`.
+These pins do not override the human's selected model/effort. If a value is not exposed, report it
+as unavailable and propose a supported alternative for approval before dispatching that role.
+Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;
+do not guess an effort-specific model alias. A retry, replacement, or follow-up host, model, or
+effort change requires a new plan and approval.
 
 ## Select the route
 

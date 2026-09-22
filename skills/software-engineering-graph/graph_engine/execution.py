@@ -3,8 +3,9 @@
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 from .hosts import (
-    CURRENT_CATALOG_REVISIONS, DEFAULT_HOST, LEGACY_HOST, classify, dispatch_model, economy_effort, publication_assignment,
-    resolve_assignment, supervisor_recommendation,
+    CURRENT_CATALOG_REVISIONS, SUPPORTED_CATALOG_REVISIONS, DEFAULT_HOST, LEGACY_HOST,
+    classify, dispatch_model, economy_effort, publication_assignment, model_options,
+    resolve_assignment, supervisor_recommendation, recommended_assignment, selected_dispatch_model,
 )
 from .ids import canonical_bytes, sha256_bytes
 from .reviewer_delegation import plan_fragment
@@ -168,6 +169,34 @@ def validate_new_plan_assignment(
         raise ValueError("IMPLEMENTATION_REASONING_MODEL_REQUIRED")
 
 
+def validate_model_overrides(value: Any) -> Dict[str, Dict[str, str]]:
+    """Validate the selection shape independently of the chosen harness."""
+    allowed = {key for key, role in NODE_ROLES.items() if role != "supervisor"}
+    allowed.update({"supervisor_recommendation", "publication_assignment"})
+    if not isinstance(value, dict) or not set(value).issubset(allowed):
+        raise ValueError("MODEL_OVERRIDES_INVALID")
+    result = {}
+    for key, pair in sorted(value.items()):
+        if not isinstance(pair, dict) or set(pair) != {"model", "reasoning_effort"}:
+            raise ValueError("MODEL_OVERRIDES_INVALID")
+        if any(not isinstance(item, str) or not item or len(item) > 128 for item in pair.values()):
+            raise ValueError("MODEL_OVERRIDES_INVALID")
+        if pair["model"] == "primary-thread" or pair["reasoning_effort"] == "inherited":
+            raise ValueError("MODEL_OVERRIDES_INVALID")
+        result[key] = dict(pair)
+    return result
+
+
+def _selected_pair(host: str, overrides: Mapping[str, Any], key: str, workload: str) -> Tuple[str, str]:
+    if key in overrides:
+        pair = overrides[key]
+        model, effort = pair["model"], pair["reasoning_effort"]
+    else:
+        model, effort = recommended_assignment(host, workload)
+    selected_dispatch_model(host, model, effort)
+    return model, effort
+
+
 def recommend_size(task: Mapping[str, Any]) -> Tuple[str, str]:
     """Return the legacy v1 recommendation without changing its plan contract."""
     if task["risk_level"] == "critical" or task["minimum_route"] == "full_delivery":
@@ -234,7 +263,7 @@ def reconstruct_execution_plan(
     host = stored_plan.get("host", LEGACY_HOST)
     revision = stored_plan.get("catalog_revision")
     if "catalog_revision" in stored_plan:
-        if type(revision) is not int or revision != CURRENT_CATALOG_REVISIONS.get(host):
+        if type(revision) is not int or revision not in SUPPORTED_CATALOG_REVISIONS.get(host, ()):
             raise ValueError("CATALOG_REVISION_INVALID")
     return _build_execution_plan(run_id, task, requested_size, host, revision)
 
@@ -258,6 +287,9 @@ def _build_execution_plan(
         raise ValueError("invalid execution size")
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
+    overrides = validate_model_overrides(task.get("model_overrides", {}))
+    if overrides and catalog_revision != 3:
+        raise ValueError("MODEL_OVERRIDES_REQUIRE_CATALOG_3")
     assignments = []
     for node_key in sorted(NODE_ROLES):
         role = NODE_ROLES[node_key]
@@ -268,24 +300,38 @@ def _build_execution_plan(
             # Keep the baseline frozen for historical approvals; new small writers
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
-        model, effort = resolve_assignment(host, intelligence_class, requested_effort)
-        assignment_validator = (
-            validate_new_plan_assignment if catalog_revision is not None
-            else validate_model_assignment
-        )
-        assignment_validator(node_key, model, effort, host)
+        if catalog_revision == 3 and role != "supervisor":
+            workload = "helper" if role == "impact_mapper" else "review" if node_key in {
+                "architect", "code_reviewer", "security_reviewer", "release_operations_reviewer",
+            } else "implementation"
+            model, effort = _selected_pair(host, overrides, node_key, workload)
+            intelligence_class = "economy" if workload == "helper" else "reasoning"
+            dispatch = selected_dispatch_model(host, model, effort)
+        else:
+            model, effort = resolve_assignment(host, intelligence_class, requested_effort)
+            assignment_validator = (
+                validate_new_plan_assignment if catalog_revision is not None
+                else validate_model_assignment
+            )
+            assignment_validator(node_key, model, effort, host)
+            dispatch = dispatch_model(host, model, effort)
         assignments.append({
             "node_key": node_key,
             "role": role,
             "intelligence_class": intelligence_class,
             "model": model,
             "reasoning_effort": effort,
-            "dispatch_model": dispatch_model(host, model, effort),
+            "dispatch_model": dispatch,
             "dispatch_when": _dispatch_when(node_key, task),
         })
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
     publication_model, publication_effort, publication_dispatch = publication_assignment(host)
+    if catalog_revision == 3:
+        supervisor_model, supervisor_effort = _selected_pair(host, overrides, "supervisor_recommendation", "review")
+        supervisor_dispatch = selected_dispatch_model(host, supervisor_model, supervisor_effort)
+        publication_model, publication_effort = _selected_pair(host, overrides, "publication_assignment", "helper")
+        publication_dispatch = selected_dispatch_model(host, publication_model, publication_effort)
     plan = {
         "schema_version": 3 if task_schema_version == 3 else 2 if delegation is not None else 1,
         "run_id": run_id,
@@ -322,6 +368,11 @@ def _build_execution_plan(
         plan["helper_allowance"] = dict(task["helper_allowance"])
     if catalog_revision is not None:
         plan["catalog_revision"] = catalog_revision
+    if catalog_revision == 3:
+        plan["model_overrides"] = overrides
+        plan["model_options"] = {model: list(efforts) for model, efforts in sorted(model_options(host).items())}
+        helper_model, helper_effort = recommended_assignment(host, "helper")
+        plan["helper_recommendation"] = {"model": helper_model, "reasoning_effort": helper_effort}
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
     return plan
 
@@ -330,6 +381,15 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     host = plan.get("host", LEGACY_HOST)
     for assignment in plan["assignments"]:
         if assignment["node_key"] == node_key:
+            if plan.get("catalog_revision") == 3:
+                if NODE_ROLES[node_key] == "supervisor":
+                    if (assignment["model"], assignment["reasoning_effort"]) != ("primary-thread", "inherited"):
+                        raise ValueError("SUPERVISOR_EFFORT_INVALID")
+                elif assignment["model"] == "primary-thread":
+                    raise ValueError("MODEL_ASSIGNMENT_INVALID")
+                else:
+                    selected_dispatch_model(host, assignment["model"], assignment["reasoning_effort"])
+                return assignment
             assignment_validator = (
                 validate_new_plan_assignment if "catalog_revision" in plan
                 else validate_model_assignment

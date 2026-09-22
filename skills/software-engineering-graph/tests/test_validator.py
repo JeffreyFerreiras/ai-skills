@@ -23,12 +23,10 @@ class ValidatorTests(GraphCase):
                 self.tearDown()
                 self.setUp()
             task = self.task(route="fast_path")
-            self.initialize_task(task, host=host, approve=False, size="small")
             legacy = reconstruct_execution_plan("RUN-1", task, {"host": host}, "small")
+            with patch("graph_engine.cli.build_execution_plan", return_value=legacy):
+                self.initialize_task(task, host=host, approve=False, size="small")
             database = self.store.db_path("albanian-live-translate", "RUN-1")
-            with self.store.connect(database) as connection:
-                connection.execute("UPDATE execution_plans SET plan_json=?,plan_digest=? WHERE run_id='RUN-1'",
-                                   (json.dumps(legacy), legacy["plan_digest"]))
             self.graphctl("record", "plan-approval", "--run-id", "RUN-1", "--plan-digest",
                           legacy["plan_digest"], "--decision", "APPROVE", "--authority-ref",
                           "authority:test", "--op-id", "legacy-approval")
@@ -59,21 +57,20 @@ class ValidatorTests(GraphCase):
             writer = self.claim()
             self.assertEqual(writer["node_key"], "senior_engineer")
             self.assertEqual(writer["reasoning_effort"], "medium")
-            self.assertIn(writer["model"], {"gpt-5.6-sol", "cursor-grok-4.6"})
+            self.assertIn(writer["model"], {"gpt-5.6-sol", "grok-4.7"})
             plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
             self.assertEqual(plan["plan_digest"], initialized["execution_plan_digest"])
             self.assertEqual(plan["status"], "approved")
 
     def test_legacy_astra_pending_and_approved_plans_keep_original_digest(self):
-        initialized = self.initialize(host="codex-astra", approve=False, size="small")
         legacy = reconstruct_execution_plan("RUN-1", self.task(), {"host": "codex-astra"}, "small")
+        with patch("graph_engine.cli.build_execution_plan", return_value=legacy):
+            initialized = self.initialize(host="codex-astra", approve=False, size="small")
         database = self.store.db_path("albanian-live-translate", "RUN-1")
         with self.store.connect(database) as connection:
-            connection.execute("UPDATE execution_plans SET plan_json=?,plan_digest=? WHERE run_id='RUN-1'",
-                               (json.dumps(legacy), legacy["plan_digest"]))
             run = connection.execute("SELECT * FROM runs WHERE run_id='RUN-1'").fetchone()
             self.assertEqual(_validate_execution_plan(connection, run, self.task()), legacy)
-        self.assertNotEqual(initialized["execution_plan_digest"], legacy["plan_digest"])
+        self.assertEqual(initialized["execution_plan_digest"], legacy["plan_digest"])
         self.graphctl("record", "plan-approval", "--run-id", "RUN-1", "--plan-digest",
                       legacy["plan_digest"], "--decision", "APPROVE", "--authority-ref",
                       "authority:test", "--op-id", "legacy-approval")
@@ -91,7 +88,7 @@ class ValidatorTests(GraphCase):
             assignment = next(row for row in changed["assignments"] if row["node_key"] == "tech_lead")
             assignment[field] = value
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))
-        for marker in (None, True, 2.0, "2", 3):
+        for marker in (None, True, 2.0, "2", 4):
             changed = copy.deepcopy(original)
             changed["catalog_revision"] = marker
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))

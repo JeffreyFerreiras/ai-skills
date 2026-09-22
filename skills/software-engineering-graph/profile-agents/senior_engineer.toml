@@ -1,7 +1,7 @@
 name = "senior_engineer"
 description = "Sole implementation writer for an approved software design and repair packets."
 model = "gpt-6-astra"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Default to delegating useful independent work to the approved helpers below when an allowance is

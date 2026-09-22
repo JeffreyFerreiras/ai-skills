@@ -409,14 +409,14 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
     elif schema_version == 2:
         require_keys(
             value, required | {"model_sizing"},
-            required | {"reviewer_delegation", "model_sizing", "delivery_readiness"}, "task_brief",
+            required | {"reviewer_delegation", "model_sizing", "delivery_readiness", "model_overrides"}, "task_brief",
         )
     elif schema_version == 3:
         require_keys(
             value, required | {"model_sizing", "helper_allowance"},
             required | {
                 "reviewer_delegation", "model_sizing", "helper_allowance",
-                "delivery_readiness",
+                "delivery_readiness", "model_overrides",
             },
             "task_brief",
         )
@@ -426,6 +426,12 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
             "task_brief",
         )
         raise ContractError("schema_version", "UNSUPPORTED_SCHEMA")
+    if "model_overrides" in value:
+        from .execution import validate_model_overrides
+        try:
+            validate_model_overrides(value["model_overrides"])
+        except ValueError as error:
+            raise ContractError("model_overrides", str(error))
     opaque(value["task_id"], "task_id")
     bounded_string(value["objective"], "objective")
     bounded_string(value["user_outcome"], "user_outcome")
@@ -643,6 +649,8 @@ def authoritative_task_subset(value: Mapping[str, Any]) -> Dict[str, Any]:
         result["helper_allowance"] = dict(value["helper_allowance"])
     if value.get("reviewer_delegation") is not None:
         result["reviewer_delegation"] = value["reviewer_delegation"]
+    if "model_overrides" in value:
+        result["model_overrides"] = {key: dict(pair) for key, pair in value["model_overrides"].items()}
     return result
 
 

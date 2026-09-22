@@ -25,7 +25,7 @@ from .evidence import (
     VerifiedArtifact, canonical_ledger_artifact, enforce_artifact_size, persist_artifact,
     resolve_reference, resolve_unhashed_reference,
 )
-from .execution import build_execution_plan, plan_approval_digest
+from .execution import TSHIRT_SIZES, build_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST, known_hosts
 from .helper_register import ELIGIBLE_PARENTS, validate_allowance
 from .ids import canonical_bytes, sha256_bytes
@@ -573,8 +573,8 @@ def _validate_review_continuation_result(
         raise ContractError("result.findings", "DELEGATION_DISPOSITION_MISSING")
 
 
-def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, store: StateStore) -> Dict[str, Any]:
-    run_id, op_id = opaque(args.run_id, "run_id"), opaque(args.op_id, "op_id")
+def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot):
+    run_id = opaque(args.run_id, "run_id")
     task_snapshot = safe_json_snapshot(
         Path(args.task_brief), _task_roots(repo, policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]
     )
@@ -602,7 +602,13 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
     except ValueError as error:
         if str(error) == "EXECUTION_SIZE_BELOW_SAFETY_FLOOR":
             raise ContractError("size", str(error))
-        raise
+        raise ContractError("model_overrides", str(error))
+    return task_snapshot, full_task, task, execution_plan
+
+
+def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, store: StateStore) -> Dict[str, Any]:
+    run_id, op_id = opaque(args.run_id, "run_id"), opaque(args.op_id, "op_id")
+    task_snapshot, full_task, task, execution_plan = _prepare_execution_plan(args, repo, policy, policy_snapshot)
     skill_root = Path(__file__).resolve().parents[1]
     verified_evidence = [
         resolve_unhashed_reference(ref, "acceptance_evidence", repo, skill_root, policy)
@@ -2807,6 +2813,11 @@ def build_parser() -> argparse.ArgumentParser:
     selectors = constraints.add_subparsers(dest="constraint_kind", required=True)
     selector = selectors.add_parser("select")
     selector.add_argument("--bundle", required=True); selector.add_argument("--context", required=True)
+    preview = commands.add_parser("plan", help="Preview adjustable model recommendations without initializing state")
+    preview.add_argument("--run-id", required=True)
+    preview.add_argument("--task-brief", required=True)
+    preview.add_argument("--size", choices=TSHIRT_SIZES)
+    preview.add_argument("--host", choices=known_hosts(), default=DEFAULT_HOST)
     init = commands.add_parser("init")
     init.add_argument("--run-id", required=True); init.add_argument("--task-brief", required=True); init.add_argument("--op-id", required=True)
     init.add_argument("--size", choices=["small", "medium", "large"])
@@ -2895,6 +2906,9 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
     case_sensitive = os.path.normcase("A") != os.path.normcase("a")
     repo = Path(args.repo).resolve(strict=True)
     policy, policy_snapshot = load_policy(repo)
+    if args.command == "plan":
+        _snapshot, _full_task, _task, plan = _prepare_execution_plan(args, repo, policy, policy_snapshot)
+        return _json_result(True, "EXECUTION_PLAN_PREVIEW", args.run_id, None, execution_plan=plan), 0
     if args.command == "constraints":
         bundle = safe_json_snapshot(Path(args.bundle), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
         context = safe_json_snapshot(Path(args.context), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed

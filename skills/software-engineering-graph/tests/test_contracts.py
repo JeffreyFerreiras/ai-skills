@@ -52,7 +52,7 @@ class HelperProfileContractsTests(unittest.TestCase):
         self.assertTrue(helpers.isdisjoint(ENGINE_ROLE_CAPABILITIES))
 
     def test_helper_contract_sources_and_host_defaults(self):
-        from graph_engine.hosts import resolve_assignment
+        from graph_engine.hosts import recommended_assignment
 
         root = Path(__file__).resolve().parents[1]
         for name, sandbox in (("evidence_scout", "read-only"),
@@ -60,7 +60,7 @@ class HelperProfileContractsTests(unittest.TestCase):
             text = (root / "profile-agents" / (name + ".toml")).read_text(encoding="utf-8")
             model = re.search(r'^model = "([^"]+)"$', text, re.M).group(1)
             effort = re.search(r'^model_reasoning_effort = "([^"]+)"$', text, re.M).group(1)
-            self.assertEqual((model, effort), resolve_assignment("codex-astra", "economy", "max"))
+            self.assertEqual((model, effort), recommended_assignment("codex-astra", "helper"))
             self.assertIn('sandbox_mode = "' + sandbox + '"', text)
             self.assertEqual(text.count('"""'), 2)
             self.assertIn("references/economy-helpers.md", text)
@@ -199,6 +199,31 @@ def _schema_matches(value, schema, root, path, seen_refs):
 
 
 class ContractTests(GraphCase):
+    def test_model_selection_schema_matches_runtime_contract(self):
+        schema = json.loads((Path(__file__).parents[1] / "references/task-brief.schema.json").read_text(encoding="utf-8"))
+        task = self.task_v2()
+        task["model_overrides"] = {"senior_engineer": {
+            "model": "gpt-5.6-sol", "reasoning_effort": "medium",
+        }}
+        validate_task_brief(task, self.snapshot.digest, self.policy)
+        _validate_json_schema(task, schema, schema)
+        invalid_tasks = []
+        for overrides in ([], {"unknown": {}}, {"senior_engineer": {"model": "gpt-5.6-sol"}},
+                          {"tech_lead": {"model": "primary-thread", "reasoning_effort": "medium"}},
+                          {"tech_lead": {"model": "gpt-5.6-sol", "reasoning_effort": "inherited"}}):
+            invalid = copy.deepcopy(task)
+            invalid["model_overrides"] = overrides
+            invalid_tasks.append(invalid)
+        legacy = self.task()
+        legacy["model_overrides"] = task["model_overrides"]
+        invalid_tasks.append(legacy)
+        for invalid in invalid_tasks:
+            with self.subTest(task=invalid):
+                with self.assertRaises(ContractError):
+                    validate_task_brief(invalid, self.snapshot.digest, self.policy)
+                with self.assertRaises(AssertionError):
+                    _validate_json_schema(invalid, schema, schema)
+
     def setUp(self):
         super().setUp()
         self.policy, self.snapshot = load_policy(self.repo)

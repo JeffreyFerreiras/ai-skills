@@ -1,7 +1,7 @@
 name = "test_engineer"
 description = "Independent verification engineer for acceptance, regression, integration, and build evidence."
 model = "gpt-6-astra"
-model_reasoning_effort = "low"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Default to delegating useful independent work to the approved helpers below when an allowance is

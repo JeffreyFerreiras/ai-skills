@@ -93,6 +93,23 @@ and continue independent authorized preparation.
 Fail: claims verified Supervisor metadata, silently inherits the branch effort, or turns the warning
 into a blanket stop or repeated approvals. User approval alone cannot prove model availability.
 
+### B04a: Adjustable recommendations across harnesses
+
+Setup: a disposable configured repository, task-brief v2 or v3, and revision 3 planning on each
+available host. Verify the live host's model options before requesting approval.
+User: "Show me the execution plan and use Sol instead of Astra for implementation."
+Expected: show the route, gates, roles, recommended assignments, available alternatives, and helper
+allowances. Preview the amended brief before initialization, then request approval of its exact
+digest. Codex accepts Sol without enforcing Astra; Claude recommends Opus 5 medium for core work and
+Sonnet 5 low for helpers; Cursor recommends Grok 4.7 medium for core work. If a choice is unavailable,
+propose a supported alternative for approval and leave dependent dispatch blocked until resolved.
+After approval, claims must retain the selected model and effort. Changed selections after init
+require a new run and approval, even if the first plan was still pending.
+Fail: treats recommendations as mandatory, dispatches before approval, silently substitutes a model,
+rewrites historical approved plans, or claims host verification from catalog metadata alone.
+Record this scenario separately from the historical revision 2 comparison above. Passing deterministic
+planner tests does not establish that Claude or Cursor live delegation passed this scenario.
+
 ### B05: Generated publication artifacts
 
 Setup: reviewed diff and all gates pass. Plan names `out/test-results/`, produced by an approved

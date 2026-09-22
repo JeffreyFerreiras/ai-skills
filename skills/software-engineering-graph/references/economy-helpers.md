@@ -114,10 +114,12 @@ A minimal Validation Executor allowance assignment looks like this inside the to
 }
 ```
 
-The selected host catalog bounds assignment values. Codex and Astra default helpers resolve to
-Luna/max; Cursor defaults resolve to Composer/high. An explicitly approved alternative is permitted
-only when it is a recognized pair in that selected catalog and cooperative host observation evidence
-verifies the exact pair. Never substitute, inherit, or retune an unavailable assignment.
+The selected host catalog bounds supported assignment values, separately from recommendations.
+Revision 3 suggests Luna/low for Codex, Sonnet 5/low for Claude, and Gemini 3.8 Flash/low for Cursor.
+Use the preview's helper recommendation or a human-selected supported alternative, including Sol
+on Codex. Bind that exact pair in the allowance before approval; graph-node overrides do not change
+the allowance. Cooperative host observation must verify the exact pair. Never silently substitute,
+inherit, or retune an unavailable assignment; propose an alternative for approval instead.
 
 ## Observe host capability honestly
 
