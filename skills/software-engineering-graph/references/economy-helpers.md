@@ -6,7 +6,8 @@ Read the relevant section before approving or invoking a helper. Child behavior 
 [validation_executor.toml](../profile-agents/validation_executor.toml); load only the selected
 profile and do not copy its prompt into an allowance or request.
 
-Helpers are optional host sessions. They are never graph nodes, reviewer-fanout members, schedulable
+Helper allowances are enabled by default in new execution plans for eligible parents. Actual helper
+sessions run when useful work can be delegated within the approved allowance. They are never graph nodes, reviewer-fanout members, schedulable
 work, mandatory gates, decision makers, or source/test writers. The Supervisor remains the only
 ledger mutator. The register never calls `graphctl`, executes a command, spawns an agent, mints an
 approval, or aggregates token usage.
@@ -28,6 +29,15 @@ implementation, test strategy, and terminal decisions. The Senior Engineer stays
 writer; the Test Engineer stays read-only and owns independent verification.
 
 ## Approve and bind an allowance
+
+Prepare a bounded allowance as part of the initial plan, without asking for a separate helper opt-in.
+Include Evidence Scout for eligible planned parents and Validation Executor for planned Senior
+Engineer/Test Engineer roles with exact permitted commands. Choose finite task-sized child,
+concurrency, command, time, output, and read limits; do not treat the example below as universal
+limits. Parents default to delegating useful independent work, while retaining trivial lookups.
+Honor explicit opt-out, stricter policy, and unsupported host capabilities. Record the reason when
+omitting an allowance or blocking dispatch. This planning default grants no authority before plan
+approval, changes no historical plan, and bypasses no preflight, reservation, or confinement check.
 
 New deterministic registration requires task-brief and execution-plan schema version 3. The task
 attaches exactly one bounded repository JSON reference and SHA-256:

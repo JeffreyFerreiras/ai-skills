@@ -208,7 +208,14 @@ commands. Both parents may directly spawn either helper within an approved allow
 per-call Supervisor dispatch or human approval. Neither helper writes source/tests or makes role
 decisions. No arbitrary agents, graph nodes, reviewer-fanout children, or grandchildren are allowed.
 
-These are optional host-only sessions, not engine branches or new gates. New deterministic
+Enable bounded helper fan-out by default when preparing new execution plans for eligible roles.
+Include the allowance in the initial plan approval; do not require a separate opt-in or per-call
+approval. Parents should delegate useful independent evidence work and permitted validation within
+that allowance. Actual dispatch remains conditional on available work, budgets, resource safety,
+and verified host capabilities; use direct tools for trivial work. Honor explicit user opt-out and
+stricter repository policy, and record any omitted or unsupported allowance with its reason.
+
+These are host-only sessions, not engine branches or new gates. New deterministic
 registration requires a human-approved task/plan v3 allowance attachment and the separate run-bound
 helper register. Task/plan v1 and v2 have no authority through that register; loading new source does
 not rewrite or revoke a historical run's separately approved instruction-level contract. Prefer
@@ -290,7 +297,7 @@ Request Engineer assignment, exact repository, remote, base, head, and allowed n
 actions. Implementation authorization plus initial plan approval covers those actions after all gates;
 do not seek another publication approval. Cleanup remains conditional on its separately approved
 destructive authority. Neither instruction-level assignment changes engine topology or ledger state.
-If helpers are allowed, the same approved human-facing plan must carry the bounded helper
+By default, the same approved human-facing plan must carry the bounded helper
 allowance described above. The helper-enabled task and plan use schema v3 and bind the allowance
 reference/hash. This remains separate from execution-plan v2 reviewer delegation and adds no graph
 role, topology, ledger state, scheduler, executor, or token reducer.

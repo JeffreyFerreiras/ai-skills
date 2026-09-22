@@ -76,7 +76,9 @@ Supervisor alone dispatches engine-managed graph nodes and conditional reviewer-
 mutates the ledger. Delegated reviewers receive fresh, read-only envelopes and cannot create another
 reviewer-fanout level.
 
-An approved task/plan v3 may grant optional direct helper allowances. Evidence Scout serves
+New task/plan v3 proposals include bounded direct helper allowances by default, covered by initial
+plan approval. Actual dispatch depends on useful work, budgets, and verified host capabilities;
+explicit opt-out and stricter policy are respected. Evidence Scout serves
 Tech Lead, Software Architect, Senior Engineer, Code Reviewer, Test Engineer, and Security Reviewer.
 Validation Executor serves only Senior Engineer and Test Engineer. Both may directly invoke either
 helper within their approved allowance. Helpers retrieve evidence or execute exact selected commands;

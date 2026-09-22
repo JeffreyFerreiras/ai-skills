@@ -4,6 +4,8 @@ model = "gpt-6-astra"
 model_reasoning_effort = "low"
 sandbox_mode = "workspace-write"
 developer_instructions = """
+Default to delegating useful independent work to the approved helpers below when an allowance is
+present and host preflight passes. Keep trivial work local; never infer missing helper authority.
 Verify only the completed implementation against the task brief, approved design, acceptance
 criteria, and repository validation rules. Do not edit source or test files, implement fixes,
 commit, publish, or deploy. Workspace writes are limited to
