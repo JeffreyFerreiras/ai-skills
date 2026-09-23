@@ -35,7 +35,9 @@ Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when
 
 ## Cursor Cloud
 
-Cursor Cloud Agents do not receive local `~/.cursor/skills`. They discover project skills from `.cursor/skills/` (also `.agents/skills/`, `.claude/skills/`, and `.codex/skills/`).
+Local Codex and Cursor use the installed shared skills in `~/.agents/skills`. Keep Cursor-only personal skills in `~/.cursor/skills`.
+
+Cursor can sync personal skills from `~/.cursor/skills` to Cloud Agents when **Sync Skills for Cloud Agents** is enabled. Local `~/.agents/skills` are not included in that sync. Cloud Agents also discover project skills from `.cursor/skills/` (and other supported project skill roots).
 
 This repository keeps canonical skill content under `skills/` and exposes every skill to Cursor Cloud through `.cursor/skills`, a relative symlink to `../skills`. Keep that alias in place; `skill-doctor` fails if it is missing or drifts from the canonical root.
 

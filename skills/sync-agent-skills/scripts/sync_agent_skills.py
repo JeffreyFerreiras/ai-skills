@@ -31,7 +31,7 @@ INTERESTING_SUFFIXES = {
 
 AI_SKILLS_DEFAULT_REPO_URL = "https://github.com/JeffreyFerreiras/ai-skills.git"
 
-# Shared project and profile skill root. Do not add .codex/skills.
+# Codex skill root, also discovered by local Cursor.
 AGENTS_SKILLS_RELATIVE = Path(".agents/skills")
 VSCODE_AGENTS_SKILLS_LOCATION = "~/.agents/skills"
 

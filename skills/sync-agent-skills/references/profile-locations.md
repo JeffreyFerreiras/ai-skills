@@ -22,12 +22,14 @@ When working in a project repository, installed skills commonly reside in:
 
 For an unqualified sync, invoke it for every discovered local checkout and worktree as well as the installed profiles. Discover repositories beneath known checkout directories with a bounded scan, include `.git` files and registered worktrees, deduplicate resolved skill roots, and skip the canonical source itself. Do not interpret one `--target-repo` invocation as a machine-wide repository scan. Report the discovery boundary and update only existing installed copies unless installation of additional skills was requested.
 
-## Shared Agent Skills
+## Codex and Cursor Profile Skills
 
-- Primary skill root: `~/.agents/skills`.
+- Codex user skill root: `~/.agents/skills` in the current [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills).
+- Cursor also discovers `~/.agents/skills` locally, according to the current [Cursor skill documentation](https://prod.cursor.com/docs/skills). For this setup, install shared skills there once and synchronize them from the canonical `ai-skills/skills` tree.
+- Keep Cursor-only personal skills in `~/.cursor/skills`. Avoid duplicate shared copies in that root and preserve Cursor-managed built-ins in `~/.cursor/skills-cursor`.
 - Skill shape: one folder per skill with required `SKILL.md` frontmatter containing `name` and `description`.
 - Optional resources: `scripts/`, `references/`, `assets/`, and `agents/openai.yaml`.
-- Codex CLI may still read `$CODEX_HOME/skills` or `~/.codex/skills` on its own. This skill does not inventory or sync those paths.
+- The older Codex changelog mentions `~/.codex/skills`; current Codex skill documentation lists `~/.agents/skills` for user skills. Do not move this setup's Codex skills to `.codex/skills` based on the older changelog.
 
 ## Claude
 
@@ -38,10 +40,10 @@ For an unqualified sync, invoke it for every discovered local checkout and workt
 ## Cursor
 
 - Start with `~/.cursor`.
-- If `~/.cursor/skills-cursor` exists, treat it as the active Cursor-managed global skills folder and prefer it over creating a new global folder.
-- Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills` and `.claude/skills`). Cloud Agents do not receive local `~/.cursor/skills`.
+- If `~/.cursor/skills-cursor` exists, treat it as Cursor-managed. A matching name can still have different behavior, as with Cursor's built-in `loop`; compare content before removing a duplicate and preserve distinct built-ins.
+- Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills` and `.claude/skills`). Cursor can sync personal skills from `~/.cursor/skills` to Cloud Agents when its Sync Skills setting is enabled. It does not sync personal `~/.agents/skills` to Cloud Agents.
 - In this repository, `.cursor/skills` is a symlink to the canonical `skills/` tree so every mirrored skill is discoverable in Cursor Cloud without duplicating folders.
-- Some Cursor setups also use `~/.cursor/skills`; verify what exists locally before copying.
+- Cursor's third-party import setting can suppress `~/.agents/skills` in the IDE. Keep that import enabled for this setup; changing it also affects other third-party imports.
 - Also inspect Cursor application user data when relevant, especially on Windows under `%APPDATA%\Cursor\User`.
 - Cursor rule files may use `.mdc` or markdown-like instruction formats. Preserve existing frontmatter conventions.
 

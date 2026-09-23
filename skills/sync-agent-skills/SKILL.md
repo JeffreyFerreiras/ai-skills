@@ -1,6 +1,6 @@
 ---
 name: sync-agent-skills
-description: Audit, compare, and synchronize AI agent skills across installed profiles and local Git repositories/worktrees for Claude, Cursor, VS Code, and other assistants that read .agents/skills. Use for skill sync, inventory, migration, backup, or consistency checks. An unqualified sync includes both profile and repository installations; honor explicit narrower targets. Do not target .codex/skills.
+description: Audit, compare, and synchronize AI agent skills across installed profiles and local Git repositories/worktrees. Use for skill sync, inventory, migration, backup, or consistency checks. An unqualified sync includes both profile and repository installations; honor explicit narrower targets.
 ---
 
 # Sync Agent Skills
@@ -13,7 +13,7 @@ An unqualified request to sync skills includes installed profiles and local Git 
 
 Use this skill for skill folders and their discovery settings. Use `sync-agents-md` for instruction-document synchronization. Restrict writes to the requested tools and roots; an inventory does not authorize synchronization.
 
-Prefer an inventory-first workflow. Treat `.agents/skills`, `.claude`, `.cursor`, and VS Code user-profile files as user-owned configuration unless the user explicitly asks to replace or normalize them. Do not create, update, or inventory `.codex/skills` unless the user names that path.
+Prefer an inventory-first workflow. Treat `.agents/skills`, `.claude`, `.cursor`, and VS Code user-profile files as user-owned configuration unless the user explicitly asks to replace or normalize them. For this Codex-and-Cursor setup, install shared skills once in `~/.agents/skills` and synchronize them from `ai-skills/skills`; both tools discover that root locally. Keep Cursor-only skills in `~/.cursor/skills` and leave Cursor-managed built-ins alone. Do not recreate matching shared copies in Cursor's skill roots during later syncs.
 
 ## Master Repository (`ai-skills`)
 
@@ -30,13 +30,15 @@ When updating installed skills in local project repositories (such as `.agents/s
    - Installed repository roots: for broad sync, discover repositories beneath the user's known checkout directories (infer from the current checkout or saved projects) and registered worktrees from `git worktree list --porcelain`. Search to a bounded depth, skip caches/build outputs, and report the searched roots and any limits rather than scanning the whole machine. Recognize both `.git` directories and worktree `.git` files.
    - Inspect each discovered repository for `.agents/skills`, `.cursor/skills`, `.claude/skills`, `.github/skills`, or `skills/`. Do not treat `.codex/skills` as an installed root. Deduplicate resolved roots and exclude the canonical source tree itself. Include worktrees with installed copies; do not create skill folders in repositories that have none.
    - Profile roots:
-     - Shared agent skills: `~/.agents/skills`.
+     - Codex user skills: `~/.agents/skills` (current Codex documentation).
+     - Cursor-only user skills: `~/.cursor/skills` (current Cursor documentation).
      - Claude: `~/.claude` and skill/instruction subfolders.
      - Cursor: `~/.cursor` and Cursor user profile settings/rules folders.
      - VS Code: user profile folders such as `%APPDATA%\Code\User` on Windows.
 2. Run an inventory and inspect existing formats, names, and duplicate concepts.
 3. When VS Code should see shared agent skills, run `doctor-vscode` before troubleshooting content. VS Code does not discover `~/.agents/skills` unless `chat.agentSkillsLocations` includes it.
 4. Decide the direction of sync with the user request as the source of truth. When syncing to local repos or profiles, pull latest versions from the master `ai-skills` repository.
+   - For this two-tool profile setup, update shared skills in `~/.agents/skills` only. Preserve skills unique to Cursor in `~/.cursor/skills` and Cursor-managed built-ins in `~/.cursor/skills-cursor`. Cursor Cloud Agents do not receive personal skills from `~/.agents/skills`; use project skills or an explicitly requested Cursor Cloud sync when cloud availability matters.
    - Master skills with `external-source.json` are installation pointers. Resolve the declared repository's latest default-branch commit (or an explicitly pinned `revision`) and install the full skill from that commit. Do not skip the skill, install the pointer itself, or treat an existing installation as current without checking upstream during an authorized sync. Ordinary skill execution does not authorize an update.
 5. Transform content only when needed:
    - Shared agent skills require a folder with `SKILL.md` frontmatter.
@@ -49,7 +51,7 @@ When updating installed skills in local project repositories (such as `.agents/s
    - Keep backups outside consumer repositories when their hygiene rules prohibit generated artifacts. Do not stage, commit, push, switch consumer branches, or update their application code as part of sync unless separately requested.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
    - Verify both profile and repository copies against the source. For external skills, compare against the resolved upstream commit, not the pointer folder, and record repository/revision provenance. Report counts for updated profiles, repositories/worktrees, resolved external skills, and any inaccessible or excluded roots. A failed external resolution is an incomplete sync, not a successful skip.
-   - After authorized enablement changes, re-inventory the affected `.agents` roots. Do not run Codex `.codex` discovery as part of this skill.
+   - After authorized enablement changes, re-inventory the affected skill roots. Use a fresh-process discovery check when a runtime change needs verification; see `references/codex-discovery.md` for Codex.
 9. When the user asks to update installed skills in a local repository or profile from master:
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
    - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-repo <target-repo-path>` or `--target-root <target-skills-path>`.
@@ -116,10 +118,10 @@ python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\
 # Apply updates to all installed skills in target project repo
 python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\to\my-project' --apply --force
 
-# Dry-run updating installed skills in a user profile root
+# Dry-run updating shared profile skills used by Codex and local Cursor
 python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills"
 
-# Apply updates to profile root
+# Apply updates to the shared profile root, with backups of changed copies
 python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force
 ```
 
