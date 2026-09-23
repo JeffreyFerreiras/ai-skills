@@ -11,7 +11,7 @@ Use these locations as search hints, not as a license to overwrite. Confirm actu
 ## Codex
 
 - `$CODEX_HOME/AGENTS.md` for global instructions, defaulting to `~/.codex/AGENTS.md`. A non-empty `AGENTS.override.md` in the same directory takes precedence. Preserve an explicitly configured alternative rather than assuming `instructions.md` loads automatically.
-- `~/.codex/skills/<skill-name>/SKILL.md` for reusable Codex skills.
+- In this setup, shared reusable skills live under `~/.agents/skills/<skill-name>/SKILL.md`. Skill discovery is separate from the global `AGENTS.md` path.
 - Repository-local `.codex/` files may exist when a project keeps Codex-specific guidance beside source.
 
 ## VS Code and Copilot
@@ -23,7 +23,7 @@ Use these locations as search hints, not as a license to overwrite. Confirm actu
 ## Cursor
 
 - Profile root is commonly `~/.cursor`.
-- Use `~/.cursor/AGENTS.md` for the copied portable instruction file when no more specific existing profile instruction file is present.
+- Use the verified active Cursor User Rule or profile rule under `~/.cursor/rules/` for global guidance. On this machine, `~/.cursor/rules/ai-skills.mdc` holds a full copy with `alwaysApply: true` frontmatter; verify that Cursor loads it before treating it as active. Do not assume `~/.cursor/AGENTS.md` is globally loaded merely because it exists.
 - User settings are commonly under `%APPDATA%\Cursor\User` on Windows.
 - Repository rules commonly live under `.cursor/rules/` with `.mdc` or markdown files.
 
@@ -36,8 +36,8 @@ Use these locations as search hints, not as a license to overwrite. Confirm actu
 
 ## Profile Synchronization
 
-- When synchronizing profile-level agent instructions, choose the priority `AGENTS.md` source, then copy or transform it to profile-level Claude, Cursor, and Codex targets.
-- Default Codex and Claude targets are `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`; verify the active Cursor instruction location. Honor `CODEX_HOME` and limit writes to requested tools.
+- When synchronizing profile-level agent instructions, choose the priority `AGENTS.md` source, then put its full shared content in each requested tool's active profile target. Preserve tool-specific additions and any required wrapper or frontmatter; do not substitute symlinks or pointer-only files.
+- Default Codex and Claude targets are `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`; verify the active Cursor User Rule or profile rule. Honor `CODEX_HOME` and limit writes to requested tools.
 - Back up existing target files before overwriting them.
 
 ## Repository
