@@ -94,7 +94,7 @@ A minimal Validation Executor allowance assignment looks like this inside the to
     "parent_role":"senior_engineer",
     "helper_role":"validation_executor",
     "contract_revision":1,
-    "model":"gpt-5.6-luna",
+    "model":"gpt-6-luna",
     "reasoning_effort":"max",
     "parent_capabilities":[
       {"effect":"filesystem_read","action":"read","target_ref":"repo:src/"},
@@ -208,7 +208,7 @@ all allowance-owned resource keys, and requested time/output/read budgets. Examp
   "parent_role":"senior_engineer",
   "helper_role":"validation_executor",
   "contract_revision":1,
-  "model":"gpt-5.6-luna",
+  "model":"gpt-6-luna",
   "reasoning_effort":"max",
   "scope_refs":["repo:src/","repo:tests/","repo:docs/checkpoints/"],
   "commands":[{"command_id":"focused-tests","argv":["python","-m","unittest","tests.test_feature"],"timeout_seconds":600}],

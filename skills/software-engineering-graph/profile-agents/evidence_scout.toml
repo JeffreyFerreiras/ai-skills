@@ -1,6 +1,6 @@
 name = "evidence_scout"
 description = "Bounded retrieval helper returning source evidence to its decision-owning parent."
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "low"
 sandbox_mode = "read-only"
 developer_instructions = """

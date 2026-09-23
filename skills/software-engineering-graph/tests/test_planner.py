@@ -66,16 +66,16 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerTests(GraphCase):
-    def test_revision_three_recommendations_and_available_alternatives(self):
+    def test_current_recommendations_and_available_alternatives(self):
         expected = {
-            "codex-astra": ("gpt-6-astra", "gpt-5.6-luna"),
-            "codex": ("gpt-5.6-sol", "gpt-5.6-luna"),
+            "codex-astra": ("gpt-6-astra", "gpt-6-luna"),
+            "codex": ("gpt-6-sol", "gpt-6-luna"),
             "claude": ("claude-opus-5", "claude-sonnet-5"),
             "cursor": ("grok-4.7", "gemini-3.8-flash"),
         }
         for host, (core, scout) in expected.items():
             plan = build_execution_plan("RUN-1", self.task_v2(), host=host)
-            self.assertEqual(plan["catalog_revision"], 3)
+            self.assertEqual(plan["catalog_revision"], CURRENT_CATALOG_REVISIONS[host])
             for node in ("tech_lead", "senior_engineer", "test_engineer"):
                 row = assignment_for(plan, node)
                 self.assertEqual((row["model"], row["reasoning_effort"]), (core, "medium"))
@@ -83,6 +83,19 @@ class PlannerTests(GraphCase):
             self.assertIn(core, plan["model_options"])
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
         self.assertIn("gpt-5.6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+        self.assertIn("gpt-6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+
+    def test_codex_revision_three_reconstructs_original_recommendations_and_options(self):
+        for host, core in (("codex", "gpt-5.6-sol"), ("codex-astra", "gpt-6-astra")):
+            plan = reconstruct_execution_plan(
+                "RUN-1", self.task_v2(), {"host": host, "catalog_revision": 3},
+            )
+            self.assertEqual(assignment_for(plan, "tech_lead")["model"], core)
+            self.assertEqual(assignment_for(plan, "impact_mapper")["model"], "gpt-5.6-luna")
+            self.assertEqual(plan["helper_recommendation"]["model"], "gpt-5.6-luna")
+            self.assertNotIn("gpt-6-sol", plan["model_options"])
+            self.assertNotIn("gpt-6-luna", plan["model_options"])
+            self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
 
     def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
         task = self.task_v2(route="fast_path")
@@ -466,13 +479,13 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 3)
+        self.assertEqual(plan["catalog_revision"], 4)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
-        self.assertEqual(by_key["impact_mapper"]["model"], "gpt-5.6-luna")
+        self.assertEqual(by_key["impact_mapper"]["model"], "gpt-6-luna")
         self.assertEqual(plan["supervisor_recommendation"]["model"], "gpt-6-astra")
-        self.assertEqual(plan["publication_assignment"]["model"], "gpt-5.6-luna")
+        self.assertEqual(plan["publication_assignment"]["model"], "gpt-6-luna")
 
     def test_every_host_can_expand_the_class_matrix(self):
         for host in known_hosts():
@@ -740,7 +753,7 @@ class PlannerTests(GraphCase):
         for node in design_research_nodes(policy, 0):
             self.assertEqual(
                 (node.role, by_key[node.key]["model"], by_key[node.key]["reasoning_effort"]),
-                ("impact_mapper", "gpt-5.6-luna", "low"),
+                ("impact_mapper", "gpt-6-luna", "low"),
             )
 
     def test_model_assignment_invariant_fails_closed(self):

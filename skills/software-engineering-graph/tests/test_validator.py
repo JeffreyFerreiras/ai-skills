@@ -57,7 +57,7 @@ class ValidatorTests(GraphCase):
             writer = self.claim()
             self.assertEqual(writer["node_key"], "senior_engineer")
             self.assertEqual(writer["reasoning_effort"], "medium")
-            self.assertIn(writer["model"], {"gpt-5.6-sol", "grok-4.7"})
+            self.assertIn(writer["model"], {"gpt-6-sol", "grok-4.7"})
             plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
             self.assertEqual(plan["plan_digest"], initialized["execution_plan_digest"])
             self.assertEqual(plan["status"], "approved")
@@ -88,7 +88,7 @@ class ValidatorTests(GraphCase):
             assignment = next(row for row in changed["assignments"] if row["node_key"] == "tech_lead")
             assignment[field] = value
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))
-        for marker in (None, True, 2.0, "2", 4):
+        for marker in (None, True, 2.0, "2", 5):
             changed = copy.deepcopy(original)
             changed["catalog_revision"] = marker
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))

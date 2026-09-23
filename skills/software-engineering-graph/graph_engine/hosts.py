@@ -3,8 +3,8 @@
 The size matrix assigns each role an intelligence class and requested effort.
 This table maps that pair onto a concrete vendor model for the selected host.
 
-New runs default to the Astra catalog. The explicit Codex catalog preserves
-the Luna/Sol mapping for existing plans and hosts without Astra access.
+New runs default to the Astra catalog. The explicit Codex catalog recommends
+Sol for hosts without Astra access. Historical catalog defaults remain frozen.
 """
 
 from typing import Dict, Optional, Tuple
@@ -13,10 +13,16 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 3, "codex-astra": 3, "cursor": 3}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3), "codex-astra": (2, 3), "cursor": (2, 3)}
+CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 4, "codex-astra": 4, "cursor": 3}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4), "codex-astra": (2, 3, 4), "cursor": (2, 3)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
-MODEL_DISPATCH_WEIGHTS = {("gpt-6-astra", "medium"): 3}
+MODEL_DISPATCH_WEIGHTS = {
+    ("gpt-6-astra", "medium"): 3,
+    ("gpt-6-luna", "max"): 3,
+    ("gpt-6-sol", "high"): 3,
+    ("gpt-6-sol", "xhigh"): 4,
+    ("gpt-6-sol", "max"): 5,
+}
 
 # (intelligence_class, requested_effort) -> (model, reasoning_effort, dispatch_model)
 HOST_MATRIX: Dict[str, Dict[Tuple[str, str], Tuple[str, str, str]]] = {
@@ -72,7 +78,7 @@ PUBLICATION_CLASS = {
 
 # Defaults and selectable pairs are separate. HOST_MATRIX stays frozen for old approvals.
 # These pairs are catalog knowledge, not evidence of account/runtime availability.
-MODEL_OPTIONS = {
+MODEL_OPTIONS_V3 = {
     "codex": {
         "gpt-5.6-luna": ("low", "medium", "high", "xhigh", "max"),
         "gpt-5.6-sol": ("low", "medium", "high", "xhigh", "max"),
@@ -94,31 +100,40 @@ MODEL_OPTIONS = {
         "gpt-5.6-sol": ("low", "medium", "high", "xhigh", "max"),
     },
 }
+MODEL_OPTIONS_V3["codex-astra"] = MODEL_OPTIONS_V3["codex"]
+MODEL_OPTIONS = dict(MODEL_OPTIONS_V3)
+MODEL_OPTIONS["codex"] = {
+    **MODEL_OPTIONS_V3["codex"],
+    "gpt-6-luna": ("low", "medium", "high", "xhigh", "max"),
+    "gpt-6-sol": ("low", "medium", "high", "xhigh", "max"),
+}
 MODEL_OPTIONS["codex-astra"] = MODEL_OPTIONS["codex"]
 
 
-def selected_dispatch_model(host: str, model: str, effort: str) -> str:
+def selected_dispatch_model(host: str, model: str, effort: str, revision: Optional[int] = None) -> str:
     """Resolve a human selection without treating recommendations as requirements."""
     catalog_for(host)
-    if effort in MODEL_OPTIONS[host].get(model, ()):
+    if effort in model_options(host, revision).get(model, ()):
         return model
     return dispatch_model(host, model, effort)
 
 
-def recommended_assignment(host: str, workload: str) -> Tuple[str, str]:
-    """Revision 3 suggestions; actual assignments remain subject to human approval."""
+def recommended_assignment(host: str, workload: str, revision: Optional[int] = None) -> Tuple[str, str]:
+    """Catalog suggestions; actual assignments remain subject to human approval."""
     catalog_for(host)
     if workload == "helper":
         return {"claude": ("claude-sonnet-5", "low"),
-                "cursor": ("gemini-3.8-flash", "low")}.get(host, ("gpt-5.6-luna", "low"))
+                "cursor": ("gemini-3.8-flash", "low")}.get(
+                    host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna", "low"))
     model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
-             "codex": "gpt-5.6-sol", "codex-astra": "gpt-6-astra"}[host]
+             "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
+             "codex-astra": "gpt-6-astra"}[host]
     return model, "high" if workload == "review" else "medium"
 
 
-def model_options(host: str) -> Dict[str, Tuple[str, ...]]:
+def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[str, ...]]:
     catalog_for(host)
-    return dict(MODEL_OPTIONS[host])
+    return dict((MODEL_OPTIONS_V3 if revision == 3 else MODEL_OPTIONS)[host])
 
 
 def known_hosts() -> Tuple[str, ...]:
@@ -193,7 +208,7 @@ def dispatch_weight_for(model: str, effort: str) -> Optional[int]:
 
 
 def supported_dispatch_weights() -> Dict[Tuple[str, str], int]:
-    weights: Dict[Tuple[str, str], int] = {}
+    weights: Dict[Tuple[str, str], int] = dict(MODEL_DISPATCH_WEIGHTS)
     for catalog in HOST_MATRIX.values():
         for (intelligence_class, _requested), row in catalog.items():
             if intelligence_class == "economy":

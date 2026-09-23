@@ -69,8 +69,9 @@ side effects at the outer boundary.
 
 ### Host model catalogs
 
-Revision 3 separates suggested assignments from supported selections. `hosts.py` keeps the original
-`HOST_MATRIX` unchanged for historical reconstruction, maintains supported model/effort options,
+Revision 3 separated suggested assignments from supported selections. Codex revision 4 updates
+its Sol/Luna recommendations while retaining revision 3 reconstruction. `hosts.py` keeps the
+original `HOST_MATRIX` unchanged for historical reconstruction, maintains supported model/effort options,
 and supplies helper/core/review recommendations. `execution.py` selects the correct revision and
 applies task-bound `model_overrides` before deriving dispatch IDs and the canonical plan digest.
 Its intelligence-class field describes the assigned workload, not an enforced vendor or price tier.
@@ -86,15 +87,17 @@ presents the execution sequence, roles, options, and capability gaps. The human 
 before initialization; afterward even a pending brief is immutable. New choices require a new run
 and approval. The command does not bypass missing policy or create a model API executor.
 
-New recommendations: Codex uses Luna low helpers and Astra medium core/high review, with Sol and
-Terra alternatives; explicit Codex uses Sol as its preferred core/review model. Claude uses Sonnet 5
-low helpers and Opus 5 medium core/high review. Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
+New recommendations: Codex uses GPT-6 Luna low helpers and Astra medium core/high review, with
+GPT-6 Sol and GPT-5.6 Terra alternatives; explicit Codex uses GPT-6 Sol as its preferred
+core/review model. Claude uses Sonnet 5 low helpers and Opus 5 medium core/high review.
+Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
 medium core/high review. See [model catalogs](../references/model-catalogs.md) for all supported
 options, exact sources, native role configuration, and runtime verification limits.
 
 Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
-defaults, bytes, digests and approvals. The engine accepts each known revision explicitly; unknown
-or malformed revisions fail closed. New revision 3 plans require this engine or newer. Catalog
+defaults, bytes, digests and approvals. Codex revision 3 also retains its prior recommendations and
+options. The engine accepts each known revision explicitly; unknown or malformed revisions fail
+closed. New Codex revision 4 plans require this engine or newer. Catalog
 changes must not silently alter reconstruction of prior plans.
 
 Conditional reviewer fan-out policy and budget weights are unchanged. Those assignments remain

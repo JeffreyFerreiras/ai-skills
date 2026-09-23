@@ -60,12 +60,13 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New catalog revision 3 suggests
-Luna `low` for Codex helpers, Astra `medium` for core work and `high` for review; the explicit
-`codex` catalog suggests Sol instead of Astra. Sol and Terra are also selectable within the
-Astra catalog. Claude suggests Sonnet 5 `low` for helpers, Opus 5 `medium` for core work and
-`high` for review. Cursor suggests Gemini 3.8 Flash `low` for helpers, Grok 4.7 `medium` for
-core work and `high` for review. These are human-selected starting preferences, not benchmark claims.
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 4
+suggests GPT-6 Luna `low` for helpers and Astra `medium` for core work and `high` for review;
+the explicit `codex` catalog suggests GPT-6 Sol instead of Astra. GPT-6 Sol and GPT-5.6 Terra
+are also selectable within the Astra catalog. Claude suggests Sonnet 5 `low` for helpers,
+Opus 5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
+for helpers, Grok 4.7 `medium` for core work and `high` for review. These are human-selected
+starting preferences, not benchmark claims.
 
 Before initialization, present the execution sequence, relevant and conditional roles, model/effort
 for each role, the bounded helper allowance, available alternatives, and known availability gaps.
@@ -80,7 +81,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New revision 3 plans cannot be consumed by older engines. Role TOML pins are Codex installation
+New Codex revision 4 plans cannot be consumed by older engines. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
@@ -256,7 +257,7 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Decision-role Codex profiles match Astra revision 3 recommendations; helper profiles use Luna `low`.
+Decision-role Codex profiles match Astra revision 4 recommendations; helper profiles use GPT-6 Luna `low`.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
 as unavailable and propose a supported alternative for approval before dispatching that role.
 Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;

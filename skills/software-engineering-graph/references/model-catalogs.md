@@ -4,13 +4,14 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. All new plans use catalog revision 3. Verify the selected pair against
-the host's current exposed capabilities; catalog entries do not establish account access.
+`claude`, or `cursor`. New Codex plans use catalog revision 4; Claude and Cursor remain on
+revision 3. Verify the selected pair against the host's current exposed capabilities; catalog
+entries do not establish account access.
 
 | Catalog | Helpers and fixed research | Core roles | Architecture and review |
 | --- | --- | --- | --- |
-| codex-astra | gpt-5.6-luna / low | gpt-6-astra / medium | gpt-6-astra / high |
-| codex | gpt-5.6-luna / low | gpt-5.6-sol / medium | gpt-5.6-sol / high |
+| codex-astra | gpt-6-luna / low | gpt-6-astra / medium | gpt-6-astra / high |
+| codex | gpt-6-luna / low | gpt-6-sol / medium | gpt-6-sol / high |
 | claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
 | cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
 
@@ -27,19 +28,20 @@ v2/v3 to record selections (node keys, not role-profile names):
 
 ```json
 "model_overrides": {
-  "tech_lead": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"},
-  "senior_engineer": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
-  "supervisor_recommendation": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
-  "publication_assignment": {"model": "gpt-5.6-luna", "reasoning_effort": "low"}
+  "tech_lead": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
+  "senior_engineer": {"model": "gpt-6-sol", "reasoning_effort": "high"},
+  "supervisor_recommendation": {"model": "gpt-6-sol", "reasoning_effort": "high"},
+  "publication_assignment": {"model": "gpt-6-luna", "reasoning_effort": "low"}
 }
 ```
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
-the recommendation matrix, so Sol and Terra are selectable without changing the Astra catalog.
-Cursor also offers Gemini, Composer, Sonnet, Opus, Fable, and Sol alternatives. Claude offers
-Sonnet, Opus, and Fable. Do not map an effort the selected model does not expose: Grok 4.7 stops
+the recommendation matrix, so GPT-6 Sol and GPT-5.6 Terra are selectable without changing
+the Astra recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, Fable, and
+GPT-5.6 Sol alternatives. Claude offers Sonnet, Opus, and Fable. Do not map an effort the
+selected model does not expose: Grok 4.7 stops
 at xhigh; Gemini 3.8 Flash stops at high. A newly available pair requires a reviewed catalog update,
 not an arbitrary unchecked string. Such updates must preserve prior revision reconstruction.
 
@@ -76,16 +78,18 @@ selection. Do not claim that catalog support installs native roles or proves liv
 ## Historical compatibility
 
 The original HOST_MATRIX is frozen. Missing revisions preserve the historical class/size matrix;
-explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults,
-plan bytes, digests, and approvals. Only new revision 3 plans use these recommendations and
-task-bound overrides. Older engines reject revision 3 rather than reinterpret it.
+explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults.
+Revision 3 plans retain their original recommendations, model options, bytes, digests, and approvals.
+New Codex revision 4 plans use GPT-6 Sol/Luna recommendations and task-bound overrides. Older
+engines reject revision 4 rather than reinterpret it.
 Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
 remain separately selected in repository policy, not through graph-node overrides.
 
 ## Source and evaluation scope
 
-Selection guidance checked September 21, 2026:
+Selection guidance checked September 22, 2026:
 [OpenAI models](https://developers.openai.com/api/docs/models),
+[OpenAI pricing](https://developers.openai.com/api/docs/pricing),
 [Claude models](https://platform.claude.com/docs/en/models/overview),
 [Claude effort](https://platform.claude.com/docs/en/build-with-claude/effort),
 [Cursor Grok 4.7](https://cursor.com/docs/models/grok-4-7),
@@ -93,7 +97,9 @@ Selection guidance checked September 21, 2026:
 [Cursor subagent selection](https://prod.cursor.com/help/models-and-usage/available-models).
 Native dispatch interfaces may expose model IDs and effort separately; do not invent suffixed aliases.
 
-These are configured recommendations. Deterministic tests establish selection, binding, and
-compatibility, not model quality or live Claude/Cursor operation. Use the authorized disposable
+GPT-6 Sol and Luna have lower listed per-token prices than GPT-5.6 Sol and Luna, respectively;
+GPT-6 Astra has a higher per-token price than GPT-5.6 Sol. These are configured recommendations.
+Deterministic tests establish selection, binding, and compatibility, not model quality or live
+Claude/Cursor operation. Use the authorized disposable
 [behavioral evaluations](behavioral-evaluations.md) before claiming cross-harness execution,
 savings, or reliability. Report unavailable telemetry rather than estimating it.

@@ -105,18 +105,19 @@ authorize modifying existing worktrees. It validates publication evidence but ne
 creates a pull request, or removes a worktree. The Senior Engineer remains the sole source and test
 writer and never publishes.
 
-The Supervisor presents an adjustable execution plan before starting branches. Catalog revision 3
-recommends these assignments; they are defaults, not required models:
+The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
+revision 4 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
+not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
-| `codex-astra` | Luna `low` | Astra `medium` | Astra `high` |
-| `codex` | Luna `low` | Sol `medium` | Sol `high` |
+| `codex-astra` | GPT-6 Luna `low` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
+| `codex` | GPT-6 Luna `low` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
 | `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
-The Astra catalog also permits Sol and Terra selections. Other supported alternatives appear in
-the preview's `model_options`. Verify actual host/account support before approval and dispatch.
+The Astra catalog also permits GPT-6 Sol and GPT-5.6 Terra selections. Other supported
+alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.
 Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
 assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.
 
