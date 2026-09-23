@@ -20,7 +20,7 @@ The doctor validates frontmatter, folder naming, UI metadata, referenced resourc
 ```text
 AGENTS.md
 .cursor/
-  skills -> ../skills   # Cursor / Cursor Cloud discovery alias
+  skills/               # Real directory copy for Cursor Cloud discovery
 skills/
   skill-name/
     SKILL.md
@@ -39,9 +39,9 @@ Local Codex and Cursor use the installed shared skills in `~/.agents/skills`. Ke
 
 Cursor can sync personal skills from `~/.cursor/skills` to Cloud Agents when **Sync Skills for Cloud Agents** is enabled. Local `~/.agents/skills` are not included in that sync. Cloud Agents also discover project skills from `.cursor/skills/` (and other supported project skill roots).
 
-This repository keeps canonical skill content under `skills/` and exposes every skill to Cursor Cloud through `.cursor/skills`, a relative symlink to `../skills`. Keep that alias in place; `skill-doctor` fails if it is missing or drifts from the canonical root.
+This repository keeps canonical skill content under `skills/` and commits a real copy under `.cursor/skills/` for Cursor Cloud. After editing a skill, run `python scripts/sync-discovery.py` to refresh the copy. Run `python scripts/sync-discovery.py --check` or `skill-doctor` to detect drift.
 
-On Windows clones where Git checks out the symlink as a plain file, run `./scripts/setup-discovery.ps1`. It creates a local `.agents/skills` junction, another supported discovery root, without changing the tracked alias, global Git settings, or requiring symlink privileges. Then run the doctor. Changing `core.symlinks` alone does not repair an existing placeholder. Linux Cloud Agent VMs resolve the tracked relative symlink by default. A copied discovery directory is also accepted only when every skill's content matches the canonical tree.
+The discovery copy uses ordinary files and directories on Windows, macOS, and Linux. The sync script excludes generated graph policies and ledgers, which remain local to each installed copy.
 
 ## Skill Catalog
 
