@@ -9,12 +9,13 @@ Use this skill only when the user explicitly asks to commit and push all pending
 request authorizes including tracked and untracked changes regardless of who made them; do not
 discard or selectively omit another person's work because of its origin.
 
-1. Check the repository, current branch, upstream, and full status. Review the pending file list for
-   secrets or files that repository instructions forbid tracking. Resolve a concrete issue before
-   staging; do not expose sensitive content in output.
-2. Stage all eligible changes with `git add -A`. Review the staged file list and run
-   `git diff --cached --check`. Use relevant project checks when the pending changes warrant them.
-3. Write a commit message that accurately summarizes the combined changes, then commit. Push the
-   current branch to its configured upstream without force. If the push is rejected, inspect the
-   reason and resolve it without overwriting remote work.
-4. Report the commit hash, branch, push result, and any changes that could not be included.
+Keep this a stage, commit, and push operation. Do not run tests, builds, linting, code reviews,
+secret scans, hygiene checks, or other validation unless the user explicitly requests them.
+Do not expand the task based on the types of files changed.
+
+1. Run `git add -A` to stage all changes.
+2. Read only enough staged diff information to write an accurate commit message, then run
+   `git commit -m "<message>"`. If there is nothing to commit, continue to the push.
+3. Run `git push` for the current branch using its configured upstream, without force.
+   If a command fails, report the blocker; do not start a repair or validation workflow.
+4. Briefly report the commit hash, branch, and push result.
