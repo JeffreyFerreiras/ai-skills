@@ -290,7 +290,7 @@ def _build_execution_plan(
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     overrides = validate_model_overrides(task.get("model_overrides", {}))
-    if overrides and catalog_revision not in {3, 4}:
+    if overrides and catalog_revision not in {3, 4, 5}:
         raise ValueError("MODEL_OVERRIDES_REQUIRE_CATALOG_3")
     assignments = []
     for node_key in sorted(NODE_ROLES):
@@ -302,7 +302,7 @@ def _build_execution_plan(
             # Keep the baseline frozen for historical approvals; new small writers
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
-        if catalog_revision in {3, 4} and role != "supervisor":
+        if catalog_revision in {3, 4, 5} and role != "supervisor":
             workload = "helper" if role == "impact_mapper" else "review" if node_key in {
                 "architect", "code_reviewer", "security_reviewer", "release_operations_reviewer",
             } else "implementation"
@@ -329,7 +329,7 @@ def _build_execution_plan(
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
     publication_model, publication_effort, publication_dispatch = publication_assignment(host)
-    if catalog_revision in {3, 4}:
+    if catalog_revision in {3, 4, 5}:
         supervisor_model, supervisor_effort = _selected_pair(host, catalog_revision, overrides, "supervisor_recommendation", "review")
         supervisor_dispatch = selected_dispatch_model(host, supervisor_model, supervisor_effort, catalog_revision)
         publication_model, publication_effort = _selected_pair(host, catalog_revision, overrides, "publication_assignment", "helper")
@@ -370,7 +370,7 @@ def _build_execution_plan(
         plan["helper_allowance"] = dict(task["helper_allowance"])
     if catalog_revision is not None:
         plan["catalog_revision"] = catalog_revision
-    if catalog_revision in {3, 4}:
+    if catalog_revision in {3, 4, 5}:
         plan["model_overrides"] = overrides
         plan["model_options"] = {model: list(efforts) for model, efforts in sorted(model_options(host, catalog_revision).items())}
         helper_model, helper_effort = recommended_assignment(host, "helper", catalog_revision)
@@ -383,7 +383,7 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     host = plan.get("host", LEGACY_HOST)
     for assignment in plan["assignments"]:
         if assignment["node_key"] == node_key:
-            if plan.get("catalog_revision") in {3, 4}:
+            if plan.get("catalog_revision") in {3, 4, 5}:
                 if NODE_ROLES[node_key] == "supervisor":
                     if (assignment["model"], assignment["reasoning_effort"]) != ("primary-thread", "inherited"):
                         raise ValueError("SUPERVISOR_EFFORT_INVALID")

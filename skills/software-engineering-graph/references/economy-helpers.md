@@ -115,7 +115,8 @@ A minimal Validation Executor allowance assignment looks like this inside the to
 ```
 
 The selected host catalog bounds supported assignment values, separately from recommendations.
-Revision 3 suggests Luna/low for Codex, Sonnet 5/low for Claude, and Gemini 3.8 Flash/low for Cursor.
+Codex revision 5 suggests GPT-6 Luna/max; revisions 3 and 4 retain their earlier Luna/low
+suggestions. Claude suggests Sonnet 5/low and Cursor suggests Gemini 3.8 Flash/low.
 Use the preview's helper recommendation or a human-selected supported alternative, including Sol
 on Codex. Bind that exact pair in the allowance before approval; graph-node overrides do not change
 the allowance. Cooperative host observation must verify the exact pair. Never silently substitute,

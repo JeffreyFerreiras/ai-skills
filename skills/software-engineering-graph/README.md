@@ -8,6 +8,10 @@ repository. Policy lives under that skill copy's `policies/` directory, and ledg
 its `state/` directory. Absolute `--state-root`, `SOFTWARE_ENGINEERING_GRAPH_STATE_HOME`, and
 absolute `XDG_STATE_HOME/software-engineering-graph` remain explicit state overrides. Pass an old root
 explicitly to open historical state; the engine does not discover, migrate, or rewrite it.
+The Supervisor also keeps `lessons-learned.md` in the selected state root. It reads that journal
+before scoping each run and records verified, reusable lessons during the run or at closure. A new
+journal starts from [the tracked template](assets/lessons-learned.md); run-specific entries stay out
+of the source repository.
 If overriding the default state root for a multi-command run, set one absolute root before the first
 stateful command and keep it for the whole shell session. The stateless usage checkpoint does not
 require it:
@@ -108,13 +112,13 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 4 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
+revision 5 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
-| `codex-astra` | GPT-6 Luna `low` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
-| `codex` | GPT-6 Luna `low` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
+| `codex-astra` | GPT-6 Luna `max` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
+| `codex` | GPT-6 Luna `max` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
 | `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 

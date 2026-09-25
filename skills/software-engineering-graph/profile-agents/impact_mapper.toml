@@ -1,7 +1,7 @@
 name = "impact_mapper"
 description = "Read-only classifier for deterministic software engineering graph routing."
 model = "gpt-6-luna"
-model_reasoning_effort = "low"
+model_reasoning_effort = "max"
 sandbox_mode = "read-only"
 developer_instructions = """
 Select exactly one protocol from the immutable envelope. Never combine their output fields.

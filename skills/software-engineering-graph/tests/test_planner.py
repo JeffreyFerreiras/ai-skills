@@ -79,7 +79,10 @@ class PlannerTests(GraphCase):
             for node in ("tech_lead", "senior_engineer", "test_engineer"):
                 row = assignment_for(plan, node)
                 self.assertEqual((row["model"], row["reasoning_effort"]), (core, "medium"))
-            self.assertEqual(plan["helper_recommendation"], {"model": scout, "reasoning_effort": "low"})
+            helper_effort = "max" if host in {"codex", "codex-astra"} else "low"
+            self.assertEqual(plan["helper_recommendation"], {"model": scout, "reasoning_effort": helper_effort})
+            self.assertEqual(assignment_for(plan, "impact_mapper")["reasoning_effort"], helper_effort)
+            self.assertEqual(plan["publication_assignment"]["reasoning_effort"], helper_effort)
             self.assertIn(core, plan["model_options"])
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
         self.assertIn("gpt-5.6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
@@ -96,6 +99,19 @@ class PlannerTests(GraphCase):
             self.assertNotIn("gpt-6-sol", plan["model_options"])
             self.assertNotIn("gpt-6-luna", plan["model_options"])
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
+
+    def test_codex_revision_four_retains_approved_plan_digests(self):
+        expected_digests = {
+            "codex-astra": "4c7d29c083d2019ebda9f0c404f8053812b3198efe86169b866d5ecc53bffa89",
+            "codex": "550860b5764d72e9d59d53bcec408e5db8ab6391859d3dc55c7fb71a2d1d32db",
+        }
+        for host, digest in expected_digests.items():
+            plan = reconstruct_execution_plan(
+                "RUN-1", self.task_v2(), {"host": host, "catalog_revision": 4},
+            )
+            self.assertEqual(plan["plan_digest"], digest)
+            self.assertEqual(plan["helper_recommendation"]["reasoning_effort"], "low")
+            self.assertEqual(assignment_for(plan, "impact_mapper")["reasoning_effort"], "low")
 
     def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
         task = self.task_v2(route="fast_path")
@@ -479,13 +495,15 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 4)
+        self.assertEqual(plan["catalog_revision"], 5)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
         self.assertEqual(by_key["impact_mapper"]["model"], "gpt-6-luna")
+        self.assertEqual(by_key["impact_mapper"]["reasoning_effort"], "max")
         self.assertEqual(plan["supervisor_recommendation"]["model"], "gpt-6-astra")
         self.assertEqual(plan["publication_assignment"]["model"], "gpt-6-luna")
+        self.assertEqual(plan["publication_assignment"]["reasoning_effort"], "max")
 
     def test_every_host_can_expand_the_class_matrix(self):
         for host in known_hosts():
@@ -753,7 +771,7 @@ class PlannerTests(GraphCase):
         for node in design_research_nodes(policy, 0):
             self.assertEqual(
                 (node.role, by_key[node.key]["model"], by_key[node.key]["reasoning_effort"]),
-                ("impact_mapper", "gpt-6-luna", "low"),
+                ("impact_mapper", "gpt-6-luna", "max"),
             )
 
     def test_model_assignment_invariant_fails_closed(self):

@@ -39,6 +39,16 @@ thread history. If metadata is unavailable, report token usage as unavailable ra
 it or inferring consumption from the plan. Read the token-accounting procedure in
 [Ledger operations](references/ledger-operations.md) before collecting metadata.
 
+After the usage checkpoint and before scoping each new run, read `lessons-learned.md` in the
+selected ledger state root. If it does not exist, copy the tracked
+[starter document](assets/lessons-learned.md) there. Apply relevant lessons as context, then verify
+them against the current request, repository, and approved plan; the journal never overrides those
+authorities or creates a new gate. During the run or at closure, record concrete, verified lessons
+that would change a future Supervisor decision. Update an existing lesson when new evidence corrects
+it, and record the run and evidence reference without secrets or raw session content. Keep this
+write in the selected state root, never in the consumer repository or tracked skill source. If the
+journal cannot be read or updated, report the gap and continue the authorized workflow.
+
 For new repository implementation work, the Supervisor first performs bounded read-only inspection
 of repository instructions, status, worktree registrations, and the intended base. Within existing
 implementation authority, the Supervisor owns setup: create one new isolated implementation worktree
@@ -59,8 +69,8 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 4
-suggests GPT-6 Luna `low` for helpers and Astra `medium` for core work and `high` for review;
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 5
+suggests GPT-6 Luna `max` for helpers and Astra `medium` for core work and `high` for review;
 the explicit `codex` catalog suggests GPT-6 Sol instead of Astra. GPT-6 Sol and GPT-5.6 Terra
 are also selectable within the Astra catalog. Claude suggests Sonnet 5 `low` for helpers,
 Opus 5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
@@ -80,7 +90,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 4 plans cannot be consumed by older engines. Role TOML pins are Codex installation
+New Codex revision 5 plans cannot be consumed by older engines. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
@@ -256,7 +266,7 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Decision-role Codex profiles match Astra revision 4 recommendations; helper profiles use GPT-6 Luna `low`.
+Decision-role Codex profiles match Astra revision 5 recommendations; helper profiles use GPT-6 Luna `max`.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
 as unavailable and propose a supported alternative for approval before dispatching that role.
 Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;

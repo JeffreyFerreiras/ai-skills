@@ -88,7 +88,7 @@ class ValidatorTests(GraphCase):
             assignment = next(row for row in changed["assignments"] if row["node_key"] == "tech_lead")
             assignment[field] = value
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))
-        for marker in (None, True, 2.0, "2", 5):
+        for marker in (None, True, 2.0, "2", 6):
             changed = copy.deepcopy(original)
             changed["catalog_revision"] = marker
             mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))
