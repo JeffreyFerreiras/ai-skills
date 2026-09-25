@@ -4,20 +4,27 @@ Canonical source: [ai-skills/skills/software-engineering-graph](https://github.c
 Maintain the skill here. The former standalone repository provides a public redirect and preserved history.
 Run contributor validation from this source skill directory in the ai-skills repository.
 Run operational ledger commands from a verified skill copy with `--repo` pointing to the target
-repository. Policy lives under that skill copy's `policies/` directory, and ledger state defaults to
-its `state/` directory. Absolute `--state-root`, `SOFTWARE_ENGINEERING_GRAPH_STATE_HOME`, and
-absolute `XDG_STATE_HOME/software-engineering-graph` remain explicit state overrides. Pass an old root
-explicitly to open historical state; the engine does not discover, migrate, or rewrite it.
-The Supervisor also keeps `lessons-learned.md` in the selected state root. It reads that journal
+repository. The default runtime home is `<profile>.local/software-engineering-graph/`, a sibling of
+the profile directory: `~/.agents.local/software-engineering-graph/` for an `.agents` installation,
+or `~/.claude.local/software-engineering-graph/` for `.claude`. A source checkout uses a sibling
+`ai-skills.local/software-engineering-graph/` directory. `SOFTWARE_ENGINEERING_GRAPH_HOME` overrides
+the whole home with an absolute path. An absolute `--state-root` takes precedence over it; legacy
+`SOFTWARE_ENGINEERING_GRAPH_STATE_HOME` and absolute `XDG_STATE_HOME/software-engineering-graph`
+follow it. Keep one root for the whole run. The home contains `policies/`, `artifacts/`,
+`graph-runs/`, `graph-inbox/`, helper registers,
+and `lessons-learned.md`; generated run assets do not go in the installed skill.
+An explicitly selected historical root can reopen old runs with their unchanged policy bytes;
+there is no automatic move or deletion of old installed-skill files.
+The Supervisor reads the lessons journal
 before scoping each run and records verified, reusable lessons during the run or at closure. A new
 journal starts from [the tracked template](assets/lessons-learned.md); run-specific entries stay out
 of the source repository.
-If overriding the default state root for a multi-command run, set one absolute root before the first
+If overriding the default runtime home for a multi-command run, set one absolute root before the first
 stateful command and keep it for the whole shell session. The stateless usage checkpoint does not
 require it:
 
 ```powershell
-$env:SOFTWARE_ENGINEERING_GRAPH_STATE_HOME = 'C:\graph-state'
+$env:SOFTWARE_ENGINEERING_GRAPH_HOME = 'C:\graph-runtime'
 ```
 
 Software Engineering Graph is an **AI-agent skill** for Codex, Cursor, and equivalent agent hosts. It organizes complex software work
@@ -74,7 +81,7 @@ review, records evidence, and returns unresolved product or risk decisions to th
    review-ready pull request or updates and verifies the exact existing pull request.
 6. The Supervisor closes the run only after validating that publication evidence.
 
-When both installed-skill policy and task brief opt in, an approved execution-plan v2 can also contain
+When both the selected policy and task brief opt in, an approved execution-plan v2 can also contain
 conditional review assignments. A primary Code Reviewer may then return a frozen preliminary review
 and a typed request using only approved assignment, reason, acceptance, and evidence IDs. The
 Supervisor alone dispatches engine-managed graph nodes and conditional reviewer-fanout children and
@@ -130,7 +137,7 @@ alternatives appear in the preview's `model_options`. Verify actual host/account
 Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
 assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.
 
-Run `graphctl --repo <repo> policy` to load or create the policy beside the installed skill. Then run
+Run `graphctl --repo <repo> policy` to load or create the policy in the selected runtime home. Then run
 `graphctl plan --run-id <id> --task-brief <path> --host <catalog>`
 to preview without initializing ledger state. Adjust `model_overrides` in task-brief v2/v3, preview
 again, then `init` and approve the exact plan digest. After initialization the brief is immutable,
@@ -182,6 +189,14 @@ location. It preserves role effect/action and external-target ceilings, link/sec
 mandatory gates, checks, and sole-writer rules. Policy v1 rejects the new field and retains its
 frozen paths, command set, validation behavior, envelopes, and digests.
 
+New policies use schema v3. They retain project implementation roots but put graph task briefs,
+helper allowances, design and review files, and evidence under
+`<runtime-home>/artifacts/<repository-id>/<run-id>/`. The policy binds the repository's runtime
+artifact root and authorizes role writes there. `runtime:` content references are verified against
+that root. Existing project source can be referenced from approved implementation roots with `repo:`;
+project code and intended deliverables remain in the consumer repository. Control manifests use the
+run inbox. Schema v1/v2 policies and their repository artifact references remain supported.
+
 Task/plan v3 applies only when a run opts into the deterministic helper register. The plan binds one
 allowance reference/hash. The run-local register key binds state-root, repository, and run identity;
 its immutable context binds the resulting plan and allowance hashes. Replacing either input within
@@ -199,12 +214,12 @@ In a Codex or Cursor environment where this skill is installed, ask the host age
 > show me the exact AI-agent roles, models, and reasoning-effort levels you propose, and ask me to
 > approve the plan.
 
-The installed skill is the policy and ledger home. For each repository, `graphctl policy` creates a
-bounded policy under the skill's `policies/` directory when none exists. The default ledger lives in
-its `state/` directory. A repository-local `.codex/engineering-graph.json` is ignored. The generated
+The selected runtime home holds policy and ledger state. For each repository, `graphctl policy` creates a
+bounded policy under its `policies/` directory when none exists. A repository-local
+`.codex/engineering-graph.json` is ignored. The generated
 policy covers up to 128 ordinary top-level files and directories, excludes sensitive and agent-instruction
 paths, and requires `git diff --check`; inspect and adjust its roots and project checks before plan
-preview. A malformed installed-skill policy fails closed. No policy is written into the consumer
+preview. A malformed policy fails closed. No policy is written into the consumer
 repository, and creation does not itself authorize implementation, publication, or external effects.
 
 ## Observed token usage
@@ -333,13 +348,13 @@ or aborted runs, solely to settle late accounting metadata.
 - Local operation only, with no CI or remote automation added by this repository
 - Pull-request publication is a required instruction-level delivery contract for repository
   implementation, not an engine-enforced topology or remote provider implementation
-- Engine 2.6.0 initializes semantic format 6. Explicit `evidence enable --contract-version 2`
+- Engine 2.7.0 initializes semantic format 6. Explicit `evidence enable --contract-version 2`
   activates format 7 using the same tables. Historical plans, approvals and policies are unchanged;
   old engines refuse enabled runs. There is no downgrade. Schema-5 runs still require their old engine.
-- Default ledger state and policy live beside the installed skill; historical state roots must be
-  passed explicitly
-- Repository-policy v1 and task/plan v1-v2 retain their historical behavior and bytes; policy v2
-  adds bounded project paths/checks, and task/plan v3 opts into the separate helper register
+- Default runtime assets live under the sibling `<profile>.local/software-engineering-graph/` home;
+  historical state roots must be passed explicitly
+- Repository-policy v1/v2 and task/plan v1-v2 retain their historical behavior and bytes; policy v3
+  places graph artifacts in the runtime home, and task/plan v3 opts into the separate helper register
 - Revision 3 assignments are adjustable recommendations; the chosen supported model/effort is
   bound to approval. Historical plans preserve their model-class constraints and recorded assignments. Research output
   contracts require an `evidence_manifest`, verified evidence, a null decision, and empty findings.

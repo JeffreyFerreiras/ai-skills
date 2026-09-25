@@ -1,19 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:codex:engineering-graph:repository-config:v2",
-  "title": "Engineering graph installed-skill policy",
+  "$id": "urn:codex:engineering-graph:repository-config:v3",
+  "title": "Engineering graph runtime-home policy",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "repository_id", "compatible_engine", "artifact_roots", "artifact_kinds", "impact_tags", "routes", "node_templates", "specialists", "limits", "required_checks", "role_capabilities", "denied_patterns"],
   "oneOf": [
-    {"properties": {"schema_version": {"const": 1}}, "not": {"required": ["implementation_roots"]}},
-    {"required": ["implementation_roots"], "properties": {"schema_version": {"const": 2}, "required_checks": {"$ref": "#/$defs/requiredChecksV2"}}}
+    {"properties": {"schema_version": {"const": 1}, "artifact_roots": {"properties": {"repo": {"$ref": "#/$defs/nonEmptyUniqueStrings"}}}}, "not": {"anyOf": [{"required": ["implementation_roots"]}, {"properties": {"artifact_roots": {"required": ["runtime"]}}}]}},
+    {"required": ["implementation_roots"], "properties": {"schema_version": {"const": 2}, "artifact_roots": {"properties": {"repo": {"$ref": "#/$defs/nonEmptyUniqueStrings"}}}, "required_checks": {"$ref": "#/$defs/requiredChecksV2"}}, "not": {"properties": {"artifact_roots": {"required": ["runtime"]}}}},
+    {"required": ["implementation_roots"], "properties": {"schema_version": {"const": 3}, "artifact_roots": {"required": ["runtime"], "properties": {"repo": {"maxItems": 0}, "runtime": {"$ref": "#/$defs/nonEmptyUniqueStrings"}}}, "required_checks": {"$ref": "#/$defs/requiredChecksV2"}}}
   ],
   "properties": {
-    "schema_version": {"enum": [1, 2]},
+    "schema_version": {"enum": [1, 2, 3]},
     "repository_id": {"$ref": "#/$defs/id"},
     "compatible_engine": {"type": "object", "additionalProperties": false, "required": ["min", "max_exclusive"], "properties": {"min": {"$ref": "#/$defs/version"}, "max_exclusive": {"$ref": "#/$defs/version"}}},
-    "artifact_roots": {"type": "object", "additionalProperties": false, "required": ["repo", "profile"], "properties": {"repo": {"$ref": "#/$defs/nonEmptyUniqueStrings"}, "profile": {"$ref": "#/$defs/nonEmptyUniqueStrings"}}},
+    "artifact_roots": {"type": "object", "additionalProperties": false, "required": ["repo", "profile"], "properties": {"repo": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "profile": {"$ref": "#/$defs/nonEmptyUniqueStrings"}, "runtime": {"$ref": "#/$defs/nonEmptyUniqueStrings"}}},
     "implementation_roots": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 1024}},
     "artifact_kinds": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/artifactKind"}},
     "impact_tags": {"$ref": "#/$defs/nonEmptyUniqueIds"},

@@ -28,12 +28,12 @@ workflow. Do not forge PASS receipts or approval records. Inject failures throug
 
 ## Scenarios
 
-### Missing installed-skill policy during planning
+### Missing runtime-home policy during planning
 
-Prompt the skill to plan a bounded change for a repository that has no installed-skill policy.
+Prompt the skill to plan a bounded change for a repository that has no runtime-home policy.
 Include a conflicting `.codex/engineering-graph.json` in the consumer repository.
 
-Pass: creates a policy beside the installed skill, ignores the repository-local file, presents the
+Pass: creates a policy in the selected runtime home, ignores the repository-local file, presents the
 execution plan, and runs the ledger after approval without asking the user to create configuration
 or writing policy into the consumer repository. It verifies project roots and checks before approval.
 

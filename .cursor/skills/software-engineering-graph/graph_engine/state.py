@@ -302,6 +302,7 @@ def current_actor() -> str:
     return getpass.getuser() or "unknown-user"
 
 
+RUNTIME_ROOT_ENV = "SOFTWARE_ENGINEERING_GRAPH_HOME"
 STATE_ROOT_ENV = "SOFTWARE_ENGINEERING_GRAPH_STATE_HOME"
 XDG_STATE_ROOT_ENV = "XDG_STATE_HOME"
 STATE_ROOT_DIRECTORY = "software-engineering-graph"
@@ -318,16 +319,21 @@ def _absolute_state_root(value: Any) -> Path:
 
 def resolve_state_root(
     explicit: Optional[Path] = None, environ: Optional[Mapping[str, str]] = None,
+    skill_root: Optional[Path] = None,
 ) -> Path:
-    """Resolve runtime state beside the installed skill unless explicitly overridden."""
+    """Resolve one home for policy, ledger, lessons, and run artifacts."""
     environment = os.environ if environ is None else environ
     if explicit is not None:
         return _absolute_state_root(explicit)
+    if RUNTIME_ROOT_ENV in environment:
+        return _absolute_state_root(environment[RUNTIME_ROOT_ENV])
     if STATE_ROOT_ENV in environment:
         return _absolute_state_root(environment[STATE_ROOT_ENV])
     if XDG_STATE_ROOT_ENV in environment:
         return _absolute_state_root(environment[XDG_STATE_ROOT_ENV]) / STATE_ROOT_DIRECTORY
-    return Path(__file__).resolve().parents[1] / "state"
+    installed = (skill_root or Path(__file__).resolve().parents[1]).resolve()
+    profile = installed.parent.parent if installed.parent.name == "skills" else installed.parent
+    return profile.with_name(profile.name + ".local") / STATE_ROOT_DIRECTORY
 
 
 def installed_codex_home() -> Path:

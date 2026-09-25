@@ -170,7 +170,8 @@ def safe_file_snapshot(path: Path, roots: Sequence[Path], maximum: int) -> Snaps
         root_abs = root.absolute()
         try:
             relative = candidate.relative_to(root_abs)
-            lexical_relative(relative.as_posix(), "path")
+            if candidate != root_abs:
+                lexical_relative(relative.as_posix(), "path")
             allowed = True
             ensure_safe_components(candidate, root_abs)
             break
@@ -232,10 +233,14 @@ def validate_ref(value: Any, field: str, content_required: bool = False) -> str:
     text = bounded_string(value, field, 1200)
     if "://" in text or text.lower().startswith(("http:", "https:", "file:")):
         raise ContractError(field, "URL_FORBIDDEN")
-    if text.startswith("repo:"):
+    if text.startswith(("repo:", "runtime:")):
         body = text[5:]
+        if text.startswith("runtime:"):
+            body = text[len("runtime:"):]
         path_part, marker, hash_part = body.partition("#sha256=")
         lexical_relative(path_part, field)
+        if text.startswith("runtime:") and not path_part.startswith("artifacts/"):
+            raise ContractError(field, "RUNTIME_ROOT_FORBIDDEN")
         if content_required and not marker:
             raise ContractError(field, "CONTENT_DIGEST_REQUIRED")
         if marker:
@@ -532,8 +537,12 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
             allowance, {"ref", "sha256"}, {"ref", "sha256"}, "helper_allowance",
         )
         allowance_ref = validate_ref(allowance["ref"], "helper_allowance.ref")
-        if not allowance_ref.startswith("repo:") or "#" in allowance_ref:
-            raise ContractError("helper_allowance.ref", "REPOSITORY_REF_REQUIRED")
+        expected_prefix = "runtime:" if policy["schema_version"] == 3 else "repo:"
+        if not allowance_ref.startswith(expected_prefix) or "#" in allowance_ref:
+            raise ContractError(
+                "helper_allowance.ref",
+                "RUNTIME_REF_REQUIRED" if policy["schema_version"] == 3 else "REPOSITORY_REF_REQUIRED",
+            )
         if not allowance_ref.lower().endswith(".json"):
             raise ContractError("helper_allowance.ref", "JSON_REQUIRED")
         digest(allowance["sha256"], "helper_allowance.sha256")

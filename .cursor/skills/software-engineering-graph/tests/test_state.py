@@ -368,7 +368,7 @@ class StateTests(GraphCase):
                 "SELECT 1 FROM events WHERE source_id='rollback-validation'"
             ).fetchone())
 
-    def test_source_checkout_uses_skill_local_default_and_keeps_strict_legacy_helper(self):
+    def test_source_checkout_uses_sibling_local_default_and_keeps_strict_legacy_helper(self):
         portable_home = self.root / "portable-home"
         with patch("graph_engine.state.Path.home", return_value=portable_home):
             with self.assertRaisesRegex(StateError, "CODEX_PROFILE_ROOT_NOT_FOUND"):
@@ -376,7 +376,9 @@ class StateTests(GraphCase):
             default = StateStore()
         self.assertEqual(
             default.state_root,
-            Path(__file__).resolve().parents[1] / "state",
+            Path(__file__).resolve().parents[3].with_name(
+                Path(__file__).resolve().parents[3].name + ".local"
+            ) / "software-engineering-graph",
         )
         explicit = StateStore(self.root / "explicit-codex-home")
         self.assertEqual(explicit.codex_home, (self.root / "explicit-codex-home").absolute())
@@ -389,10 +391,16 @@ class StateTests(GraphCase):
         self.assertEqual(resolve_state_root(explicit, values), explicit.absolute())
         self.assertEqual(resolve_state_root(None, values), environment.absolute())
         self.assertEqual(
+            resolve_state_root(None, {**values, "SOFTWARE_ENGINEERING_GRAPH_HOME": str(explicit)}),
+            explicit.absolute(),
+        )
+        self.assertEqual(
             resolve_state_root(None, {"XDG_STATE_HOME": str(xdg)}),
             xdg.absolute() / "software-engineering-graph",
         )
         for values in (
+            {"SOFTWARE_ENGINEERING_GRAPH_HOME": ""},
+            {"SOFTWARE_ENGINEERING_GRAPH_HOME": "relative"},
             {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": ""},
             {"SOFTWARE_ENGINEERING_GRAPH_STATE_HOME": "relative"},
             {"XDG_STATE_HOME": ""},

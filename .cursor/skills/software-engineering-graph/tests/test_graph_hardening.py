@@ -1340,6 +1340,77 @@ class HelperRegisterTests(GraphCase):
         )
         self.assertEqual(replay["code"], "REPLAYED")
 
+    def test_runtime_allowance_and_checkpoint_are_bound_to_runtime_home(self):
+        _legacy_registry, _legacy_initialized, _command, plan, allowance = self._materials()
+        runtime_home = self.root / "runtime-helper-home"
+        artifact_dir = runtime_home / "artifacts" / "RUN-HELPERS"
+        artifact_dir.mkdir(parents=True)
+        scope = "runtime:artifacts/RUN-HELPERS/"
+        for assignment in allowance["assignments"]:
+            assignment["scope_refs"] = [scope]
+            assignment["parent_capabilities"][0]["target_ref"] = scope
+        allowance_path = artifact_dir / "helper-allowance.json"
+        allowance_path.write_bytes(canonical_bytes(allowance))
+        plan["helper_allowance"] = {
+            "ref": scope + allowance_path.name,
+            "sha256": sha256_bytes(allowance_path.read_bytes()),
+        }
+        plan["plan_digest"] = sha256_bytes(canonical_bytes({
+            key: value for key, value in plan.items() if key != "plan_digest"
+        }))
+        plan_path = self.repo / "docs" / "runtime-helper-plan.json"
+        plan_path.write_bytes(canonical_bytes(plan))
+        registry = HelperRegister()
+        initialized = registry.initialize(
+            runtime_home, self.repo, "RUN-HELPERS", plan_path,
+            allowance_path, self.repo / "docs" / "host-observation.json",
+        )
+        register_path, context = Path(initialized["register_path"]), initialized["context"]
+        self.assertEqual(context["allowance_ref"], scope + allowance_path.name)
+        self.assertEqual(registry.status(register_path, context)["code"], "STATUS")
+        with self.assertRaisesRegex(ContractError, "ALLOWANCE_REF_MISMATCH"):
+            registry.initialize(
+                runtime_home, self.repo, "RUN-HELPERS", plan_path,
+                self.repo / "docs" / "helper-allowance.json",
+                self.repo / "docs" / "host-observation.json",
+            )
+
+        checkpoint = artifact_dir / "checkpoint.json"
+        checkpoint.write_text('{"state":"observed"}', encoding="utf-8")
+        request = self._request("runtime-checkpoint")
+        request["scope_refs"] = [scope]
+        request["checkpoint_ref"] = scope + checkpoint.name + "#sha256=" + sha256_bytes(checkpoint.read_bytes())
+        self.assertEqual(registry.preflight(register_path, context, request)["code"], "PREFLIGHT_READY")
+        self.assertEqual(registry.reserve(register_path, context, request)["code"], "RESERVED")
+
+        outside_scope = dict(request, request_id="outside-scope", scope_refs=["runtime:artifacts/other/"])
+        with self.assertRaisesRegex(ContractError, "SCOPE_EXCEEDED"):
+            registry.preflight(register_path, context, outside_scope)
+        wrong_root = dict(request, request_id="wrong-root", checkpoint_ref=(
+            "repo:docs/" + checkpoint.name + "#sha256=" + sha256_bytes(checkpoint.read_bytes())
+        ))
+        with self.assertRaisesRegex(ContractError, "SCOPE_EXCEEDED"):
+            registry.preflight(register_path, context, wrong_root)
+
+        allowance_path.write_bytes(canonical_bytes({**allowance, "allowance_id": "changed"}))
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_BINDING_MISMATCH"):
+            registry.status(register_path, context)
+
+    def test_runtime_allowance_ref_rejects_traversal(self):
+        _registry, _initialized, _command, plan, _allowance = self._materials()
+        plan["helper_allowance"]["ref"] = "runtime:artifacts/../outside.json"
+        plan["plan_digest"] = sha256_bytes(canonical_bytes({
+            key: value for key, value in plan.items() if key != "plan_digest"
+        }))
+        plan_path = self.repo / "docs" / "unsafe-helper-plan.json"
+        plan_path.write_bytes(canonical_bytes(plan))
+        with self.assertRaisesRegex(ContractError, "PATH_TRAVERSAL"):
+            HelperRegister().initialize(
+                self.root / "unsafe-helper-home", self.repo, "RUN-HELPERS", plan_path,
+                self.repo / "docs" / "helper-allowance.json",
+                self.repo / "docs" / "host-observation.json",
+            )
+
     def test_reopened_register_rejects_mutated_immutable_payloads_and_identities(self):
         registry, initialized, _command, _plan, _allowance = self._materials()
         path, context = Path(initialized["register_path"]), initialized["context"]

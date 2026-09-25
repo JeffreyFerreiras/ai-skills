@@ -162,12 +162,13 @@ class StandaloneAcceptanceTests(unittest.TestCase):
         self.assertIn("reject a successful review handoff missing either report", skill_guidance)
         self.assertIn("repository policy is not an input to this workflow", skill_guidance)
         self.assertIn("do not ask the human to create tool-specific files", skill_guidance)
-        self.assertIn("policies/` beside", skill_guidance)
+        self.assertIn("`policies/` in the selected runtime home", skill_guidance)
+        self.assertIn("`software_engineering_graph_home`", skill_guidance)
         self.assertIn("a repository-local", skill_guidance)
         self.assertIn("is ignored", skill_guidance)
         self.assertIn("missing policy never grants write, publication", skill_guidance)
         self.assertIn("do not write configuration into the consumer repository", skill_guidance)
-        self.assertIn("or incompatible installed-skill policy fails closed", skill_guidance)
+        self.assertIn("or incompatible policy fails closed", skill_guidance)
         self.assertIn(
             "senior engineer and code reviewer handoffs must each include a `skill usage` section",
             skill_guidance,

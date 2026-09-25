@@ -67,8 +67,25 @@ def _emit(result: Mapping[str, Any]) -> None:
     sys.stdout.write(json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
 
 
-def _task_roots(repo: Path, policy: Mapping[str, Any]) -> List[Path]:
+def _task_roots(repo: Path, policy: Mapping[str, Any], runtime_root: Optional[Path] = None) -> List[Path]:
+    if policy["schema_version"] == 3:
+        root = runtime_root or resolve_state_root()
+        return [(root / item).absolute() for item in policy["artifact_roots"]["runtime"]]
     return [(repo / item).absolute() for item in policy["artifact_roots"]["repo"]]
+
+
+def _reference_roots(repo: Path, policy: Mapping[str, Any], runtime_root: Path) -> List[Path]:
+    if policy["schema_version"] == 3:
+        return _task_roots(repo, policy, runtime_root) + [repo / item for item in policy["implementation_roots"]]
+    return _task_roots(repo, policy, runtime_root)
+
+
+def _reference_path(ref: str, repo: Path, runtime_root: Path) -> Path:
+    if ref.startswith("runtime:"):
+        return runtime_root / lexical_relative(ref[len("runtime:"):], "artifact_ref")
+    if ref.startswith("repo:"):
+        return repo / lexical_relative(ref[len("repo:"):], "artifact_ref")
+    raise ContractError("artifact_ref", "AUTHORITATIVE_REF_REQUIRED")
 
 
 def _node_row(spec: NodeSpec, graph_envelope: Mapping[str, Any]) -> Dict[str, Any]:
@@ -158,7 +175,7 @@ def _insert_spec(
         raise StateError("EXECUTION_PLAN_STATE_INVALID")
     execution_plan = json.loads(plan_row["plan_json"])
     if run["state_schema_version"] == 7:
-        inputs = list(inputs) + _planning_constraint_inputs(connection, run, policy, task, spec, inputs)
+        inputs = list(inputs) + _planning_constraint_inputs(connection, run, policy, task, spec, inputs, store.state_root)
     graph_envelope = envelope(
         run["run_id"], run["policy_digest"], policy, task, spec, status, inputs,
         execution_plan=execution_plan,
@@ -574,17 +591,17 @@ def _validate_review_continuation_result(
         raise ContractError("result.findings", "DELEGATION_DISPOSITION_MISSING")
 
 
-def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot):
+def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, runtime_root: Path):
     run_id = opaque(args.run_id, "run_id")
     task_snapshot = safe_json_snapshot(
-        Path(args.task_brief), _task_roots(repo, policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]
+        Path(args.task_brief), _task_roots(repo, policy, runtime_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]
     )
     full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy)
     if full_task["schema_version"] == 3:
         allowance = full_task["helper_allowance"]
-        relative = lexical_relative(allowance["ref"][5:], "helper_allowance.ref")
         allowance_snapshot = safe_json_snapshot(
-            repo / relative, _task_roots(repo, policy), 256 * 1024,
+            _reference_path(allowance["ref"], repo, runtime_root),
+            _reference_roots(repo, policy, runtime_root), 256 * 1024,
         )
         if allowance_snapshot.digest != allowance["sha256"]:
             raise ContractError("helper_allowance.sha256", "INPUT_DIGEST_MISMATCH")
@@ -609,10 +626,10 @@ def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mappin
 
 def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, store: StateStore) -> Dict[str, Any]:
     run_id, op_id = opaque(args.run_id, "run_id"), opaque(args.op_id, "op_id")
-    task_snapshot, full_task, task, execution_plan = _prepare_execution_plan(args, repo, policy, policy_snapshot)
+    task_snapshot, full_task, task, execution_plan = _prepare_execution_plan(args, repo, policy, policy_snapshot, store.state_root)
     skill_root = Path(__file__).resolve().parents[1]
     verified_evidence = [
-        resolve_unhashed_reference(ref, "acceptance_evidence", repo, skill_root, policy)
+        resolve_unhashed_reference(ref, "acceptance_evidence", repo, skill_root, policy, store.state_root)
         for ref in full_task["evidence_paths"]
     ]
     constraint_support = []
@@ -621,17 +638,20 @@ def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any]
         bundle_artifact = next((item for item in verified_evidence if item.sha256 == marker), None)
         if bundle_artifact is None or not bundle_artifact.source_path:
             raise ContractError("planning_constraints", "ACTIVATION_BUNDLE_MISSING")
-        bundle = safe_json_snapshot(Path(bundle_artifact.source_path), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
-        support = _constraint_support(repo, policy, bundle)
+        bundle = safe_json_snapshot(Path(bundle_artifact.source_path), _reference_roots(repo, policy, store.state_root), policy["limits"]["manifest_bytes"]).parsed
+        support = _constraint_support(repo, policy, bundle, store.state_root)
         constraint_support.extend(support)
         for record in bundle["records"]:
             if record["state"] == "active" and record["authority_ref"] != full_task["policy_approval"]["authority_ref"]:
                 raise ContractError("planning_constraints", "AUTHORITY_MISMATCH")
     task["evidence_paths"] = sorted(artifact.ref for artifact in verified_evidence)
     spec = bootstrap(policy)
-    task_ref = "repo:" + task_snapshot.path.relative_to(repo.absolute()).as_posix() + "#sha256=" + task_snapshot.digest
+    task_ref = (("runtime:" + task_snapshot.path.relative_to(store.state_root).as_posix())
+                if policy["schema_version"] == 3 else
+                ("repo:" + task_snapshot.path.relative_to(repo.absolute()).as_posix())) + "#sha256=" + task_snapshot.digest
     task_artifact = VerifiedArtifact(
-        task_ref, "task_brief", task_snapshot.digest, task_snapshot.size, "repo",
+        task_ref, "task_brief", task_snapshot.digest, task_snapshot.size,
+        "runtime" if policy["schema_version"] == 3 else "repo",
         str(task_snapshot.path), None, task_snapshot.identity[0], task_snapshot.identity[1],
     )
     graph_envelope = envelope(
@@ -697,9 +717,9 @@ def _record_branch_result(
             for reference in impact["evidence_refs"]:
                 if "#sha256=" in reference:
                     embedded = reference.rsplit("#sha256=", 1)[1]
-                    verified = resolve_reference(reference, embedded, "finding", repo_path, skill_root, policy, conn)
+                    verified = resolve_reference(reference, embedded, "finding", repo_path, skill_root, policy, conn, runtime_root=store.state_root)
                 else:
-                    verified = resolve_unhashed_reference(reference, "finding", repo_path, skill_root, policy)
+                    verified = resolve_unhashed_reference(reference, "finding", repo_path, skill_root, policy, store.state_root)
                 persist_artifact(conn, current["run_id"], verified)
                 normalized_refs.append(verified.ref)
             impact["evidence_refs"] = sorted(normalized_refs)
@@ -758,7 +778,7 @@ def _record_branch_result(
             if result_status == "succeeded" and isinstance(artifact, dict):
                 external_artifact = resolve_reference(
                     artifact["ref"], artifact["sha256"], artifact["kind"],
-                    repo_path, skill_root, policy, conn,
+                    repo_path, skill_root, policy, conn, runtime_root=store.state_root,
                 )
                 persist_artifact(conn, current["run_id"], external_artifact)
                 artifact = {"kind": external_artifact.kind, "ref": external_artifact.ref, "sha256": external_artifact.sha256}
@@ -766,6 +786,7 @@ def _record_branch_result(
             for item in evidence:
                 verified = resolve_reference(
                     item["ref"], item["sha256"], item["kind"], repo_path, skill_root, policy, conn,
+                    runtime_root=store.state_root,
                 )
                 persist_artifact(conn, current["run_id"], verified)
                 verified_evidence.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
@@ -783,8 +804,8 @@ def _record_branch_result(
                         continue
                     if not (repo_path / output["path"]).exists():
                         continue
-                    staged = resolve_unhashed_reference("repo:" + output["path"], "delivery_consolidation", repo_path, skill_root, policy)
-                    staged_snapshot = safe_json_snapshot(Path(staged.source_path), _task_roots(repo_path, policy), policy["limits"]["manifest_bytes"])
+                    staged = resolve_unhashed_reference("repo:" + output["path"], "delivery_consolidation", repo_path, skill_root, policy, store.state_root)
+                    staged_snapshot = safe_json_snapshot(Path(staged.source_path), _reference_roots(repo_path, policy, store.state_root), policy["limits"]["manifest_bytes"])
                     if staged_snapshot.parsed != snapshot.parsed:
                         raise StateError("GENERATED_OUTPUT_RESULT_MISMATCH")
                     persist_artifact(conn, current["run_id"], staged)
@@ -1018,7 +1039,7 @@ def _record_control(
                     require_keys(item, {"kind", "ref", "sha256"}, {"kind", "ref", "sha256"}, "evidence")
                     verified = resolve_reference(
                         item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
-                        Path(__file__).resolve().parents[1], policy, conn,
+                        Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
                     )
                     persist_artifact(conn, current["run_id"], verified)
                     verified_items.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
@@ -1073,6 +1094,7 @@ def _record_control(
             verified = resolve_reference(
                 request["scope_ref"], request["artifact_sha256"], "acceptance_evidence",
                 Path(current["repository_path"]), Path(__file__).resolve().parents[1], policy, conn,
+                runtime_root=store.state_root,
             )
             persist_artifact(conn, current["run_id"], verified)
             existing = conn.execute("SELECT * FROM approvals WHERE run_id=? AND approval_id=?", (current["run_id"], request["approval_id"])).fetchone()
@@ -1115,6 +1137,7 @@ def _record_control(
             verified = resolve_reference(
                 request["artifact_ref"], request["artifact_sha256"], "acceptance_evidence",
                 Path(current["repository_path"]), Path(__file__).resolve().parents[1], policy, conn,
+                runtime_root=store.state_root,
             )
             persist_artifact(conn, current["run_id"], verified)
             existing = conn.execute("SELECT * FROM acceptance_evidence WHERE run_id=? AND criterion_id=?", (current["run_id"], request["criterion_id"])).fetchone()
@@ -1145,6 +1168,7 @@ def _record_control(
             verified = resolve_reference(
                 request["artifact_ref"], request["artifact_sha256"], "check_evidence",
                 Path(current["repository_path"]), Path(__file__).resolve().parents[1], policy, conn,
+                runtime_root=store.state_root,
             )
             if verified.source_type != "ledger" or not verified.content_json:
                 raise StateError("CHECK_RECEIPT_REQUIRED")
@@ -1201,7 +1225,7 @@ def command_fanout_assessment(
         for item in manifest["evidence"]:
             verified = resolve_reference(
                 item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
-                Path(__file__).resolve().parents[1], policy, conn,
+                Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
             )
             persist_artifact(conn, current["run_id"], verified)
             verified_evidence.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
@@ -1330,7 +1354,7 @@ def command_review_fanout(
         for item in preliminary["evidence"]:
             verified = resolve_reference(
                 item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
-                Path(__file__).resolve().parents[1], policy, conn,
+                Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
             )
             persist_artifact(conn, current["run_id"], verified)
             verified_evidence[item["evidence_id"]] = verified
@@ -1442,7 +1466,7 @@ def command_review_fanout_assessment(
         for item in manifest["evidence"]:
             verified = resolve_reference(
                 item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
-                Path(__file__).resolve().parents[1], policy, conn,
+                Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
             )
             persist_artifact(conn, current["run_id"], verified)
             verified_evidence.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
@@ -1501,7 +1525,7 @@ def _constraint_markers(full_task):
     return markers
 
 
-def _constraint_support(repo, policy, bundle):
+def _constraint_support(repo, policy, bundle, runtime_root):
     validate_bundle(bundle)
     artifacts = {}
     for record in bundle["records"]:
@@ -1509,23 +1533,23 @@ def _constraint_support(repo, policy, bundle):
             reference = record[key]
             if reference is None:
                 continue
-            artifact = resolve_reference(reference, reference.rsplit("#sha256=", 1)[1], kind, repo, Path(__file__).resolve().parents[1], policy)
+            artifact = resolve_reference(reference, reference.rsplit("#sha256=", 1)[1], kind, repo, Path(__file__).resolve().parents[1], policy, runtime_root=runtime_root)
             if not artifact.source_path:
                 raise ContractError("constraint_support", "FILE_REQUIRED")
-            payload = safe_json_snapshot(Path(artifact.source_path), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
+            payload = safe_json_snapshot(Path(artifact.source_path), _reference_roots(repo, policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
             if payload.get("finding_id") != record["finding_id"] or (key == "accepted_fix_ref" and payload.get("status") != "accepted"):
                 raise ContractError("constraint_support", "FINDING_FIX_IDENTITY_MISMATCH")
             artifacts[reference] = artifact
     return list(artifacts.values())
 
 
-def _planning_constraint_inputs(connection, run, policy, task, spec, inputs):
-    full = safe_json_snapshot(Path(run["task_path"]), _task_roots(Path(run["repository_path"]), policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
+def _planning_constraint_inputs(connection, run, policy, task, spec, inputs, runtime_root):
+    full = safe_json_snapshot(Path(run["task_path"]), _task_roots(Path(run["repository_path"]), policy, runtime_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
     markers = _constraint_markers(full)
     if not markers:
         return []
     bundle_row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND sha256=? AND kind='acceptance_evidence'", (run["run_id"], markers[0])).fetchone()
-    bundle = safe_json_snapshot(Path(bundle_row["source_path"]), _task_roots(Path(run["repository_path"]), policy), policy["limits"]["manifest_bytes"]).parsed
+    bundle = safe_json_snapshot(Path(bundle_row["source_path"]), _reference_roots(Path(run["repository_path"]), policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
     scope = []
     if spec.key in {"tech_lead", "senior_engineer"}:
         # These owners cover the immutable task; read access is not an assignment.
@@ -1891,7 +1915,7 @@ def command_next(
     if not args.claim:
         verify_semantic_state(
             connection, run, repo, policy_digest, policy, Path(__file__).resolve().parents[1],
-            case_sensitive=case_sensitive,
+            case_sensitive=case_sensitive, runtime_root=store.state_root,
         )
         if run["status"] == "blocked":
             return _json_result(False, "GRAPH_BLOCKED", run["run_id"], run["state_revision"], branches=[])
@@ -1995,7 +2019,7 @@ def command_next(
                 refreshed = _persist_payload(conn, current, policy, "repair-claim-" + op_id, "failure", packet)
                 env["inputs"] = sorted([item for item in env["inputs"] if item["ref"] not in previous_packets] + [refreshed.as_input()],
                                        key=lambda item: (item["kind"], item["ref"]))
-        full_task = safe_json_snapshot(Path(current["task_path"]), _task_roots(repo, policy), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
+        full_task = safe_json_snapshot(Path(current["task_path"]), _task_roots(repo, policy, store.state_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
         if _constraint_markers(full_task) and current["state_schema_version"] != 7:
             raise StateError("EVIDENCE_ENABLE_REQUIRED")
         if current["state_schema_version"] == 7 and row["stage"] == "delivery":
@@ -2744,6 +2768,7 @@ def command_run_control(
         verify_resume(
             connection, run, Path(run["repository_path"]), run["policy_digest"], policy,
             Path(__file__).resolve().parents[1], case_sensitive=case_sensitive,
+            runtime_root=store.state_root,
         )
         result = command_status(connection, run)
         result["code"] = "RESUMED"
@@ -2776,7 +2801,7 @@ def command_run_control(
                 require_keys(item, {"kind", "ref", "sha256"}, {"kind", "ref", "sha256"}, "evidence")
                 verified = resolve_reference(
                     item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
-                    Path(__file__).resolve().parents[1], policy, conn,
+                    Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
                 )
                 persist_artifact(conn, current["run_id"], verified)
                 verified_items.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
@@ -2800,13 +2825,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo")
     parser.add_argument(
         "--state-root",
-        help=("absolute runtime-state root; defaults to SOFTWARE_ENGINEERING_GRAPH_STATE_HOME, "
-              "then XDG_STATE_HOME/software-engineering-graph, then the installed skill's state directory"),
+        help=("absolute runtime home for policy, ledger, lessons, and artifacts; defaults to "
+              "SOFTWARE_ENGINEERING_GRAPH_HOME, then the legacy state/XDG overrides, "
+              "then a sibling <profile>.local/software-engineering-graph directory"),
     )
     parser.add_argument("--ack-degraded-permissions", action="store_true")
     parser.add_argument("--ack-degraded-durability", action="store_true")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("policy", help="Load or create the installed-skill policy and show its digest")
+    commands.add_parser("policy", help="Load or create the runtime-home policy and show its digest")
     usage_command = commands.add_parser("usage")
     usage_commands = usage_command.add_subparsers(dest="usage_kind", required=True)
     usage_checkpoint = usage_commands.add_parser("checkpoint")
@@ -2908,29 +2934,34 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
     case_sensitive = os.path.normcase("A") != os.path.normcase("a")
     repo = Path(args.repo).resolve(strict=True)
     requested_root = Path(args.state_root) if args.state_root is not None else None
+    if requested_root is not None and not requested_root.is_absolute():
+        raise StateError("STATE_ROOT_MUST_BE_ABSOLUTE")
     if store is not None and requested_root is not None:
         if store.state_root != requested_root.absolute():
             raise StateError("STATE_ROOT_CONFLICT")
-    policy, policy_snapshot = load_policy(repo)
+    runtime_root = store.state_root if store is not None else resolve_state_root(requested_root)
+    policy, policy_snapshot = load_policy(repo, runtime_root=runtime_root)
     if args.command == "policy":
         return _json_result(
             True, "POLICY_LOADED", None, None,
             policy_path=str(policy_snapshot.path), policy_digest=policy_snapshot.digest,
-            policy_source="installed_skill",
-            state_root=str(store.state_root if store is not None else resolve_state_root(requested_root)),
+            policy_source="runtime_home" if policy_snapshot.path.is_relative_to(runtime_root) else "legacy_installed_skill",
+            state_root=str(runtime_root),
+            lessons_path=str(runtime_root / "lessons-learned.md"),
+            runtime_artifact_root=str(runtime_root / "artifacts" / policy["repository_id"]),
             repository_id=policy["repository_id"],
         ), 0
     if args.command == "plan":
-        _snapshot, _full_task, _task, plan = _prepare_execution_plan(args, repo, policy, policy_snapshot)
+        _snapshot, _full_task, _task, plan = _prepare_execution_plan(args, repo, policy, policy_snapshot, runtime_root)
         return _json_result(True, "EXECUTION_PLAN_PREVIEW", args.run_id, None, execution_plan=plan), 0
     if args.command == "constraints":
-        bundle = safe_json_snapshot(Path(args.bundle), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
-        context = safe_json_snapshot(Path(args.context), _task_roots(repo, policy), policy["limits"]["manifest_bytes"]).parsed
-        support = _constraint_support(repo, policy, bundle)
+        bundle = safe_json_snapshot(Path(args.bundle), _reference_roots(repo, policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
+        context = safe_json_snapshot(Path(args.context), _reference_roots(repo, policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
+        support = _constraint_support(repo, policy, bundle, runtime_root)
         result = select_constraints(bundle, context, supported={item.ref for item in support},
                                     normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
         return _json_result(True, "CONSTRAINTS_SELECTED", None, None, **result), 0
-    state = store or StateStore(state_root=requested_root)
+    state = store or StateStore(state_root=runtime_root)
     if args.command == "init":
         return command_init(args, repo, policy, policy_snapshot, state), 0
     run_id = opaque(args.run_id, "run_id")
@@ -2941,6 +2972,7 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
             conn, current, repo, policy_snapshot.digest, policy, skill_root,
             case_sensitive=case_sensitive,
             evidence_enable=args.command == "evidence" and current["state_schema_version"] == 6,
+            runtime_root=state.state_root,
         )
         is_mutation = (
             args.command in {"record", "complete", "block", "abort", "check", "evidence"}
@@ -2950,7 +2982,7 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
         if not is_mutation:
             verify_semantic_state(
                 connection, run, repo, policy_snapshot.digest, policy, skill_root,
-                case_sensitive=case_sensitive,
+                case_sensitive=case_sensitive, runtime_root=state.state_root,
             )
         if args.command == "recovery":
             result = command_recovery(connection, run, args.branch_id)

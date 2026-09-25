@@ -86,6 +86,7 @@ def resolve_reference(
     skill_root: Path,
     policy: Mapping[str, Any],
     connection: Optional[sqlite3.Connection] = None,
+    runtime_root: Optional[Path] = None,
 ) -> VerifiedArtifact:
     validate_ref(ref, "artifact_ref", content_required=True)
     expected = digest(separate_digest, "artifact_sha256")
@@ -111,10 +112,22 @@ def resolve_reference(
     if prefix == "repo":
         relative = lexical_relative(identity, "artifact_ref")
         policy_path_allowed(relative, policy)
-        if not _within_roots(relative, policy["artifact_roots"]["repo"]):
+        permitted = (policy["implementation_roots"] if policy["schema_version"] == 3
+                     else policy["artifact_roots"]["repo"])
+        if not _within_roots(relative, permitted):
             raise ContractError("artifact_ref", "OUTSIDE_ALLOWED_ROOT")
         path = repo / relative
-        roots = [repo / root for root in policy["artifact_roots"]["repo"]]
+        roots = [repo / root for root in permitted]
+    elif prefix == "runtime" and policy["schema_version"] == 3:
+        relative = lexical_relative(identity, "artifact_ref")
+        policy_path_allowed(relative, policy)
+        if not _within_roots(relative, policy["artifact_roots"]["runtime"]):
+            raise ContractError("artifact_ref", "OUTSIDE_ALLOWED_ROOT")
+        if runtime_root is None:
+            from .state import resolve_state_root
+            runtime_root = resolve_state_root()
+        path = runtime_root / relative
+        roots = [runtime_root / root for root in policy["artifact_roots"]["runtime"]]
     elif prefix == "profile" and identity.startswith("software-engineering-graph/"):
         relative = lexical_relative(identity[len("software-engineering-graph/"):], "artifact_ref")
         policy_path_allowed(relative, policy)
@@ -142,6 +155,7 @@ def resolve_unhashed_reference(
     repo: Path,
     skill_root: Path,
     policy: Mapping[str, Any],
+    runtime_root: Optional[Path] = None,
 ) -> VerifiedArtifact:
     validate_ref(ref, "artifact_ref", content_required=False)
     prefix, body = ref.split(":", 1)
@@ -152,11 +166,24 @@ def resolve_unhashed_reference(
     if prefix == "repo":
         relative = lexical_relative(body, "artifact_ref")
         policy_path_allowed(relative, policy)
-        if not _within_roots(relative, policy["artifact_roots"]["repo"]):
+        permitted = (policy["implementation_roots"] if policy["schema_version"] == 3
+                     else policy["artifact_roots"]["repo"])
+        if not _within_roots(relative, permitted):
             raise ContractError("artifact_ref", "OUTSIDE_ALLOWED_ROOT")
         path = repo / relative
-        roots = [repo / root for root in policy["artifact_roots"]["repo"]]
+        roots = [repo / root for root in permitted]
         normalized_prefix = "repo:"
+    elif prefix == "runtime" and policy["schema_version"] == 3:
+        relative = lexical_relative(body, "artifact_ref")
+        policy_path_allowed(relative, policy)
+        if not _within_roots(relative, policy["artifact_roots"]["runtime"]):
+            raise ContractError("artifact_ref", "OUTSIDE_ALLOWED_ROOT")
+        if runtime_root is None:
+            from .state import resolve_state_root
+            runtime_root = resolve_state_root()
+        path = runtime_root / relative
+        roots = [runtime_root / root for root in policy["artifact_roots"]["runtime"]]
+        normalized_prefix = "runtime:"
     elif prefix == "profile" and body.startswith("software-engineering-graph/"):
         relative = lexical_relative(body[len("software-engineering-graph/"):], "artifact_ref")
         policy_path_allowed(relative, policy)
@@ -211,6 +238,7 @@ def reverify_artifact(
     repo: Path,
     skill_root: Path,
     policy: Mapping[str, Any],
+    runtime_root: Optional[Path] = None,
 ) -> None:
     enforce_artifact_size(artifact["kind"], artifact["size_bytes"], policy)
     if artifact["source_type"] == "ledger":
@@ -225,7 +253,8 @@ def reverify_artifact(
             raise ContractError("artifact_ref", "LEDGER_DIGEST_MISMATCH")
         return
     verified = resolve_reference(
-        artifact["ref"], artifact["sha256"], artifact["kind"], repo, skill_root, policy, connection
+        artifact["ref"], artifact["sha256"], artifact["kind"], repo, skill_root, policy, connection,
+        runtime_root=runtime_root,
     )
     if (verified.device, verified.inode) != (artifact["device"], artifact["inode"]):
         raise ContractError("artifact_ref", "ARTIFACT_IDENTITY_MISMATCH")
