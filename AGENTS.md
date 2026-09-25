@@ -10,20 +10,20 @@
 
 - Use `rg` for fast file discovery and text search when it is available.
 - Prefer native IDE or agent search tools when they provide more precise file, symbol, or semantic search.
-- Inspect relevant files, callers, tests, configuration, and repository status before making changes.
+- Before making repository changes, check repository status and inspect affected files. Expand to callers, tests, and configuration as needed to understand the impact.
 
 ## Planning And Communication
 
 - Start with a short plan for multi-step, ambiguous, risky, or externally visible work. Skip ceremony for trivial tasks.
 - State material assumptions and risks early while continuing with safe, reversible work.
+- Complete authorized work and relevant validation before yielding. When blocked, explain the blocker and continue independent work where useful.
 - Lead final responses with the outcome, followed by validation results and remaining risks.
 - Keep responses concise and use plain language unless technical detail helps the user decide or verify.
 
 ## Suggestions And Choices
 
-- Whenever you make a suggestion or recommendation to the user, including an action, next step, or decision, present a short lettered list (`A.`, `B.`, and so on) with distinct choices. Put your recommended choice first and label it as recommended.
-- Make each choice clear enough that the user can select it by replying with only its letter. Include a practical alternative, such as deferring or skipping, when there is no other useful option.
-- If the user has already authorized an action, carry it out without asking them to choose again. Do not add a choice list to factual answers, status updates, or completed work that makes no suggestion.
+- When the user must choose between materially different approaches, present a short lettered list. Put the recommended choice first, label it `(Recommended)`, and make each option selectable by its letter.
+- Include a practical defer or skip option when useful. Do not use a choice list for routine recommendations, factual answers, status updates, completed work, or actions the user has already authorized; carry out authorized actions without asking the user to choose again.
 
 ## Skills And Tools
 
@@ -55,5 +55,5 @@
 ## Safety And Scope
 
 - Distinguish review, diagnosis, and implementation requests. Do not mutate code during review-only or diagnosis-only work unless the user asks for a fix.
-- Prefer reversible, local actions. Ask before irreversible actions, external publication, or meaningful scope expansion.
+- Prefer reversible, local actions. Ask before irreversible actions, external publication, or meaningful scope expansion unless already explicitly authorized. Do not repeat approval requests. Do not perform destructive Git operations, commits, or pushes without explicit user authorization.
 - Never expose secrets, credentials, private tokens, or unrelated personal data in output, logs, commits, or generated artifacts.

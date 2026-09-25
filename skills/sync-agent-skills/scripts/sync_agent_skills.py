@@ -270,6 +270,7 @@ def sync_skills_from_master(
     skill_names: Iterable[str] | None = None,
     only_existing: bool = True,
     backup_root: Path | None = None,
+    no_backup: bool = False,
 ) -> list[dict[str, object]]:
     """Update skills in target_root from master_skills_dir."""
     master_skills = list_skills_in_root(master_skills_dir)
@@ -304,6 +305,7 @@ def sync_skills_from_master(
             apply=apply,
             force=force,
             backup_root=backup_root,
+            no_backup=no_backup,
         )
         copy_res["skill"] = name
         results.append(copy_res)
@@ -398,7 +400,7 @@ def resolve_external_skill(source: Path, destination: Path) -> dict[str, str]:
 
 
 def copy_source(source: Path, target_root: Path, target_name: str | None, apply: bool, force: bool,
-                backup_root: Path | None = None) -> dict[str, object]:
+                backup_root: Path | None = None, no_backup: bool = False) -> dict[str, object]:
     name = target_name if target_name is not None else source.name
     if (not name or name in {".", ".."} or name != name.rstrip(" .")
             or any(character in name for character in '/\\:<>"|?*')
@@ -430,16 +432,19 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
         with tempfile.TemporaryDirectory(prefix="resolved-skill-") as temporary:
             resolved = Path(temporary) / name
             provenance = resolve_external_skill(source, resolved)
-            result = copy_source(resolved, target_root, name, apply, force, backup_root)
+            result = copy_source(resolved, target_root, name, apply, force, backup_root, no_backup)
             result["source"] = str(source)
             result["external_source"] = provenance
             result["actions"].insert(0, f"resolved {provenance['repository']} at {provenance['revision']}")
         return result
-    backup_root = (backup_root.expanduser().absolute() if backup_root is not None
-                   else target.parent / ".sync-agent-skills-backups")
-    reject_link_paths(backup_root)
-    if backup_root.resolve().is_relative_to(target) or backup_root.resolve().is_relative_to(source):
-        raise ValueError("Backup root must be outside source and target")
+    if no_backup and backup_root is not None:
+        raise ValueError("--no-backup and --backup-root cannot be combined")
+    if not no_backup:
+        backup_root = (backup_root.expanduser().absolute() if backup_root is not None
+                       else target.parent / ".sync-agent-skills-backups")
+        reject_link_paths(backup_root)
+        if backup_root.resolve().is_relative_to(target) or backup_root.resolve().is_relative_to(source):
+            raise ValueError("Backup root must be outside source and target")
     if not target_root.exists():
         result["actions"].append(f"create directory {target_root}")
         if apply:
@@ -449,7 +454,27 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
         return result
     if target.exists():
         if not force:
-            result["actions"].append("target differs; rerun with --force to replace with backup")
+            result["actions"].append("target differs; rerun with --force to replace")
+            return result
+        if no_backup:
+            result["actions"].append(f"replace {target} without a retained backup")
+            if apply:
+                with tempfile.TemporaryDirectory(prefix="sync-agent-skills-") as temporary:
+                    displaced = Path(temporary) / name
+                    shutil.move(str(target), str(displaced))
+                    try:
+                        if source.is_dir():
+                            shutil.copytree(source, target)
+                        else:
+                            shutil.copy2(source, target)
+                    except Exception:
+                        if target.is_dir():
+                            shutil.rmtree(target)
+                        elif target.exists():
+                            target.unlink()
+                        shutil.move(str(displaced), str(target))
+                        raise
+            result["changed"] = True
             return result
         backup = backup_root / backup_path(target).name
         result["actions"].append(f"backup {target} to {backup}")
@@ -660,6 +685,7 @@ def main() -> int:
     sync_parser.add_argument("--force", action="store_true", help="Replace differing target after backing it up")
     sync_parser.add_argument("--json", action="store_true", help="Print JSON")
     sync_parser.add_argument("--backup-root", type=Path, help="Store recoverable backups outside discovery roots")
+    sync_parser.add_argument("--no-backup", action="store_true", help="Replace without retaining a backup")
 
     vscode_parser = subparsers.add_parser("doctor-vscode", help="Check VS Code agent skill discovery settings")
     vscode_parser.add_argument("--settings", type=Path, help="Path to VS Code settings.json; default is user profile")
@@ -702,6 +728,7 @@ def main() -> int:
     sync_from_master_parser.add_argument("--force", action="store_true", help="Replace differing target after backing it up")
     sync_from_master_parser.add_argument("--json", action="store_true", help="Print JSON")
     sync_from_master_parser.add_argument("--backup-root", type=Path, help="Store recoverable backups outside discovery roots")
+    sync_from_master_parser.add_argument("--no-backup", action="store_true", help="Replace without retaining a backup")
 
     args = parser.parse_args()
     if args.command == "inventory":
@@ -712,7 +739,8 @@ def main() -> int:
         return 0
 
     if args.command == "sync":
-        result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force, args.backup_root)
+        result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force,
+                             args.backup_root, args.no_backup)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
@@ -767,6 +795,7 @@ def main() -> int:
                 skill_names=args.skills,
                 only_existing=not args.all,
                 backup_root=args.backup_root,
+                no_backup=args.no_backup,
             )
             all_results.extend(res)
 

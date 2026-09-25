@@ -43,6 +43,42 @@ class SyncAgentSkillsTests(unittest.TestCase):
                 sync_agent_skills.copy_source(child, root, "source", True, True)
             self.assertTrue(child.exists())
 
+    def test_no_backup_replaces_target_without_retained_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "SKILL.md").write_text("new", encoding="utf-8")
+            target_root = root / "installed"
+            target = target_root / "source"
+            target.mkdir(parents=True)
+            (target / "SKILL.md").write_text("old", encoding="utf-8")
+
+            result = sync_agent_skills.copy_source(source, target_root, None, True, True, no_backup=True)
+
+            self.assertTrue(result["changed"])
+            self.assertEqual("new", (target / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertEqual(["source"], [item.name for item in target_root.iterdir()])
+            self.assertFalse((target_root / ".sync-agent-skills-backups").exists())
+
+    def test_no_backup_restores_target_when_copy_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "SKILL.md").write_text("new", encoding="utf-8")
+            target_root = root / "installed"
+            target = target_root / "source"
+            target.mkdir(parents=True)
+            (target / "SKILL.md").write_text("old", encoding="utf-8")
+
+            with patch.object(sync_agent_skills.shutil, "copytree", side_effect=OSError("copy failed")):
+                with self.assertRaisesRegex(OSError, "copy failed"):
+                    sync_agent_skills.copy_source(source, target_root, None, True, True, no_backup=True)
+
+            self.assertEqual("old", (target / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertEqual(["source"], [item.name for item in target_root.iterdir()])
+
     def test_invalid_external_pointer_preserves_installation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
