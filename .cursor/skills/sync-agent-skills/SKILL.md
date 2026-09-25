@@ -46,9 +46,10 @@ When updating installed skills in local project repositories (such as `.agents/s
    - VS Code/Copilot commonly uses prompt or instruction markdown files.
    - Claude commonly uses project/user instructions, commands, or skill-like markdown assets depending on the installed product surface.
 6. Before writes, state the target paths and whether the operation will copy, transform, or replace files.
-7. Preserve existing files with timestamped backups before replacement.
-   - Read each target repository's applicable instructions and Git status. Preserve unrelated edits and repository-only skills. Show differing installed skill paths in the dry run; a broad sync authorizes updating those copies from the canonical source with recoverable backups.
-   - Keep backups outside consumer repositories when their hygiene rules prohibit generated artifacts. Do not stage, commit, push, switch consumer branches, or update their application code as part of sync unless separately requested.
+7. Read each target repository's applicable instructions and Git status. Preserve unrelated edits,
+   repository-only skills, and installed-skill runtime data such as graph policies and state. Show
+   differing installed skill paths in the dry run. Do not stage, commit, push, switch consumer
+   branches, or update application code as part of sync unless separately requested.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
    - Verify both profile and repository copies against the source. For external skills, compare against the resolved upstream commit, not the pointer folder, and record repository/revision provenance. Report counts for updated profiles, repositories/worktrees, resolved external skills, and any inaccessible or excluded roots. A failed external resolution is an incomplete sync, not a successful skip.
    - After authorized enablement changes, re-inventory the affected skill roots. Use a fresh-process discovery check when a runtime change needs verification; see `references/codex-discovery.md` for Codex.
@@ -94,15 +95,15 @@ python <skill-dir>\scripts\sync_agent_skills.py doctor-vscode --apply
 # Dry-run a copy from a source skill/file into a target root.
 python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\skills\my-skill" --target-root "$HOME\.claude\skills"
 
-# Apply the copy. Existing targets are backed up first.
-python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\skills\my-skill" --target-root "$HOME\.claude\skills" --apply --force
+# Apply the copy without a retained backup.
+python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\skills\my-skill" --target-root "$HOME\.claude\skills" --apply --force --no-backup
 ```
 
 The script does not convert formats. Use it to inventory, compare checksums, and copy a finalized artifact after deciding that a direct copy is appropriate.
 
 Target names must be single filenames. The helper rejects overlapping trees, linked source/target entries, and linked backup paths. For `external-source.json` pointers, it fetches one concrete upstream commit, validates required resources and the skill name, and installs the full skill with a `.skill-source.json` provenance receipt. Resolution failure leaves the existing installation intact. Git metadata, nested assistant discovery roots, and Python bytecode caches are excluded from the installed snapshot.
 
-External resolution also runs during dry runs so the preview can compare the latest content; only temporary staging files are written. The manifest requires an HTTPS `repository`, `management: "external"`, and relative `required_files`. Its optional `revision` must be a full commit hash; otherwise resolve the latest default-branch HEAD. Use `--backup-root <path-outside-skill-discovery>` to keep replaced installations recoverable without adding backup skills to discovery. The canonical master pointer remains unchanged.
+External resolution also runs during dry runs so the preview can compare the latest content; only temporary staging files are written. The manifest requires an HTTPS `repository`, `management: "external"`, and relative `required_files`. Its optional `revision` must be a full commit hash; otherwise resolve the latest default-branch HEAD. Use `--backup-root <path-outside-skill-discovery>` only when retained backups are requested; it cannot be combined with `--no-backup`. The canonical master pointer remains unchanged.
 
 ## Repository and Profile Update from Master
 
@@ -116,13 +117,13 @@ $syncScript = Join-Path $masterRepo 'skills\sync-agent-skills\scripts\sync_agent
 python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\to\my-project'
 
 # Apply updates to all installed skills in target project repo
-python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\to\my-project' --apply --force
+python $syncScript sync-from-master --master $masterRepo --target-repo 'C:\path\to\my-project' --apply --force --no-backup
 
 # Dry-run updating shared profile skills used by Codex and local Cursor
 python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills"
 
-# Apply updates to the shared profile root, with backups of changed copies
-python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force
+# Apply updates to the shared profile root without retained backups
+python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force --no-backup
 ```
 
 ## Publishing Profile Changes to Master Repository
@@ -135,7 +136,7 @@ $skillName = "sync-agent-skills"
 $source = Join-Path $HOME ".agents\skills\$skillName"
 $target = Join-Path $repo "skills\$skillName"
 
-python (Join-Path $source "scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --apply --force
+python (Join-Path $source "scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --apply --force --no-backup
 git -C $repo status --short --branch
 ```
 
@@ -156,6 +157,6 @@ Keep synced content portable:
 
 - Default to dry-runs for copy/sync operations.
 - Never delete unrelated profile files.
-- Never overwrite a target without a backup.
+- Preserve runtime data absent from the canonical skill snapshot.
 - Do not change global VS Code, Cursor, Claude, or Codex settings unless the request explicitly includes settings sync.
 - If multiple files express the same concept, report the candidates and pick the newest or most complete only when the user's intent is clear.

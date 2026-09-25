@@ -13,8 +13,8 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 4, "codex-astra": 4, "cursor": 3}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4), "codex-astra": (2, 3, 4), "cursor": (2, 3)}
+CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 6, "codex-astra": 6, "cursor": 3}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6), "codex-astra": (2, 3, 4, 5, 6), "cursor": (2, 3)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {
     ("gpt-6-astra", "medium"): 3,
@@ -121,10 +121,15 @@ def selected_dispatch_model(host: str, model: str, effort: str, revision: Option
 def recommended_assignment(host: str, workload: str, revision: Optional[int] = None) -> Tuple[str, str]:
     """Catalog suggestions; actual assignments remain subject to human approval."""
     catalog_for(host)
+    if revision is None:
+        revision = CURRENT_CATALOG_REVISIONS[host]
     if workload == "helper":
+        if revision == 6 and host in {"codex", "codex-astra"}:
+            return recommended_assignment(host, "implementation", revision)
         return {"claude": ("claude-sonnet-5", "low"),
                 "cursor": ("gemini-3.8-flash", "low")}.get(
-                    host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna", "low"))
+                    host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna",
+                           "low" if revision in {3, 4} else "max"))
     model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
              "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
              "codex-astra": "gpt-6-astra"}[host]

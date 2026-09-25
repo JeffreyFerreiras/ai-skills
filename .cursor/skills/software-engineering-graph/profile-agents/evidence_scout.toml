@@ -1,7 +1,7 @@
 name = "evidence_scout"
 description = "Bounded retrieval helper returning source evidence to its decision-owning parent."
-model = "gpt-6-luna"
-model_reasoning_effort = "low"
+model = "gpt-6-astra"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = """
 Follow only the bounded assignment authorized under references/economy-helpers.md. This profile

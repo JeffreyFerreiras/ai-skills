@@ -56,6 +56,7 @@ The discovery copy uses ordinary files and directories on Windows, macOS, and Li
 | `code-review` | Review local changes with evidence-backed, severity-ranked findings. |
 | `word-documents` | Create, edit, render, and visually verify DOCX files. |
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
+| `independent-reviewer` | Spawn a fresh subagent for a read-only second review. |
 | `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
 | `create-pull-request` | [Draft GitHub PR text or create a review-ready pull request.](skills/create-pull-request/SKILL.md) |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |

@@ -82,7 +82,8 @@ Supervisor remains responsible for preparing the allowance, but a broader self-d
 pass graph initialization. The standalone register does not read ledger control metadata or
 authenticate the approval source, so it assumes the supplied plan already passed graph validation.
 
-A minimal Validation Executor allowance assignment looks like this inside the top-level allowance:
+A minimal Validation Executor allowance assignment using the Luna max economy option looks like
+this inside the top-level allowance:
 
 ```json
 {
@@ -115,7 +116,10 @@ A minimal Validation Executor allowance assignment looks like this inside the to
 ```
 
 The selected host catalog bounds supported assignment values, separately from recommendations.
-Revision 3 suggests Luna/low for Codex, Sonnet 5/low for Claude, and Gemini 3.8 Flash/low for Cursor.
+Codex revision 6 suggests Astra or Sol/medium and exposes GPT-6 Luna/max as its economy
+fanout option. Revision 5 retains its Luna/max recommendation, while revisions 3 and 4 retain
+their earlier Luna/low suggestions. Claude suggests Sonnet 5/low and Cursor suggests Gemini
+3.8 Flash/low.
 Use the preview's helper recommendation or a human-selected supported alternative, including Sol
 on Codex. Bind that exact pair in the allowance before approval; graph-node overrides do not change
 the allowance. Cooperative host observation must verify the exact pair. Never silently substitute,
