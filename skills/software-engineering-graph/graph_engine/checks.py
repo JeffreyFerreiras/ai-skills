@@ -519,6 +519,8 @@ def prepare_generated_outputs(repo, policy, task, value, producers, input_refs, 
     require_keys(value, {"schema_version", "kind", "outputs"}, {"schema_version", "kind", "outputs"}, "generated_outputs")
     if value["schema_version"] != 1 or value["kind"] != "generated_output_plan" or not isinstance(value["outputs"], list) or len(value["outputs"]) > 32:
         raise ContractError("generated_outputs", "SCHEMA_MISMATCH")
+    if policy["schema_version"] == 3 and value["outputs"]:
+        raise ContractError("generated_outputs", "RUNTIME_ARTIFACTS_REQUIRED")
     writes = [item["target_ref"][5:] for item in task["authority"]["capabilities"]
               if item["effect"] == "filesystem_write" and item["action"] == "edit" and item["target_ref"].startswith("repo:")]
     protected = list(policy.get("implementation_roots", [])) + list(relevant_inputs)

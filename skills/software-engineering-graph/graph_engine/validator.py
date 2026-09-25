@@ -26,7 +26,7 @@ from .planner import (
     NodeSpec, branch_id, delivery_review_nodes, design_research_nodes, design_review_nodes, envelope, fanout_id,
     initial_route_nodes, revised_design_node, validate_fanout_ordering,
 )
-from .state import StateError, current_host_identity, repository_identity
+from .state import StateError, current_host_identity, repository_identity, resolve_state_root
 
 
 TERMINAL = {"succeeded", "failed", "timed_out", "skipped"}
@@ -1648,6 +1648,7 @@ def _verify_semantic_state(
     *,
     case_sensitive: bool,
     evidence_enable: bool = False,
+    runtime_root: Optional[Path] = None,
 ) -> None:
     if run["state_schema_version"] not in {STATE_SCHEMA_VERSION, 7}:
         raise StateError("UNSUPPORTED_STATE_SCHEMA")
@@ -1672,7 +1673,10 @@ def _verify_semantic_state(
     if (device, inode, display) != (run["repository_device"], run["repository_inode"], run["repository_path"]):
         raise StateError("REPOSITORY_IDENTITY_MISMATCH")
     task_path = Path(run["task_path"])
-    roots = [repo / root for root in policy["artifact_roots"]["repo"]]
+    selected_root = runtime_root or resolve_state_root()
+    roots = ([selected_root / root for root in policy["artifact_roots"]["runtime"]]
+             if policy["schema_version"] == 3 else
+             [repo / root for root in policy["artifact_roots"]["repo"]])
     snapshot = safe_json_snapshot(task_path, roots, policy["artifact_kinds"]["task_brief"]["max_bytes"])
     if snapshot.digest != run["task_digest"]:
         raise StateError("INPUT_DIGEST_MISMATCH")
@@ -1754,7 +1758,7 @@ def _verify_semantic_state(
     if not artifacts or connection.execute("SELECT 1 FROM artifacts WHERE ref=?", (run["task_ref"],)).fetchone() is None:
         raise StateError("ARTIFACT_REGISTRY_INVALID")
     for artifact in artifacts:
-        reverify_artifact(connection, artifact, repo, skill_root, policy)
+        reverify_artifact(connection, artifact, repo, skill_root, policy, selected_root)
 
 
 def verify_semantic_state(
@@ -1767,12 +1771,14 @@ def verify_semantic_state(
     *,
     case_sensitive: bool,
     evidence_enable: bool = False,
+    runtime_root: Optional[Path] = None,
 ) -> None:
     try:
         _verify_semantic_state(
             connection, run, repo, current_policy_digest, policy, skill_root,
             case_sensitive=case_sensitive,
             evidence_enable=evidence_enable,
+            runtime_root=runtime_root,
         )
     except sqlite3.DatabaseError:
         raise StateError("DATABASE_STATE_INVALID")
@@ -1787,8 +1793,9 @@ def verify_resume(
     skill_root: Path,
     *,
     case_sensitive: bool,
+    runtime_root: Optional[Path] = None,
 ) -> None:
     verify_semantic_state(
         connection, run, repo, current_policy_digest, policy, skill_root,
-        case_sensitive=case_sensitive,
+        case_sensitive=case_sensitive, runtime_root=runtime_root,
     )

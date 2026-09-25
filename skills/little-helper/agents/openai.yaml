@@ -1,0 +1,4 @@
+interface:
+  display_name: "Little Helper"
+  short_description: "Delegate one tightly scoped job to a subagent"
+  default_prompt: "Use $little-helper to delegate this one narrow task with an exact expected result."

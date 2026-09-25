@@ -51,7 +51,7 @@ selected model does not expose: Grok 4.7 stops
 at xhigh; Gemini 3.8 Flash stops at high. A newly available pair requires a reviewed catalog update,
 not an arbitrary unchecked string. Such updates must preserve prior revision reconstruction.
 
-With the installed-skill policy loaded:
+With the runtime-home policy loaded:
 
 ```text
 python <skill>/scripts/graphctl.py --repo <repo> plan --run-id <id> --task-brief <path> --host cursor
@@ -90,7 +90,7 @@ New Codex revision 6 plans recommend Astra or Sol at medium effort for helpers a
 and expose GPT-6 Luna / max as an economy fanout option. Older engines reject revision 6 rather
 than reinterpret it.
 Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
-remain separately selected in the installed-skill policy, not through graph-node overrides.
+remain separately selected in the runtime-home policy, not through graph-node overrides.
 
 ## Source and evaluation scope
 

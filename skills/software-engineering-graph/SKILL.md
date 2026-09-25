@@ -19,34 +19,45 @@ the size, route floor, assignments, and omitted roles to the human. No branch ma
 human explicitly approves that immutable execution plan.
 
 Repository policy is not an input to this workflow. Before preparing a task brief, run
-`graphctl --repo <repo> policy`. The engine loads a per-repository policy from `policies/` beside
-this installed skill, creating a conservative one there if absent. It returns the policy path and
-digest for the task brief. The ledger defaults to `state/` beside this installed skill. Do not ask
+`graphctl --repo <repo> policy`. The engine loads a per-repository policy from `policies/` in the
+selected runtime home, creating a conservative schema-3 policy there if absent. By default the
+runtime home is the sibling `<profile>.local/software-engineering-graph/` directory (for example,
+`~/.agents.local/software-engineering-graph/`). An absolute `SOFTWARE_ENGINEERING_GRAPH_HOME`
+overrides it; use the same value for the whole run. The CLI returns the policy path, runtime home,
+lessons path, artifact root, and policy digest for the task brief. Do not ask
 the human to create tool-specific files. Do not write configuration into the consumer repository.
-Inspect the generated policy's implementation roots and required checks; update that installed-skill
+Inspect the generated policy's implementation roots and required checks; update that runtime-home
 policy before plan preview when the task needs other paths or project-native checks. The generated
 `git diff --check` is a baseline and does not replace relevant tests or builds. A present but invalid
-or incompatible installed-skill policy fails closed. A repository-local
+or incompatible policy fails closed. A repository-local
 `.codex/engineering-graph.json` is ignored. Missing policy never grants write, publication,
 deployment, helper, or external-system authority by itself. After the policy is loaded, follow the
 normal plan, approval, and ledger workflow.
 
+For schema-3 policies, put each new run's task brief, helper allowance, design, review, and evidence
+files under `<runtime-home>/artifacts/<repository-id>/<run-id>/`. Use `runtime:artifacts/<repository-id>/<run-id>/<file>#sha256=<digest>`
+for content references and unhashed `runtime:` paths where the contract requests them. Put control
+manifests in the run's `graph-inbox/` directory. Existing repository source can still be cited with
+`repo:` references, and project deliverables still belong in the consumer repository. Historical
+schema-1/2 policies retain their repository artifact roots. Never put new run assets in the installed
+skill or consumer repository when using schema 3.
+
 At the start of that preflight, before substantive scoping work, take a read-only
 `usage checkpoint --session-log <explicit primary session file>` when Codex token metadata is
-available. It runs before installed-skill policy or ledger initialization. Retain only its sanitized
+available. It runs before runtime-home policy or ledger initialization. Retain only its sanitized
 checkpoint fields and bind them to `scoping` after initialization; never count unrelated primary
 thread history. If metadata is unavailable, report token usage as unavailable rather than omitting
 it or inferring consumption from the plan. Read the token-accounting procedure in
 [Ledger operations](references/ledger-operations.md) before collecting metadata.
 
 After the usage checkpoint and before scoping each new run, read `lessons-learned.md` in the
-selected ledger state root. If it does not exist, copy the tracked
+selected runtime home. If it does not exist, copy the tracked
 [starter document](assets/lessons-learned.md) there. Apply relevant lessons as context, then verify
 them against the current request, repository, and approved plan; the journal never overrides those
 authorities or creates a new gate. During the run or at closure, record concrete, verified lessons
 that would change a future Supervisor decision. Update an existing lesson when new evidence corrects
 it, and record the run and evidence reference without secrets or raw session content. Keep this
-write in the selected state root, never in the consumer repository or tracked skill source. If the
+write in the selected runtime home, never in the consumer repository or tracked skill source. If the
 journal cannot be read or updated, report the gap and continue the authorized workflow.
 
 For new repository implementation work, the Supervisor first performs bounded read-only inspection
@@ -55,7 +66,7 @@ implementation authority, the Supervisor owns setup: create one new isolated imp
 and branch with `git worktree add` before editing project files. Use a standard Git worktree, not a
 Codex-managed worktree created through `create_worktree`. This is its sole Git/worktree mutation exception; it does
 not authorize commits, publication, cleanup, force, or changes to an existing checkout. Resolve the
-exact target path and base first, and preserve unrelated work. If installed-skill policy forbids setup,
+exact target path and base first, and preserve unrelated work. If the selected policy forbids setup,
 report that concrete constraint and continue authorized read-only preparation.
 The task brief records the selected worktree and branch as scope context. Reuse an existing checkout
 or worktree when the user explicitly directs it; still inspect its status before delegating.
@@ -83,7 +94,7 @@ Before initialization, present the execution sequence, relevant and conditional 
 for each role, the bounded helper allowance, available alternatives, and known availability gaps.
 Invite the human to adjust assignments. Use task-brief v2/v3 `model_overrides` for graph nodes,
 Supervisor recommendation, and publication assignment. Helper selections live in the separately
-bound allowance. `graphctl plan` previews the candidate without writing state using the installed-skill
+bound allowance. `graphctl plan` previews the candidate without writing state using the selected
 policy.
 Repeat the preview after requested changes, then initialize the final brief and approve its exact
 plan digest. Do not edit a brief after initialization, even while approval is pending. Such changes
@@ -236,7 +247,7 @@ Include the allowance in the initial plan approval; do not require a separate op
 approval. Parents should delegate useful independent evidence work and permitted validation within
 that allowance. Actual dispatch remains conditional on available work, budgets, resource safety,
 and verified host capabilities; use direct tools for trivial work. Honor explicit user opt-out and
-stricter installed-skill policy, and record any omitted or unsupported allowance with its reason.
+stricter selected policy, and record any omitted or unsupported allowance with its reason.
 
 These are host-only sessions, not engine branches or new gates. New deterministic
 registration requires a human-approved task/plan v3 allowance attachment and the separate run-bound

@@ -71,7 +71,7 @@ def _scope_refs(value: Any, field: str) -> List[str]:
     result = [validate_ref(item, field) for item in value]
     if len(result) != len(set(result)):
         raise ContractError(field, "DUPLICATE_VALUE")
-    if any(not item.startswith(("repo:", "profile:software-engineering-graph/")) for item in result):
+    if any(not item.startswith(("repo:", "runtime:", "profile:software-engineering-graph/")) for item in result):
         raise ContractError(field, "FILESYSTEM_REF_REQUIRED")
     return result
 
@@ -426,10 +426,18 @@ def _validate_plan(value: Any, run_id: str) -> Dict[str, Any]:
         raise ContractError("execution_plan.helper_allowance", "MISSING_FIELD")
     require_keys(attachment, {"ref", "sha256"}, {"ref", "sha256"}, "execution_plan.helper_allowance")
     allowance_ref = validate_ref(attachment["ref"], "execution_plan.helper_allowance.ref")
-    if not allowance_ref.startswith("repo:") or "#" in allowance_ref or not allowance_ref.endswith(".json"):
-        raise ContractError("execution_plan.helper_allowance.ref", "REPOSITORY_REF_REQUIRED")
+    if not allowance_ref.startswith(("repo:", "runtime:")) or "#" in allowance_ref or not allowance_ref.endswith(".json"):
+        raise ContractError("execution_plan.helper_allowance.ref", "FILESYSTEM_REF_REQUIRED")
     digest(attachment["sha256"], "execution_plan.helper_allowance.sha256")
     return dict(value)
+
+
+def _allowance_location(reference: str, repository: Path, runtime_root: Path) -> Tuple[Path, Path]:
+    prefix, relative = reference.split(":", 1)
+    if prefix not in {"repo", "runtime"}:
+        raise ContractError("allowance_ref", "FILESYSTEM_REF_REQUIRED")
+    root = repository if prefix == "repo" else runtime_root
+    return root / lexical_relative(relative, "allowance_ref"), root
 
 
 def _filesystem_identity(value: Any, field: str) -> Dict[str, Any]:
@@ -558,24 +566,26 @@ def _assignment_for(allowance: Mapping[str, Any], assignment_id: str) -> Mapping
 
 def _verify_checkpoint(register: Mapping[str, Any], request: Mapping[str, Any]) -> None:
     checkpoint = request["checkpoint_ref"]
-    if not checkpoint.startswith("repo:"):
-        raise ContractError("request.checkpoint_ref", "REPOSITORY_REF_REQUIRED")
-    body, marker, expected_digest = checkpoint[5:].partition("#sha256=")
+    if not checkpoint.startswith(("repo:", "runtime:")):
+        raise ContractError("request.checkpoint_ref", "FILESYSTEM_REF_REQUIRED")
+    prefix, body_with_digest = checkpoint.split(":", 1)
+    body, marker, expected_digest = body_with_digest.partition("#sha256=")
     if not marker:
         raise ContractError("request.checkpoint_ref", "CONTENT_DIGEST_REQUIRED")
     relative = lexical_relative(body, "request.checkpoint_ref")
     approved = False
     for scope in request["scope_refs"]:
-        if not scope.startswith("repo:"):
+        if not scope.startswith(prefix + ":"):
             continue
-        scope_path = scope[5:].rstrip("/")
+        scope_path = scope[len(prefix) + 1:].rstrip("/")
         approved = relative == scope_path or relative.startswith(scope_path + "/")
         if approved:
             break
     if not approved:
         raise ContractError("request.checkpoint_ref", "SCOPE_EXCEEDED")
-    repository = Path(register["repository_identity"]["path"])
-    snapshot = safe_file_snapshot(repository / relative, [repository], MAX_RECORD_BYTES)
+    root = (Path(register["repository_identity"]["path"]) if prefix == "repo"
+            else Path(register["context"]["state_root_identity"]["path"]))
+    snapshot = safe_file_snapshot(root / relative, [root], MAX_RECORD_BYTES)
     if snapshot.digest != expected_digest:
         raise ContractError("request.checkpoint_ref", "INPUT_DIGEST_MISMATCH")
 
@@ -892,10 +902,12 @@ class HelperRegisterRepository:
         plan_snapshot = safe_json_snapshot(plan_path, [plan_path.parent], MAX_RECORD_BYTES)
         plan = _validate_plan(plan_snapshot.parsed, run)
         attachment = plan["helper_allowance"]
-        expected_allowance_path = repository / attachment["ref"][5:]
+        expected_allowance_path, allowance_root = _allowance_location(
+            attachment["ref"], repository, root,
+        )
         if allowance_path.resolve(strict=True) != expected_allowance_path.resolve(strict=True):
             raise ContractError("allowance", "ALLOWANCE_REF_MISMATCH")
-        allowance_snapshot = safe_json_snapshot(allowance_path, [repository], MAX_RECORD_BYTES)
+        allowance_snapshot = safe_json_snapshot(allowance_path, [allowance_root], MAX_RECORD_BYTES)
         if allowance_snapshot.digest != attachment["sha256"]:
             raise ContractError("allowance", "INPUT_DIGEST_MISMATCH")
         allowance = validate_allowance(allowance_snapshot.parsed, run, plan["host"])
@@ -984,10 +996,12 @@ class HelperRegisterRepository:
         if current_repository != (identity["device"], identity["inode"], identity["path"]):
             raise HelperRegisterError("REGISTER_BINDING_MISMATCH")
         repository = Path(identity["path"])
-        allowance_relative = lexical_relative(context["allowance_ref"][5:], "context.allowance_ref")
+        allowance_path, allowance_root = _allowance_location(
+            context["allowance_ref"], repository, Path(context["state_root_identity"]["path"]),
+        )
         try:
             allowance_snapshot = safe_json_snapshot(
-                repository / allowance_relative, [repository], MAX_RECORD_BYTES,
+                allowance_path, [allowance_root], MAX_RECORD_BYTES,
             )
             current_allowance = validate_allowance(
                 allowance_snapshot.parsed, context["run_id"], record["host"],

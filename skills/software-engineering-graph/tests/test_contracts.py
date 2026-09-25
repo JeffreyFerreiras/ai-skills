@@ -7,12 +7,15 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from graph_engine.config import (
     ENGINE_ARTIFACT_MAX, ENGINE_COLLECTION_MAX_BYTES, ENGINE_COLLECTION_MAX_MEMBERS,
-    load_policy, role_capability_allowed,
+    _default_profile_policy, load_policy, role_capability_allowed,
 )
+from graph_engine.cli import execute
 from graph_engine.contracts import ContractError, validate_impact_map, validate_ref, validate_task_brief
+from graph_engine.evidence import resolve_reference, resolve_unhashed_reference
 from graph_engine.ids import sha256_bytes
 
 from tests.test_support import GraphCase
@@ -234,14 +237,14 @@ class ContractTests(GraphCase):
     def test_missing_installed_policy_is_created_and_repository_policy_is_ignored(self):
         from graph_engine.config import profile_policy_path
 
-        installed = profile_policy_path(self.repo, self.skill_root)
+        installed = profile_policy_path(self.repo, self.runtime_root)
         installed.unlink()
         repository_policy = self.repo / ".codex" / "engineering-graph.json"
         repository_policy.write_text("{}", encoding="utf-8")
 
         policy, snapshot = load_policy(self.repo)
         self.assertEqual(snapshot.path, installed)
-        self.assertEqual(policy["schema_version"], 2)
+        self.assertEqual(policy["schema_version"], 3)
         self.assertIn("docs/", policy["implementation_roots"])
         self.assertEqual(policy["required_checks"]["diff-check"]["argv"], ["git", "diff", "--check"])
         self.assertEqual(self.graphctl("policy")["policy_digest"], snapshot.digest)
@@ -250,8 +253,8 @@ class ContractTests(GraphCase):
         task["policy_approval"]["sha256"] = snapshot.digest
         task["required_check_ids"] = ["diff-check"]
         task["evidence_paths"] = []
-        artifacts = self.repo / "engineering-graph-artifacts"
-        artifacts.mkdir()
+        artifacts = self.runtime_root / "artifacts" / policy["repository_id"] / "profile-run"
+        artifacts.mkdir(parents=True)
         task_path = artifacts / "task.json"
         task_path.write_text(json.dumps(task), encoding="utf-8")
         preview = self.graphctl("plan", "--run-id", "PROFILE-RUN", "--task-brief", str(task_path))
@@ -266,15 +269,96 @@ class ContractTests(GraphCase):
             "--authority-ref", "authority:test", "--op-id", "profile-approval",
         )
         self.assertTrue(self.graphctl("next", "--run-id", "PROFILE-RUN", "--all")["ok"])
+        self.assertEqual(
+            self.graphctl(
+                "resume", "--run-id", "PROFILE-RUN", "--ack-degraded-permissions",
+                "--ack-degraded-durability",
+            )["code"],
+            "RESUMED",
+        )
+
+        with self.store.open_run(policy["repository_id"], "PROFILE-RUN") as connection:
+            task_ref = connection.execute("SELECT task_ref FROM runs").fetchone()[0]
+        self.assertTrue(task_ref.startswith("runtime:artifacts/" + policy["repository_id"] + "/"))
 
         installed.write_text("{}", encoding="utf-8")
         with self.assertRaises(ContractError):
             load_policy(self.repo)
 
+    def test_runtime_artifact_reference_stays_in_selected_repository_home(self):
+        from graph_engine.config import profile_policy_path
+
+        profile_policy_path(self.repo, self.runtime_root).unlink()
+        (self.repo / "README.md").write_text("Project evidence\n", encoding="utf-8")
+        policy, _ = load_policy(self.repo)
+        artifact_root = self.runtime_root / "artifacts" / policy["repository_id"] / "RUN-1"
+        artifact_root.mkdir(parents=True)
+        artifact = artifact_root / "evidence.json"
+        artifact.write_text('{"result":"verified"}', encoding="utf-8")
+        relative = artifact.relative_to(self.runtime_root).as_posix()
+        verified = resolve_unhashed_reference(
+            "runtime:" + relative, "acceptance_evidence", self.repo, self.skill_root,
+            policy, self.runtime_root,
+        )
+        self.assertEqual(verified.source_type, "runtime")
+        self.assertEqual(
+            resolve_unhashed_reference(
+                "repo:README.md", "acceptance_evidence", self.repo, self.skill_root,
+                policy, self.runtime_root,
+            ).source_type,
+            "repo",
+        )
+        self.assertEqual(
+            resolve_reference(
+                verified.ref, verified.sha256, "acceptance_evidence", self.repo,
+                self.skill_root, policy, runtime_root=self.runtime_root,
+            ).source_path,
+            str(artifact),
+        )
+        with self.assertRaisesRegex(ContractError, "OUTSIDE_ALLOWED_ROOT"):
+            resolve_unhashed_reference(
+                "runtime:artifacts/another-repository/evidence.json", "acceptance_evidence",
+                self.repo, self.skill_root, policy, self.runtime_root,
+            )
+        artifact.write_text('{"result":"changed"}', encoding="utf-8")
+        with self.assertRaisesRegex(ContractError, "INPUT_DIGEST_MISMATCH"):
+            resolve_reference(
+                verified.ref, verified.sha256, "acceptance_evidence", self.repo,
+                self.skill_root, policy, runtime_root=self.runtime_root,
+            )
+
+    def test_explicit_legacy_state_root_reads_installed_policy_without_moving_it(self):
+        from graph_engine.config import profile_policy_path
+
+        legacy_policy = profile_policy_path(self.repo, self.skill_root)
+        legacy_policy.parent.mkdir()
+        legacy_policy.write_bytes(self.policy_bytes)
+        legacy_state = self.skill_root / "state"
+        result, _ = execute([
+            "--repo", str(self.repo), "--state-root", str(legacy_state), "policy",
+        ])
+        self.assertEqual(result["policy_path"], str(legacy_policy))
+        self.assertEqual(result["policy_source"], "legacy_installed_skill")
+        self.assertFalse(legacy_state.exists())
+
+    def test_explicit_state_root_ignores_invalid_environment_home(self):
+        from graph_engine.state import StateError, resolve_state_root
+
+        explicit = self.root / "explicit-home"
+        with patch.dict(os.environ, {"SOFTWARE_ENGINEERING_GRAPH_HOME": "relative/invalid"}), \
+                patch("graph_engine.config.resolve_state_root", side_effect=resolve_state_root):
+            result, _ = execute([
+                "--repo", str(self.repo), "--state-root", str(explicit), "policy",
+            ])
+            self.assertEqual(Path(result["state_root"]), explicit.absolute())
+            self.assertTrue(Path(result["policy_path"]).is_file())
+            with self.assertRaises(StateError):
+                load_policy(self.repo)
+
     def test_generated_policy_excludes_existing_artifact_and_sensitive_roots(self):
         from graph_engine.config import profile_policy_path
 
-        profile_policy_path(self.repo, self.skill_root).unlink()
+        profile_policy_path(self.repo, self.runtime_root).unlink()
         (self.repo / "engineering-graph-artifacts").mkdir()
         for name in ("credentials.json", "notes.key", "secrets-backup"):
             candidate = self.repo / name
@@ -286,14 +370,20 @@ class ContractTests(GraphCase):
         policy, _ = load_policy(self.repo)
         for root in ("engineering-graph-artifacts/", "credentials.json", "notes.key", "secrets-backup/"):
             self.assertNotIn(root, policy["implementation_roots"])
-        self.assertEqual(["engineering-graph-artifacts/"], policy["artifact_roots"]["repo"])
+        self.assertEqual([], policy["artifact_roots"]["repo"])
+        self.assertEqual(["artifacts/" + policy["repository_id"] + "/"], policy["artifact_roots"]["runtime"])
         self.assertFalse(any(
             capability["target_ref"] == "repo:credentials.json"
             for capabilities in policy["role_capabilities"].values()
             for capability in capabilities
         ))
 
-        installed = profile_policy_path(self.repo, self.skill_root)
+        installed = profile_policy_path(self.repo, self.runtime_root)
+        invalid_repository_artifacts = copy.deepcopy(policy)
+        invalid_repository_artifacts["artifact_roots"]["repo"] = ["docs/"]
+        installed.write_text(json.dumps(invalid_repository_artifacts), encoding="utf-8")
+        with self.assertRaisesRegex(ContractError, "RUNTIME_ARTIFACTS_REQUIRED"):
+            load_policy(self.repo)
         for root in ("credentials.json", "notes.key", "secrets-backup/"):
             with self.subTest(root=root):
                 invalid = copy.deepcopy(policy)
@@ -313,7 +403,7 @@ class ContractTests(GraphCase):
     def test_generated_policy_skips_top_level_junction(self):
         from graph_engine.config import profile_policy_path
 
-        profile_policy_path(self.repo, self.skill_root).unlink()
+        profile_policy_path(self.repo, self.runtime_root).unlink()
         external = self.root / "external"
         external.mkdir()
         junction = self.repo / "linked-project"
@@ -335,9 +425,10 @@ class ContractTests(GraphCase):
                     check=True, capture_output=True, text=True, env=environment,
                 )
                 result = json.loads(completed.stdout)
-                self.assertEqual(Path(result["policy_path"]).parent, installed / "policies")
-                self.assertEqual(Path(result["state_root"]), installed / "state")
-                self.assertEqual(result["policy_source"], "installed_skill")
+                runtime = self.root / (host + ".local") / "software-engineering-graph"
+                self.assertEqual(Path(result["policy_path"]).parent, runtime / "policies")
+                self.assertEqual(Path(result["state_root"]), runtime)
+                self.assertEqual(result["policy_source"], "runtime_home")
 
     def policy_v2(self):
         policy = copy.deepcopy(self.policy)
@@ -793,6 +884,7 @@ class ContractTests(GraphCase):
         _validate_json_schema(fixture, schema, schema)
         fixture_v2 = self.policy_v2()
         _validate_json_schema(fixture_v2, schema, schema)
+        _validate_json_schema(_default_profile_policy(self.repo), schema, schema)
         for missing in ("argv", "timeout_seconds"):
             with self.subTest(schema_version=2, missing=missing):
                 incomplete = copy.deepcopy(fixture_v2)

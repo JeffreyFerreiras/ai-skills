@@ -39,8 +39,9 @@ fixtures, documentation, and nine supported reusable role definitions. The insta
 untouched unless a separately approved task explicitly authorizes profile work.
 
 The repository supports Python 3.9 or newer and the standard library only. It has no packaging,
-dependency, CI, deployment, release, installation, or synchronization responsibility. Consumer
-repositories own their policy and task artifacts. Repository work must not inspect or mutate a
+dependency, CI, deployment, release, installation, or synchronization responsibility. The selected
+runtime home owns graph policy and task artifacts; consumer repositories own source and deliverables.
+Repository work must not inspect or mutate a
 consumer repository unless that repository is separately in scope.
 
 ## Architecture
@@ -53,9 +54,9 @@ The engine uses pragmatic inward-pointing boundaries:
 - `graph_engine/validator.py` validates contracts and persisted semantic state. It receives the
   platform case policy explicitly and does not detect runtime environment settings.
 - `graph_engine/state.py` owns SQLite transactions, durability, filesystem identity, and atomic
-  persistence. It also resolves the host state root by explicit absolute argument, the dedicated
-  environment variable, absolute XDG state, then the installed skill's `state/` directory. Old roots open only when
-  passed explicitly; resolution never discovers, migrates, or rewrites them. Mutation semantic
+  persistence. It resolves one runtime home by explicit absolute argument, `SOFTWARE_ENGINEERING_GRAPH_HOME`,
+  the legacy state variable, absolute XDG state, then the sibling `<profile>.local/software-engineering-graph/`
+  directory. Old roots open only when passed explicitly; resolution never moves or deletes them. Mutation semantic
   validation is a required callable dependency, not mutable store configuration.
 - `graph_engine/helper_register.py` is a separate host-artifact adapter for helper allowance
   validation and atomic reservation. It does not use the graph database, scheduler, agent executor,
@@ -245,16 +246,24 @@ continue to emit execution-plan v1 unless they opt into helpers. A helper-enable
 execution-plan v3 and binds its allowance reference/hash. Execution-plan schema does not select the
 size-policy classifier; persisted task-brief schema still does.
 
-## Installed-skill policy
+## Runtime-home policy
 
-The installed skill owns policy and ledger state. `graphctl policy` identifies the target repository
-by its canonical path and creates a separate schema-2 policy under the skill's `policies/` directory
+The selected runtime home owns policy and ledger state. `graphctl policy` identifies the target repository
+by its canonical path and creates a separate schema-3 policy under the home's `policies/` directory
 if absent. The generated policy discovers ordinary top-level implementation roots, omits sensitive
 and agent-instruction paths, and starts with `git diff --check` as its mandatory check. The Supervisor
 reviews and adjusts project-specific roots and checks before binding the task brief to the policy
 digest. A repository-local `.codex/engineering-graph.json` is ignored. An existing malformed or
-incompatible installed-skill policy fails closed. Default ledger state lives under the skill's
-`state/` directory, with explicit state-root overrides retained for controlled environments.
+incompatible policy fails closed. Ledger, inbox, helper registers, lessons, and graph artifacts live
+under the same home. An existing default-home policy is copied byte-for-byte into an explicitly
+chosen home when that home has no policy; historical skill-local policies remain readable when an
+old state root is selected.
+
+Policy v3 retains project implementation roots and uses `artifact_roots.runtime` scoped to
+`artifacts/<repository-id>/`. New task briefs and run evidence use `runtime:` references and are
+stored under that root. `repo:` evidence in a v3 run resolves only from existing implementation
+roots. Project source and intended deliverables remain in the consumer repository. Policy v1/v2
+retain their original repository artifact behavior and digests.
 
 Repository-policy v2 keeps the existing graph invariants while allowing project-specific bounded
 repository file or directory references, exact required-check command IDs, and a required

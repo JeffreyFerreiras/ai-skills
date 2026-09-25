@@ -191,6 +191,39 @@ class ReviewerDelegationContractTests(GraphCase):
             validate_findings([finding, finding], ["E-1"], acceptance_ids=["AC-001"],
                               scope_refs=["repo:docs/"], exact_evidence=True)
 
+    def test_preliminary_accepts_only_approved_runtime_evidence(self):
+        approved = {
+            "kind": "finding",
+            "ref": "runtime:artifacts/profile-1/review.json#sha256=" + "a" * 64,
+            "sha256": "a" * 64,
+        }
+        preliminary = {
+            "schema_version": 1, "kind": "review_preliminary", "run_id": "RUN-1",
+            "parent_branch_id": "parent", "parent_attempt_id": "attempt", "generation": 0,
+            "findings": [], "evidence": [{"evidence_id": "E-1", "kind": "finding", "sha256": "a" * 64}],
+        }
+        normalized = validate_preliminary(
+            preliminary, "RUN-1", "parent", "attempt", 0, approved_evidence=[approved],
+        )
+        self.assertEqual(normalized["evidence"][0]["ref"], approved["ref"])
+        for changed in (
+            {**approved, "kind": "implementation_handoff"},
+            {**approved, "sha256": "b" * 64, "ref": approved["ref"].replace("a" * 64, "b" * 64)},
+            {**approved, "ref": "runtime:artifacts/../outside.json#sha256=" + "a" * 64},
+        ):
+            with self.subTest(approved=changed), self.assertRaises(ContractError):
+                validate_preliminary(
+                    preliminary, "RUN-1", "parent", "attempt", 0,
+                    approved_evidence=[changed],
+                )
+        resolved = copy.deepcopy(preliminary)
+        resolved["evidence"][0]["ref"] = "runtime:artifacts/profile-1/other.json#sha256=" + "a" * 64
+        with self.assertRaisesRegex(ContractError, "DELEGATION_EVIDENCE_UNAPPROVED"):
+            validate_preliminary(
+                resolved, "RUN-1", "parent", "attempt", 0,
+                approved_evidence=[approved], resolved=True,
+            )
+
     def test_terminal_failure_or_timeout_cannot_be_accepted_away(self):
         parent = {
             "branch_id": "g2-parent", "status": "succeeded", "mandatory": True,

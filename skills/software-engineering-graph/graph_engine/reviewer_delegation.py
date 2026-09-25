@@ -226,8 +226,12 @@ def validate_preliminary(
     registry: Dict[Tuple[str, str], List[str]] = {}
     if approved_evidence is not None:
         for item in approved_evidence:
-            if isinstance(item, Mapping) and str(item.get("ref", "")).startswith(("repo:", "profile:")):
-                registry.setdefault((item["kind"], item["sha256"]), []).append(item["ref"])
+            if isinstance(item, Mapping) and str(item.get("ref", "")).startswith(("repo:", "runtime:", "profile:")):
+                reference = validate_ref(item["ref"], "approved_evidence.ref", content_required=True)
+                approved_digest = digest(item["sha256"], "approved_evidence.sha256")
+                if reference.rpartition("#sha256=")[2] != approved_digest:
+                    raise ContractError("approved_evidence.ref", "INPUT_DIGEST_MISMATCH")
+                registry.setdefault((item["kind"], approved_digest), []).append(reference)
     evidence: List[Dict[str, str]] = []
     evidence_ids = set()
     for index, item in enumerate(value["evidence"]):

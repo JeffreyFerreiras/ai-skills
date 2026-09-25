@@ -29,14 +29,18 @@ class GraphCase(unittest.TestCase):
         shutil.copyfile(POLICY_SOURCE, self.repo / ".codex" / "engineering-graph.json")
         self.skill_root = self.root / "installed-skill"
         self.skill_root.mkdir()
-        installed_policy = profile_policy_path(self.repo, self.skill_root)
-        installed_policy.parent.mkdir()
+        self.runtime_root = self.root / "codex"
+        installed_policy = profile_policy_path(self.repo, self.runtime_root)
+        installed_policy.parent.mkdir(parents=True)
         os.link(self.repo / ".codex" / "engineering-graph.json", installed_policy)
         root_override = patch("graph_engine.config.SKILL_ROOT", self.skill_root)
         root_override.start()
         self.addCleanup(root_override.stop)
+        runtime_override = patch("graph_engine.config.resolve_state_root", side_effect=lambda explicit=None, **_: explicit or self.runtime_root)
+        runtime_override.start()
+        self.addCleanup(runtime_override.stop)
         self.policy_bytes = (self.repo / ".codex" / "engineering-graph.json").read_bytes()
-        self.store = StateStore(self.root / "codex")
+        self.store = StateStore(self.runtime_root)
         self.counter = 0
 
     def tearDown(self) -> None:

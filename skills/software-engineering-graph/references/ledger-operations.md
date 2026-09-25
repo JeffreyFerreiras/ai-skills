@@ -36,20 +36,28 @@ This read-only preflight runs without `--repo`, policy, initialization, or any l
 only the returned `checkpoint_schema_version: 1`, hashed `source_id`, `offset`, and `prefix_sha256`.
 If no metadata is available, say that token usage is unavailable and continue the approved workflow.
 
-By default, ledger state lives under `<skill>/state`. An explicit state root may be selected before
-the first stateful command and must remain fixed for the run:
+By default, the runtime home is `<profile>.local/software-engineering-graph/` beside the installed
+profile (for example, `~/.agents.local/software-engineering-graph/`). It holds policy, ledger,
+inbox, artifacts, helper registers, and `lessons-learned.md`. An absolute override may be selected
+before the first stateful command and must remain fixed for the run:
 
 ```powershell
-$env:SOFTWARE_ENGINEERING_GRAPH_STATE_HOME = 'C:\graph-state'
+$env:SOFTWARE_ENGINEERING_GRAPH_HOME = 'C:\graph-runtime'
 ```
 
-An explicit `--state-root` may be used instead, but it must be repeated unchanged on every stateful
-command. The stateless usage checkpoint above is exempt.
+An explicit `--state-root` takes precedence and must be repeated unchanged on every stateful
+command. Legacy `SOFTWARE_ENGINEERING_GRAPH_STATE_HOME` and `XDG_STATE_HOME` overrides remain
+supported. The stateless usage checkpoint above is exempt.
 
-1. Run `python <skill>/scripts/graphctl.py --repo <repo> policy` to load or create the policy beside
-   the installed skill. Review its project roots and required checks. Inspect the worktree and create
-   a redacted, immutable task brief matching
-   [the task-brief schema](task-brief.schema.json) under a repository-policy artifact root.
+1. Run `python <skill>/scripts/graphctl.py --repo <repo> policy` to load or create the policy in the
+   selected runtime home. Review its project roots and required checks. The response supplies
+   `state_root`, `lessons_path`, `runtime_artifact_root`, and `repository_id`. Read the lessons journal
+   before scoping. Inspect the worktree and create a redacted, immutable task brief matching
+   [the task-brief schema](task-brief.schema.json) under
+   `<runtime_artifact_root>/<run-id>/` for a new schema-3 policy. Use that same run directory for
+   helper allowance, design, review, and evidence files. Existing repository source may be cited
+   with `repo:` references; generated run files use `runtime:artifacts/<repository-id>/<run-id>/...`.
+   Historical policies retain their repository artifact roots.
 2. Put the `policy` command's exact digest in the brief's `policy_approval`.
 3. Preview the execution plan without writing state. Present roles, work sequence, model/effort
    recommendations, options, helper allowance, and availability gaps. Apply the human's selections
@@ -113,7 +121,7 @@ receipts or parent judgments.
 
 ### Optional reviewer delegation
 
-Delegation is disabled unless both the installed-skill policy and task brief provide
+Delegation is disabled unless both the selected policy and task brief provide
 `reviewer_delegation`. An enabled execution-plan v2 lists every conditional assignment and its exact
 role, model, effort, lens, prompt template, reason/acceptance/evidence/scope ceilings, derived
 read-only capabilities, instance limit, and dispatch weight. Human approval covers these values.
@@ -190,9 +198,11 @@ checks remain history and cannot substitute for checks bound to the final review
 source cannot reuse old approvals, even with fresh passing checks. Failure/non-approving results
 remain recordable for running reviews; use existing repair, block or new-task handling otherwise.
 
-Finalize handoffs and source inputs before the review boundary. Prefer already-permitted staging
-outside covered source or canonical ledger results. For host-persisted reports under covered artifact
-roots, `join advance` accepts `--generated-output-plan INBOX_JSON`. Its payload has `schema_version:1`,
+Finalize handoffs and source inputs before the review boundary. For schema-3 policies, put graph
+reports under the runtime artifact root or use canonical ledger results; these files are outside
+repository source coverage and do not need a generated-output plan. For historical policies with
+host-persisted reports under covered repository artifact roots, `join advance` accepts
+`--generated-output-plan INBOX_JSON`. Its payload has `schema_version:1`,
 `kind:generated_output_plan`, and at most 32 `outputs`, each with exact `path`, `purpose`,
 `producer_node_key`, and `artifact_kind`. Purposes are `review_report`, `consolidation`, and
 `acceptance_wrapper`. The last two belong to `supervisor_delivery_consolidation`.

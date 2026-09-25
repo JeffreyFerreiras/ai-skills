@@ -188,17 +188,17 @@ host-confinement verification and production acceptance. Passing a test does not
 
 ## Initialize and operate the register
 
-The Supervisor initializes one register under the selected absolute host state root, which defaults
-to `<skill>/state`. It gives parents
+The Supervisor initializes one register under the selected absolute runtime home, which defaults
+to the sibling `<profile>.local/software-engineering-graph/` directory. It gives parents
 only the returned register path and redacted context. Keep allowance, plan, observation, and register
 files bounded and free of secrets.
 
 ```powershell
-python scripts/helper-register.py initialize --state-root C:\graph-state --repo C:\work\project --run-id RUN-1 --plan C:\work\project\docs\plan.json --allowance C:\work\project\docs\helper-allowance.json --host-observation C:\evidence\host-observation.json
-python scripts/helper-register.py preflight --register <returned-path> --context C:\evidence\helper-context.json --request C:\evidence\helper-request.json
-python scripts/helper-register.py reserve --register <returned-path> --context C:\evidence\helper-context.json --request C:\evidence\helper-request.json
-python scripts/helper-register.py settle --register <returned-path> --context C:\evidence\helper-context.json --settlement C:\evidence\helper-settlement.json
-python scripts/helper-register.py status --register <returned-path> --context C:\evidence\helper-context.json
+python scripts/helper-register.py initialize --state-root C:\graph-runtime --repo C:\work\project --run-id RUN-1 --plan C:\graph-runtime\artifacts\profile-id\RUN-1\plan.json --allowance C:\graph-runtime\artifacts\profile-id\RUN-1\helper-allowance.json --host-observation C:\graph-runtime\artifacts\profile-id\RUN-1\host-observation.json
+python scripts/helper-register.py preflight --register <returned-path> --context C:\graph-runtime\artifacts\profile-id\RUN-1\helper-context.json --request C:\graph-runtime\artifacts\profile-id\RUN-1\helper-request.json
+python scripts/helper-register.py reserve --register <returned-path> --context C:\graph-runtime\artifacts\profile-id\RUN-1\helper-context.json --request C:\graph-runtime\artifacts\profile-id\RUN-1\helper-request.json
+python scripts/helper-register.py settle --register <returned-path> --context C:\graph-runtime\artifacts\profile-id\RUN-1\helper-context.json --settlement C:\graph-runtime\artifacts\profile-id\RUN-1\helper-settlement.json
+python scripts/helper-register.py status --register <returned-path> --context C:\graph-runtime\artifacts\profile-id\RUN-1\helper-context.json
 ```
 
 A request declares one unique request ID, assignment ID, parent/helper roles, contract revision,

@@ -69,6 +69,7 @@ The discovery copy uses ordinary files and directories on Windows, macOS, and Li
 | `software-engineering-graph` | [Full graph skill, engine, role profiles, and tests](skills/software-engineering-graph/SKILL.md), maintained in this repository. |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
 | `sync-agents-md` | Audit and synchronize agent instruction markdown. |
+| `little-helper` | Delegate one tightly scoped execution job to a subagent with explicit model and effort overrides. |
 | `run-change-checks` | Select and run focused checks for current changes. |
 
 ## Create A Skill
