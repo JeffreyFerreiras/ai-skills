@@ -112,17 +112,20 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 5 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
+revision 6 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
-| `codex-astra` | GPT-6 Luna `max` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
-| `codex` | GPT-6 Luna `max` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
+| `codex-astra` | GPT-6 Astra `medium` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
+| `codex` | GPT-6 Sol `medium` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
 | `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
-The Astra catalog also permits GPT-6 Sol and GPT-5.6 Terra selections. Other supported
+GPT-6 Luna `max` is the explicit economy fanout option for Codex helpers, fixed research, and
+publication. Select it for fixed nodes and publication with plan overrides; select it for direct
+helpers in the separately bound allowance before approval. The Astra
+catalog also permits GPT-6 Sol and GPT-5.6 Terra selections. Other supported
 alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.
 Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
 assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.
@@ -378,14 +381,18 @@ The [behavioral evaluation protocol](references/behavioral-evaluations.md) suppl
 host scenarios for approval, routing, artifacts, steering, and model selection. These are live-agent
 evaluations, separate from deterministic engine tests; no live Astra results are claimed here.
 
-Run only the focused acceptance suite below, with bytecode disabled:
+For documentation-only changes, check links, skill structure, and `git diff --check`; engine tests
+are unnecessary. For core engine changes, run the affected tests from the modules below with
+bytecode disabled. Run the full focused suite only when the change spans those modules or its impact
+cannot be isolated:
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
 python -m unittest -v tests.test_contracts tests.test_planner tests.test_validator tests.test_state tests.test_cli tests.test_graph_hardening tests.test_reviewer_delegation
 ```
 
-After final review, run the local read-only hygiene check separately and last:
+For changes that affect the role inventory, ignored paths, packaging, or repository constraints,
+run the local read-only hygiene check separately and last after final review:
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'

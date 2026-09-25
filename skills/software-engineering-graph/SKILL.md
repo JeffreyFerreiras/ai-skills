@@ -69,9 +69,11 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 5
-suggests GPT-6 Luna `max` for helpers and Astra `medium` for core work and `high` for review;
-the explicit `codex` catalog suggests GPT-6 Sol instead of Astra. GPT-6 Sol and GPT-5.6 Terra
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 6
+suggests GPT-6 Astra `medium` for helpers, fixed research, and core work, and `high` for review;
+the explicit `codex` catalog suggests GPT-6 Sol instead of Astra. Offer GPT-6 Luna `max` as the
+economy fanout option in the preview. Select it through approved graph-node overrides for fixed
+roles or the separately bound allowance for direct helpers. GPT-6 Sol and GPT-5.6 Terra
 are also selectable within the Astra catalog. Claude suggests Sonnet 5 `low` for helpers,
 Opus 5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
 for helpers, Grok 4.7 `medium` for core work and `high` for review. These are human-selected
@@ -90,7 +92,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 5 plans cannot be consumed by older engines. Role TOML pins are Codex installation
+New Codex revision 6 plans cannot be consumed by older engines. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
@@ -266,7 +268,8 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Decision-role Codex profiles match Astra revision 5 recommendations; helper profiles use GPT-6 Luna `max`.
+Codex role profiles, including helpers, match Astra revision 6 recommendations. A Luna `max`
+economy selection may require a supported fresh agent with the same role contract.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
 as unavailable and propose a supported alternative for approval before dispatching that role.
 Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;

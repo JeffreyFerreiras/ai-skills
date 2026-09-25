@@ -4,14 +4,14 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 5; Claude and Cursor remain on
+`claude`, or `cursor`. New Codex plans use catalog revision 6; Claude and Cursor remain on
 revision 3. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
 | Catalog | Helpers and fixed research | Core roles | Architecture and review |
 | --- | --- | --- | --- |
-| codex-astra | gpt-6-luna / max | gpt-6-astra / medium | gpt-6-astra / high |
-| codex | gpt-6-luna / max | gpt-6-sol / medium | gpt-6-sol / high |
+| codex-astra | gpt-6-astra / medium | gpt-6-astra / medium | gpt-6-astra / high |
+| codex | gpt-6-sol / medium | gpt-6-sol / medium | gpt-6-sol / high |
 | claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
 | cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
 
@@ -20,6 +20,9 @@ Security Reviewer, and Release Operations Reviewer receive the review suggestion
 and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
 suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
 thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
+For Codex, the preview's `economy_fanout_option` names GPT-6 Luna / max. It is selectable for
+the impact mapper, both fixed research nodes, publication, and bounded helpers. The helper
+allowance must bind the economy pair separately; graph-node overrides do not change it.
 
 Before initialization, present the actual execution sequence and relevant/conditional roles,
 each model and effort, helper allowance, alternatives, assumptions, and availability gaps.
@@ -31,6 +34,9 @@ v2/v3 to record selections (node keys, not role-profile names):
   "tech_lead": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
   "senior_engineer": {"model": "gpt-6-sol", "reasoning_effort": "high"},
   "supervisor_recommendation": {"model": "gpt-6-sol", "reasoning_effort": "high"},
+  "impact_mapper": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+  "design_research_architecture": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+  "design_research_validation": {"model": "gpt-6-luna", "reasoning_effort": "max"},
   "publication_assignment": {"model": "gpt-6-luna", "reasoning_effort": "max"}
 }
 ```
@@ -79,9 +85,10 @@ selection. Do not claim that catalog support installs native roles or proves liv
 
 The original HOST_MATRIX is frozen. Missing revisions preserve the historical class/size matrix;
 explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults.
-Revisions 3 and 4 retain their original recommendations, model options, bytes, digests, and approvals.
-New Codex revision 5 plans recommend GPT-6 Luna at max effort for helpers and fixed research.
-Older engines reject revision 5 rather than reinterpret it.
+Revisions 3 through 5 retain their original recommendations, model options, bytes, digests, and approvals.
+New Codex revision 6 plans recommend Astra or Sol at medium effort for helpers and fixed research,
+and expose GPT-6 Luna / max as an economy fanout option. Older engines reject revision 6 rather
+than reinterpret it.
 Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
 remain separately selected in the installed-skill policy, not through graph-node overrides.
 

@@ -68,8 +68,8 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 class PlannerTests(GraphCase):
     def test_current_recommendations_and_available_alternatives(self):
         expected = {
-            "codex-astra": ("gpt-6-astra", "gpt-6-luna"),
-            "codex": ("gpt-6-sol", "gpt-6-luna"),
+            "codex-astra": ("gpt-6-astra", "gpt-6-astra"),
+            "codex": ("gpt-6-sol", "gpt-6-sol"),
             "claude": ("claude-opus-5", "claude-sonnet-5"),
             "cursor": ("grok-4.7", "gemini-3.8-flash"),
         }
@@ -79,10 +79,18 @@ class PlannerTests(GraphCase):
             for node in ("tech_lead", "senior_engineer", "test_engineer"):
                 row = assignment_for(plan, node)
                 self.assertEqual((row["model"], row["reasoning_effort"]), (core, "medium"))
-            helper_effort = "max" if host in {"codex", "codex-astra"} else "low"
+            helper_effort = "medium" if host in {"codex", "codex-astra"} else "low"
             self.assertEqual(plan["helper_recommendation"], {"model": scout, "reasoning_effort": helper_effort})
-            self.assertEqual(assignment_for(plan, "impact_mapper")["reasoning_effort"], helper_effort)
+            for node in ("impact_mapper", "design_research_architecture", "design_research_validation"):
+                row = assignment_for(plan, node)
+                self.assertEqual((row["model"], row["reasoning_effort"]), (scout, helper_effort))
             self.assertEqual(plan["publication_assignment"]["reasoning_effort"], helper_effort)
+            if host in {"codex", "codex-astra"}:
+                self.assertEqual(plan["economy_fanout_option"], {
+                    "model": "gpt-6-luna", "reasoning_effort": "max",
+                })
+            else:
+                self.assertNotIn("economy_fanout_option", plan)
             self.assertIn(core, plan["model_options"])
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
         self.assertIn("gpt-5.6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
@@ -112,6 +120,40 @@ class PlannerTests(GraphCase):
             self.assertEqual(plan["plan_digest"], digest)
             self.assertEqual(plan["helper_recommendation"]["reasoning_effort"], "low")
             self.assertEqual(assignment_for(plan, "impact_mapper")["reasoning_effort"], "low")
+
+    def test_codex_revision_five_retains_approved_plan_digests(self):
+        expected_digests = {
+            "codex-astra": "6d71352cd2cdf4119b8e55881a7075f9b6770c1f3592980bd6447773902ee9ac",
+            "codex": "bfffd45c8cb2d3b759aaa247feb1f20fdaa1b65881065d6a66858f8ac13c477a",
+        }
+        for host, digest in expected_digests.items():
+            plan = reconstruct_execution_plan(
+                "RUN-1", self.task_v2(), {"host": host, "catalog_revision": 5},
+            )
+            self.assertEqual(plan["plan_digest"], digest)
+            self.assertEqual(plan["helper_recommendation"], {
+                "model": "gpt-6-luna", "reasoning_effort": "max",
+            })
+            self.assertNotIn("economy_fanout_option", plan)
+
+    def test_codex_economy_fanout_selection_is_exact_and_reconstructs(self):
+        for host in ("codex-astra", "codex"):
+            task = self.task_v2()
+            pair = {"model": "gpt-6-luna", "reasoning_effort": "max"}
+            task["model_overrides"] = {
+                key: pair for key in (
+                    "impact_mapper", "design_research_architecture", "design_research_validation",
+                    "publication_assignment",
+                )
+            }
+            plan = build_execution_plan("RUN-1", task, host=host)
+            self.assertEqual(plan["economy_fanout_option"], pair)
+            for key in ("impact_mapper", "design_research_architecture", "design_research_validation"):
+                assignment = assignment_for(plan, key)
+                self.assertEqual((assignment["model"], assignment["reasoning_effort"]),
+                                 ("gpt-6-luna", "max"))
+            self.assertEqual(plan["publication_assignment"]["model"], "gpt-6-luna")
+            self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
 
     def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
         task = self.task_v2(route="fast_path")
@@ -495,15 +537,15 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 5)
+        self.assertEqual(plan["catalog_revision"], 6)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
-        self.assertEqual(by_key["impact_mapper"]["model"], "gpt-6-luna")
-        self.assertEqual(by_key["impact_mapper"]["reasoning_effort"], "max")
+        self.assertEqual(by_key["impact_mapper"]["model"], "gpt-6-astra")
+        self.assertEqual(by_key["impact_mapper"]["reasoning_effort"], "medium")
         self.assertEqual(plan["supervisor_recommendation"]["model"], "gpt-6-astra")
-        self.assertEqual(plan["publication_assignment"]["model"], "gpt-6-luna")
-        self.assertEqual(plan["publication_assignment"]["reasoning_effort"], "max")
+        self.assertEqual(plan["publication_assignment"]["model"], "gpt-6-astra")
+        self.assertEqual(plan["publication_assignment"]["reasoning_effort"], "medium")
 
     def test_every_host_can_expand_the_class_matrix(self):
         for host in known_hosts():
@@ -771,7 +813,7 @@ class PlannerTests(GraphCase):
         for node in design_research_nodes(policy, 0):
             self.assertEqual(
                 (node.role, by_key[node.key]["model"], by_key[node.key]["reasoning_effort"]),
-                ("impact_mapper", "gpt-6-luna", "max"),
+                ("impact_mapper", "gpt-6-astra", "medium"),
             )
 
     def test_model_assignment_invariant_fails_closed(self):
