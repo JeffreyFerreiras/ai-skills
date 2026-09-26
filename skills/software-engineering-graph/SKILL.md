@@ -182,7 +182,7 @@ must read both SKILL.md files fully before acting and apply both workflows, incl
 implementation and follow-up repairs. Include this requirement in every Senior Engineer dispatch
 and continuation. These skills are mandatory; optional skill selection is additional.
 
-Required review skills: `code-review` and `clean-architecture-review`. Every Code Reviewer must
+Required review skills: `clean-code-review` and `clean-architecture-review`. Every Code Reviewer must
 read both SKILL.md files fully before acting and apply both workflows, including delegated and
 follow-up reviews. These two skills are mandatory, not optional selections based on apparent
 architectural impact. Include this requirement in every Code Reviewer dispatch and continuation.
@@ -370,7 +370,7 @@ The Senior Engineer is the sole source/test writer. Every implementation and rep
 and reports material design deviations before editing past the approved design. It never publishes.
 
 At a stable checkpoint, run a fresh Code Reviewer and Test Engineer independently, in parallel only
-when resource assessment permits. The Code Reviewer applies `code-review` and
+when resource assessment permits. The Code Reviewer applies `clean-code-review` and
 `clean-architecture-review`. Neither gate repairs its own findings. Route one consolidated repair
 packet to the Senior Engineer, then return affected findings to their originating gate. Limit delivery
 to three repair rounds; material design or scope changes return to design or the human.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clean Code Review"
+  short_description: "Review defects and design opportunities"
+  default_prompt: "Use $clean-code-review to review these changes and return evidence-backed findings plus any justified design-pattern opportunities."

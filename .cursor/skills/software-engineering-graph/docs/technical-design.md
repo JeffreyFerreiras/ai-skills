@@ -455,7 +455,7 @@ DESIGN-BLOCKER; the Supervisor rejects READY_FOR_REVIEW without both reports. Ar
 does not justify additional layers, abstractions, or scope. This is an instruction-level handoff
 requirement, not a new engine decision or schema field.
 
-The Code Reviewer role requires both `code-review` and `clean-architecture-review` on every
+The Code Reviewer role requires both `clean-code-review` and `clean-architecture-review` on every
 assignment, including delegated and follow-up reviews. Both workflows must be applied within the
 assigned scope and documented in `Skill usage` with concrete checks and conclusions. A missing or
 unreadable required skill makes review incomplete; the Supervisor rejects approval without both
