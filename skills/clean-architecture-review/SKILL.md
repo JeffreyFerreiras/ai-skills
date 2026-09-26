@@ -9,7 +9,7 @@ description: Review code, diffs, pull requests, or architecture plans for Clean 
 
 Review for architectural behavior first: dependency direction, boundary leakage, misplaced business rules, and abstractions that either protect real boundaries or add needless ceremony. Lead with actionable findings, grounded in file and line references when reviewing code.
 
-Use this focused workflow for architecture questions. For a general diff or regression review, use `code-review` and inspect architectural concerns only where the evidence warrants them. Review requests do not authorize edits.
+Use this focused workflow for architecture questions. For a general diff or regression review, use `clean-code-review` and inspect architectural concerns only where the evidence warrants them. Review requests do not authorize edits.
 
 ## Review Workflow
 

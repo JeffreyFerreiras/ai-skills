@@ -55,7 +55,7 @@ the roles the work needs:
   `clean-architecture-code`, reporting concrete actions and validation for each. A missing required
   skill blocks READY_FOR_REVIEW; architecture guidance stays within the approved design.
 - **Code Reviewer** independently reviews the completed change.
-- Every Code Reviewer must apply both `code-review` and `clean-architecture-review`, including
+- Every Code Reviewer must apply both `clean-code-review` and `clean-architecture-review`, including
   delegated and follow-up reviews, and report the checks and conclusions from each. Missing either
   skill makes the review incomplete; the Supervisor cannot accept approval without both reports.
 - **Test Engineer** verifies the acceptance criteria and regression evidence.

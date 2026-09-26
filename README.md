@@ -53,14 +53,14 @@ The discovery copy uses ordinary files and directories on Windows, macOS, and Li
 | `clean-architecture-review` | Review architecture boundaries and dependency direction. |
 | `clean-code` | Write or refactor clear, maintainable code while preserving behavior. |
 | `explain` | Explain changes, implementation rationale, and behavior with a sequence diagram. |
-| `code-review` | Review local changes with evidence-backed, severity-ranked findings. |
+| `clean-code-review` | Review local changes with evidence-backed, severity-ranked findings. |
 | `word-documents` | Create, edit, render, and visually verify DOCX files. |
 | `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
 | `independent-reviewer` | Spawn a fresh subagent for a read-only second review. |
 | `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
 | `create-pull-request` | [Draft GitHub PR text or create a review-ready pull request.](skills/create-pull-request/SKILL.md) |
 | `leetcode` | Solve and explain coding-interview and algorithm problems. |
-| `loop` | Run bounded write and independent review repair cycles. |
+| `generic-loop` | Run bounded write and independent review repair cycles. |
 | `opencode-muse-spark` | Delegate a bounded task to Muse Spark through the OpenCode CLI. |
 | `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
@@ -73,6 +73,10 @@ The discovery copy uses ordinary files and directories on Windows, macOS, and Li
 | `run-change-checks` | Select and run focused checks for current changes. |
 
 ## Create A Skill
+
+Choose a specific capability name that does not shadow a harness's built-in skill or command. Check the [Cursor built-in skills](https://cursor.com/docs/skills#built-in-cursor-skills) and [Claude Code commands](https://code.claude.com/docs/en/commands) before adding or renaming a skill.
+
+The personal skills formerly named `loop` and `code-review` are now `generic-loop` and `clean-code-review`. Update invocations and installed copies to the new names; do not keep aliases under the old names, because those aliases recreate the collisions. Back up differing installed copies outside discovery roots before migrating them. Historical migration records retain their original source paths.
 
 Use the installed `skill-creator` scaffolder, replace its placeholders, add the skill to the catalog, and validate the whole repository:
 

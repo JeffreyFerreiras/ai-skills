@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generic Loop"
+  short_description: "Run bounded write and independent review cycles"
+  default_prompt: "Use $generic-loop to run a bounded write and independent review cycle for this task."

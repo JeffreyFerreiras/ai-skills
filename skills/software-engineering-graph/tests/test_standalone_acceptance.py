@@ -153,7 +153,7 @@ class StandaloneAcceptanceTests(unittest.TestCase):
         self.assertIn("reject a ready_for_review handoff missing either report", skill_guidance)
         for name, guidance in (("skill", skill_guidance), ("code reviewer", reviewer_guidance)):
             with self.subTest(required_review_skills=name):
-                self.assertIn("required review skills: `code-review` and `clean-architecture-review`", guidance)
+                self.assertIn("required review skills: `clean-code-review` and `clean-architecture-review`", guidance)
                 self.assertIn("apply both workflows", guidance)
                 self.assertIn("delegated and follow-up reviews", guidance)
                 self.assertIn("incomplete review", guidance)
