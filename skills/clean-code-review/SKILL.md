@@ -1,9 +1,9 @@
 ---
-name: code-review
+name: clean-code-review
 description: Review local Git changes, a commit range, or a supplied diff for correctness, regressions, security, performance, maintainability, design-pattern opportunities, and project-guideline violations. Use when the user requests a code review, branch review, diff review, pre-merge audit, or evidence-backed findings without implementation.
 ---
 
-# Code Review
+# Clean Code Review
 
 ## Workflow
 

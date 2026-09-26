@@ -1,4 +1,4 @@
-Use $code-review to review all uncommitted changes against HEAD in this repository.
+Use $clean-code-review to review all uncommitted changes against HEAD in this repository.
 
 This is a review-only task. Do not edit files. Inspect the diff, surrounding contracts, callers, and executable contract checks. Run read-only validation when it helps establish a finding.
 

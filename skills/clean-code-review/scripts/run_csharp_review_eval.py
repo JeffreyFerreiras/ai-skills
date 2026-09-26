@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and run the bundled C# behavioral evaluation for code-review."""
+"""Validate and run the bundled C# behavioral evaluation for clean-code-review."""
 
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ def apply_fixture_change(repository: Path) -> None:
 
 def stage_runtime_skill(repository: Path) -> Path:
     """Stage only runtime skill files, excluding the fixture and answer key."""
-    destination = repository / ".agents" / "skills" / "code-review"
+    destination = repository / ".agents" / "skills" / "clean-code-review"
     destination.mkdir(parents=True, exist_ok=True)
     shutil.copy2(SKILL_ROOT / "SKILL.md", destination / "SKILL.md")
     for directory_name in ("agents", "references"):

@@ -1,9 +1,9 @@
 ---
-name: loop
+name: generic-loop
 description: Run bounded Plan, Write, Validate, and independent Review repair cycles with one Writer and a fresh Reviewer each pass. Use when the user asks for a loop, write-then-review cycle, or bounded repair loop. Ordinary single-pass edits do not require this protocol. Use software-engineering-graph for broader multi-role orchestration.
 ---
 
-# Loop
+# Generic Loop
 
 Run a bounded `Plan -> Write -> Validate -> Review -> repair or stop` loop. The Supervisor coordinates the protocol. It does not edit the candidate when a Writer can be dispatched, substitute its own review, or approve on behalf of the Reviewer.
 

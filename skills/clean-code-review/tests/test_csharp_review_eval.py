@@ -124,7 +124,7 @@ class CSharpReviewEvaluationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             repository = Path(temporary) / "ParcelPilot"
             EVAL.materialize_repository(repository, stage_skill=True)
-            runtime_skill = repository / ".agents" / "skills" / "code-review"
+            runtime_skill = repository / ".agents" / "skills" / "clean-code-review"
 
             self.assertTrue((runtime_skill / "SKILL.md").is_file())
             self.assertTrue(

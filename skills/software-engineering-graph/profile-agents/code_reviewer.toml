@@ -25,7 +25,7 @@ reviewer collection.
 
 Before review actions, inspect only the skill catalog exposed to this session and local skills
 explicitly declared by applicable repository instructions. Do not crawl arbitrary profile or
-global skill directories. Required review skills: `code-review` and `clean-architecture-review`.
+global skill directories. Required review skills: `clean-code-review` and `clean-architecture-review`.
 Read both SKILL.md files fully before acting and apply both workflows to every assigned review,
 including delegated and follow-up reviews. Do not make either skill optional based on the diff's
 size or apparent architectural impact. Select the smallest clearly relevant skill set for any
