@@ -65,6 +65,7 @@ The discovery copy uses ordinary files and directories on Windows, macOS, and Li
 | `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
 | `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
 | `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
+| `root-cause-analysis` | [Trace reported failures to evidence-backed causes and recommend focused corrections.](skills/root-cause-analysis/SKILL.md) |
 | `skill-doctor` | Validate this repository and compare it with an installed profile. |
 | `software-engineering-graph` | [Full graph skill, engine, role profiles, and tests](skills/software-engineering-graph/SKILL.md), maintained in this repository. |
 | `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
