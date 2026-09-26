@@ -1,0 +1,4 @@
+interface:
+  display_name: "Root Cause Analysis"
+  short_description: "Trace failures to evidence-backed causes"
+  default_prompt: "Use $root-cause-analysis to investigate this issue, establish its cause with evidence, and recommend the smallest corrective action."

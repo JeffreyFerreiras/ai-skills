@@ -63,6 +63,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |
+| [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Trace failures to evidence-backed causes |
 | [run-change-checks](skills/run-change-checks/SKILL.md) | Run focused checks for changes |
 | [skill-doctor](skills/skill-doctor/SKILL.md) | Validate and audit a skills repository |
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
