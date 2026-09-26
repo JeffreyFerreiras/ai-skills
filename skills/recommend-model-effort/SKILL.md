@@ -1,6 +1,6 @@
 ---
 name: recommend-model-effort
-description: Recommend the lowest sufficient Codex or model reasoning-effort level for a supplied task using the active model's supported options, task complexity, ambiguity, risk, verification burden, and latency or cost priorities. Use when the user asks which effort or reasoning level to choose, whether low, medium, high, xhigh, max, or ultra is appropriate, or wants task-to-effort triage before starting work.
+description: Recommend a supported reasoning-effort level for a task based on complexity, risk, and cost. Use when asked which effort to choose before starting work.
 ---
 
 # Recommend Model Effort

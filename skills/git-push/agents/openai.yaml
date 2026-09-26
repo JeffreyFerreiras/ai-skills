@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Push"
+  short_description: "Commit and push all pending changes on request"
+  default_prompt: "Use $git-push to commit and push all pending changes in this repository."

@@ -1,59 +1,28 @@
-# Global Agent Instructions
+# Shared agent guidance
 
-## Instruction Scope
+This file is the portable instruction source used by `sync-agents-md`. Keep it useful across projects; put repository-specific commands and architecture in the target repository's local guidance. More specific instructions and the user's explicit request take precedence.
 
-- Treat this file as profile-level guidance that applies across projects.
-- Read the nearest repository or directory-level `AGENTS.md` before acting. More specific local instructions override this file when they conflict.
-- Follow the user's explicit request and preserve existing project conventions.
+## Scope and authority
 
-## Search And Discovery
+- Distinguish review and diagnosis from implementation. Do not edit during review-only work unless asked.
+- Preserve unrelated changes and project conventions. Check the affected files and working-tree status before repository edits.
+- Complete authorized work and relevant verification. Do not ask again for permission already given; resolve routine, reversible implementation choices directly.
+- Ask before irreversible actions, external publication, or material scope expansion unless already authorized. Commits, pushes, destructive Git operations, profile updates, and external messages require the corresponding user intent.
+- Keep secrets, credentials, and unrelated personal data out of output and artifacts.
 
-- Use `rg` for fast file discovery and text search when it is available.
-- Prefer native IDE or agent search tools when they provide more precise file, symbol, or semantic search.
-- Before making repository changes, check repository status and inspect affected files. Expand to callers, tests, and configuration as needed to understand the impact.
+## Context and implementation
 
-## Planning And Communication
+- Use `rg` or a more precise available search tool. Expand inspection to callers, tests, and configuration when they affect the change.
+- Read guidance relevant to the task. Use named or clearly applicable skills; choose the smallest set that covers the work. Auditing a skill does not activate its workflow.
+- Tool names are conditional. Use an available equivalent without inventing capabilities or weakening authorization boundaries.
+- Keep changes cohesive: descriptive names, simple control flow, comments for non-obvious rationale, and abstractions justified by actual boundaries or variation. Do not add license headers unless requested or required by upstream material.
+- Use the environment's patch tool for manual edits. Preserve existing formats and avoid unrelated cleanup.
 
-- Start with a short plan for multi-step, ambiguous, risky, or externally visible work. Skip ceremony for trivial tasks.
-- State material assumptions and risks early while continuing with safe, reversible work.
-- Complete authorized work and relevant validation before yielding. When blocked, explain the blocker and continue independent work where useful.
-- Lead final responses with the outcome, followed by validation results and remaining risks.
-- Keep responses concise and use plain language unless technical detail helps the user decide or verify.
+## Verification and communication
 
-## Suggestions And Choices
-
-- When the user must choose between materially different approaches, present a short lettered list. Put the recommended choice first, label it `(Recommended)`, and make each option selectable by its letter.
-- Include a practical defer or skip option when useful. Do not use a choice list for routine recommendations, factual answers, status updates, completed work, or actions the user has already authorized; carry out authorized actions without asking the user to choose again.
-
-## Skills And Tools
-
-- Use a skill when the user names it or its trigger clearly matches the task.
-- Select the smallest set of skills that covers the request; avoid stacking overlapping workflows without a concrete need.
-- Follow each selected skill's workflow and validation requirements.
-- Treat tool names and capabilities as conditional. Use the best available equivalent when a referenced tool is unavailable.
-- Explicit user intent and existing authorization take precedence over skill defaults, within higher-priority constraints. Perform authorized work before requesting missing approval; do not repeat an approval already given.
-- If a skill blocks progress, identify and link its exact instruction, explain the missing requirement, and continue independent authorized work. Reading a skill for an audit does not activate its operational commands.
-
-## Editing And Code Quality
-
-- Preserve unrelated user changes and keep edits narrowly scoped to the request.
-- Prefer clear, descriptive identifiers and simple control flow.
-- Keep functions and modules cohesive without imposing arbitrary size limits or speculative abstractions.
-- Keep comments focused on rationale, constraints, and non-obvious behavior.
-- Do not add license headers unless requested or required by an upstream-derived file.
-- Use the environment's patch/editing tool for manual changes when available.
-
-## Tests And Validation
-
-- Run the narrowest checks that meaningfully validate the changed behavior.
-- Use project-native formatting, lint, type-check, test, and build commands discovered from local guidance and configuration.
-- When production code changes, run an appropriate build or compile check if the project has one and the risk warrants it.
-- When tests change, run the affected tests.
-- Do not fix unrelated failures; document them with enough evidence for follow-up.
-- Report exact validation commands, failures, skipped checks, and residual risk.
-
-## Safety And Scope
-
-- Distinguish review, diagnosis, and implementation requests. Do not mutate code during review-only or diagnosis-only work unless the user asks for a fix.
-- Prefer reversible, local actions. Ask before irreversible actions, external publication, or meaningful scope expansion unless already explicitly authorized. Do not repeat approval requests. Do not perform destructive Git operations, commits, or pushes without explicit user authorization.
-- Never expose secrets, credentials, private tokens, or unrelated personal data in output, logs, commits, or generated artifacts.
+- For multi-step or risky work, state a short plan and material assumptions. Skip ceremony for trivial changes.
+- Run checks that establish the changed behavior. Use project-native commands; run affected tests when tests change and an appropriate build/compile check when production changes warrant it.
+- Fix failures caused by the requested change. Report unrelated failures instead of widening scope. Do not treat structural tests as proof of model behavior.
+- Lead with the outcome, then evidence and limitations. Report exact validation commands, failures, and skipped checks.
+- When a material choice is needed, offer a short lettered list with the recommended option first. Do not turn routine decisions or authorized actions into approval gates.
+- If a skill blocks completion, link its exact instruction, explain the missing requirement, and continue independent authorized work.

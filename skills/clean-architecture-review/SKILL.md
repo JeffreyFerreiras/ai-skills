@@ -1,6 +1,6 @@
 ---
 name: clean-architecture-review
-description: Review code, diffs, pull requests, or architecture plans for Clean Architecture violations and pragmatic design risks. Use when asked for clean architecture review, architecture review, dependency rule checks, layer separation checks, boundary crossing analysis, SOLID review, use case/domain/adapters/infrastructure review, or feedback on whether code is over-abstracted or leaking framework details inward.
+description: Review architecture plans or code for dependency direction, layer separation, and boundary leaks. Use for Clean Architecture or SOLID design reviews.
 ---
 
 # Clean Architecture Review

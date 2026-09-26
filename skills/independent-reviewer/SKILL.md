@@ -13,7 +13,7 @@ The reviewer gives a read-only assessment; this skill does not authorize repairs
    artifact, and exclude unrelated changes. Wait until the author has stopped editing before review.
 2. Spawn one new reviewer with fresh context. By default, inherit the calling agent's model and
    reasoning effort, independently of the author worker's settings. When `collaboration.spawn_agent`
-   is available, use `agent_type: "default"` and `fork_turns: "none"`; omit `model` and
+   is available, use `fork_turns: "none"`; omit `model` and
    `reasoning_effort` so both inherit. Apply any explicit user reviewer model or effort override
    independently, leaving an unspecified setting inherited. Do not use a role with fixed model or
    effort that would override these settings. If the backend cannot honor the requested settings,

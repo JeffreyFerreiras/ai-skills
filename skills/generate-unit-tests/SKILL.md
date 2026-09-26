@@ -1,6 +1,6 @@
 ---
 name: generate-unit-tests
-description: Generate concise, maintainable unit tests for referenced code, following existing test conventions and verifying behavior, edge cases, and failure paths. Use when the user asks to add or improve unit tests, raise meaningful coverage, reproduce a bug with a test, or validate isolated behavior with appropriate test doubles.
+description: Add or improve focused unit tests for behavior, edge cases, and failures. Use for test-writing, coverage improvements, or bug reproduction.
 ---
 
 # Generate Unit Tests

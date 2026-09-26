@@ -238,7 +238,11 @@ def validate_catalog(repository_root: Path, skill_names: set[str], issues: list[
         add_issue(issues, "warning", "missing-readme", readme_path, "README.md is missing; the skill catalog cannot be verified.")
         return
     content = readme_path.read_text(encoding="utf-8")
+    marked_catalog = re.search(r"<!-- skill-catalog:start -->(.*?)<!-- skill-catalog:end -->", content, re.DOTALL)
+    if marked_catalog:
+        content = marked_catalog.group(1)
     catalog_names = set(re.findall(r"^\| `([^`]+)` \|", content, re.MULTILINE))
+    catalog_names.update(re.findall(r"^\| \[([^\]]+)\]\(skills/[^)]+/SKILL\.md\) \|", content, re.MULTILINE))
     for name in sorted(skill_names - catalog_names):
         add_issue(issues, "error", "catalog-missing-skill", readme_path, f"Skill catalog is missing: {name}")
     for name in sorted(catalog_names - skill_names):
@@ -254,13 +258,11 @@ def cursor_discovery_skill_names(discovery_root: Path) -> set[str]:
 
 
 def validate_cursor_cloud_discovery(repository_root: Path, skills_root: Path, skill_names: set[str], issues: list[Issue]) -> None:
-    """Ensure Cursor Cloud can discover project skills from a supported path.
-
-    Cloud Agents do not receive local ~/.cursor/skills. They load project skills from
-    .cursor/skills (and a few compatibility roots). This repository keeps a real
-    directory copy there so discovery works on every checkout platform.
-    """
+    """Validate an optional Cursor copy without requiring one in canonical-only checkouts."""
     discovery_path = repository_root / ".cursor" / "skills"
+    manifest_path = repository_root / ".cursor" / "sync-discovery-manifest.json"
+    if not discovery_path.exists() and not discovery_path.is_symlink() and not manifest_path.exists():
+        return
     if discovery_path.is_symlink() or discovery_path.is_junction():
         add_issue(
             issues,
@@ -276,7 +278,7 @@ def validate_cursor_cloud_discovery(repository_root: Path, skills_root: Path, sk
             "error",
             "missing-cursor-skills-discovery",
             discovery_path,
-            "Missing .cursor/skills; Cursor Cloud Agents will not discover repository skills.",
+            "Discovery manifest exists but .cursor/skills is missing; complete or retire the optional copy.",
         )
         return
     if not discovery_path.is_dir():

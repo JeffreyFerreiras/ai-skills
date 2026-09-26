@@ -1,4 +1,4 @@
 interface:
   display_name: "Sync AGENTS.md"
   short_description: "Audit and reconcile agent instructions"
-  default_prompt: "Use $sync-agents-md to copy the priority AGENTS.md into my profile-level Claude, Cursor, and Codex instruction files with backups."
+  default_prompt: "Use $sync-agents-md to synchronize the canonical AGENTS.md into the requested instruction files, preserving local guidance and backups."

@@ -59,8 +59,34 @@ class SkillDoctorTests(unittest.TestCase):
             root = Path(temporary_directory)
             self.create_skill(root)
             shutil.rmtree(root / ".cursor" / "skills")
+            (root / ".cursor/sync-discovery-manifest.json").write_text(
+                '{"version": 1, "files": []}', encoding="utf-8"
+            )
             audit = skill_doctor.audit_repository(root)
             self.assertIn("missing-cursor-skills-discovery", {issue.code for issue in audit.issues})
+
+    def test_canonical_only_checkout_needs_no_discovery_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.create_skill(root)
+            shutil.rmtree(root / ".cursor")
+            self.assertEqual(0, skill_doctor.audit_repository(root).errors)
+            self.assertEqual([], sync_discovery.sync_discovery(root, check_only=True))
+            self.assertFalse((root / ".cursor").exists())
+
+    def test_linked_catalog_entries_are_recognized(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "README.md").write_text(
+                "<!-- skill-catalog:start -->\n"
+                "| [sample-skill](skills/sample-skill/SKILL.md) | Sample purpose |\n"
+                "<!-- skill-catalog:end -->\n"
+                "| `not-a-skill` | An unrelated table |\n",
+                encoding="utf-8",
+            )
+            issues = []
+            skill_doctor.validate_catalog(root, {"sample-skill"}, issues)
+            self.assertEqual([], issues)
 
     def test_cursor_skills_discovery_drift_is_an_error(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

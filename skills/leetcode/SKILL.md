@@ -1,6 +1,6 @@
 ---
 name: leetcode
-description: Solve, explain, optimize, debug, or review LeetCode-style coding interview problems and algorithm challenges. Use when the user asks for help with LeetCode, HackerRank, CodeSignal, coding interview prep, data structures and algorithms, complexity analysis, edge cases, proof of correctness, test cases, or translating an algorithm into code.
+description: Solve, explain, optimize, or review coding-interview algorithms. Use for LeetCode-style problems and data-structure interview practice.
 ---
 
 # LeetCode

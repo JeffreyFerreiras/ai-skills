@@ -48,3 +48,21 @@ python -m unittest -q tests.test_standalone_acceptance.StandaloneAcceptanceTests
 ```
 
 Live-agent behavioral evaluations were not run for this mechanical rename. Deterministic tests do not establish live harness selection behavior.
+
+## Validation on the current base
+
+Rebased onto master at `a28f3d3` before publication and refreshed the newly committed Cursor discovery copy with `python scripts/sync-discovery.py`.
+
+Re-ran the individual skill validators and these checks:
+
+```powershell
+python scripts/sync-discovery.py --check
+python skills/skill-doctor/scripts/skill_doctor.py .
+python -m unittest discover -s tests -q
+python -m unittest discover -s skills/clean-code-review/tests -q
+git -c core.safecrlf=false diff origin/master --check
+```
+
+Both skill validators, discovery parity, whitespace checks, 34 repository tests, and 19 review-skill tests passed. The repository doctor inspected 25 skills and found two upstream `git-push` issues: a missing README catalog entry and missing `agents/openai.yaml`. Verified both omissions in `origin/master`; they are outside this rename's scope.
+
+The broad graph suite was not repeated after the rebase because the graph changes here are skill-name references only. Its earlier results above describe the previous base. Final validation uses the separate graph hygiene command shown above.

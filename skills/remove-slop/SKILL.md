@@ -1,6 +1,6 @@
 ---
 name: remove-slop
-description: Remove branch-local AI-generated artifacts such as redundant narration, inconsistent comments, speculative abstractions, and abnormal defensive code while preserving behavior and project conventions. Use when the user asks to clean AI slop, normalize an AI-authored diff, or simplify suspicious additions in the current change set.
+description: Clean AI-generated narration, redundant code, or speculative abstractions from a branch diff. Use when asked to remove AI slop while preserving behavior.
 ---
 
 # Remove Slop

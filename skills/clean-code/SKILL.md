@@ -1,6 +1,6 @@
 ---
 name: clean-code
-description: Write, refactor, or improve production code for clarity, cohesion, maintainability, safety, and testability while preserving behavior and local conventions. Use for clean-code work, focused refactoring, naming and function design, pragmatic SOLID improvements, duplication reduction, or requests previously framed as code quality or Uncle Bob guidance.
+description: Write or refactor readable, maintainable production code. Use for focused naming, function design, duplication, or Clean Code improvements.
 ---
 
 # Clean Code

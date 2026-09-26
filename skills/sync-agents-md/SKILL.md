@@ -1,6 +1,6 @@
 ---
 name: sync-agents-md
-description: Audit, compare, create, and synchronize AGENTS.md-style instruction markdown across repositories and profile-level AI agent tools. Use when the user asks to sync AGENTS.md, agent instructions, Copilot/VS Code prompts, Cursor rules, Claude instructions, Codex instructions, or wants an inventory, migration, backup, or consistency check for agent-facing markdown guidance.
+description: Audit or synchronize AGENTS.md and equivalent agent instruction files. Use for requested instruction sync, migration, or comparison across repositories and profiles.
 ---
 
 # Sync AGENTS.md

@@ -1,6 +1,6 @@
 ---
 name: clean-architecture-code
-description: Write, refactor, or extend production code using Clean Architecture boundaries. Use when implementing features, domain logic, application use cases, ports, adapters, persistence, API/UI integration, dependency inversion, DTO mapping, repository boundaries, framework isolation, or SOLID-oriented code changes where source dependencies must point inward.
+description: Implement or refactor code across domain, application, and infrastructure boundaries. Use when a change needs Clean Architecture or dependency inversion.
 ---
 
 # Clean Architecture Code

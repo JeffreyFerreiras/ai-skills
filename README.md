@@ -1,105 +1,118 @@
-# AI Agent Skills
+# AI Skills
 
-Canonical, portable source for personal AI-agent skills, instructions, scripts, and tool-specific metadata.
+Reusable workflows for coding agents, maintained in one canonical repository and loaded when the task needs them.
 
-## Validate
+My working library of engineering, review, orchestration, and maintenance skills—plain instructions, practical helpers, and checks that keep them honest.
 
-Use Python 3.12 or newer. Install the validator dependency, then run the repository doctor and tests:
+[Quick start](#quick-start) · [Skill catalog](#skill-catalog) · [How it works](docs/architecture.md) · [Authoring & validation](docs/authoring.md)
+
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/skill-lifecycle-mobile.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/skill-lifecycle-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/skill-lifecycle-light.png">
+  <img src="docs/assets/skill-lifecycle-light.png" alt="Skill lifecycle: author canonical skills, check structure and resources, discover and load on demand, then evaluate actual behavior and refine." width="100%">
+</picture>
+
+**Author → check → use → evaluate.** A skill is a folder containing a `SKILL.md` entrypoint and, when useful, scripts, references, and assets. Structural checks validate the package; observed agent behavior tells us whether the workflow works.
+
+## Quick start
+
+From a checkout of this repository, use Python **3.12+**:
 
 ```powershell
 python -m pip install PyYAML
 python skills/skill-doctor/scripts/skill_doctor.py .
+```
+
+Then pick a skill below and read its entrypoint. To use it in an agent, install the complete folder into that host's supported skill location. In Codex, for example: `Use $clean-code to simplify this function while preserving behavior.` See [discovery and profile setup](docs/architecture.md#discovery-and-profiles) for supported roots and a read-only sync preview.
+
+To create or edit a skill, work under `skills/`, supply its UI metadata, then refresh the catalog and check it:
+
+```powershell
+python scripts/build-docs.py
+python skills/skill-doctor/scripts/skill_doctor.py .
+python scripts/sync-discovery.py --check
 python -m unittest discover -s tests -v
 ```
 
+The [authoring guide](docs/authoring.md) includes a minimal complete example. Discovery checking is read-only: a canonical-only checkout needs no repository copy, and the command says so. It checks parity if an optional Cursor copy exists.
 
-The doctor validates frontmatter, folder naming, UI metadata, referenced resources, Python syntax, overlapping triggers, and optional profile drift.
+## Skill catalog
 
-## Layout
+Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries come from `agents/openai.yaml`. Regenerate with `python scripts/build-docs.py`; the test suite rejects stale output.
 
-```text
-AGENTS.md
-.cursor/
-  skills/               # Real directory copy for Cursor Cloud discovery
-skills/
-  skill-name/
-    SKILL.md
-    agents/openai.yaml
-    scripts/
-    references/
-    assets/
-tests/
-```
-
-Only `SKILL.md` and `agents/openai.yaml` are required. Add resource folders when they directly support the skill.
-
-## Cursor Cloud
-
-Local Codex and Cursor use the installed shared skills in `~/.agents/skills`. Keep Cursor-only personal skills in `~/.cursor/skills`.
-
-Cursor can sync personal skills from `~/.cursor/skills` to Cloud Agents when **Sync Skills for Cloud Agents** is enabled. Local `~/.agents/skills` are not included in that sync. Cloud Agents also discover project skills from `.cursor/skills/` (and other supported project skill roots).
-
-This repository keeps canonical skill content under `skills/` and commits a real copy under `.cursor/skills/` for Cursor Cloud. After editing a skill, run `python scripts/sync-discovery.py` to refresh the copy. Run `python scripts/sync-discovery.py --check` or `skill-doctor` to detect drift.
-
-The discovery copy uses ordinary files and directories on Windows, macOS, and Linux. The sync script excludes generated graph policies and ledgers, which remain local to each installed copy.
-
-## Skill Catalog
-
+<!-- skill-catalog:start -->
 | Skill | Purpose |
 | --- | --- |
-| `andromeda-ssh` | Safely inspect and administer the Andromeda Ubuntu host over SSH. |
-| `api-docs` | Add accurate .NET XML documentation to changed public APIs. |
-| `clean-architecture-code` | Implement code with pragmatic inward-pointing boundaries. |
-| `clean-architecture-review` | Review architecture boundaries and dependency direction. |
-| `clean-code` | Write or refactor clear, maintainable code while preserving behavior. |
-| `explain` | Explain changes, implementation rationale, and behavior with a sequence diagram. |
-| `clean-code-review` | Review local changes with evidence-backed, severity-ranked findings. |
-| `word-documents` | Create, edit, render, and visually verify DOCX files. |
-| `generate-unit-tests` | Add maintainable, risk-focused unit tests and verify them. |
-| `independent-reviewer` | Spawn a fresh subagent for a read-only second review. |
-| `address-pr-feedback` | Inspect and address actionable GitHub PR review threads. |
-| `create-pull-request` | [Draft GitHub PR text or create a review-ready pull request.](skills/create-pull-request/SKILL.md) |
-| `leetcode` | Solve and explain coding-interview and algorithm problems. |
-| `generic-loop` | Run bounded write and independent review repair cycles. |
-| `opencode-muse-spark` | Delegate a bounded task to Muse Spark through the OpenCode CLI. |
-| `recommend-model-effort` | Recommend the lowest sufficient model reasoning-effort level for a task. |
-| `remove-agent-skill` | Safely remove a skill from profiles and the repository mirror. |
-| `remove-slop` | Remove branch-local AI artifacts without changing behavior. |
-| `skill-doctor` | Validate this repository and compare it with an installed profile. |
-| `software-engineering-graph` | [Full graph skill, engine, role profiles, and tests](skills/software-engineering-graph/SKILL.md), maintained in this repository. |
-| `sync-agent-skills` | Audit and synchronize skills across agent profiles. |
-| `sync-agents-md` | Audit and synchronize agent instruction markdown. |
-| `little-helper` | Delegate one tightly scoped execution job to a subagent with explicit model and effort overrides. |
-| `run-change-checks` | Select and run focused checks for current changes. |
+| [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
+| [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
+| [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
+| [clean-architecture-code](skills/clean-architecture-code/SKILL.md) | Write code with clean boundaries |
+| [clean-architecture-review](skills/clean-architecture-review/SKILL.md) | Review code for architecture drift |
+| [clean-code](skills/clean-code/SKILL.md) | Write and refactor pragmatic clean code |
+| [clean-code-review](skills/clean-code-review/SKILL.md) | Review defects and design opportunities |
+| [create-pull-request](skills/create-pull-request/SKILL.md) | Create GitHub pull requests |
+| [explain](skills/explain/SKILL.md) | Explain code changes with a sequence diagram |
+| [generate-unit-tests](skills/generate-unit-tests/SKILL.md) | Add focused, maintainable unit tests |
+| [generic-loop](skills/generic-loop/SKILL.md) | Run bounded write and independent review cycles |
+| [git-push](skills/git-push/SKILL.md) | Commit and push all pending changes on request |
+| [independent-reviewer](skills/independent-reviewer/SKILL.md) | Request a fresh, read-only subagent review |
+| [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
+| [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
+| [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
+| [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
+| [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
+| [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |
+| [run-change-checks](skills/run-change-checks/SKILL.md) | Run focused checks for changes |
+| [skill-doctor](skills/skill-doctor/SKILL.md) | Validate and audit a skills repository |
+| [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
+| [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
+| [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
+| [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
+<!-- skill-catalog:end -->
 
-## Create A Skill
+Looking for `loop` or `code-review`? They are now `generic-loop` and `clean-code-review` to avoid built-in command collisions. See the [migration record](docs/migrations/skill-name-collisions-20260926.md).
 
-Choose a specific capability name that does not shadow a harness's built-in skill or command. Check the [Cursor built-in skills](https://cursor.com/docs/skills#built-in-cursor-skills) and [Claude Code commands](https://code.claude.com/docs/en/commands) before adding or renaming a skill.
+## How it works
 
-The personal skills formerly named `loop` and `code-review` are now `generic-loop` and `clean-code-review`. Update invocations and installed copies to the new names; do not keep aliases under the old names, because those aliases recreate the collisions. Back up differing installed copies outside discovery roots before migrating them. Historical migration records retain their original source paths.
+| Piece | Responsibility |
+| --- | --- |
+| [`skills/`](skills/) | Canonical skill folders. Edit these rather than installed copies. |
+| `SKILL.md` | Short selection metadata followed by workflow instructions. |
+| `agents/openai.yaml` | Display name, catalog summary, invocation prompt, and optional icons. Required here; not part of the portable minimum. |
+| `scripts/`, `references/`, `assets/` inside a skill | Deterministic helpers and task-specific supporting material. |
+| [`AGENTS.md`](AGENTS.md) | Shared profile guidance, also used as the default source by `sync-agents-md`. |
+| Installed profiles | Copies used by each agent host; updated through the profile sync workflow. |
+| Optional `.cursor/skills/` | Explicitly generated project discovery copy. This checkout does not ship one. |
 
-Use the installed `skill-creator` scaffolder, replace its placeholders, add the skill to the catalog, and validate the whole repository:
+The portable file format is shared by Codex, Cursor, Claude Code, and other Agent Skills clients. **Discovery paths, tools, and execution capabilities remain host-specific.** Some skills require PowerShell, GitHub access, document tools, or subagent support. Read the [compatibility notes](docs/architecture.md#discovery-and-profiles) before installing.
 
-```powershell
-$creator = Join-Path $HOME '.codex\skills\.system\skill-creator\scripts\init_skill.py'
-python $creator my-skill --path .\skills --interface display_name='My Skill' --interface short_description='Describe the capability' --interface default_prompt='Use $my-skill to complete this task.'
-python skills/skill-doctor/scripts/skill_doctor.py .
-```
+**Software Engineering Graph** goes beyond an ordinary instruction skill: it bundles a coordination engine, role profiles, schemas, and tests. A supervisor runs an approved plan with bounded design and delivery loops. The engine records state and evidence; the host dispatches agents. Start with its [overview](skills/software-engineering-graph/README.md), not an unplanned graph run.
 
-## Profile Comparison
+## Create a skill
 
-Compare the repository with a Codex profile without changing either location:
+1. Choose one repeatable capability and a name that does not shadow host commands.
+2. Write a brief description that distinguishes when the skill applies. Keep tool recipes in the body.
+3. Keep the entrypoint lean. Link deeper references at the point they become relevant; add scripts for repeatable operations and gotchas from actual failures.
+4. Add `agents/openai.yaml`, regenerate the catalog, and run the checks. Evaluate routing or workflow changes with realistic requests.
 
-```powershell
-python skills/skill-doctor/scripts/skill_doctor.py . --profile-root (Join-Path $HOME '.codex\skills')
-```
+Use an installed `skill-creator` if available, or follow the [complete local example](docs/authoring.md#create-or-edit-a-skill). No scaffolder is required.
 
-Repository content is canonical. Profile updates should use the `sync-agent-skills` workflow, begin with a dry run, and preserve backups of differing targets.
+## Quality gates
 
-The graph skill is maintained directly under `skills/software-engineering-graph`; normal sync copies it from this repository. Its [migration record](docs/migrations/software-engineering-graph-20260906.md) identifies the preserved source snapshot and file inventory.
+| Check | What it establishes |
+| --- | --- |
+| [Skill doctor](skills/skill-doctor/SKILL.md) | Skill schema, metadata, resources, Python syntax, catalog membership, and optional copy parity. |
+| [Documentation check](docs/authoring.md#prevent-catalog-drift) | Generated catalog freshness; local documentation links, anchors, and image paths. |
+| [Discovery check](docs/architecture.md#optional-project-discovery-copy) | Optional Cursor copy parity, or an explicit report that no copy is configured. |
+| Repository unit tests | Repository helper behavior and documentation drift regression checks. |
+| [Behavioral scenarios](tests/behavioral/README.md) | Live selection, authorization, actions, and results in isolated workspaces. Separate from unit tests. |
 
-Other skills carrying `external-source.json` are externally managed dependencies. The sync helper resolves their declared source before comparing or copying the full implementation.
+Passing deterministic checks does **not** establish semantic review quality or reliable model behavior. Nested skill suites and live evaluations have separate procedures in the [validation guide](docs/authoring.md#validation).
 
-## Behavioral Evaluation
+## Go deeper
 
-Use [tests/behavioral/README.md](tests/behavioral/README.md) and its scenario catalog to evaluate skill selection, scope, authorization, and follow-through in isolated workspaces. These checks assess action traces and resulting artifacts; unit tests and structural matching alone do not establish model behavior or semantic review quality.
+- [Architecture, discovery, and synchronization](docs/architecture.md): source ownership, host boundaries, and how copies reach profiles.
+- [Authoring, validation, and maintenance](docs/authoring.md): examples, quality gates, and visual maintenance.
+- [Documentation audit and sources](docs/documentation-audit.md): findings, decisions, research dates, and validation limits.
+- [Graph migration](docs/migrations/software-engineering-graph-20260906.md): preserved source history and inventory.

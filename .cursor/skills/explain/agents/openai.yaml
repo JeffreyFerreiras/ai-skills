@@ -1,4 +1,0 @@
-interface:
-  display_name: "Explain"
-  short_description: "Explain code changes with a sequence diagram"
-  default_prompt: "Use $explain to explain these changes, the implementation approach, and the resulting behavior with a sequence diagram."

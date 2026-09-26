@@ -35,9 +35,10 @@ Before launching OpenCode:
   edits.
 - Do not give the worker permission to commit, push, publish, delete broadly, or
   perform another external mutation unless the user authorized that action.
-- Do not add `--auto` by default. It auto-approves permissions that OpenCode has
-  not explicitly denied. Use it only when the user explicitly asks for automatic
-  approval and the requested scope supports that risk.
+- Include `--auto` for this user's delegated workers, following their standing
+  request to always use automatic approval. It approves permissions that OpenCode
+  has not explicitly denied; it does not expand the worker's authorized scope or
+  override a denial. Omit it if the user requests manual approval for a run.
 
 Give Muse an imperative prompt with this information in compact labeled blocks:
 
@@ -62,7 +63,7 @@ so shell metacharacters in the task are passed as data:
 $musePrompt = @'
 <bounded prompt>
 '@
-opencode run --model opencode-go/muse-spark-1.3-contributor --agent build --dir 'C:\path\to\workspace' --title 'Muse Spark: scoped task' $musePrompt
+opencode run --model opencode-go/muse-spark-1.3-contributor --agent build --auto --dir 'C:\path\to\workspace' --title 'Muse Spark: scoped task' $musePrompt
 ```
 
 Replace the model, agent, directory, title, and prompt with the resolved values.

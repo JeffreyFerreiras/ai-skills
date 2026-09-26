@@ -6,21 +6,14 @@ Use this as a starting map, then verify paths on the local machine. Agent produc
 
 - Git URL: `https://github.com/JeffreyFerreiras/ai-skills.git`
 - Canonical skills tree: `skills/` within the repository root.
-- All skills in profile directories or repository-local folders should sync against this master repository.
+- Installed user-profile skills sync against this master repository. Consumer repositories and worktrees are not sync destinations.
 - A master skill containing `external-source.json` points to the actual upstream skill repository. During installation or sync, resolve its latest default-branch commit (or declared pinned revision) and install the full skill with revision provenance. Compare that installation with the resolved source, not the pointer. Do not copy a pointer over an engine or skip it as already current.
 
-## Repository-Local Skill Roots
+## Repository-Local Copies Are Outside Sync Scope
 
-When working in a project repository, installed skills commonly reside in:
+Do not scan local checkouts or worktrees for skill installations. Do not install, refresh, or restore repository-local `.agents/skills`, `.cursor/skills`, `.claude/skills`, `.github/skills`, `.codex/skills`, or `skills/` copies. Existing copies remain untouched unless the user separately requests cleanup. The helper no longer supports `--target-repo`; use explicit user-profile `--target-root` paths.
 
-- `.agents/skills` (shared cross-agent project skills; the root this skill manages)
-- `.cursor/skills` (Cursor Desktop and Cursor Cloud project skills)
-- `.claude/skills` (Claude Code workspace skills)
-- `.github/skills` (GitHub Copilot project skills)
-
-`sync_agent_skills.py` scans these locations when using `--target-repo <path>`. It does not scan, create, or update `.codex/skills`. Leave leftover Codex copies in place unless the user names that path.
-
-For an unqualified sync, invoke it for every discovered local checkout and worktree as well as the installed profiles. Discover repositories beneath known checkout directories with a bounded scan, include `.git` files and registered worktrees, deduplicate resolved skill roots, and skip the canonical source itself. Do not interpret one `--target-repo` invocation as a machine-wide repository scan. Report the discovery boundary and update only existing installed copies unless installation of additional skills was requested.
+The canonical `ai-skills/skills` tree remains the source. An explicitly requested contribution back to that source is separate from distributing skills to consumer repositories.
 
 ## Codex and Cursor Profile Skills
 
@@ -42,7 +35,7 @@ For an unqualified sync, invoke it for every discovered local checkout and workt
 - Start with `~/.cursor`.
 - If `~/.cursor/skills-cursor` exists, treat it as Cursor-managed. A matching name can still have different behavior, as with Cursor's built-in `loop`; compare content before removing a duplicate and preserve distinct built-ins.
 - Project skills for Cursor Desktop and Cursor Cloud live under workspace `.cursor/skills` (also `.agents/skills` and `.claude/skills`). Cursor can sync personal skills from `~/.cursor/skills` to Cloud Agents when its Sync Skills setting is enabled. It does not sync personal `~/.agents/skills` to Cloud Agents.
-- In this repository, `.cursor/skills` is a committed directory copy of the canonical `skills/` tree so every skill is discoverable in Cursor Cloud across checkout platforms. Run `python scripts/sync-discovery.py` after changing canonical skills, then `python scripts/sync-discovery.py --check` to verify parity.
+- Do not create or refresh repository copies to provide cloud availability. Cloud enablement is separate from profile file synchronization and requires its own user request.
 - Cursor's third-party import setting can suppress `~/.agents/skills` in the IDE. Keep that import enabled for this setup; changing it also affects other third-party imports.
 - Also inspect Cursor application user data when relevant, especially on Windows under `%APPDATA%\Cursor\User`.
 - Cursor rule files may use `.mdc` or markdown-like instruction formats. Preserve existing frontmatter conventions.
@@ -52,9 +45,9 @@ For an unqualified sync, invoke it for every discovered local checkout and workt
 - On Windows, start with `%APPDATA%\Code\User`.
 - Also check profile-specific folders if the user uses VS Code profiles.
 - Prompt and instruction files are commonly markdown-based. Preserve file suffixes already used in the profile, such as `.prompt.md` or `.instructions.md`.
-- Agent skills are discovered from `chat.agentSkillsLocations`. The documented default locations include `.github/skills`, `.claude/skills`, `~/.copilot/skills`, and `~/.claude/skills`; add `~/.agents/skills` when the user wants VS Code to see the shared agent skill root.
-- Check `chat.useAgentSkills` is `true`. If using the dedicated skill tool, check `github.copilot.chat.skillTool.enabled` as well.
-- If skills do not appear, first run `scripts/sync_agent_skills.py doctor-vscode`, then reload VS Code with `Developer: Reload Window`.
+- Current [VS Code documentation](https://code.visualstudio.com/docs/agent-customization/agent-skills) lists `.github/skills`, `.claude/skills`, and `.agents/skills` for projects, and `~/.copilot/skills`, `~/.claude/skills`, and `~/.agents/skills` for personal skills (checked 2026-09-26).
+- `chat.agentSkillsLocations` is deprecated and only used by the Local agent. Do not require it for current native discovery. Use the Agent Customizations interface to inspect loaded skills and the selected harness.
+- The bundled `doctor-vscode` is a legacy settings helper. It checks or writes `chat.useAgentSkills`, `github.copilot.chat.skillTool.enabled`, and `chat.agentSkillsLocations`; missing flags are not proof of a current discovery failure. Use its apply mode only for a version that still needs those settings and an explicit settings-update request.
 
 ## Sync Strategy
 
@@ -64,4 +57,4 @@ Choose one of three strategies per target:
 2. Thin wrapper: create a native target file that points to or summarizes the shared source.
 3. Native conversion: rewrite the content into the target tool's expected markdown/frontmatter style.
 
-Prefer thin wrappers or native conversion when syncing shared `SKILL.md` folders into Cursor, Claude, or VS Code. `SKILL.md` frontmatter is useful for skill triggering but may be irrelevant elsewhere.
+For native Agent Skills locations in Cursor, Claude Code, or VS Code, copy the complete `SKILL.md` folder and its resources. Use a wrapper or native conversion only for an explicitly requested non-skill surface, such as a rule or prompt file, whose format requires it; do not replace a working skill package with a summary.
