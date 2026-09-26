@@ -1,6 +1,6 @@
 ---
 name: explain
-description: Explain a local diff, commit, branch, or supplied patch from intent through implementation and validation, including a Mermaid sequence diagram of the changed behavior. Use when the user asks for a changes walkthrough, wants to understand what changed and why, or asks how an agent or model approached an implementation. Do not use for a findings-first code review or when the user only wants a terse change summary.
+description: Explain a diff, commit, or branch from intent through validation, with a Mermaid sequence diagram. Use for change walkthroughs, not findings-first reviews or terse summaries.
 ---
 
 # Explain Changes

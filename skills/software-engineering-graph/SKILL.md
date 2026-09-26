@@ -1,6 +1,6 @@
 ---
 name: software-engineering-graph
-description: Orchestrate rigorous software application work through a scope-selected supervisor, tech lead, architect, senior engineer, code reviewer, and test engineer with bounded design and delivery loops and human-approved model/effort plans. Use when a user requests graph engineering, a multi-agent software organization, technical-design approval, independent implementation review and testing, or when repository instructions require this workflow for non-trivial features, fixes, refactors, migrations, integrations, or production changes.
+description: Orchestrate software delivery with approved role/model plans, bounded loops, and independent review and testing. Use for requested graph engineering, multi-agent delivery, or repository-mandated orchestration.
 ---
 
 # Software Engineering Graph

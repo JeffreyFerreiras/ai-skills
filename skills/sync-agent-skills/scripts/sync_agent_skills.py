@@ -35,14 +35,6 @@ AI_SKILLS_DEFAULT_REPO_URL = "https://github.com/JeffreyFerreiras/ai-skills.git"
 AGENTS_SKILLS_RELATIVE = Path(".agents/skills")
 VSCODE_AGENTS_SKILLS_LOCATION = "~/.agents/skills"
 
-REPO_SKILL_RELATIVE_LOCATIONS = (
-    Path(".cursor/skills"),
-    AGENTS_SKILLS_RELATIVE,
-    Path(".claude/skills"),
-    Path(".github/skills"),
-    Path("skills"),
-)
-
 DEFAULT_EXCLUDED_DIRS = {
     ".git",
     "__pycache__",
@@ -221,34 +213,6 @@ def backup_path(target: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup_dir = target.parent / ".sync-agent-skills-backups"
     return backup_dir / f"{target.name}.{stamp}"
-
-
-def find_installed_repo_skill_roots(
-    repo_root: Path,
-    candidates: Iterable[Path] = REPO_SKILL_RELATIVE_LOCATIONS,
-) -> list[Path]:
-    """Return directories in repo_root that contain installed skill folders."""
-    discovered: list[Path] = []
-    seen_real_paths: set[Path] = set()
-    for rel_path in candidates:
-        candidate = (repo_root / rel_path)
-        if not candidate.is_dir():
-            continue
-        # Avoid treating canonical skills/ as an installed target if repo_root IS the master skills repo
-        # when running in the skills repo itself, unless it's explicitly an installed target.
-        has_skills = any(
-            item.is_dir() and (item / "SKILL.md").is_file()
-            for item in candidate.iterdir()
-        )
-        if has_skills:
-            try:
-                resolved = candidate.resolve()
-            except OSError:
-                resolved = candidate
-            if resolved not in seen_real_paths:
-                seen_real_paths.add(resolved)
-                discovered.append(candidate)
-    return discovered
 
 
 def list_skills_in_root(root: Path) -> dict[str, Path]:
@@ -694,7 +658,7 @@ def main() -> int:
 
     sync_from_master_parser = subparsers.add_parser(
         "sync-from-master",
-        help="Update installed skills in a local repo or profile from master skills repository",
+        help="Update installed user-profile skills from the master skills repository",
     )
     sync_from_master_parser.add_argument(
         "--master",
@@ -706,12 +670,8 @@ def main() -> int:
         "--target-root",
         type=Path,
         action="append",
-        help="Specific target skill directory to update (can be specified multiple times)",
-    )
-    sync_from_master_parser.add_argument(
-        "--target-repo",
-        type=Path,
-        help="Target repository to scan for installed skills (e.g. .agents/skills, .cursor/skills)",
+        required=True,
+        help="User-profile skill directory to update (can be specified multiple times)",
     )
     sync_from_master_parser.add_argument(
         "--skill",
@@ -773,18 +733,7 @@ def main() -> int:
         if not master_skills_dir.is_dir():
             raise FileNotFoundError(f"master skills directory not found at {master_skills_dir}")
 
-        target_roots: list[Path] = []
-        if args.target_root:
-            target_roots.extend(p.expanduser().resolve() for p in args.target_root)
-        if args.target_repo:
-            repo_path = args.target_repo.expanduser().resolve()
-            installed = find_installed_repo_skill_roots(repo_path)
-            target_roots.extend(installed)
-
-        if not target_roots:
-            print("No target roots specified or found in target repository.")
-            return 1
-
+        target_roots = [target.expanduser().resolve() for target in args.target_root]
         all_results: list[dict[str, object]] = []
         for target_root in target_roots:
             res = sync_skills_from_master(

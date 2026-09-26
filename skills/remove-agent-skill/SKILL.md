@@ -1,6 +1,6 @@
 ---
 name: remove-agent-skill
-description: Remove a named AI agent skill from profile-level Codex, Claude, Cursor, VS Code/Copilot-facing locations, and the ai-skills repository mirror. Use when the user asks to delete, uninstall, remove, deprecate, or purge a skill across agent tools, especially when they name tools such as Codex, Claude, Cursor, VS Code, Copilot, or the ai-skills repo.
+description: Remove a named skill from requested agent profiles or repositories. Use for skill deletion, uninstallation, or retirement across tools.
 ---
 
 # Remove Agent Skill
@@ -14,7 +14,7 @@ Remove one skill concept from the user-requested surfaces without deleting unrel
 1. Normalize the requested skill name to lowercase hyphen-case, but also search for likely aliases in prompts and command files.
 2. Resolve the requested skills repository and inspect its status; unrelated changes may already exist.
 3. Inventory active tool locations:
-   - Codex: `$CODEX_HOME/skills/<skill-name>` or `~/.codex/skills/<skill-name>`.
+   - Shared Codex and local Cursor skills: `~/.agents/skills/<skill-name>`. Also inspect explicitly configured or legacy `$CODEX_HOME/skills` and `~/.codex/skills` copies when in scope; do not infer active discovery from file existence alone.
    - Claude: `~/.claude/skills/<skill-name>`.
    - Cursor: inspect `~/.cursor/skills`, `~/.cursor/skills-cursor`, and `~/.cursor/commands`.
    - VS Code/Copilot: inspect the active user profile, commonly `%APPDATA%/Code/User` on Windows.
@@ -32,6 +32,7 @@ Use path search first:
 
 ```powershell
 $roots = @(
+  (Join-Path $HOME '.agents\skills'),
   (Join-Path $HOME '.codex\skills'),
   (Join-Path $HOME '.claude\skills'),
   (Join-Path $HOME '.cursor\skills'),

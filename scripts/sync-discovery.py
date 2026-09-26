@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the committed Cursor discovery directory in sync with canonical skills."""
+"""Create or refresh an optional Cursor discovery copy; --check never creates it."""
 
 from __future__ import annotations
 
@@ -92,6 +92,9 @@ def sync_discovery(repository_root: Path, check_only: bool) -> list[str]:
     if is_link(manifest):
         raise ValueError(f"Discovery manifest must be a real file: {manifest}")
 
+    if check_only and not destination.exists() and not manifest.exists():
+        return []
+
     source_files = files_under(source)
     destination_files = files_under(destination) if destination.is_dir() else {}
     previous = managed_files(manifest)
@@ -147,7 +150,10 @@ def main() -> int:
         for issue in issues:
             print(issue)
         return 1
-    print("Cursor discovery copy matches canonical skills.")
+    if arguments.check and not (arguments.repository_root / ".cursor/skills").exists():
+        print("No Cursor discovery copy configured; canonical-only checkout (no files created).")
+    else:
+        print("Cursor discovery copy matches canonical skills.")
     return 0
 
 

@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -271,33 +272,41 @@ class SyncAgentSkillsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "refusing to rewrite JSONC"):
                 sync_agent_skills.doctor_vscode(settings_path, apply=True)
 
-    def test_find_installed_repo_skill_roots(self) -> None:
+    def test_cli_rejects_repository_sync_option(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            repo_root = Path(temporary_directory)
-            cursor_skills = repo_root / ".cursor" / "skills"
-            cursor_skills.mkdir(parents=True)
-            skill_dir = cursor_skills / "sample-skill"
-            skill_dir.mkdir()
-            (skill_dir / "SKILL.md").write_text("---\nname: sample-skill\ndescription: test\n---\n", encoding="utf-8")
+            root = Path(temporary_directory)
+            result = subprocess.run(
+                [sys.executable, str(MODULE_PATH), "sync-from-master", "--master", str(root),
+                 "--target-root", str(root / "profile"), "--target-repo", str(root / "project"),
+                 "--apply"],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(2, result.returncode)
+            self.assertIn("unrecognized arguments: --target-repo", result.stderr)
+            self.assertEqual([], list(root.iterdir()))
 
-            discovered = sync_agent_skills.find_installed_repo_skill_roots(repo_root)
-            self.assertEqual([cursor_skills], discovered)
-
-    def test_find_installed_repo_skill_roots_uses_agents_not_codex(self) -> None:
+    def test_cli_updates_only_explicit_profile_root(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            repo_root = Path(temporary_directory)
-            agents_skills = repo_root / ".agents" / "skills"
-            codex_skills = repo_root / ".codex" / "skills"
-            for root in (agents_skills, codex_skills):
-                skill_dir = root / "sample-skill"
+            root = Path(temporary_directory)
+            master = root / "master"
+            profile = root / "user" / ".agents" / "skills"
+            project = root / "project" / ".cursor" / "skills"
+            for skills_root, version in ((master / "skills", "new"), (project, "keep")):
+                skill_dir = skills_root / "sample-skill"
                 skill_dir.mkdir(parents=True)
                 (skill_dir / "SKILL.md").write_text(
-                    "---\nname: sample-skill\ndescription: test\n---\n",
+                    f"---\nname: sample-skill\ndescription: {version}\n---\n",
                     encoding="utf-8",
                 )
-
-            discovered = sync_agent_skills.find_installed_repo_skill_roots(repo_root)
-            self.assertEqual([agents_skills], discovered)
+            result = subprocess.run(
+                [sys.executable, str(MODULE_PATH), "sync-from-master", "--master", str(master),
+                 "--target-root", str(profile), "--all", "--apply", "--json"],
+                capture_output=True, text=True, cwd=root,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(1, len(json.loads(result.stdout)))
+            self.assertIn("new", (profile / "sample-skill" / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertIn("keep", (project / "sample-skill" / "SKILL.md").read_text(encoding="utf-8"))
 
     def test_sync_skills_from_master_dry_run_and_apply(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

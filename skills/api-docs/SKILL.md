@@ -1,6 +1,6 @@
 ---
 name: api-docs
-description: Add or improve accurate .NET XML documentation comments for public APIs, classes, interfaces, methods, properties, events, and generic types. Use when the user requests XML docs, public API documentation, missing documentation cleanup, or documentation for changed C# members.
+description: Add accurate .NET XML documentation to C# APIs. Use when asked to document public members or repair missing XML comments.
 ---
 
 # .NET API Documentation

@@ -65,4 +65,4 @@ git -c core.safecrlf=false diff origin/master --check
 
 Both skill validators, discovery parity, whitespace checks, 34 repository tests, and 19 review-skill tests passed. The repository doctor inspected 25 skills and found two upstream `git-push` issues: a missing README catalog entry and missing `agents/openai.yaml`. Verified both omissions in `origin/master`; they are outside this rename's scope.
 
-The broad graph suite was not repeated after the rebase because the graph changes here are skill-name references only. Its earlier results above describe the previous base. Final graph hygiene passed using the separate command shown above.
+The broad graph suite was not repeated after the rebase because the graph changes here are skill-name references only. Its earlier results above describe the previous base. Final validation uses the separate graph hygiene command shown above.

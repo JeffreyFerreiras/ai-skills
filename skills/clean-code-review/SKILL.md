@@ -1,6 +1,6 @@
 ---
 name: clean-code-review
-description: Review local Git changes, a commit range, or a supplied diff for correctness, regressions, security, performance, maintainability, design-pattern opportunities, and project-guideline violations. Use when the user requests a code review, branch review, diff review, pre-merge audit, or evidence-backed findings without implementation.
+description: Review a diff or commit range for defects, regressions, and justified design improvements. Use for code or pre-merge reviews that call for findings without implementation.
 ---
 
 # Clean Code Review

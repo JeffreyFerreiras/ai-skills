@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="460" viewBox="0 0 360 460" role="img" aria-labelledby="title description">
+  <title id="title">The skill lifecycle</title>
+  <desc id="description">Author canonical skills, check structure and resources, discover and load on demand, then evaluate behavior and refine.</desc>
+  <style>
+    svg { background: #f8f7f4; color: #172026; }
+    .card { fill: none; stroke: currentColor; stroke-width: 1; }
+    text { fill: currentColor; font-family: system-ui, sans-serif; }
+    .number { fill: #387873; font-size: 18px; font-weight: 700; }
+    .heading { font-size: 20px; font-weight: 750; }
+    .detail { font-size: 15px; }
+    .arrow { fill: none; stroke: #387873; stroke-width: 2; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #161b22; color: #e6edf3; }
+      .number { fill: #80b9b4; }
+      .arrow { stroke: #80b9b4; }
+    }
+  </style>
+  <text x="20" y="32" font-size="17" font-weight="750">ONE SOURCE. FOCUSED WORKFLOWS.</text>
+  <rect class="card" x="20" y="52" width="320" height="76"/>
+  <text class="number" x="36" y="83">01</text><text class="heading" x="76" y="83">AUTHOR</text>
+  <text class="detail" x="76" y="109">Canonical skills</text>
+  <path class="arrow" d="M180 130v18m-5-6 5 6 5-6"/>
+  <rect class="card" x="20" y="151" width="320" height="76"/>
+  <text class="number" x="36" y="182">02</text><text class="heading" x="76" y="182">CHECK</text>
+  <text class="detail" x="76" y="208">Structure + resources</text>
+  <path class="arrow" d="M180 229v18m-5-6 5 6 5-6"/>
+  <rect class="card" x="20" y="250" width="320" height="76"/>
+  <text class="number" x="36" y="281">03</text><text class="heading" x="76" y="281">USE</text>
+  <text class="detail" x="76" y="307">Discover + load on demand</text>
+  <path class="arrow" d="M180 328v18m-5-6 5 6 5-6"/>
+  <rect class="card" x="20" y="349" width="320" height="76"/>
+  <text class="number" x="36" y="380">04</text><text class="heading" x="76" y="380">EVALUATE</text>
+  <text class="detail" x="76" y="406">Observe actual behavior</text>
+  <text class="detail" x="20" y="448">Use evidence to refine the source.</text>
+</svg>

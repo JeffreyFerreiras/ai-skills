@@ -1,6 +1,6 @@
 ---
 name: andromeda-ssh
-description: Connect to and safely inspect or administer the Andromeda Ubuntu Linux host over SSH from Windows PowerShell. Use for requests involving Andromeda, jeff@andromeda, remote shell commands, system status, services, logs, cron, systemd timers, packages, files, reboots, or other Linux operations on that host.
+description: Inspect or administer the Andromeda Ubuntu host over SSH from Windows PowerShell. Use only for operations on that host.
 ---
 
 # Andromeda SSH

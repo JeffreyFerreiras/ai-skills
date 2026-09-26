@@ -1,11 +1,11 @@
 ---
 name: address-pr-feedback
-description: Address actionable GitHub pull request review feedback. Use when the user wants to inspect unresolved review threads, requested changes, or inline review comments on a PR, then implement selected fixes. Use the GitHub app for PR metadata and flat comment reads, and use the bundled GraphQL script via `gh` whenever thread-level state, resolution status, or inline review context matters.
+description: Inspect GitHub PR review threads and implement selected feedback. Use when asked to address unresolved comments or requested changes.
 ---
 
 # Address PR Feedback
 
-Use this skill when the user wants to work through requested changes on a GitHub pull request. Use the GitHub app from this plugin for PR metadata and patch context, but treat thread-aware review data as a `gh api graphql` problem because the connector comment surface is flat and does not preserve full review-thread state.
+Use this skill when the user wants to work through requested changes on a GitHub pull request. Use an available GitHub connector for PR metadata and patch context, but use the bundled `gh api graphql` helper when the connector does not expose thread state and resolution context.
 
 Before network-dependent CLI work, confirm `gh auth status`. Follow the active environment's network and approval rules, and ask the user to authenticate with `gh auth login` if authentication fails.
 
@@ -15,7 +15,7 @@ Before network-dependent CLI work, confirm `gh auth status`. Follow the active e
    - If the user provides a repository and PR number or URL, use that directly.
    - If the request is about the current branch PR, use local git context plus `gh auth status` and `gh pr view --json number,url` to resolve it.
 2. Inspect review context with thread-aware reads.
-   - Use the GitHub app from this plugin to fetch PR metadata and patch context when the repo and PR are known.
+   - Use an available GitHub connector to fetch PR metadata and patch context when the repo and PR are known; use authenticated `gh` reads if no connector is available.
    - Use the bundled `scripts/fetch_comments.py` workflow whenever the task depends on unresolved review threads, inline review locations, or resolution state. That script fetches `reviewThreads`, `isResolved`, `isOutdated`, and file and line anchors that the connector comment surface does not preserve.
    - Use connector-only comment reads only for lightweight top-level PR comment summaries.
 3. Cluster actionable review threads.
@@ -23,7 +23,7 @@ Before network-dependent CLI work, confirm `gh auth status`. Follow the active e
    - Separate actionable change requests from informational comments, approvals, already-resolved threads, and duplicates.
 4. Confirm scope before editing.
    - Present numbered actionable threads with a one-line summary of the required change.
-   - If the user did not ask to fix everything, ask which threads to address.
+   - Honor threads the user already selected. Ask which threads to address only when the request selects neither specific threads nor all actionable feedback.
    - If the user asks to fix everything, interpret that as all unresolved actionable threads and call out anything ambiguous.
 5. Implement the selected fixes locally.
    - Keep each code change traceable back to the thread or feedback cluster it addresses.
