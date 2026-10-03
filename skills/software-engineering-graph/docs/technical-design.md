@@ -73,7 +73,11 @@ side effects at the outer boundary.
 Revision 3 separated suggested assignments from supported selections. Codex revision 4 updated
 its Sol/Luna recommendations; revision 5 raises GPT-6 Luna helper effort to max; revision 6 makes
 Astra or Sol medium the Codex helper and fixed-research default and exposes Luna max as an economy
-fanout option. `hosts.py` keeps the
+fanout option. Revision 7 upgrades the explicit Codex preference to GPT-6.1 Sol and adds it to
+both Codex catalogs while freezing revision 6 options and recommendations. Revision 8 freezes
+revision 7 separately, removes GPT-5.6 options, and recommends GPT-6.1 Sol low for helpers,
+fixed research, publication, and economy fanout. Cursor revision 4 removes its GPT-5.6 option;
+Claude stays at revision 3. `hosts.py` keeps the
 original `HOST_MATRIX` unchanged for historical reconstruction, maintains supported model/effort options,
 and supplies helper/core/review recommendations. `execution.py` selects the correct revision and
 applies task-bound `model_overrides` before deriving dispatch IDs and the canonical plan digest.
@@ -90,21 +94,29 @@ presents the execution sequence, roles, options, and capability gaps. The human 
 before initialization; afterward even a pending brief is immutable. New choices require a new run
 and approval. The command does not bypass missing policy or create a model API executor.
 
-New recommendations: default Codex uses GPT-6 Astra medium for helpers and core roles and high
-for review. GPT-6 Luna max is the economy fanout option; GPT-6 Sol and GPT-5.6 Terra are also
-selectable. Explicit Codex uses GPT-6 Sol for helpers, core roles, and review. Claude uses Sonnet
+New recommendations: both Codex catalogs use GPT-6.1 Sol low for helpers, fixed research,
+publication, and economy fanout. Default Codex retains GPT-6 Astra medium core/high review;
+explicit Codex retains GPT-6.1 Sol medium core/high review. GPT-6 Sol and Luna remain supported
+alternatives. Every GPT-5.6 variant is retired for new selections and native launches. Claude uses Sonnet
 5 low helpers and Opus 5 medium core/high review.
 Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
 medium core/high review. See [model catalogs](../references/model-catalogs.md) for all supported
 options, exact sources, native role configuration, and runtime verification limits.
 
 Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
-defaults, bytes, digests and approvals. Codex revisions 3 through 5 also retain their prior recommendations
+defaults, bytes, digests and approvals. Codex revisions 3 through 7 and Cursor revision 3 retain their prior recommendations
 and options. The engine accepts each known revision explicitly; unknown or malformed revisions fail
-closed. New Codex revision 6 plans require this engine or newer. Catalog
+closed. New Codex revision 8 and Cursor revision 4 plans require a supporting engine. Catalog
 changes must not silently alter reconstruction of prior plans.
+Historical core envelopes are reconstructed for audit, not execution authority. The engine has no
+model executor; the Supervisor refuses another GPT-5.6 launch and obtains a separately approved
+current supported plan. Historical helper reads/settlement and persisted review-request validation
+remain available, while new helper allowances/reservations and fanout requests reject retirement.
+Standard is the speed preference; native spawn has no selector and speed stays unverified/unavailable.
+An explicit user Fast choice during planning is recorded and applied only through a supported host
+setting; without one it remains inherited and unverified/unavailable.
 
-Conditional reviewer fan-out policy and budget weights are unchanged. Those assignments remain
+Conditional reviewer fan-out accepts GPT-6.1 Sol high/xhigh/max at the existing 3/4/5 weights. Assignments remain
 in their separately approved policy rather than graph-node overrides. Helpers use their own bound
 allowance and can select any supported exact host pair; capability verification, scope, budgets,
 reservations and settlement remain mandatory. Model recommendations grant no authority and

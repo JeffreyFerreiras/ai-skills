@@ -7,7 +7,7 @@ description: Delegate one tiny, precisely specified execution job to a fresh sub
 
 Delegate exactly one narrow, stop-safe execution job when the parent has already defined the objective and acceptance result. The parent remains responsible for planning, scoping, and accepting the result.
 
-Default selection: model=`gpt-6-sol`, effort=`low`, speed preference=`fast`. Model and effort may each be overridden independently when the requested value is supported by the callable spawn tool.
+Default selection: model=`gpt-6.1-sol`, effort=`low`, speed preference=`standard`. Model and effort may each be overridden independently when the requested value is supported by the callable spawn tool. Reject every GPT-5.6 variant, even when the runtime still exposes it; request a supported current selection instead.
 
 ## Job packet
 
@@ -30,7 +30,10 @@ Every job that uses a tool—including file access, commands, or web search—is
 
 At 120 seconds, if no terminal result has been received before the deadline, call `collaboration.interrupt_agent`, mark the job `ABANDONED_TIMEOUT`, and report possible partial effects. A completion observed after the deadline is late and cannot be accepted. Interruption is not rollback and does not guarantee that an external process was killed. Do not delegate work that cannot safely be abandoned. Constrain commands to the remaining time where supported; prohibit detached or background processes.
 
-There is no speed selector in the native spawn tool. Treat `fast` as a preference only: inherit the configured speed, and report `fast unverified/unavailable` when the tool does not expose a speed setting. Do not invent a `service_tier` or other unsupported argument, and do not claim that selecting Luna enables Fast mode.
+There is no speed selector in the native spawn tool. Request Standard as a preference only: inherit the configured speed, and report `standard unverified/unavailable` when the tool does not expose a speed setting. Do not invent a `service_tier` or other unsupported argument, and never claim that the selected model verifies native speed. Fast is not the default or preferred setting.
+If the user explicitly requests Fast during planning, record that choice in the job packet and apply
+it only through a supported host setting. Without a native selector, report `fast unverified/unavailable`
+and inherited speed; do not silently switch settings or claim the preference was applied.
 
 ## Accept and report
 

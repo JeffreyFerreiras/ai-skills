@@ -80,14 +80,14 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 6
-suggests GPT-6 Astra `medium` for helpers, fixed research, and core work, and `high` for review;
-the explicit `codex` catalog suggests GPT-6 Sol instead of Astra. Offer GPT-6 Luna `max` as the
-economy fanout option in the preview. Select it through approved graph-node overrides for fixed
-roles or the separately bound allowance for direct helpers. GPT-6 Sol and GPT-5.6 Terra
-are also selectable within the Astra catalog. Claude suggests Sonnet 5 `low` for helpers,
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 8
+suggests GPT-6.1 Sol `low` for helpers, fixed research, publication, and economy fanout.
+Core work remains GPT-6 Astra `medium` and review remains Astra `high`; the explicit `codex`
+catalog suggests GPT-6.1 Sol `medium`/`high` instead. Bind direct helper selections in their
+separate allowance. GPT-6 Sol and GPT-6 Luna remain supported alternatives on Codex.
+Claude stays on revision 3 and suggests Sonnet 5 `low` for helpers,
 Opus 5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
-for helpers, Grok 4.7 `medium` for core work and `high` for review. These are human-selected
+for helpers, Grok 4.7 `medium` for core work and `high` for review in revision 4. These are human-selected
 starting preferences, not benchmark claims.
 
 Before initialization, present the execution sequence, relevant and conditional roles, model/effort
@@ -103,10 +103,22 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 6 plans cannot be consumed by older engines. Role TOML pins are Codex installation
+New Codex revision 8 and Cursor revision 4 plans require an engine supporting those revisions. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
+Reject every GPT-5.6 variant in new selections and native agent launches, even when the host exposes
+it or a historical plan records it. Historical catalogs, plans, allowances, and envelopes remain readable
+for audit; they do not authorize another retired-model launch. Obtain a separately approved current
+supported plan or allowance rather than editing the historical record or silently substituting a model.
+The ledger reconstructs historical core envelopes and does not execute model calls; the Supervisor
+must enforce this launch rule at the native dispatch boundary.
+Request Standard speed for new agents. The native spawn tool has no speed selector; inherit the
+configured speed and report `standard unverified/unavailable`. Never invent a speed argument or
+claim native Standard was verified. Fast is not a recommended or default setting.
+If the user explicitly requests Fast during planning, record the choice in the approved plan
+and apply it only through a supported host setting. With no native selector, report
+`fast unverified/unavailable` and inherited speed; never silently switch settings.
 Report the actual Supervisor model and effort only when a trusted host runtime assertion makes both
 values verifiable. If either value is missing, unverifiable, or different, operate in advisory mode
 and display this exact warning once per run, repeating only if verification status changes:
@@ -252,7 +264,8 @@ stricter selected policy, and record any omitted or unsupported allowance with i
 These are host-only sessions, not engine branches or new gates. New deterministic
 registration requires a human-approved task/plan v3 allowance attachment and the separate run-bound
 helper register. Task/plan v1 and v2 have no authority through that register; loading new source does
-not rewrite or revoke a historical run's separately approved instruction-level contract. Prefer
+not rewrite a historical run's separately approved instruction-level record. Those records
+never authorize a new GPT-5.6 launch under the retirement rule above. Prefer
 direct permitted tools when delegation overhead exceeds the likely benefit.
 Profile availability and prompt restrictions do not prove host enforcement; verify the actual
 assignment and capabilities before dispatch.
@@ -279,8 +292,9 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Codex role profiles, including helpers, match Astra revision 6 recommendations. A Luna `max`
-economy selection may require a supported fresh agent with the same role contract.
+Codex role profiles match revision 8 recommendations: impact mapping and optional helpers use
+GPT-6.1 Sol `low`; core and review pins retain Astra. A different approved selection may require
+a supported fresh agent with the same role contract.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
 as unavailable and propose a supported alternative for approval before dispatching that role.
 Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;

@@ -13,10 +13,13 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 6, "codex-astra": 6, "cursor": 3}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6), "codex-astra": (2, 3, 4, 5, 6), "cursor": (2, 3)}
+CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 8, "codex-astra": 8, "cursor": 4}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6, 7, 8), "codex-astra": (2, 3, 4, 5, 6, 7, 8), "cursor": (2, 3, 4)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {
+    ("gpt-6.1-sol", "high"): 3,
+    ("gpt-6.1-sol", "xhigh"): 4,
+    ("gpt-6.1-sol", "max"): 5,
     ("gpt-6-astra", "medium"): 3,
     ("gpt-6-luna", "max"): 3,
     ("gpt-6-sol", "high"): 3,
@@ -76,6 +79,16 @@ PUBLICATION_CLASS = {
     "cursor": ("economy", "max"),
 }
 
+def is_retired_model(model: str) -> bool:
+    return model.startswith("gpt-5.6-")
+
+
+def require_active_model(model: str) -> None:
+    """Historical catalog knowledge never authorizes a new retired-model launch."""
+    if is_retired_model(model):
+        raise ValueError("MODEL_RETIRED")
+
+
 # Defaults and selectable pairs are separate. HOST_MATRIX stays frozen for old approvals.
 # These pairs are catalog knowledge, not evidence of account/runtime availability.
 MODEL_OPTIONS_V3 = {
@@ -101,18 +114,34 @@ MODEL_OPTIONS_V3 = {
     },
 }
 MODEL_OPTIONS_V3["codex-astra"] = MODEL_OPTIONS_V3["codex"]
-MODEL_OPTIONS = dict(MODEL_OPTIONS_V3)
-MODEL_OPTIONS["codex"] = {
+MODEL_OPTIONS_V6 = dict(MODEL_OPTIONS_V3)
+MODEL_OPTIONS_V6["codex"] = {
     **MODEL_OPTIONS_V3["codex"],
     "gpt-6-luna": ("low", "medium", "high", "xhigh", "max"),
     "gpt-6-sol": ("low", "medium", "high", "xhigh", "max"),
 }
-MODEL_OPTIONS["codex-astra"] = MODEL_OPTIONS["codex"]
+MODEL_OPTIONS_V6["codex-astra"] = MODEL_OPTIONS_V6["codex"]
+MODEL_OPTIONS_V7 = dict(MODEL_OPTIONS_V6)
+MODEL_OPTIONS_V7["codex"] = {
+    **MODEL_OPTIONS_V6["codex"],
+    "gpt-6.1-sol": ("low", "medium", "high", "xhigh", "max"),
+}
+MODEL_OPTIONS_V7["codex-astra"] = MODEL_OPTIONS_V7["codex"]
+# The public knowledge inventory is also used by historical token accounting.
+# New selections use model_options(), never this frozen audit inventory.
+MODEL_OPTIONS = MODEL_OPTIONS_V7
+CURRENT_MODEL_OPTIONS = {
+    host: {model: efforts for model, efforts in options.items()
+           if not is_retired_model(model)}
+    for host, options in MODEL_OPTIONS_V7.items()
+}
 
 
 def selected_dispatch_model(host: str, model: str, effort: str, revision: Optional[int] = None) -> str:
     """Resolve a human selection without treating recommendations as requirements."""
     catalog_for(host)
+    if revision is None or revision == CURRENT_CATALOG_REVISIONS[host]:
+        require_active_model(model)
     if effort in model_options(host, revision).get(model, ()):
         return model
     return dispatch_model(host, model, effort)
@@ -124,21 +153,36 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
     if revision is None:
         revision = CURRENT_CATALOG_REVISIONS[host]
     if workload == "helper":
-        if revision == 6 and host in {"codex", "codex-astra"}:
+        if revision == 8 and host in {"codex", "codex-astra"}:
+            return "gpt-6.1-sol", "low"
+        if revision in {6, 7} and host in {"codex", "codex-astra"}:
             return recommended_assignment(host, "implementation", revision)
         return {"claude": ("claude-sonnet-5", "low"),
                 "cursor": ("gemini-3.8-flash", "low")}.get(
                     host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna",
                            "low" if revision in {3, 4} else "max"))
-    model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
-             "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
-             "codex-astra": "gpt-6-astra"}[host]
+    if host == "codex" and revision in {7, 8}:
+        model = "gpt-6.1-sol"
+    else:
+        model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
+                 "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
+                 "codex-astra": "gpt-6-astra"}[host]
     return model, "high" if workload == "review" else "medium"
 
 
 def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[str, ...]]:
     catalog_for(host)
-    return dict((MODEL_OPTIONS_V3 if revision == 3 else MODEL_OPTIONS)[host])
+    if revision is None:
+        revision = CURRENT_CATALOG_REVISIONS[host]
+    if revision == 3:
+        options = MODEL_OPTIONS_V3
+    elif revision in {2, 4, 5, 6}:
+        options = CURRENT_MODEL_OPTIONS if host == "cursor" and revision == 4 else MODEL_OPTIONS_V6
+    elif revision == 7:
+        options = MODEL_OPTIONS_V7
+    else:
+        options = CURRENT_MODEL_OPTIONS
+    return dict(options[host])
 
 
 def known_hosts() -> Tuple[str, ...]:
@@ -195,8 +239,10 @@ def publication_assignment(host: str) -> Tuple[str, str, str]:
     return resolve_row(host, *PUBLICATION_CLASS[host])
 
 
-def dispatch_weight_for(model: str, effort: str) -> Optional[int]:
+def dispatch_weight_for(model: str, effort: str, *, historical: bool = False) -> Optional[int]:
     """Return the engine delegation weight for a concrete host model pair."""
+    if is_retired_model(model) and not historical:
+        return None
     if (model, effort) in MODEL_DISPATCH_WEIGHTS:
         return MODEL_DISPATCH_WEIGHTS[(model, effort)]
     if model == "primary-thread":
@@ -216,6 +262,8 @@ def supported_dispatch_weights() -> Dict[Tuple[str, str], int]:
     weights: Dict[Tuple[str, str], int] = dict(MODEL_DISPATCH_WEIGHTS)
     for catalog in HOST_MATRIX.values():
         for (intelligence_class, _requested), row in catalog.items():
+            if is_retired_model(row[0]):
+                continue
             if intelligence_class == "economy":
                 weights[(row[0], row[1])] = 3
             elif intelligence_class == "reasoning":

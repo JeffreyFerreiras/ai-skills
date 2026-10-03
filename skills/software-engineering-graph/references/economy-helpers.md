@@ -54,8 +54,9 @@ run reaches the same register and fails initialization rather than receiving unu
 The allowance therefore omits its enclosing plan digest, avoiding a circular hash.
 
 Task/plan v1 and v2 bytes and reconstruction remain unchanged and grant zero authority through this
-new register. Loading new source does not rewrite or revoke a historical run's separately approved
-instruction-level contract. Opting into the register requires an approved new v3 plan.
+new register. Loading new source does not rewrite a historical run's separately approved
+instruction-level record. That record does not authorize a new retired-model launch.
+Opting into the register requires an approved new v3 plan.
 
 The allowance has schema version 1, one `allowance_id`, the `run_id`, assignments, shared limits,
 and resources. Each assignment names:
@@ -82,7 +83,7 @@ Supervisor remains responsible for preparing the allowance, but a broader self-d
 pass graph initialization. The standalone register does not read ledger control metadata or
 authenticate the approval source, so it assumes the supplied plan already passed graph validation.
 
-A minimal Validation Executor allowance assignment using the Luna max economy option looks like
+A minimal Validation Executor allowance assignment using the GPT-6.1 Sol low economy option looks like
 this inside the top-level allowance:
 
 ```json
@@ -95,8 +96,8 @@ this inside the top-level allowance:
     "parent_role":"senior_engineer",
     "helper_role":"validation_executor",
     "contract_revision":1,
-    "model":"gpt-6-luna",
-    "reasoning_effort":"max",
+    "model":"gpt-6.1-sol",
+    "reasoning_effort":"low",
     "parent_capabilities":[
       {"effect":"filesystem_read","action":"read","target_ref":"repo:src/"},
       {"effect":"filesystem_read","action":"read","target_ref":"repo:tests/"},
@@ -116,14 +117,22 @@ this inside the top-level allowance:
 ```
 
 The selected host catalog bounds supported assignment values, separately from recommendations.
-Codex revision 6 suggests Astra or Sol/medium and exposes GPT-6 Luna/max as its economy
-fanout option. Revision 5 retains its Luna/max recommendation, while revisions 3 and 4 retain
-their earlier Luna/low suggestions. Claude suggests Sonnet 5/low and Cursor suggests Gemini
+Codex revision 8 suggests GPT-6.1 Sol/low for helpers and economy fanout. Historical revision 7
+records Astra or GPT-6.1 Sol/medium helpers and GPT-6 Luna/max economy fanout; revisions 3 through 6
+retain their earlier records. Claude suggests Sonnet 5/low and Cursor suggests Gemini
 3.8 Flash/low.
 Use the preview's helper recommendation or a human-selected supported alternative, including Sol
 on Codex. Bind that exact pair in the allowance before approval; graph-node overrides do not change
 the allowance. Cooperative host observation must verify the exact pair. Never silently substitute,
 inherit, or retune an unavailable assignment; propose an alternative for approval instead.
+Every GPT-5.6 variant is retired for new allowances and reservations, even when exposed by the
+host. Historical registers remain readable and settleable for audit, but preflight/reservation
+rejects a retired assignment. Use a separately approved current allowance for a new dispatch.
+Request Standard speed. If native spawn exposes no speed selector, inherit configured speed and
+report `standard unverified/unavailable`; never claim the preference was applied.
+The user may explicitly choose Fast during planning. Record the choice in the approved allowance
+handoff and use only a supported host setting; otherwise report `fast unverified/unavailable`
+and inherited speed without silently changing it.
 
 ## Observe host capability honestly
 

@@ -4,14 +4,14 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 6; Claude and Cursor remain on
-revision 3. Verify the selected pair against the host's current exposed capabilities; catalog
+`claude`, or `cursor`. New Codex plans use catalog revision 8; Claude stays on revision 3 and
+Cursor uses revision 4. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
 | Catalog | Helpers and fixed research | Core roles | Architecture and review |
 | --- | --- | --- | --- |
-| codex-astra | gpt-6-astra / medium | gpt-6-astra / medium | gpt-6-astra / high |
-| codex | gpt-6-sol / medium | gpt-6-sol / medium | gpt-6-sol / high |
+| codex-astra | gpt-6.1-sol / low | gpt-6-astra / medium | gpt-6-astra / high |
+| codex | gpt-6.1-sol / low | gpt-6.1-sol / medium | gpt-6.1-sol / high |
 | claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
 | cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
 
@@ -20,7 +20,7 @@ Security Reviewer, and Release Operations Reviewer receive the review suggestion
 and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
 suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
 thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
-For Codex, the preview's `economy_fanout_option` names GPT-6 Luna / max. It is selectable for
+For Codex, the preview's `economy_fanout_option` names GPT-6.1 Sol / low. It is recommended for
 the impact mapper, both fixed research nodes, publication, and bounded helpers. The helper
 allowance must bind the economy pair separately; graph-node overrides do not change it.
 
@@ -31,22 +31,24 @@ v2/v3 to record selections (node keys, not role-profile names):
 
 ```json
 "model_overrides": {
-  "tech_lead": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
-  "senior_engineer": {"model": "gpt-6-sol", "reasoning_effort": "high"},
-  "supervisor_recommendation": {"model": "gpt-6-sol", "reasoning_effort": "high"},
-  "impact_mapper": {"model": "gpt-6-luna", "reasoning_effort": "max"},
-  "design_research_architecture": {"model": "gpt-6-luna", "reasoning_effort": "max"},
-  "design_research_validation": {"model": "gpt-6-luna", "reasoning_effort": "max"},
-  "publication_assignment": {"model": "gpt-6-luna", "reasoning_effort": "max"}
+  "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
+  "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
+  "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
+  "impact_mapper": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
+  "design_research_architecture": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
+  "design_research_validation": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
+  "publication_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "low"}
 }
 ```
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
-the recommendation matrix, so GPT-6 Sol and GPT-5.6 Terra are selectable without changing
-the Astra recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, Fable, and
-GPT-5.6 Sol alternatives. Claude offers Sonnet, Opus, and Fable. Do not map an effort the
+the recommendation matrix, so GPT-6.1 Sol, GPT-6 Sol, and GPT-6 Luna are selectable without changing
+the Astra core recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, and Fable
+alternatives. Claude offers Sonnet, Opus, and Fable. Every GPT-5.6 variant is retired for new
+selections, allowances, conditional review requests, and native launches, even when a runtime exposes it.
+The frozen legacy matrix is not a fallback around retirement. Do not map an effort the
 selected model does not expose: Grok 4.7 stops
 at xhigh; Gemini 3.8 Flash stops at high. A newly available pair requires a reviewed catalog update,
 not an arbitrary unchecked string. Such updates must preserve prior revision reconstruction.
@@ -85,14 +87,50 @@ selection. Do not claim that catalog support installs native roles or proves liv
 
 The original HOST_MATRIX is frozen. Missing revisions preserve the historical class/size matrix;
 explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults.
-Revisions 3 through 5 retain their original recommendations, model options, bytes, digests, and approvals.
-New Codex revision 6 plans recommend Astra or Sol at medium effort for helpers and fixed research,
-and expose GPT-6 Luna / max as an economy fanout option. Older engines reject revision 6 rather
-than reinterpret it.
-Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
-remain separately selected in the runtime-home policy, not through graph-node overrides.
+Codex revisions 3 through 7 and Cursor revision 3 retain their original recommendations,
+model options, bytes, digests, and approvals as historical records.
+Revision 6 recommends Astra or GPT-6 Sol at medium effort for helpers and fixed research,
+and exposes GPT-6 Luna / max as an economy fanout option. Revision 7 upgrades the explicit
+Codex recommendation to GPT-6.1 Sol and adds it as a selectable option in both Codex catalogs.
+Revision 7 retains its Astra helper recommendation and Luna economy option.
+Revision 8 changes Codex helpers/research/publication/economy fanout to GPT-6.1 Sol low and
+removes GPT-5.6 options. Cursor revision 4 removes its GPT-5.6 Sol option without changing
+recommendations; Claude revision 3 is unchanged. Older engines reject unsupported revisions.
+Conditional reviewer fan-out also permits GPT-6.1 Sol at high/xhigh/max with the existing
+3/4/5 dispatch weights. Its assignments remain separately selected in the runtime-home policy,
+not through graph-node overrides. Old policy records and completed fanout requests remain
+auditable; new plans and fanout requests reject retired selections. Historical core envelopes
+also remain reconstructable because the ledger does not execute model calls. The Supervisor
+must refuse new GPT-5.6 launches under any historical plan and obtain a separately approved
+current supported plan. Never silently upgrade approved records.
+
+## Speed and cost preference
+
+Request Standard speed for new agents. The native spawn interface has no speed selector, so
+inherit configured speed and report `standard unverified/unavailable`. Do not invent `service_tier`
+or claim a model choice verifies speed. Fast is not preferred: it consumes 2.5 times included
+usage or twice paid credits, which is not a claim about generated-token count.
+Fast may be selected when the user explicitly requests it during planning. Record that choice
+in the human-approved plan and apply it only through a supported host setting. When native spawn
+has no selector, report `fast unverified/unavailable` and inherited speed; do not silently change it.
+GPT-6.1 Sol Standard has lower listed credit and input/output prices than GPT-5.6 Sol;
+it is not cheaper than GPT-6 Luna. The economy recommendation is the selected policy,
+not a verified model-quality or observed-token-saving result. See the official
+[Codex pricing](https://developers.openai.com/codex/pricing/) and
+[API pricing](https://developers.openai.com/api/docs/pricing).
 
 ## Source and evaluation scope
+
+GPT-6.1 Sol guidance checked October 3, 2026:
+[OpenAI GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
+[Codex and ChatGPT Work models](https://learn.chatgpt.com/docs/models).
+Use the exact ID `gpt-6.1-sol`; its API reasoning efforts are low, medium (default), high,
+xhigh, and max. The native spawn tool may expose additional efforts; verify that specific
+interface before dispatch rather than assuming API and host controls are identical.
+OpenAI recommends GPT-6.1 Sol for complex coding when available and describes near-Astra
+performance at lower cost. That guidance motivates the Sol upgrade; it is not a local model evaluation.
+Availability depends on plan, client, rollout, and workspace settings. Retain supported GPT-6
+alternatives for explicit selections; never replace an approved assignment automatically.
 
 Selection guidance checked September 23, 2026:
 [OpenAI models](https://developers.openai.com/api/docs/models),
@@ -105,8 +143,8 @@ Selection guidance checked September 23, 2026:
 [Cursor subagent selection](https://prod.cursor.com/help/models-and-usage/available-models).
 Native dispatch interfaces may expose model IDs and effort separately; do not invent suffixed aliases.
 
-GPT-6 Sol and Luna have lower listed per-token prices than GPT-5.6 Sol and Luna, respectively;
-GPT-6 Astra has a higher per-token price than GPT-5.6 Sol. Artificial Analysis reports stronger
+Historical September pricing guidance recorded lower listed GPT-6 Sol/Luna per-token prices
+than their GPT-5.6 predecessors. Artificial Analysis reports stronger
 benchmark results for GPT-6 Luna max than xhigh, with greater latency and token use. These are
 configured recommendations.
 Deterministic tests establish selection, binding, and compatibility, not model quality or live

@@ -549,7 +549,7 @@ class CliGoldenTraceTests(GraphCase):
             "assignments": [{
                 "assignment_id": "tech-evidence", "parent_role": "tech_lead",
                 "helper_role": "evidence_scout", "contract_revision": 1,
-                "model": "gpt-5.6-luna", "reasoning_effort": "max",
+                "model": "gpt-6.1-sol", "reasoning_effort": "low",
                 "parent_capabilities": [{
                     "effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/",
                 }],
@@ -589,7 +589,7 @@ class CliGoldenTraceTests(GraphCase):
             "assignments": [{
                 "assignment_id": "tech-evidence", "parent_role": "tech_lead",
                 "helper_role": "evidence_scout", "contract_revision": 1,
-                "model": "gpt-5.6-luna", "reasoning_effort": "max",
+                "model": "gpt-6.1-sol", "reasoning_effort": "low",
                 "parent_capabilities": [{
                     "effect": "filesystem_read", "action": "read", "target_ref": "repo:src/",
                 }],
@@ -754,8 +754,8 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(
             {(branch["node_key"], branch["role"], branch["generation"], branch["status"], branch["model"], branch["reasoning_effort"]) for branch in research},
             {
-                ("design_research_architecture", "impact_mapper", 0, "ready", "gpt-6-astra", "medium"),
-                ("design_research_validation", "impact_mapper", 0, "ready", "gpt-6-astra", "medium"),
+                ("design_research_architecture", "impact_mapper", 0, "ready", "gpt-6.1-sol", "low"),
+                ("design_research_validation", "impact_mapper", 0, "ready", "gpt-6.1-sol", "low"),
             },
         )
         self.assertFalse(any(branch["node_key"] == "tech_lead" for branch in status["branches"]))

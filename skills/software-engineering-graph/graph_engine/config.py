@@ -696,7 +696,8 @@ def load_policy(
     for pattern in denials:
         if not isinstance(pattern, str) or not pattern or len(pattern) > 256:
             raise ContractError("denied_patterns", "INVALID_PATTERN")
-    reviewer_delegation = validate_policy_config(value.get("reviewer_delegation"))
+    # Read old policy records for audit; new plans and fanout requests enforce retirement.
+    reviewer_delegation = validate_policy_config(value.get("reviewer_delegation"), historical=True)
     if reviewer_delegation is not None:
         value["reviewer_delegation"] = reviewer_delegation
     return value, snapshot

@@ -20,7 +20,7 @@ from .contracts import (
     require_keys, safe_file_snapshot, safe_json_snapshot, validate_ref,
 )
 from .ids import canonical_bytes, repository_digest, sha256_bytes
-from .hosts import selected_dispatch_model, known_hosts
+from .hosts import selected_dispatch_model, known_hosts, is_retired_model
 from .state import StateError, local_filesystem_identity, repository_identity
 
 
@@ -201,6 +201,7 @@ def _test_mode_metadata(record: Mapping[str, Any]) -> Dict[str, Any]:
 def validate_allowance(
     value: Any, run_id: str, host: Optional[str] = None,
     approved_parent_capabilities: Optional[Mapping[str, Sequence[Mapping[str, str]]]] = None,
+    *, historical: bool = False,
 ) -> Dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("allowance", "INVALID_OBJECT")
@@ -269,9 +270,12 @@ def validate_allowance(
             raise ContractError("allowance.contract_revision", "UNSUPPORTED_SCHEMA")
         model = bounded_string(item["model"], "allowance.model", 128)
         reasoning_effort = opaque(item["reasoning_effort"], "allowance.reasoning_effort")
+        if is_retired_model(model) and not historical:
+            raise ContractError("allowance.assignments", "MODEL_RETIRED")
         if host is not None:
             try:
-                selected_dispatch_model(host, model, reasoning_effort)
+                revision = {"codex": 7, "codex-astra": 7, "cursor": 3, "claude": 3}.get(host) if historical else None
+                selected_dispatch_model(host, model, reasoning_effort, revision)
             except ValueError:
                 raise ContractError("allowance.assignments", "HELPER_ASSIGNMENT_MISMATCH")
         commands = _commands(item["commands"], "allowance.commands")
@@ -596,6 +600,8 @@ def preflight_record(
     request = _validate_request(request_value)
     allowance = register["allowance"]
     assignment = _assignment_for(allowance, request["assignment_id"])
+    if is_retired_model(assignment["model"]):
+        raise ContractError("request.model", "MODEL_RETIRED")
     exact_fields = (
         "parent_role", "helper_role", "contract_revision", "model", "reasoning_effort",
     )
@@ -776,7 +782,7 @@ class RegisterRecordValidator:
             host = value["host"]
             if host not in known_hosts():
                 raise ContractError("register.host", "HOST_UNSUPPORTED")
-            allowance = validate_allowance(value["allowance"], context["run_id"], host)
+            allowance = validate_allowance(value["allowance"], context["run_id"], host, historical=True)
             host_observation = validate_host_observation(value["host_observation"])
             if value["allowance"] != allowance or value["host_observation"] != host_observation:
                 raise ContractError("register", "REGISTER_BINDING_MISMATCH")
@@ -1005,6 +1011,7 @@ class HelperRegisterRepository:
             )
             current_allowance = validate_allowance(
                 allowance_snapshot.parsed, context["run_id"], record["host"],
+                historical=True,
             )
         except (ContractError, OSError) as error:
             raise HelperRegisterError("REGISTER_BINDING_MISMATCH") from error
