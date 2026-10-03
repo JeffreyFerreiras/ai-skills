@@ -13,10 +13,13 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 6, "codex-astra": 6, "cursor": 3}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6), "codex-astra": (2, 3, 4, 5, 6), "cursor": (2, 3)}
+CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 7, "codex-astra": 7, "cursor": 3}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6, 7), "codex-astra": (2, 3, 4, 5, 6, 7), "cursor": (2, 3)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {
+    ("gpt-6.1-sol", "high"): 3,
+    ("gpt-6.1-sol", "xhigh"): 4,
+    ("gpt-6.1-sol", "max"): 5,
     ("gpt-6-astra", "medium"): 3,
     ("gpt-6-luna", "max"): 3,
     ("gpt-6-sol", "high"): 3,
@@ -101,11 +104,17 @@ MODEL_OPTIONS_V3 = {
     },
 }
 MODEL_OPTIONS_V3["codex-astra"] = MODEL_OPTIONS_V3["codex"]
-MODEL_OPTIONS = dict(MODEL_OPTIONS_V3)
-MODEL_OPTIONS["codex"] = {
+MODEL_OPTIONS_V6 = dict(MODEL_OPTIONS_V3)
+MODEL_OPTIONS_V6["codex"] = {
     **MODEL_OPTIONS_V3["codex"],
     "gpt-6-luna": ("low", "medium", "high", "xhigh", "max"),
     "gpt-6-sol": ("low", "medium", "high", "xhigh", "max"),
+}
+MODEL_OPTIONS_V6["codex-astra"] = MODEL_OPTIONS_V6["codex"]
+MODEL_OPTIONS = dict(MODEL_OPTIONS_V6)
+MODEL_OPTIONS["codex"] = {
+    **MODEL_OPTIONS_V6["codex"],
+    "gpt-6.1-sol": ("low", "medium", "high", "xhigh", "max"),
 }
 MODEL_OPTIONS["codex-astra"] = MODEL_OPTIONS["codex"]
 
@@ -124,21 +133,32 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
     if revision is None:
         revision = CURRENT_CATALOG_REVISIONS[host]
     if workload == "helper":
-        if revision == 6 and host in {"codex", "codex-astra"}:
+        if revision in {6, 7} and host in {"codex", "codex-astra"}:
             return recommended_assignment(host, "implementation", revision)
         return {"claude": ("claude-sonnet-5", "low"),
                 "cursor": ("gemini-3.8-flash", "low")}.get(
                     host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna",
                            "low" if revision in {3, 4} else "max"))
-    model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
-             "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
-             "codex-astra": "gpt-6-astra"}[host]
+    if host == "codex" and revision == 7:
+        model = "gpt-6.1-sol"
+    else:
+        model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
+                 "codex": "gpt-5.6-sol" if revision == 3 else "gpt-6-sol",
+                 "codex-astra": "gpt-6-astra"}[host]
     return model, "high" if workload == "review" else "medium"
 
 
 def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[str, ...]]:
     catalog_for(host)
-    return dict((MODEL_OPTIONS_V3 if revision == 3 else MODEL_OPTIONS)[host])
+    if revision is None:
+        revision = CURRENT_CATALOG_REVISIONS[host]
+    if revision == 3:
+        options = MODEL_OPTIONS_V3
+    elif revision in {2, 4, 5, 6}:
+        options = MODEL_OPTIONS_V6
+    else:
+        options = MODEL_OPTIONS
+    return dict(options[host])
 
 
 def known_hosts() -> Tuple[str, ...]:

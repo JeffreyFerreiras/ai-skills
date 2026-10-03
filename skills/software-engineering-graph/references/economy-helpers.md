@@ -116,7 +116,7 @@ this inside the top-level allowance:
 ```
 
 The selected host catalog bounds supported assignment values, separately from recommendations.
-Codex revision 6 suggests Astra or Sol/medium and exposes GPT-6 Luna/max as its economy
+Codex revision 7 suggests Astra or GPT-6.1 Sol/medium and exposes GPT-6 Luna/max as its economy
 fanout option. Revision 5 retains its Luna/max recommendation, while revisions 3 and 4 retain
 their earlier Luna/low suggestions. Claude suggests Sonnet 5/low and Cursor suggests Gemini
 3.8 Flash/low.

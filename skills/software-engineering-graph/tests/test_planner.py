@@ -69,7 +69,7 @@ class PlannerTests(GraphCase):
     def test_current_recommendations_and_available_alternatives(self):
         expected = {
             "codex-astra": ("gpt-6-astra", "gpt-6-astra"),
-            "codex": ("gpt-6-sol", "gpt-6-sol"),
+            "codex": ("gpt-6.1-sol", "gpt-6.1-sol"),
             "claude": ("claude-opus-5", "claude-sonnet-5"),
             "cursor": ("grok-4.7", "gemini-3.8-flash"),
         }
@@ -95,6 +95,45 @@ class PlannerTests(GraphCase):
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
         self.assertIn("gpt-5.6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
         self.assertIn("gpt-6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+        self.assertIn("gpt-6.1-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+
+    def test_codex_revision_six_retains_approved_plan_digests(self):
+        expected_digests = {
+            "codex": "76dda252f4a359ebf2b1b826f2c8cd74055115bec6c9dcdf06926e1db5f98193",
+            "codex-astra": "6f45a16d1e1e08f9f45941396d994367f4f7e4e54f882479e02b6bc5720807af",
+        }
+        for host, digest in expected_digests.items():
+            plan = reconstruct_execution_plan(
+                "RUN-1", self.task_v2(), {"host": host, "catalog_revision": 6},
+            )
+            self.assertEqual(plan["plan_digest"], digest)
+            self.assertNotIn("gpt-6.1-sol", plan["model_options"])
+            self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
+
+    def test_sol_six_one_selections_reconstruct_and_reject_unsupported_efforts(self):
+        for host in ("codex", "codex-astra"):
+            for effort in ("low", "medium", "high", "xhigh", "max"):
+                with self.subTest(host=host, effort=effort):
+                    task = self.task_v2()
+                    task["model_overrides"] = {
+                        "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": effort},
+                    }
+                    plan = build_execution_plan("RUN-1", task, host=host)
+                    selected = assignment_for(plan, "tech_lead")
+                    self.assertEqual((selected["model"], selected["reasoning_effort"], selected["dispatch_model"]),
+                                     ("gpt-6.1-sol", effort, "gpt-6.1-sol"))
+                    self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+                    for revision in (3, 4, 5, 6):
+                        with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                            reconstruct_execution_plan("RUN-1", task, {"host": host, "catalog_revision": revision})
+            for effort in ("none", "minimal", "ultra", "inherited"):
+                task = self.task_v2()
+                task["model_overrides"] = {
+                    "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": effort},
+                }
+                error = "MODEL_OVERRIDES_INVALID" if effort == "inherited" else "MODEL_ASSIGNMENT_INVALID"
+                with self.subTest(host=host, effort=effort), self.assertRaisesRegex(ValueError, error):
+                    build_execution_plan("RUN-1", task, host=host)
 
     def test_codex_revision_three_reconstructs_original_recommendations_and_options(self):
         for host, core in (("codex", "gpt-5.6-sol"), ("codex-astra", "gpt-6-astra")):
@@ -162,7 +201,7 @@ class PlannerTests(GraphCase):
         before = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path))["execution_plan"]
         self.assertFalse(self.store.db_path("albanian-live-translate", "RUN-1").exists())
         task["model_overrides"] = {
-            "senior_engineer": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"},
+            "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
             "supervisor_recommendation": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
         }
         path.write_text(json.dumps(task), encoding="utf-8")
@@ -173,7 +212,7 @@ class PlannerTests(GraphCase):
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume", "--run-id", "RUN-1")
         self.impact("fast_path")
         writer = self.claim()
-        self.assertEqual((writer["model"], writer["reasoning_effort"]), ("gpt-5.6-sol", "medium"))
+        self.assertEqual((writer["model"], writer["reasoning_effort"]), ("gpt-6.1-sol", "medium"))
 
     def test_alternative_models_are_not_rejected_as_nondefault(self):
         for host, model, effort in (("cursor", "gemini-3.8-flash", "medium"),
@@ -537,7 +576,7 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 6)
+        self.assertEqual(plan["catalog_revision"], 7)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")

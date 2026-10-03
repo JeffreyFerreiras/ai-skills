@@ -119,20 +119,20 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 6 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
+revision 7 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
 | `codex-astra` | GPT-6 Astra `medium` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
-| `codex` | GPT-6 Sol `medium` | GPT-6 Sol `medium` | GPT-6 Sol `high` |
+| `codex` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `high` |
 | `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
 GPT-6 Luna `max` is the explicit economy fanout option for Codex helpers, fixed research, and
 publication. Select it for fixed nodes and publication with plan overrides; select it for direct
 helpers in the separately bound allowance before approval. The Astra
-catalog also permits GPT-6 Sol and GPT-5.6 Terra selections. Other supported
+catalog also permits GPT-6.1 Sol, GPT-6 Sol, and GPT-5.6 Terra selections. Other supported
 alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.
 Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
 assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.

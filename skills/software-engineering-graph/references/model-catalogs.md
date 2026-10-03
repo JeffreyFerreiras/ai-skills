@@ -4,14 +4,14 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 6; Claude and Cursor remain on
+`claude`, or `cursor`. New Codex plans use catalog revision 7; Claude and Cursor remain on
 revision 3. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
 | Catalog | Helpers and fixed research | Core roles | Architecture and review |
 | --- | --- | --- | --- |
 | codex-astra | gpt-6-astra / medium | gpt-6-astra / medium | gpt-6-astra / high |
-| codex | gpt-6-sol / medium | gpt-6-sol / medium | gpt-6-sol / high |
+| codex | gpt-6.1-sol / medium | gpt-6.1-sol / medium | gpt-6.1-sol / high |
 | claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
 | cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
 
@@ -31,9 +31,9 @@ v2/v3 to record selections (node keys, not role-profile names):
 
 ```json
 "model_overrides": {
-  "tech_lead": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
-  "senior_engineer": {"model": "gpt-6-sol", "reasoning_effort": "high"},
-  "supervisor_recommendation": {"model": "gpt-6-sol", "reasoning_effort": "high"},
+  "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
+  "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
+  "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
   "impact_mapper": {"model": "gpt-6-luna", "reasoning_effort": "max"},
   "design_research_architecture": {"model": "gpt-6-luna", "reasoning_effort": "max"},
   "design_research_validation": {"model": "gpt-6-luna", "reasoning_effort": "max"},
@@ -44,7 +44,7 @@ v2/v3 to record selections (node keys, not role-profile names):
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
-the recommendation matrix, so GPT-6 Sol and GPT-5.6 Terra are selectable without changing
+the recommendation matrix, so GPT-6.1 Sol, GPT-6 Sol, and GPT-5.6 Terra are selectable without changing
 the Astra recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, Fable, and
 GPT-5.6 Sol alternatives. Claude offers Sonnet, Opus, and Fable. Do not map an effort the
 selected model does not expose: Grok 4.7 stops
@@ -85,14 +85,28 @@ selection. Do not claim that catalog support installs native roles or proves liv
 
 The original HOST_MATRIX is frozen. Missing revisions preserve the historical class/size matrix;
 explicit Claude revision 1 and Codex/Astra/Cursor revision 2 reconstruct their exact old defaults.
-Revisions 3 through 5 retain their original recommendations, model options, bytes, digests, and approvals.
-New Codex revision 6 plans recommend Astra or Sol at medium effort for helpers and fixed research,
-and expose GPT-6 Luna / max as an economy fanout option. Older engines reject revision 6 rather
-than reinterpret it.
-Existing conditional reviewer-fanout policy and its budget weights are unchanged; its assignments
-remain separately selected in the runtime-home policy, not through graph-node overrides.
+Revisions 3 through 6 retain their original recommendations, model options, bytes, digests, and approvals.
+Revision 6 recommends Astra or GPT-6 Sol at medium effort for helpers and fixed research,
+and exposes GPT-6 Luna / max as an economy fanout option. Revision 7 upgrades the explicit
+Codex recommendation to GPT-6.1 Sol and adds it as a selectable option in both Codex catalogs.
+The Astra recommendation and Luna economy option remain unchanged. Older engines reject
+revision 7 rather than reinterpret it.
+Conditional reviewer fan-out also permits GPT-6.1 Sol at high/xhigh/max with the existing
+3/4/5 dispatch weights. Its assignments remain separately selected in the runtime-home policy,
+not through graph-node overrides; existing policy assignments are unchanged.
 
 ## Source and evaluation scope
+
+GPT-6.1 Sol guidance checked October 3, 2026:
+[OpenAI GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
+[Codex and ChatGPT Work models](https://learn.chatgpt.com/docs/models).
+Use the exact ID `gpt-6.1-sol`; its API reasoning efforts are low, medium (default), high,
+xhigh, and max. The native spawn tool may expose additional efforts; verify that specific
+interface before dispatch rather than assuming API and host controls are identical.
+OpenAI recommends GPT-6.1 Sol for complex coding when available and describes near-Astra
+performance at lower cost. That guidance motivates the Sol upgrade; it is not a local model evaluation.
+Availability depends on plan, client, rollout, and workspace settings. Retain prior Sol options
+for explicit selections; never replace an approved assignment automatically.
 
 Selection guidance checked September 23, 2026:
 [OpenAI models](https://developers.openai.com/api/docs/models),

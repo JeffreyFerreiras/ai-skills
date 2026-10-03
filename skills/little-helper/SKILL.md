@@ -7,7 +7,7 @@ description: Delegate one tiny, precisely specified execution job to a fresh sub
 
 Delegate exactly one narrow, stop-safe execution job when the parent has already defined the objective and acceptance result. The parent remains responsible for planning, scoping, and accepting the result.
 
-Default selection: model=`gpt-6-sol`, effort=`low`, speed preference=`fast`. Model and effort may each be overridden independently when the requested value is supported by the callable spawn tool.
+Default selection: model=`gpt-6.1-sol`, effort=`low`, speed preference=`fast`. Model and effort may each be overridden independently when the requested value is supported by the callable spawn tool.
 
 ## Job packet
 
