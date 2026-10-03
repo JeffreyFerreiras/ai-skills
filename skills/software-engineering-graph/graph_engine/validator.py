@@ -339,7 +339,7 @@ def _validate_review_delegation(
             request_content = validate_fanout_request(
                 json.loads(request_artifact["content_json"]), run["run_id"], request["parent_branch_id"],
                 request["parent_attempt_id"], request["round_number"], list(assignments.values()),
-                preliminary_content, limits, depth=int(parent["depth"]),
+                preliminary_content, limits, depth=int(parent["depth"]), historical=True,
             )
         except (ContractError, TypeError, ValueError, json.JSONDecodeError):
             raise StateError("DELEGATION_ARTIFACT_INVALID")

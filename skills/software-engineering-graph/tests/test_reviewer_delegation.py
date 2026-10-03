@@ -31,7 +31,7 @@ def policy_config():
         "assignments": [{
             "assignment_id": "correctness",
             "role": "code_reviewer",
-            "model": "gpt-5.6-sol",
+            "model": "gpt-6.1-sol",
             "reasoning_effort": "high",
             "review_lens": "Cross-file correctness and concurrency",
             "prompt_template": "Review only the approved evidence and scope.",
@@ -59,6 +59,33 @@ def task_config():
 
 
 class ReviewerDelegationContractTests(GraphCase):
+    def test_retired_review_pairs_are_auditable_but_not_new_selections_or_requests(self):
+        from graph_engine.hosts import dispatch_weight_for, supported_dispatch_weights
+
+        schema = json.loads((Path(__file__).parents[1] / "references" /
+                             "repository-config.schema.json").read_text(encoding="utf-8"))
+        for model, effort, weight in (("gpt-5.6-sol", "high", 3),
+                                     ("gpt-5.6-sol", "xhigh", 4),
+                                     ("gpt-5.6-sol", "max", 5),
+                                     ("gpt-5.6-luna", "max", 3)):
+            with self.subTest(model=model, effort=effort):
+                config = policy_config()
+                config["assignments"][0].update(model=model, reasoning_effort=effort, dispatch_weight=weight)
+                with self.assertRaises(AssertionError):
+                    _validate_json_schema(config["assignments"][0], schema["$defs"]["reviewerDelegationAssignment"], schema)
+                with self.assertRaisesRegex(ContractError, "DELEGATION_ASSIGNMENT_UNSUPPORTED"):
+                    validate_policy_config(config)
+                self.assertIsNone(dispatch_weight_for(model, effort))
+                self.assertNotIn((model, effort), supported_dispatch_weights())
+                historical = validate_policy_config(config, historical=True)
+                self.assertEqual(historical["assignments"][0]["model"], model)
+                task, preliminary, request = self._contracts()
+                task["assignments"][0].update(model=model, reasoning_effort=effort, dispatch_weight=weight)
+                args = (request, "RUN-1", "parent", "attempt", 1, task["assignments"], preliminary, task["limits"])
+                with self.assertRaisesRegex(ContractError, "MODEL_RETIRED"):
+                    validate_fanout_request(*args)
+                self.assertEqual(validate_fanout_request(*args, historical=True), request)
+
     def test_astra_delegation_schema_and_runtime_agree_on_effort_weights(self):
         schema = json.loads((Path(__file__).parents[1] / "references" /
                              "repository-config.schema.json").read_text(encoding="utf-8"))
@@ -897,7 +924,7 @@ class ReviewerDelegationFlowTests(GraphCase):
         policy_path = self.repo / ".codex" / "engineering-graph.json"
         policy = json.loads(policy_path.read_text(encoding="utf-8"))
         assignment = policy["reviewer_delegation"]["assignments"][0]
-        assignment.update({"model": "gpt-5.6-sol", "reasoning_effort": "max",
+        assignment.update({"model": "gpt-6.1-sol", "reasoning_effort": "max",
                            "dispatch_weight": 5, "max_instances": 3})
         policy_path.write_text(json.dumps(policy), encoding="utf-8")
         self.policy_bytes = policy_path.read_bytes()

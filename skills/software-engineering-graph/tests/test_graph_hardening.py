@@ -700,7 +700,7 @@ class GraphHardeningTests(GraphCase):
             "--authority-ref", "authority:test", "--op-id", "plan-approval-1",
         )
         branch = self.claim()
-        self.assertEqual((branch["model"], branch["reasoning_effort"]), ("gpt-6-astra", "medium"))
+        self.assertEqual((branch["model"], branch["reasoning_effort"]), ("gpt-6.1-sol", "low"))
 
     def test_rejected_execution_plan_blocks_the_run(self):
         initialized = self.initialize(approve=False)
@@ -1180,9 +1180,42 @@ class GraphHardeningTests(GraphCase):
 
 
 class HelperRegisterTests(GraphCase):
+    def test_retired_allowances_are_auditable_but_new_allowances_reject_them(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials()
+        for model in ("gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"):
+            retired = json.loads(json.dumps(allowance))
+            for assignment in retired["assignments"]:
+                assignment.update(model=model, reasoning_effort="max")
+            for host in (None, "codex", "codex-astra", "cursor", "claude"):
+                with self.subTest(model=model, host=host):
+                    with self.assertRaisesRegex(ContractError, "MODEL_RETIRED"):
+                        validate_allowance(retired, "RUN-HELPERS", host)
+            record = validate_allowance(retired, "RUN-HELPERS", "codex-astra", historical=True)
+            self.assertTrue(all(row["model"] == model for row in record["assignments"]))
+
+    def test_historical_register_reads_and_settles_but_rejects_new_retired_dispatch(self):
+        # Build a register as the former catalog did; production initialization still rejects it.
+        with patch("graph_engine.helper_register.validate_allowance", side_effect=lambda *args, **kwargs:
+                   validate_allowance(*args, **{**kwargs, "historical": True})):
+            registry, initialized, _command, _plan, _allowance = self._materials(
+                model="gpt-5.6-luna", reasoning_effort="max",
+            )
+            request = self._request("historical-reservation")
+            request.update(model="gpt-5.6-luna", reasoning_effort="max")
+            with patch("graph_engine.helper_register.is_retired_model", return_value=False):
+                registry.reserve(Path(initialized["register_path"]), initialized["context"], request)
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        self.assertEqual(registry.status(path, context)["reservations"][request["request_id"]]["status"], "active")
+        new_request = self._request("new-retired-launch")
+        new_request.update(model="gpt-5.6-luna", reasoning_effort="max")
+        for operation in (registry.preflight, registry.reserve):
+            with self.assertRaisesRegex(ContractError, "MODEL_RETIRED"):
+                operation(path, context, new_request)
+        self.assertEqual(registry.settle(path, context, self._settlement(request))["code"], "SETTLED")
+
     def _assignment(
         self, assignment_id, parent_role, helper_role, commands,
-        model="gpt-5.6-luna", reasoning_effort="max",
+        model="gpt-6.1-sol", reasoning_effort="low",
     ):
         required = [
             "fresh_model_effort_selection", "filesystem_confinement", "tool_confinement",
@@ -1212,7 +1245,7 @@ class HelperRegisterTests(GraphCase):
         }
 
     def _materials(
-        self, unsupported=False, model="gpt-5.6-luna", reasoning_effort="max",
+        self, unsupported=False, model="gpt-6.1-sol", reasoning_effort="low",
         observed_model=None, observed_effort=None, test_mode=False,
         fresh_selection=True,
     ):
@@ -1301,7 +1334,7 @@ class HelperRegisterTests(GraphCase):
         return {
             "schema_version": 1, "request_id": request_id, "assignment_id": assignment,
             "parent_role": parent_role, "helper_role": helper_role, "contract_revision": 1,
-            "model": "gpt-5.6-luna", "reasoning_effort": "max",
+            "model": "gpt-6.1-sol", "reasoning_effort": "low",
             "scope_refs": ["repo:docs/"], "commands": [] if command is None else [command],
             "checkpoint_ref": checkpoint_ref, "resource_keys": ["worktree"],
             "budgets": {"time_seconds": 60, "output_tokens": 1000, "file_reads": 3},
@@ -1720,8 +1753,8 @@ class HelperRegisterTests(GraphCase):
 
     def test_helper_allowances_accept_selected_models_from_each_harness(self):
         _registry, _initialized, _command, _plan, allowance = self._materials()
-        for host, model, effort in (("codex-astra", "gpt-5.6-sol", "medium"),
-                                    ("codex-astra", "gpt-5.6-luna", "low"),
+        for host, model, effort in (("codex-astra", "gpt-6-sol", "medium"),
+                                    ("codex-astra", "gpt-6.1-sol", "low"),
                                     ("claude", "claude-opus-5", "medium"),
                                     ("claude", "claude-sonnet-5", "low"),
                                     ("cursor", "grok-4.7", "medium"),

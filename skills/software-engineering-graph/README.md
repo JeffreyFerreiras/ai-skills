@@ -119,20 +119,19 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 7 recommends these assignments; Claude and Cursor remain on revision 3. They are defaults,
+revision 8 recommends these assignments; Claude stays on revision 3 and Cursor uses revision 4. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
-| `codex-astra` | GPT-6 Astra `medium` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
-| `codex` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `high` |
+| `codex-astra` | GPT-6.1 Sol `low` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
+| `codex` | GPT-6.1 Sol `low` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `high` |
 | `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
-GPT-6 Luna `max` is the explicit economy fanout option for Codex helpers, fixed research, and
-publication. Select it for fixed nodes and publication with plan overrides; select it for direct
-helpers in the separately bound allowance before approval. The Astra
-catalog also permits GPT-6.1 Sol, GPT-6 Sol, and GPT-5.6 Terra selections. Other supported
+GPT-6.1 Sol `low` is the economy fanout and publication recommendation for Codex.
+Bind direct helper selections in the separate allowance before approval. Both Codex
+catalogs also permit GPT-6 Sol and GPT-6 Luna selections. Other supported
 alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.
 Catalog knowledge does not prove runtime availability. No automatic fallback changes an approved
 assignment. An unavailable recommendation should prompt a proposed alternative, not a default-only block.
@@ -156,6 +155,13 @@ changes require a new plan. Historical unversioned and prior explicit catalog re
 assignments and digests. Codex role TOMLs are installable defaults, not requirements on Claude,
 Cursor, or a differently approved Codex plan. Installed copies require separately authorized sync.
 See [model catalogs](references/model-catalogs.md) for selections, compatibility, and limitations.
+New selections and native launches reject every GPT-5.6 variant, including models exposed by a
+runtime or recorded in a historical plan. Historical core envelopes remain available for audit;
+the ledger does not execute models. A new launch requires a separately approved supported plan.
+Request Standard speed and report it as unverified/unavailable when the native spawn interface
+has no speed selector; never claim a speed setting was applied.
+The user may explicitly select Fast during planning; record the choice and use only a supported
+host setting, otherwise report `fast unverified/unavailable` and inherited speed.
 
 The five executable routes are `advisory` (read-only review), `design_only` (research and independent
 design approval), `fast_path` (mechanical/documentation implementation plus independent review and

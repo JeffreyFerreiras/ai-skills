@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from .contracts import (
     FINDING_ID, ContractError, bounded_string, digest, opaque, require_keys, validate_ref,
 )
-from .hosts import supported_dispatch_weights, dispatch_weight_for
+from .hosts import supported_dispatch_weights, dispatch_weight_for, is_retired_model
 from .ids import canonical_bytes, sha256_bytes
 
 
@@ -53,7 +53,7 @@ def _unique_ids(value: Any, field: str) -> List[str]:
     return sorted(result)
 
 
-def validate_policy_config(value: Any) -> Optional[Dict[str, Any]]:
+def validate_policy_config(value: Any, *, historical: bool = False) -> Optional[Dict[str, Any]]:
     """Validate an optional repository ceiling. Absence keeps delegation disabled."""
     if value is None:
         return None
@@ -85,7 +85,7 @@ def validate_policy_config(value: Any) -> Optional[Dict[str, Any]]:
             raise ContractError(field + ".role", "DELEGATION_ROLE_FORBIDDEN")
         model = bounded_string(item["model"], field + ".model", 128)
         effort = bounded_string(item["reasoning_effort"], field + ".reasoning_effort", 32)
-        expected_weight = dispatch_weight_for(model, effort)
+        expected_weight = dispatch_weight_for(model, effort, historical=historical)
         if expected_weight is None:
             raise ContractError(field + ".model", "DELEGATION_ASSIGNMENT_UNSUPPORTED")
         weight = item["dispatch_weight"]
@@ -265,6 +265,7 @@ def validate_fanout_request(
     value: Any, run_id: str, parent_branch_id: str, parent_attempt_id: str,
     round_number: int, plan_assignments: Sequence[Mapping[str, Any]],
     preliminary: Mapping[str, Any], limits: Mapping[str, int], depth: int = 0,
+    *, historical: bool = False,
 ) -> Dict[str, Any]:
     if depth >= limits["max_depth"]:
         raise ContractError("review_fanout_request", "DELEGATION_DEPTH_EXCEEDED")
@@ -298,6 +299,8 @@ def validate_fanout_request(
         assignment = assignment_by_id.get(assignment_id)
         if assignment is None:
             raise ContractError(field + ".assignment_id", "DELEGATION_ASSIGNMENT_UNDECLARED")
+        if is_retired_model(assignment["model"]) and not historical:
+            raise ContractError(field + ".assignment_id", "MODEL_RETIRED")
         ordinal = member["ordinal"]
         if isinstance(ordinal, bool) or not isinstance(ordinal, int) or ordinal < 1:
             raise ContractError(field + ".ordinal", "INVALID_ORDINAL")

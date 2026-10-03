@@ -8,9 +8,15 @@ The entry skill controls scope and authority.
 
 For every repository implementation intended for delivery, dispatch a fresh `Pull Request Engineer`
 using the approved host publication assignment after all gates and before successful closure.
-Revision 3 recommends the host's helper model/effort, but the human may select a supported
+Current catalogs recommend the host's helper model/effort (GPT-6.1 Sol/low on Codex), but the human may select a supported
 alternative through `model_overrides.publication_assignment` before initialization and approval.
 Historical plans retain their exact publication assignment. Never silently replace it with a new default.
+Every GPT-5.6 variant is retired for new publication-agent launches, including historical assignments.
+Preserve that record and obtain a separately approved supported plan before launching its replacement.
+Request Standard speed; native spawn has no speed selector, so report `standard unverified/unavailable`
+and never claim it was applied.
+Honor an explicit user Fast choice recorded during planning only through a supported host setting;
+otherwise report `fast unverified/unavailable` and inherited speed.
 The initial implementation authorization and plan approval authorize the plan's exact non-force commit,
 push, and PR actions; no later publication approval is required. This is an instruction-only role with
 no profile, engine node, table, or specialist identifier. The Senior Engineer writes source and tests
