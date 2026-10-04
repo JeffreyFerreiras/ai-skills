@@ -20,6 +20,8 @@ This file is the portable instruction source used by `sync-agents-md`. Keep it u
 
 ## Verification and communication
 
+- Use ASD-STE100 Simplified Technical English principles for explanations, instructions, and documentation: plain words, short sentences, active voice, and consistent technical terms. Preserve exact identifiers, numbers, conditions, and necessary technical meaning. For formal STE compliance, check the official writing rules and controlled dictionary at https://www.asd-ste100.org/.
+
 - For multi-step or risky work, state a short plan and material assumptions. Skip ceremony for trivial changes.
 - Run checks that establish the changed behavior. Use project-native commands; run affected tests when tests change and an appropriate build/compile check when production changes warrant it.
 - Fix failures caused by the requested change. Report unrelated failures instead of widening scope. Do not treat structural tests as proof of model behavior.
