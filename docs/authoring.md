@@ -84,6 +84,10 @@ When editing the C# review harness, run its own tests:
 python -m unittest discover -s skills/clean-code-review/tests -v
 ```
 
+The design lookup in `clean-code` and `clean-code-review` has one canonical source under `shared/design-graph/`. Edit its search script and manifest there, then run `python scripts/bundle-design-graph.py`. Do not edit the generated copies in either skill. Run `python scripts/bundle-design-graph.py --check` to detect missing or stale copies without writing files. Generation copies identical source bytes into both skills and leaves current files untouched. The repository tests cover drift, read-only checks, repeated generation, and searches from disposable standalone installs.
+
+Each installed skill owns its bundled runtime script and manifest; neither needs a sibling skill or this repository. The shared source directory and generator are authoring tools only. The existing `review` filenames, schema, and Python names remain for compatibility with the review CLI. See [shared source ownership](../shared/design-graph/README.md). Deterministic tests establish packaging and search contracts, not live-model choices about when a pattern applies.
+
 For graph changes, use the scoped commands and runtime requirements in the [graph validation section](../skills/software-engineering-graph/README.md#contributor-validation). Its standard-library engine supports Python 3.9+, while repository tooling requires 3.12+ for filesystem APIs. Graph documentation-only changes do not require its engine suite. Keep the graph's separate hygiene check last when its contributor instructions require it.
 
 Run `git diff --check` before handing off. Do not commit or publish merely because checks pass.
