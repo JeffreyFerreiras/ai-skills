@@ -33,3 +33,9 @@ This file is the portable instruction source used by `sync-agents-md`. Keep it u
 - Lead with the outcome, then evidence and limitations. Report exact validation commands, failures, and skipped checks.
 - When a material choice is needed, offer a short lettered list with the recommended option first. Do not turn routine decisions or authorized actions into approval gates.
 - If a skill blocks completion, link its exact instruction, explain the missing requirement, and continue independent authorized work.
+
+## Windows shell preference
+
+- On Windows, use native CMD (`cmd.exe`) for command execution. When the command tool supports it, select CMD as `shell` and set `login = false`.
+- Use PowerShell only when the required functionality is unavailable in CMD or the task requires a PowerShell script or cmdlet. Do not choose PowerShell merely for convenience.
+- Use CMD syntax for CMD commands. Run external command-line tools directly without extra shell wrappers. Follow all applicable Windows file-operation safety rules.
