@@ -19,17 +19,17 @@ Use versioned checkpoints with a monotonically increasing sequence, a schema ver
 
 Persist the record after freezing the plan, before and after every agent dispatch, after each candidate snapshot, after each validation command, and after each review decision. It must retain at least:
 
-- task ID and the frozen request, allowed targets, exclusions, acceptance criteria with stable IDs, and validation commands in order
+- task ID and the frozen request, allowed targets, exclusions, acceptance criteria with stable IDs, validation commands in order, and exact selected model and reasoning effort assignments for the Writer, verifier, and Reviewer
 - current phase, immutable bound Writer identity, exact candidate digest, and the last trusted snapshot
 - repair budget with `max: 3` and `used`, where `used` counts reserved repair attempts and survives every resume and round
 - one bounded round entry for each candidate, containing the round number, exact candidate digest, Writer/verifier/Reviewer identities, validation evidence, review decision, finding dispositions, and outstanding finding IDs
-- the current or last dispatch intent, including a unique attempt ID, attempt kind, worker identity, target candidate digest, idempotency key, dispatch status, and execution handle when available
+- the current or last dispatch intent, including a unique attempt ID, attempt kind, worker identity, exact selected model and reasoning effort, target candidate digest, idempotency key, dispatch status, and execution handle when available; retain observed actual model and effort separately with trusted runtime metadata when available
 
 Before any dispatch, persist a durable intent with a unique attempt ID and no assumed execution handle. Immediately after the dispatch returns, or after a timeout or error, persist the returned execution handle and observed status. A missing response is `unknown`, never proof that the worker did not start. On resume, reconcile every `prepared`, `running`, or `unknown` intent with the host using the attempt ID and handle. Stop or settle the old execution and persist evidence that it is terminal and has no write capability before dispatching a new Writer or any other worker. If the host cannot find or stop an uncertain execution, block with the last trusted checkpoint. If the host supports idempotency keys, retry the same intent and attempt ID; never create a second attempt for an unresolved first dispatch.
 
 On resume, first load and integrity-check the same task record, settle or stop every recorded Worker, verifier, or Reviewer, and verify the actual candidate. Recompute the exact candidate digest and compare it with the persisted digest. If it changed, invalidate every candidate-bound approval, validation result, and finding resolution, record that invalidation, preserve the consumed repair reservations and stable finding IDs, and require new validation and a fresh review for the new candidate. If the phase, identities, checkpoint chain, dispatch outcome, or evidence cannot be trusted, reconstruct the last trusted snapshot or block rather than inventing state.
 
-The state record is a recovery aid, not a reason to broaden scope. A material change to the request, criteria, scope, exclusions, checks, or repair budget starts a new task with a new record.
+The state record is a recovery aid, not a reason to broaden scope. A material change to the request, criteria, scope, exclusions, checks, repair budget, or selected model and reasoning effort assignments starts a new task with a new record. Preserve consumed repair reservations for equivalent retries; an assignment change does not reset the budget.
 
 ## Candidate identity and evidence binding
 
@@ -43,13 +43,21 @@ Every validation command result, Writer evidence, review packet, finding disposi
 
 ## Plan
 
-1. Assign a task ID. Freeze the request, acceptance criteria with stable IDs, allowed targets, explicit exclusions, and validation commands in required order. Persist that frozen plan before dispatching any agent.
-2. Treat a material change to the request, criteria, scope, exclusions, checks, or budget as a new task with a new frozen plan.
+1. Assign a task ID. Freeze the request, acceptance criteria with stable IDs, allowed targets, explicit exclusions, validation commands in required order, and exact selected model and reasoning effort for each Writer, verifier, and Reviewer assignment. Persist that frozen plan before dispatching any agent.
+2. Treat a material change to the request, criteria, scope, exclusions, checks, budget, or selected model and reasoning effort assignments as a new task with a new frozen plan. Preserve consumed repair reservations for equivalent retries.
 3. Bind one Writer for the initial write and every repair. The Writer identity is immutable for the task. If no separate Writer can be dispatched, bind the Supervisor as the Writer at plan time and still use a fresh non-Writer Reviewer.
 4. Give the Writer a concrete allowlist of targets. Instruct it not to touch excluded paths, secrets, or unrelated state. If the host can enforce that allowlist, use it. If it cannot, proceed with the allowlist as a binding instruction and verify the digest and scope after the write.
 5. Record the exact baseline candidate digest and trusted snapshot. Keep status and scoped diff output as supporting preservation evidence only.
 
 When a bound Writer is lost, first reconcile its dispatch intent and execution handle. Continue only if the host proves that the same bound Writer identity is available and any old execution is settled. Do not silently rebind a replacement Writer or the Supervisor. If the identity or stop proof is unavailable, report `BLOCK` with the last trusted snapshot. This is a terminal limitation for that task.
+
+## Delegation transparency
+
+Immediately before every dispatch, tell the user the concrete agent or task name, the bounded scope, the exact selected model, and the exact selected reasoning effort from the frozen plan and persisted dispatch intent. This applies to the initial Writer, verifier, and Reviewer, every repair, retry, replacement permitted by this protocol, follow-up, and continuation. When dispatching several agents together, use one compact announcement that lists every concrete name and identifies which work will run in parallel. This requirement does not permit replacing the immutable Writer or bypassing the validation and review sequence.
+
+At the host's native dispatch boundary, verify that the selected model and effort pair is supported and that the dispatch will apply that exact pair. Refuse the dispatch when the concrete identity or either selected value is unavailable, unverifiable, or mismatched. Do not guess, silently inherit missing values, or substitute a different pair. Use explicit native selectors when supported; verify a fixed or inherited assignment through trusted host metadata before using it.
+
+Keep selected assignments distinct from observed actual model and effort. Claim actual values only when trusted runtime metadata exposes them; otherwise report actual values as unavailable. A plan, prompt, agent self-report, or list of available options does not prove actual runtime values. A change to a frozen assignment follows the material-plan-change rule above. These checks and announcements add no human approval gate; continue authorized dispatches under the frozen plan when the required facts are verified.
 
 ## Write
 
