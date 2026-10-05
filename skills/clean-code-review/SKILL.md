@@ -55,6 +55,8 @@ Search the bundled graph by a principle's full name, acronym, or observed pressu
 
 ## Pattern Graph Check
 
+The search script and manifest are self-contained bundles shared with the writing skill. Their existing filenames, schema, and CLI remain unchanged. No sibling skill or source repository is needed at runtime.
+
 Use the bundled graph only when changed code exposes a material design pressure or possible SOLID violation. Do not search for documentation-only, generated, mechanical, or trivially local changes.
 
 1. Describe the observed pressure in domain terms, including the affected responsibility, expected axis of change, and current cost. Do not start with a desired pattern name.

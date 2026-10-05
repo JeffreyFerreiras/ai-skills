@@ -9,9 +9,27 @@ description: Write or refactor readable, maintainable production code. Use for f
 
 1. Inspect the surrounding code, tests, conventions, and current behavior before editing.
 2. Identify the concrete readability, design, safety, or maintainability problem. Avoid broad rewrites without a demonstrated benefit.
-3. Make the smallest cohesive change that improves the code while preserving public behavior unless a behavior change is requested.
-4. Verify with the narrowest relevant tests, lint, type checks, or build commands.
-5. Summarize the meaningful improvement and any remaining risk.
+3. If that problem exposes material design pressure or a SOLID concern, use the optional Design Graph Check before implementation.
+4. Make the smallest cohesive change that improves the code while preserving public behavior unless a behavior change is requested.
+5. Verify with the narrowest relevant tests, lint, type checks, or build commands.
+6. Summarize the meaningful improvement and any remaining risk.
+
+## Design Graph Check
+
+Use this optional lookup only for material, demonstrated design pressure or SOLID concerns in the requested work. Skip trivial local changes, mechanical edits, documentation-only work, and generated code. Do not search merely to find a pattern to apply.
+
+1. Describe the pressure in domain terms: the affected responsibility, observed axis of change, and current correctness or maintenance cost. Start with evidence in the code or requested behavior, not a desired pattern name.
+2. Resolve this skill's directory from the loaded `SKILL.md`, then run:
+
+   ```text
+   python <skill-directory>/scripts/search_review_graph.py "<observed pressure>" --depth 1 --max-nodes 8 --json
+   ```
+
+   Use the project's configured Python interpreter when available. If Python is unavailable, read `references/review-graph.manifest.json` and apply the same one-hop, typed-edge lookup manually. Search at most three distinct material pressures across the entire task, including repair passes. Keep depth at 1 and results at no more than 8 nodes.
+3. Treat each match as a hypothesis. For a pattern, verify its intent, applicability, tradeoffs, and `avoid_when` conditions against the actual code and expected change. For a SOLID principle, verify its concrete cues and guardrails, and identify the affected contract or demonstrated cost. Keywords and similar class shapes alone do not justify a change.
+4. Choose the simplest design that addresses the demonstrated pressure, including no pattern when direct code is clearer. Reject indirection for hypothetical reuse, stable one-off branches, or complexity that a pattern only moves elsewhere. Briefly explain a material design choice and its tradeoff when summarizing the work.
+
+The bundled graph covers SRP, OCP, LSP, ISP, and DIP. Search by the observed pressure, a principle's full name, or its acronym when relevant; no full-principle audit is required for writing. Both resources are self-contained in this skill. The `review` filenames and schema names remain for compatibility with the review skill's existing search interface.
 
 ## Design Guidance
 
