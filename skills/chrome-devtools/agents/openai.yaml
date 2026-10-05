@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chrome DevTools"
+  short_description: "Inspect and test web pages in Chrome"
+  default_prompt: "Use $chrome-devtools to inspect this page in Chrome, test its interactions, review screenshots, and check console and network errors."

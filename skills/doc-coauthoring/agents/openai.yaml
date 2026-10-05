@@ -1,0 +1,4 @@
+interface:
+  display_name: "Doc Co-Authoring"
+  short_description: "Co-author specs, proposals, and decision documents"
+  default_prompt: "Use $doc-coauthoring to draft this document, refine its structure, and check that readers can understand it."

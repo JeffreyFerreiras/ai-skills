@@ -1,0 +1,4 @@
+interface:
+  display_name: "Theme Factory"
+  short_description: "Apply consistent colors and fonts to artifacts"
+  default_prompt: "Use $theme-factory to choose or create a theme and apply its colors and fonts consistently to this artifact."

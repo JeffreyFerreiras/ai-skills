@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discernment Nudge"
+  short_description: "Prompt reflection on key facts and assumptions"
+  default_prompt: "Use $discernment-nudge to assess whether this answer needs brief, specific follow-up questions about facts, reasoning, or missing context."

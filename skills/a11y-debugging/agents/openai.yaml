@@ -1,0 +1,4 @@
+interface:
+  display_name: "Accessibility Debugging"
+  short_description: "Check accessibility with Chrome DevTools"
+  default_prompt: "Use $a11y-debugging to audit this page's semantics, labels, keyboard navigation, focus states, and visual accessibility in Chrome."

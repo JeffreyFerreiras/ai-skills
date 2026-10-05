@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Design"
+  short_description: "Design distinctive, responsive web interfaces"
+  default_prompt: "Use $frontend-design to design and build a web interface with deliberate typography, color, and layout based on the brief."

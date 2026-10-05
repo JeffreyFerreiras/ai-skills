@@ -44,21 +44,27 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 <!-- skill-catalog:start -->
 | Skill | Purpose |
 | --- | --- |
+| [a11y-debugging](skills/a11y-debugging/SKILL.md) | Check accessibility with Chrome DevTools |
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
+| [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
 | [clean-architecture-code](skills/clean-architecture-code/SKILL.md) | Write code with clean boundaries |
 | [clean-architecture-review](skills/clean-architecture-review/SKILL.md) | Review code for architecture drift |
 | [clean-code](skills/clean-code/SKILL.md) | Write and refactor pragmatic clean code |
 | [clean-code-review](skills/clean-code-review/SKILL.md) | Review defects and design opportunities |
 | [create-pull-request](skills/create-pull-request/SKILL.md) | Create GitHub pull requests |
+| [discernment-nudge](skills/discernment-nudge/SKILL.md) | Prompt reflection on key facts and assumptions |
+| [doc-coauthoring](skills/doc-coauthoring/SKILL.md) | Co-author specs, proposals, and decision documents |
 | [explain](skills/explain/SKILL.md) | Explain code changes with a sequence diagram |
+| [frontend-design](skills/frontend-design/SKILL.md) | Design distinctive, responsive web interfaces |
 | [generate-unit-tests](skills/generate-unit-tests/SKILL.md) | Add focused, maintainable unit tests |
 | [generic-loop](skills/generic-loop/SKILL.md) | Run bounded write and independent review cycles |
 | [git-push](skills/git-push/SKILL.md) | Commit and push all pending changes on request |
 | [independent-reviewer](skills/independent-reviewer/SKILL.md) | Request a fresh, read-only subagent review |
 | [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
 | [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
+| [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
@@ -69,6 +75,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
+| [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
 <!-- skill-catalog:end -->
 
