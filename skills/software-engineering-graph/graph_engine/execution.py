@@ -6,7 +6,7 @@ from .hosts import (
     CURRENT_CATALOG_REVISIONS, SUPPORTED_CATALOG_REVISIONS, DEFAULT_HOST, LEGACY_HOST,
     classify, dispatch_model, economy_effort, publication_assignment, model_options,
     resolve_assignment, supervisor_recommendation, recommended_assignment, selected_dispatch_model,
-    require_active_model,
+    require_active_model, MUSE_MODEL,
 )
 from .ids import canonical_bytes, sha256_bytes
 from .reviewer_delegation import plan_fragment
@@ -196,6 +196,8 @@ def _selected_pair(
         model, effort = pair["model"], pair["reasoning_effort"]
     else:
         model, effort = recommended_assignment(host, workload, revision)
+    if key == "supervisor_recommendation" and model == MUSE_MODEL:
+        raise ValueError("SUPERVISOR_MODEL_RUNTIME_UNSUPPORTED")
     selected_dispatch_model(host, model, effort, revision)
     return model, effort
 
@@ -296,7 +298,7 @@ def _build_execution_plan(
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     overrides = validate_model_overrides(task.get("model_overrides", {}))
-    if overrides and catalog_revision not in {3, 4, 5, 6, 7, 8}:
+    if overrides and catalog_revision not in {3, 4, 5, 6, 7, 8, 9}:
         raise ValueError("MODEL_OVERRIDES_REQUIRE_CATALOG_3")
     assignments = []
     for node_key in sorted(NODE_ROLES):
@@ -308,7 +310,7 @@ def _build_execution_plan(
             # Keep the baseline frozen for historical approvals; new small writers
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
-        if catalog_revision in {3, 4, 5, 6, 7, 8} and role != "supervisor":
+        if catalog_revision in {3, 4, 5, 6, 7, 8, 9} and role != "supervisor":
             workload = "helper" if role == "impact_mapper" else "review" if node_key in {
                 "architect", "code_reviewer", "security_reviewer", "release_operations_reviewer",
             } else "implementation"
@@ -323,7 +325,7 @@ def _build_execution_plan(
             )
             assignment_validator(node_key, model, effort, host)
             dispatch = dispatch_model(host, model, effort)
-        assignments.append({
+        assignment = {
             "node_key": node_key,
             "role": role,
             "intelligence_class": intelligence_class,
@@ -331,11 +333,14 @@ def _build_execution_plan(
             "reasoning_effort": effort,
             "dispatch_model": dispatch,
             "dispatch_when": _dispatch_when(node_key, task),
-        })
+        }
+        if catalog_revision == 9 and model == MUSE_MODEL:
+            assignment["dispatch_runtime"] = "opencode-cli"
+        assignments.append(assignment)
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
     publication_model, publication_effort, publication_dispatch = publication_assignment(host)
-    if catalog_revision in {3, 4, 5, 6, 7, 8}:
+    if catalog_revision in {3, 4, 5, 6, 7, 8, 9}:
         supervisor_model, supervisor_effort = _selected_pair(host, catalog_revision, overrides, "supervisor_recommendation", "review")
         supervisor_dispatch = selected_dispatch_model(host, supervisor_model, supervisor_effort, catalog_revision)
         publication_model, publication_effort = _selected_pair(host, catalog_revision, overrides, "publication_assignment", "helper")
@@ -365,6 +370,8 @@ def _build_execution_plan(
         "approval_id": "execution_plan",
         "approval_required": True,
     }
+    if catalog_revision == 9 and publication_model == MUSE_MODEL:
+        plan["publication_assignment"]["dispatch_runtime"] = "opencode-cli"
     if delegation is not None:
         plan["conditional_review_assignments"] = plan_fragment(delegation)
         plan["reviewer_delegation_limits"] = dict(delegation["limits"])
@@ -376,15 +383,19 @@ def _build_execution_plan(
         plan["helper_allowance"] = dict(task["helper_allowance"])
     if catalog_revision is not None:
         plan["catalog_revision"] = catalog_revision
-    if catalog_revision in {3, 4, 5, 6, 7, 8}:
+    if catalog_revision in {3, 4, 5, 6, 7, 8, 9}:
         plan["model_overrides"] = overrides
         plan["model_options"] = {model: list(efforts) for model, efforts in sorted(model_options(host, catalog_revision).items())}
         helper_model, helper_effort = recommended_assignment(host, "helper", catalog_revision)
         plan["helper_recommendation"] = {"model": helper_model, "reasoning_effort": helper_effort}
     if catalog_revision in {6, 7} and host in {"codex", "codex-astra"}:
         plan["economy_fanout_option"] = {"model": "gpt-6-luna", "reasoning_effort": "max"}
-    if catalog_revision == 8 and host in {"codex", "codex-astra"}:
+    if catalog_revision in {8, 9} and host in {"codex", "codex-astra"}:
         plan["economy_fanout_option"] = {"model": "gpt-6.1-sol", "reasoning_effort": "low"}
+    if catalog_revision == 9 and host in {"codex", "codex-astra"}:
+        plan["external_economy_option"] = {
+            "model": MUSE_MODEL, "reasoning_effort": "xhigh", "dispatch_runtime": "opencode-cli",
+        }
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
     return plan
 
@@ -394,7 +405,7 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     host = plan.get("host", LEGACY_HOST)
     for assignment in plan["assignments"]:
         if assignment["node_key"] == node_key:
-            if plan.get("catalog_revision") in {3, 4, 5, 6, 7, 8}:
+            if plan.get("catalog_revision") in {3, 4, 5, 6, 7, 8, 9}:
                 if NODE_ROLES[node_key] == "supervisor":
                     if (assignment["model"], assignment["reasoning_effort"]) != ("primary-thread", "inherited"):
                         raise ValueError("SUPERVISOR_EFFORT_INVALID")

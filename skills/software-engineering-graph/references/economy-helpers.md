@@ -117,9 +117,12 @@ this inside the top-level allowance:
 ```
 
 The selected host catalog bounds supported assignment values, separately from recommendations.
-Codex revision 8 suggests GPT-6.1 Sol/low for helpers and economy fanout. Historical revision 7
+Codex revision 9 suggests GPT-6.1 Sol/low for helpers and economy fanout and offers Muse Spark
+through OpenCode for graph nodes. The helper register rejects Muse because this CLI route has
+no verified per-child confinement or compatible register lifecycle.
+Historical revision 8 retains the same GPT-6.1 Sol recommendation without Muse. Revision 7
 records Astra or GPT-6.1 Sol/medium helpers and GPT-6 Luna/max economy fanout; revisions 3 through 6
-retain their earlier records. Claude suggests Sonnet 5/low and Cursor suggests Gemini
+retain their earlier records. Claude revision 4 suggests Sonnet 5.5/low and Cursor revision 5 suggests Gemini
 3.8 Flash/low.
 Use the preview's helper recommendation or a human-selected supported alternative, including Sol
 on Codex. Bind that exact pair in the allowance before approval; graph-node overrides do not change

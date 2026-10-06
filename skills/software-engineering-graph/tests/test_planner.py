@@ -8,7 +8,7 @@ from graph_engine.execution import (
 )
 from graph_engine.hosts import (
     CURRENT_CATALOG_REVISIONS, DEFAULT_HOST, dispatch_weight_for, known_hosts, resolve_assignment,
-    supported_dispatch_weights, selected_dispatch_model,
+    supported_dispatch_weights, selected_dispatch_model, MUSE_MODEL,
 )
 from graph_engine.ids import stable_id
 from graph_engine.planner import (
@@ -112,7 +112,7 @@ class PlannerTests(GraphCase):
         expected = {
             "codex-astra": ("gpt-6-astra", "gpt-6.1-sol"),
             "codex": ("gpt-6.1-sol", "gpt-6.1-sol"),
-            "claude": ("claude-opus-5", "claude-sonnet-5"),
+            "claude": ("claude-opus-5-5", "claude-sonnet-5-5"),
             "cursor": ("grok-4.7", "gemini-3.8-flash"),
         }
         for host, (core, scout) in expected.items():
@@ -131,8 +131,15 @@ class PlannerTests(GraphCase):
                 self.assertEqual(plan["economy_fanout_option"], {
                     "model": "gpt-6.1-sol", "reasoning_effort": "low",
                 })
+                self.assertEqual(plan["external_economy_option"], {
+                    "model": MUSE_MODEL, "reasoning_effort": "xhigh", "dispatch_runtime": "opencode-cli",
+                })
+                self.assertEqual(plan["model_options"][MUSE_MODEL],
+                                 ["minimal", "low", "medium", "high", "xhigh"])
             else:
                 self.assertNotIn("economy_fanout_option", plan)
+                self.assertNotIn("external_economy_option", plan)
+                self.assertNotIn(MUSE_MODEL, plan["model_options"])
             self.assertIn(core, plan["model_options"])
             self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
         for host in known_hosts():
@@ -141,6 +148,67 @@ class PlannerTests(GraphCase):
             self.assertFalse(any(row["model"].startswith("gpt-5.6-") for row in plan["assignments"]))
         self.assertIn("gpt-6-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
         self.assertIn("gpt-6.1-sol", build_execution_plan("RUN-1", self.task_v2())["model_options"])
+
+    def test_muse_selection_uses_opencode_and_preserves_previous_catalog(self):
+        for host in ("codex", "codex-astra"):
+            task = self.task_v2()
+            task["model_overrides"] = {
+                "impact_mapper": {"model": MUSE_MODEL, "reasoning_effort": "low"},
+                "design_research_architecture": {"model": MUSE_MODEL, "reasoning_effort": "low"},
+                "tech_lead": {"model": MUSE_MODEL, "reasoning_effort": "medium"},
+                "publication_assignment": {"model": MUSE_MODEL, "reasoning_effort": "low"},
+            }
+            plan = build_execution_plan("RUN-1", task, host=host)
+            for node, effort in (("impact_mapper", "low"),
+                                 ("design_research_architecture", "low"),
+                                 ("tech_lead", "medium")):
+                assignment = assignment_for(plan, node)
+                self.assertEqual((assignment["model"], assignment["reasoning_effort"],
+                                  assignment["dispatch_model"], assignment["dispatch_runtime"]),
+                                 (MUSE_MODEL, effort, MUSE_MODEL, "opencode-cli"))
+            self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+            self.assertEqual(plan["publication_assignment"]["dispatch_runtime"], "opencode-cli")
+            policy, snapshot = load_policy(self.repo)
+            research = design_research_nodes(policy, 0)[0]
+            branch = envelope("RUN-1", snapshot.digest, policy, task, research, "pending", [],
+                              execution_plan=plan)
+            self.assertEqual(branch["dispatch_runtime"], "opencode-cli")
+            previous = reconstruct_execution_plan(
+                "RUN-1", self.task_v2(), {"host": host, "catalog_revision": 8},
+            )
+            self.assertEqual(previous["plan_digest"], {
+                "codex": "d273f7915dbecda79e789826eb37919981a792caf1cbad0c72c481e56f701a6f",
+                "codex-astra": "63fdff6e6791bee4acff9bc725d8d52367b06a561ac3b88f1654151cb8e6de6e",
+            }[host])
+            self.assertNotIn(MUSE_MODEL, previous["model_options"])
+            self.assertNotIn("external_economy_option", previous)
+            self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), previous), previous)
+            with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                reconstruct_execution_plan("RUN-1", task, {"host": host, "catalog_revision": 8})
+
+    def test_muse_rejects_unavailable_effort_host_and_supervisor(self):
+        for host, node, effort, error in (
+            ("codex", "impact_mapper", "max", "MODEL_ASSIGNMENT_INVALID"),
+            ("claude", "impact_mapper", "low", "MODEL_ASSIGNMENT_INVALID"),
+            ("cursor", "impact_mapper", "low", "MODEL_ASSIGNMENT_INVALID"),
+            ("codex-astra", "supervisor_recommendation", "low", "SUPERVISOR_MODEL_RUNTIME_UNSUPPORTED"),
+        ):
+            task = self.task_v2()
+            task["model_overrides"] = {node: {"model": MUSE_MODEL, "reasoning_effort": effort}}
+            with self.subTest(host=host, node=node), self.assertRaisesRegex(ValueError, error):
+                build_execution_plan("RUN-1", task, host=host)
+
+    def test_approved_muse_mapper_claim_retains_cli_dispatch_route(self):
+        task = self.task_v2(route="fast_path")
+        task["model_overrides"] = {
+            "impact_mapper": {"model": MUSE_MODEL, "reasoning_effort": "xhigh"},
+        }
+        self.initialize_task(task)
+        branch = self.claim_raw()
+        self.assertEqual((branch["model"], branch["reasoning_effort"],
+                          branch["dispatch_runtime"]),
+                         (MUSE_MODEL, "xhigh", "opencode-cli"))
+        self.graphctl("status", "--run-id", "RUN-1")
 
     def test_codex_revision_six_retains_approved_plan_digests(self):
         expected_digests = {
@@ -621,7 +689,7 @@ class PlannerTests(GraphCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 8)
+        self.assertEqual(plan["catalog_revision"], 9)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
@@ -641,19 +709,38 @@ class PlannerTests(GraphCase):
 
     def test_claude_catalog_recommends_exact_models_and_efforts(self):
         plan = build_execution_plan("RUN-1", self.task_v2(), host="claude")
-        self.assertEqual(plan["catalog_revision"], 3)
+        self.assertEqual(plan["catalog_revision"], 4)
         self.assertEqual(plan["supervisor_recommendation"], {
-            "model": "claude-opus-5", "reasoning_effort": "high", "dispatch_model": "claude-opus-5",
+            "model": "claude-opus-5-5", "reasoning_effort": "high", "dispatch_model": "claude-opus-5-5",
         })
         self.assertEqual(plan["publication_assignment"], {
-            "model": "claude-sonnet-5", "reasoning_effort": "low", "dispatch_model": "claude-sonnet-5",
+            "model": "claude-sonnet-5-5", "reasoning_effort": "low", "dispatch_model": "claude-sonnet-5-5",
         })
         assignments = {
             item["node_key"]: (item["model"], item["reasoning_effort"], item["dispatch_model"])
             for item in plan["assignments"]
         }
-        self.assertEqual(assignments["impact_mapper"], ("claude-sonnet-5", "low", "claude-sonnet-5"))
-        self.assertEqual(assignments["senior_engineer"], ("claude-opus-5", "medium", "claude-opus-5"))
+        self.assertEqual(assignments["impact_mapper"], ("claude-sonnet-5-5", "low", "claude-sonnet-5-5"))
+        self.assertEqual(assignments["senior_engineer"], ("claude-opus-5-5", "medium", "claude-opus-5-5"))
+
+    def test_claude_55_options_preserve_previous_catalog_digests(self):
+        for host, revision, digest in (
+            ("claude", 3, "2872b241695fa9ee062567d3bce2911b2cd0da989f751e2cbfc97750a30c40dc"),
+            ("cursor", 4, "1e023755045a153b3d59db4c4e71b233167e9688fcf55de72c32f102a6afa963"),
+        ):
+            previous = reconstruct_execution_plan("RUN-1", self.task_v2(),
+                                                  {"host": host, "catalog_revision": revision})
+            self.assertEqual(previous["plan_digest"], digest)
+            self.assertNotIn("claude-opus-5-5", previous["model_options"])
+            for model in ("claude-sonnet-5-5", "claude-opus-5-5"):
+                for effort in ("low", "medium", "high", "xhigh", "max"):
+                    task = self.task_v2()
+                    task["model_overrides"] = {"tech_lead": {"model": model, "reasoning_effort": effort}}
+                    plan = build_execution_plan("RUN-1", task, host=host)
+                    self.assertEqual(assignment_for(plan, "tech_lead")["model"], model)
+                    self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+                    with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                        reconstruct_execution_plan("RUN-1", task, previous)
 
     def test_default_cli_plan_survives_approval_claim_and_resume(self):
         initialized = self.initialize(size="medium")

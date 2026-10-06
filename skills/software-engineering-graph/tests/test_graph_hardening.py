@@ -25,7 +25,7 @@ class GraphHardeningTests(GraphCase):
         from graph_engine.usage import _context
 
         for model in ("gpt-5.6-terra", "grok-4.7", "gemini-3.8-flash", "claude-fable-5-1",
-                      "cursor-grok-4.6", "gpt-6-astra"):
+                      "cursor-grok-4.6", "gpt-6-astra", "claude-sonnet-5-5", "claude-opus-5-5"):
             self.assertEqual(_context({"model": model, "effort": "medium"}),
                              {"model": model, "effort": "medium"})
         self.assertEqual(_context({"model": "untrusted-arbitrary-model", "effort": "medium"})["model"],
@@ -1757,6 +1757,8 @@ class HelperRegisterTests(GraphCase):
                                     ("codex-astra", "gpt-6.1-sol", "low"),
                                     ("claude", "claude-opus-5", "medium"),
                                     ("claude", "claude-sonnet-5", "low"),
+                                    ("claude", "claude-opus-5-5", "high"),
+                                    ("claude", "claude-sonnet-5-5", "low"),
                                     ("cursor", "grok-4.7", "medium"),
                                     ("cursor", "gemini-3.8-flash", "low")):
             selected = json.loads(json.dumps(allowance))
@@ -1765,6 +1767,15 @@ class HelperRegisterTests(GraphCase):
             with self.subTest(host=host, model=model):
                 normalized = validate_allowance(selected, "RUN-HELPERS", host)
                 self.assertTrue(all(row["model"] == model for row in normalized["assignments"]))
+                self.assertEqual(validate_allowance(selected, "RUN-HELPERS", host, historical=True), normalized)
+
+    def test_muse_graph_option_does_not_create_helper_runtime_authority(self):
+        _registry, _initialized, _command, _plan, allowance = self._materials()
+        selected = json.loads(json.dumps(allowance))
+        for assignment in selected["assignments"]:
+            assignment.update(model="opencode-go/muse-spark-1.3-contributor", reasoning_effort="low")
+        with self.assertRaisesRegex(ContractError, "HELPER_RUNTIME_UNSUPPORTED"):
+            validate_allowance(selected, "RUN-HELPERS", "codex-astra")
 
     def test_observed_assignment_mismatch_blocks_without_substitution(self):
         registry, initialized, _command, _plan, _allowance = self._materials(

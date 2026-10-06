@@ -1266,7 +1266,7 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
                 expected_envelope["review_continuation"] = stored_envelope["review_continuation"]
         immutable_keys = {
             "schema_version", "run_id", "branch_id", "node_instance_id", "node_key", "role",
-            "model", "reasoning_effort", "mandatory", "generation", "inputs", "effect_capabilities", "output_contract",
+            "model", "reasoning_effort", "dispatch_runtime", "mandatory", "generation", "inputs", "effect_capabilities", "output_contract",
             "stopping_condition", "retry_count", "max_retries", "research_assignment",
             "attempt_id", "claim_digest", "lease_expires_at",
         }
