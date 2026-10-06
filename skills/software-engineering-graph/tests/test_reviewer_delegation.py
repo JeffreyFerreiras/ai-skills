@@ -120,21 +120,25 @@ class ReviewerDelegationContractTests(GraphCase):
             with self.assertRaises(ContractError):
                 validate_policy_config(config)
 
-    def test_sol_six_one_delegation_schema_and_runtime_agree_on_effort_weights(self):
+    def test_current_delegation_models_schema_and_runtime_agree_on_effort_weights(self):
         schema = json.loads((Path(__file__).parents[1] / "references" /
                              "repository-config.schema.json").read_text(encoding="utf-8"))
         assignment_schema = schema["$defs"]["reviewerDelegationAssignment"]
-        for effort, weight in (("high", 3), ("xhigh", 4), ("max", 5)):
+        for model, effort, weight in (
+            (model, effort, weight)
+            for model in ("gpt-6.1-sol", "claude-opus-5-5")
+            for effort, weight in (("high", 3), ("xhigh", 4), ("max", 5))
+        ):
             for candidate_weight in (3, 4, 5):
                 with self.subTest(effort=effort, weight=candidate_weight):
                     config = policy_config()
                     assignment = config["assignments"][0]
-                    assignment.update(model="gpt-6.1-sol", reasoning_effort=effort,
+                    assignment.update(model=model, reasoning_effort=effort,
                                       dispatch_weight=candidate_weight)
                     if candidate_weight == weight:
                         _validate_json_schema(assignment, assignment_schema, schema)
                         validated = validate_policy_config(config)
-                        self.assertEqual(validated["assignments"][0]["model"], "gpt-6.1-sol")
+                        self.assertEqual(validated["assignments"][0]["model"], model)
                     else:
                         with self.assertRaises(AssertionError):
                             _validate_json_schema(assignment, assignment_schema, schema)

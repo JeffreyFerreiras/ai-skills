@@ -315,6 +315,8 @@ def envelope(
         "started_at": None,
         "finished_at": None,
     }
+    if "dispatch_runtime" in assignment:
+        result["dispatch_runtime"] = assignment["dispatch_runtime"]
     if spec.key in ENGINE_RESEARCH_NODES:
         totals = task["inspection_budget"]
         first = spec.key == "design_research_architecture"

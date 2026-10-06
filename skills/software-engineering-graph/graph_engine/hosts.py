@@ -13,10 +13,15 @@ from typing import Dict, Optional, Tuple
 INTELLIGENCE_CLASSES = ("economy", "reasoning", "primary-thread")
 DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
-CURRENT_CATALOG_REVISIONS = {"claude": 3, "codex": 8, "codex-astra": 8, "cursor": 4}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3), "codex": (2, 3, 4, 5, 6, 7, 8), "codex-astra": (2, 3, 4, 5, 6, 7, 8), "cursor": (2, 3, 4)}
+MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
+MUSE_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+CURRENT_CATALOG_REVISIONS = {"claude": 4, "codex": 9, "codex-astra": 9, "cursor": 5}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3, 4), "codex": (2, 3, 4, 5, 6, 7, 8, 9), "codex-astra": (2, 3, 4, 5, 6, 7, 8, 9), "cursor": (2, 3, 4, 5)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {
+    ("claude-opus-5-5", "high"): 3,
+    ("claude-opus-5-5", "xhigh"): 4,
+    ("claude-opus-5-5", "max"): 5,
     ("gpt-6.1-sol", "high"): 3,
     ("gpt-6.1-sol", "xhigh"): 4,
     ("gpt-6.1-sol", "max"): 5,
@@ -128,13 +133,22 @@ MODEL_OPTIONS_V7["codex"] = {
 }
 MODEL_OPTIONS_V7["codex-astra"] = MODEL_OPTIONS_V7["codex"]
 # The public knowledge inventory is also used by historical token accounting.
-# New selections use model_options(), never this frozen audit inventory.
-MODEL_OPTIONS = MODEL_OPTIONS_V7
+# New selections use model_options(), never this additive audit inventory.
+CLAUDE_55_OPTIONS = {
+    "claude-sonnet-5-5": ("low", "medium", "high", "xhigh", "max"),
+    "claude-opus-5-5": ("low", "medium", "high", "xhigh", "max"),
+}
+MODEL_OPTIONS = dict(MODEL_OPTIONS_V7)
+for _host in ("claude", "cursor"):
+    MODEL_OPTIONS[_host] = {**MODEL_OPTIONS_V7[_host], **CLAUDE_55_OPTIONS}
 CURRENT_MODEL_OPTIONS = {
     host: {model: efforts for model, efforts in options.items()
            if not is_retired_model(model)}
     for host, options in MODEL_OPTIONS_V7.items()
 }
+MODEL_OPTIONS_V9 = dict(CURRENT_MODEL_OPTIONS)
+for _host in ("codex", "codex-astra"):
+    MODEL_OPTIONS_V9[_host] = {**CURRENT_MODEL_OPTIONS[_host], MUSE_MODEL: MUSE_EFFORTS}
 
 
 def selected_dispatch_model(host: str, model: str, effort: str, revision: Optional[int] = None) -> str:
@@ -153,7 +167,9 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
     if revision is None:
         revision = CURRENT_CATALOG_REVISIONS[host]
     if workload == "helper":
-        if revision == 8 and host in {"codex", "codex-astra"}:
+        if host == "claude" and revision == 4:
+            return "claude-sonnet-5-5", "low"
+        if revision in {8, 9} and host in {"codex", "codex-astra"}:
             return "gpt-6.1-sol", "low"
         if revision in {6, 7} and host in {"codex", "codex-astra"}:
             return recommended_assignment(host, "implementation", revision)
@@ -161,7 +177,9 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
                 "cursor": ("gemini-3.8-flash", "low")}.get(
                     host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna",
                            "low" if revision in {3, 4} else "max"))
-    if host == "codex" and revision in {7, 8}:
+    if host == "claude" and revision == 4:
+        model = "claude-opus-5-5"
+    elif host == "codex" and revision in {7, 8, 9}:
         model = "gpt-6.1-sol"
     else:
         model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
@@ -174,12 +192,16 @@ def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[
     catalog_for(host)
     if revision is None:
         revision = CURRENT_CATALOG_REVISIONS[host]
+    if (host == "claude" and revision == 4) or (host == "cursor" and revision == 5):
+        return {**CURRENT_MODEL_OPTIONS[host], **CLAUDE_55_OPTIONS}
     if revision == 3:
         options = MODEL_OPTIONS_V3
     elif revision in {2, 4, 5, 6}:
         options = CURRENT_MODEL_OPTIONS if host == "cursor" and revision == 4 else MODEL_OPTIONS_V6
     elif revision == 7:
         options = MODEL_OPTIONS_V7
+    elif revision == 9:
+        options = MODEL_OPTIONS_V9
     else:
         options = CURRENT_MODEL_OPTIONS
     return dict(options[host])

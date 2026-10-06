@@ -4,16 +4,24 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 8; Claude stays on revision 3 and
-Cursor uses revision 4. Verify the selected pair against the host's current exposed capabilities; catalog
+`claude`, or `cursor`. New Codex plans use catalog revision 9; Claude uses revision 4 and
+Cursor uses revision 5. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
-| Catalog | Helpers and fixed research | Core roles | Architecture and review |
-| --- | --- | --- | --- |
-| codex-astra | gpt-6.1-sol / low | gpt-6-astra / medium | gpt-6-astra / high |
-| codex | gpt-6.1-sol / low | gpt-6.1-sol / medium | gpt-6.1-sol / high |
-| claude | claude-sonnet-5 / low | claude-opus-5 / medium | claude-opus-5 / high |
-| cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high |
+| Catalog | Helpers and fixed research | Core roles | Architecture and review | External economy option |
+| --- | --- | --- | --- | --- |
+| codex-astra | gpt-6.1-sol / low | gpt-6-astra / medium | gpt-6-astra / high | Muse Spark 1.3 / xhigh |
+| codex | gpt-6.1-sol / low | gpt-6.1-sol / medium | gpt-6.1-sol / high | Muse Spark 1.3 / xhigh |
+| claude | claude-sonnet-5-5 / low | claude-opus-5-5 / medium | claude-opus-5-5 / high | none |
+| cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high | none |
+
+For either Codex catalog, the preview also offers `opencode-go/muse-spark-1.3-contributor`
+at `xhigh` as an external economy alternative. It is selectable at `minimal`, `low`, `medium`,
+`high`, or `xhigh` for graph nodes. The recommendation table above stays unchanged. A Muse
+selection is bound to `dispatch_runtime: opencode-cli`; follow the
+[OpenCode dispatch procedure](opencode-dispatch.md), not a native Codex agent launch.
+This does not add Muse to separately approved conditional reviewer fan-out.
+Direct reusable helpers use a separate register and cannot select Muse in this revision.
 
 Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, Code Reviewer,
 Security Reviewer, and Release Operations Reviewer receive the review suggestion. Other advisory
@@ -43,6 +51,8 @@ v2/v3 to record selections (node keys, not role-profile names):
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
+Muse is the one explicit cross-provider exception in Codex catalog revision 9. It cannot be the
+Supervisor recommendation because the CLI cannot switch the primary thread.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
 the recommendation matrix, so GPT-6.1 Sol, GPT-6 Sol, and GPT-6 Luna are selectable without changing
 the Astra core recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, and Fable
@@ -95,7 +105,13 @@ Codex recommendation to GPT-6.1 Sol and adds it as a selectable option in both C
 Revision 7 retains its Astra helper recommendation and Luna economy option.
 Revision 8 changes Codex helpers/research/publication/economy fanout to GPT-6.1 Sol low and
 removes GPT-5.6 options. Cursor revision 4 removes its GPT-5.6 Sol option without changing
-recommendations; Claude revision 3 is unchanged. Older engines reject unsupported revisions.
+recommendations; Claude revision 3 is unchanged. Revision 9 adds the optional OpenCode Muse
+pair and dispatch metadata without changing default recommendations. Revision 8 plans reconstruct
+without Muse or the new metadata. Older engines reject unsupported revisions.
+Claude revision 4 upgrades recommendations to Sonnet 5.5 and Opus 5.5. Cursor revision 5 adds
+both as explicit alternatives while retaining its recommendations. Earlier Claude and Cursor
+plans retain their options, assignments, and digests. Fable remains `claude-fable-5-1`.
+Opus 5.5 conditional reviewer fan-out supports high/xhigh/max at weights 3/4/5.
 Conditional reviewer fan-out also permits GPT-6.1 Sol at high/xhigh/max with the existing
 3/4/5 dispatch weights. Its assignments remain separately selected in the runtime-home policy,
 not through graph-node overrides. Old policy records and completed fanout requests remain
@@ -120,6 +136,11 @@ not a verified model-quality or observed-token-saving result. See the official
 [API pricing](https://developers.openai.com/api/docs/pricing).
 
 ## Source and evaluation scope
+
+Claude 5.5 IDs and low/medium/high/xhigh/max variants were observed October 5, 2026 in
+`opencode models opencode --verbose`. Use `claude-sonnet-5-5` and `claude-opus-5-5` for
+the native catalogs. This observation does not establish native Claude or Cursor account access;
+verify the exact selected pair on that host before dispatch.
 
 GPT-6.1 Sol guidance checked October 3, 2026:
 [OpenAI GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and

@@ -80,14 +80,19 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 8
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 9
 suggests GPT-6.1 Sol `low` for helpers, fixed research, publication, and economy fanout.
 Core work remains GPT-6 Astra `medium` and review remains Astra `high`; the explicit `codex`
 catalog suggests GPT-6.1 Sol `medium`/`high` instead. Bind direct helper selections in their
-separate allowance. GPT-6 Sol and GPT-6 Luna remain supported alternatives on Codex.
-Claude stays on revision 3 and suggests Sonnet 5 `low` for helpers,
-Opus 5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
-for helpers, Grok 4.7 `medium` for core work and `high` for review in revision 4. These are human-selected
+separate allowance. GPT-6 Sol and GPT-6 Luna remain supported alternatives on Codex. Both
+Codex catalogs also offer OpenCode Muse Spark 1.3 as a deliberate external economy option;
+its use requires the approved `opencode-cli` route in
+[OpenCode dispatch](references/opencode-dispatch.md). Select it with a Codex-host
+`model_overrides` entry, not a new host catalog. Read that dispatch procedure before claiming
+any Muse node.
+Claude revision 4 suggests Sonnet 5.5 `low` for helpers,
+Opus 5.5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
+for helpers, Grok 4.7 `medium` for core work and `high` for review in revision 5, with Claude 5.5 alternatives. These are human-selected
 starting preferences, not benchmark claims.
 
 Before initialization, present the execution sequence, relevant and conditional roles, model/effort
@@ -103,7 +108,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 8 and Cursor revision 4 plans require an engine supporting those revisions. Role TOML pins are Codex installation
+New Codex revision 9, Claude revision 4, and Cursor revision 5 plans require an engine supporting those revisions. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.

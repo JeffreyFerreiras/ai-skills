@@ -20,7 +20,7 @@ from .contracts import (
     require_keys, safe_file_snapshot, safe_json_snapshot, validate_ref,
 )
 from .ids import canonical_bytes, repository_digest, sha256_bytes
-from .hosts import selected_dispatch_model, known_hosts, is_retired_model
+from .hosts import selected_dispatch_model, known_hosts, is_retired_model, MUSE_MODEL
 from .state import StateError, local_filesystem_identity, repository_identity
 
 
@@ -270,12 +270,19 @@ def validate_allowance(
             raise ContractError("allowance.contract_revision", "UNSUPPORTED_SCHEMA")
         model = bounded_string(item["model"], "allowance.model", 128)
         reasoning_effort = opaque(item["reasoning_effort"], "allowance.reasoning_effort")
+        if model == MUSE_MODEL:
+            raise ContractError("allowance.assignments", "HELPER_RUNTIME_UNSUPPORTED")
         if is_retired_model(model) and not historical:
             raise ContractError("allowance.assignments", "MODEL_RETIRED")
         if host is not None:
             try:
                 revision = {"codex": 7, "codex-astra": 7, "cursor": 3, "claude": 3}.get(host) if historical else None
-                selected_dispatch_model(host, model, reasoning_effort, revision)
+                try:
+                    selected_dispatch_model(host, model, reasoning_effort, revision)
+                except ValueError:
+                    if not historical:
+                        raise
+                    selected_dispatch_model(host, model, reasoning_effort)
             except ValueError:
                 raise ContractError("allowance.assignments", "HELPER_ASSIGNMENT_MISMATCH")
         commands = _commands(item["commands"], "allowance.commands")

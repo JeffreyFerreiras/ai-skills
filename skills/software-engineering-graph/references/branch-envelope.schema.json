@@ -13,6 +13,7 @@
     "role": {"$ref": "#/$defs/id"},
     "model": {"type": "string", "minLength": 1, "maxLength": 128},
     "reasoning_effort": {"type": "string", "minLength": 1, "maxLength": 32},
+    "dispatch_runtime": {"const": "opencode-cli"},
     "mandatory": {"type": "boolean"},
     "generation": {"type": "integer", "minimum": 0},
     "research_assignment": {"$ref": "#/$defs/researchAssignment"},

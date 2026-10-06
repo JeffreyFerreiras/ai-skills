@@ -76,8 +76,11 @@ Astra or Sol medium the Codex helper and fixed-research default and exposes Luna
 fanout option. Revision 7 upgrades the explicit Codex preference to GPT-6.1 Sol and adds it to
 both Codex catalogs while freezing revision 6 options and recommendations. Revision 8 freezes
 revision 7 separately, removes GPT-5.6 options, and recommends GPT-6.1 Sol low for helpers,
-fixed research, publication, and economy fanout. Cursor revision 4 removes its GPT-5.6 option;
-Claude stays at revision 3. `hosts.py` keeps the
+fixed research, publication, and economy fanout. Revision 9 preserves those defaults and adds
+OpenCode Muse Spark 1.3 as a selectable Codex-catalog alternative with explicit CLI dispatch
+metadata. Cursor revision 4 removes its GPT-5.6 option;
+Claude revision 4 upgrades Sonnet and Opus recommendations to 5.5; Cursor revision 5 adds
+the same models as alternatives. `hosts.py` keeps the
 original `HOST_MATRIX` unchanged for historical reconstruction, maintains supported model/effort options,
 and supplies helper/core/review recommendations. `execution.py` selects the correct revision and
 applies task-bound `model_overrides` before deriving dispatch IDs and the canonical plan digest.
@@ -98,7 +101,7 @@ New recommendations: both Codex catalogs use GPT-6.1 Sol low for helpers, fixed 
 publication, and economy fanout. Default Codex retains GPT-6 Astra medium core/high review;
 explicit Codex retains GPT-6.1 Sol medium core/high review. GPT-6 Sol and Luna remain supported
 alternatives. Every GPT-5.6 variant is retired for new selections and native launches. Claude uses Sonnet
-5 low helpers and Opus 5 medium core/high review.
+5.5 low helpers and Opus 5.5 medium core/high review.
 Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
 medium core/high review. See [model catalogs](../references/model-catalogs.md) for all supported
 options, exact sources, native role configuration, and runtime verification limits.
@@ -106,12 +109,17 @@ options, exact sources, native role configuration, and runtime verification limi
 Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
 defaults, bytes, digests and approvals. Codex revisions 3 through 7 and Cursor revision 3 retain their prior recommendations
 and options. The engine accepts each known revision explicitly; unknown or malformed revisions fail
-closed. New Codex revision 8 and Cursor revision 4 plans require a supporting engine. Catalog
+closed. New Codex revision 9, Claude revision 4, and Cursor revision 5 plans require a supporting engine. Catalog
 changes must not silently alter reconstruction of prior plans.
 Historical core envelopes are reconstructed for audit, not execution authority. The engine has no
 model executor; the Supervisor refuses another GPT-5.6 launch and obtains a separately approved
 current supported plan. Historical helper reads/settlement and persisted review-request validation
 remain available, while new helper allowances/reservations and fanout requests reject retirement.
+For Muse assignments, the Supervisor verifies OpenCode availability and launches a separate CLI
+session with the approved model and variant. Its bounded prompt and post-run checks follow the
+[OpenCode dispatch contract](../references/opencode-dispatch.md). The plan's runtime metadata
+prevents confusing the CLI assignment with a native Codex spawn. The Codex JSONL usage reducer
+does not account for OpenCode sessions.
 Standard is the speed preference; native spawn has no selector and speed stays unverified/unavailable.
 An explicit user Fast choice during planning is recorded and applied only through a supported host
 setting; without one it remains inherited and unverified/unavailable.

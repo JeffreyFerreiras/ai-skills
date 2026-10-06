@@ -119,17 +119,20 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 8 recommends these assignments; Claude stays on revision 3 and Cursor uses revision 4. They are defaults,
+revision 9 recommends these assignments; Claude uses revision 4 and Cursor uses revision 5. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
 | --- | --- | --- | --- |
 | `codex-astra` | GPT-6.1 Sol `low` | GPT-6 Astra `medium` | GPT-6 Astra `high` |
 | `codex` | GPT-6.1 Sol `low` | GPT-6.1 Sol `medium` | GPT-6.1 Sol `high` |
-| `claude` | Sonnet 5 `low` | Opus 5 `medium` | Opus 5 `high` |
+| `claude` | Sonnet 5.5 `low` | Opus 5.5 `medium` | Opus 5.5 `high` |
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
 GPT-6.1 Sol `low` is the economy fanout and publication recommendation for Codex.
+Codex revision 9 also lists OpenCode Muse Spark 1.3 `xhigh` as an external economy option.
+An approved Muse assignment uses [OpenCode CLI dispatch](references/opencode-dispatch.md);
+it is not a native Codex agent. Existing recommendations remain unchanged.
 Bind direct helper selections in the separate allowance before approval. Both Codex
 catalogs also permit GPT-6 Sol and GPT-6 Luna selections. Other supported
 alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.
