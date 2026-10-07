@@ -48,6 +48,7 @@ The bundled graph covers SRP, OCP, LSP, ISP, and DIP. Search by the observed pre
 - Do not require strict TDD retroactively. Add or update tests in proportion to behavioral risk.
 - Do not force arbitrary limits on function length, parameter count, assertions, or class size.
 - Do not turn straightforward code into layers of pass-through abstractions.
+- Assess an abstraction by imagining its removal: would required decisions and complexity spread into callers, or would only delegation disappear? Prefer a small caller-facing contract that contains necessary complexity. Preserve boundaries that enforce policy ownership, translate external details, or provide a useful test seam even when only one implementation exists.
 - Do not alter unrelated code merely because it could also be cleaner.
 
 ## Review Versus Implementation

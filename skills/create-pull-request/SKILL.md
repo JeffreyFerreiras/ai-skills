@@ -16,6 +16,9 @@ Write an accurate pull request from the selected changes. When creation is reque
 ## Write the Pull Request
 
 - Preserve the selected template. Without one, use **Summary**, **Testing**, and **Risks**.
+- For an actual behavior change, explain the trigger and before/after result. Support it with available evidence, such as a failing/passing test, observed output, or screenshots for a visual change. Label reasoning from the diff as such; if a before run is unavailable, state that limit instead of inventing one. For documentation or behavior-preserving changes, describe the changed contract or structure without manufacturing a behavior comparison.
+- Add a small diagram, diff sketch, or screenshot only when it makes the change easier to assess. Place it beside the explanation and retain only the relevant states or boundaries.
+- Where risk matters, name the affected users, consumers, data, or services and the concrete failure they could face. Explain rollback difficulty when a revert alone would not restore the prior state, such as a destructive migration or external side effect. Tie risks to the selected change and evidence; avoid generic risk labels.
 - Use the repository's title convention; otherwise use Conventional Commits, such as `feat: add caching`.
 - "Write," "draft," or "prepare" a PR without a creation request produces text only.
 
@@ -34,3 +37,7 @@ Write an accurate pull request from the selected changes. When creation is reque
 5. Verify the PR's URL, base, head, title, body, and draft state with `gh pr view`. Remove the temporary body file in all outcomes.
 
 Report the URL only after verification. Otherwise report the prepared text and the blocker.
+
+## Source
+
+Evidence, selective visuals, and concrete rollback/impact guidance are adapted from [mattpocock/skills pr](https://github.com/mattpocock/skills/blob/6fd947921b935b7e1e69293a200400f0fdd5c15f/skills/engineering/pr/SKILL.md), pinned at `6fd947921b935b7e1e69293a200400f0fdd5c15f`. Repository templates and the creation authority above take precedence over upstream's fixed body format.

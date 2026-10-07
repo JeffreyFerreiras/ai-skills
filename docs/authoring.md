@@ -56,6 +56,8 @@ Record gotchas when an observed failure would change the next run. Reuse tested 
 
 Do not split a small entrypoint merely to reach a line-count target. Conversely, moving a complicated protocol into references needs behavioral evidence that its gates remain discoverable; reducing file size alone is not success.
 
+When reviewing instruction wording or reference routing, use the [manual instruction writing review](../skills/skill-doctor/references/instruction-writing.md). It covers branch triggers, observable completion, grouped caveats, and facts best read from configuration. Keep its semantic findings separate from structural validator results; auditing a skill does not activate it or add an approval gate.
+
 ## Validation
 
 Run from the repository root with Python 3.12+ and PyYAML installed:

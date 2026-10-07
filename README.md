@@ -57,11 +57,13 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [create-pull-request](skills/create-pull-request/SKILL.md) | Create GitHub pull requests |
 | [discernment-nudge](skills/discernment-nudge/SKILL.md) | Prompt reflection on key facts and assumptions |
 | [doc-coauthoring](skills/doc-coauthoring/SKILL.md) | Co-author specs, proposals, and decision documents |
+| [domain-modeling](skills/domain-modeling/SKILL.md) | Sharpen domain terms, glossaries, and decisions |
 | [explain](skills/explain/SKILL.md) | Explain code changes with a sequence diagram |
 | [frontend-design](skills/frontend-design/SKILL.md) | Design distinctive, responsive web interfaces |
 | [generate-unit-tests](skills/generate-unit-tests/SKILL.md) | Add focused, maintainable unit tests |
 | [generic-loop](skills/generic-loop/SKILL.md) | Run bounded write and independent review cycles |
 | [git-push](skills/git-push/SKILL.md) | Commit and push all pending changes on request |
+| [grilling](skills/grilling/SKILL.md) | Stress-test decisions through a focused interview |
 | [independent-reviewer](skills/independent-reviewer/SKILL.md) | Request a fresh, read-only subagent review |
 | [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
 | [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
@@ -78,6 +80,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
 | [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
+| [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
 <!-- skill-catalog:end -->

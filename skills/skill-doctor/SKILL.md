@@ -32,3 +32,5 @@ Use `--json` for automation and `--strict` when warnings must also fail the comm
 The validator is read-only. Do not automatically rewrite skills or synchronize profiles as part of diagnosis.
 
 Structural success is not a behavioral approval. For instruction audits, review source/target scope, existing authorization, publication defaults, external dependencies, runtime requirements, and semantic trigger overlap. Use the repository's behavioral scenarios when testing these decisions; do not infer safety from zero lexical-overlap warnings.
+
+When auditing instruction wording or reference routing, read [instruction-writing.md](references/instruction-writing.md) for a manual semantic review. Report its findings separately from validator counts. Reading a skill for audit does not activate its workflow; this reference adds no publication or approval gate.

@@ -41,6 +41,8 @@ Do not repeat the same scan, lower the evidence threshold to fill the ledger, or
 - Concrete design pressure that may justify a known pattern, especially repeated variation, scattered state logic, construction policy, boundary adaptation, event fanout, request lifecycle, or dependency creation.
 - Evidence-backed violations of each SOLID principle: Single Responsibility (SRP), Open/Closed (OCP), Liskov Substitution (LSP), Interface Segregation (ISP), and Dependency Inversion (DIP).
 
+Distinguish defects from documented standards breaches and requirements gaps. Cite the applicable rule for a standards finding and the stated requirement for missing, partial, incorrect, or materially out-of-scope behavior. An undocumented preference is not a rule. When no specification is available, use established contracts and the stated intent, and mark unresolved expectations as questions. Keep these distinctions within the existing severity order; they do not require separate reviewers or override passing acceptance evidence. Passing checks support the behavior they cover but do not prove an untested requirement.
+
 ## SOLID Principle Check
 
 Treat each principle match as a hypothesis, not an automatic finding. The coverage loop must consider all five principles, but report one only when the diff demonstrates a concrete correctness, comprehension, or maintenance cost:
