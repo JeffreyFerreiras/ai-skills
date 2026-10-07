@@ -48,6 +48,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
+| [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
 | [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
 | [clean-architecture-code](skills/clean-architecture-code/SKILL.md) | Write code with clean boundaries |
 | [clean-architecture-review](skills/clean-architecture-review/SKILL.md) | Review code for architecture drift |

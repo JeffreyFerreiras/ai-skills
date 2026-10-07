@@ -23,8 +23,9 @@ selection is bound to `dispatch_runtime: opencode-cli`; follow the
 This does not add Muse to separately approved conditional reviewer fan-out.
 Direct reusable helpers use a separate register and cannot select Muse in this revision.
 
-Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, Code Reviewer,
-Security Reviewer, and Release Operations Reviewer receive the review suggestion. Other advisory
+Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, clean-code and
+clean-architecture and bug-hunter reviewers, Security Reviewer, and Release Operations Reviewer receive the review suggestion.
+The naming-only reviewer receives the economy helper suggestion while remaining a mandatory review gate. Other advisory
 and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
 suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
 thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
@@ -36,6 +37,17 @@ Before initialization, present the actual execution sequence and relevant/condit
 each model and effort, helper allowance, alternatives, assumptions, and availability gaps.
 Invite changes and show the revised plan before approval. Use this optional field in task-brief
 v2/v3 to record selections (node keys, not role-profile names):
+
+New delivery plans list `code_reviewer`, `code_reviewer_architecture`, `code_reviewer_naming`, and
+`code_reviewer_bug_hunter` as four mandatory assignments sharing the `code_reviewer` profile.
+Each can have its own override. Bug hunting requires `review-bugbot` on Cursor, `review-agent`
+on Codex, or the repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude.
+Verify the selected skill source; skill selection does not change the approved model or effort.
+The naming default is GPT-6.1 Sol / low on either Codex catalog, Sonnet 5.5 / low on Claude,
+and Gemini 3.8 Flash / low on Cursor. The other three retain the review recommendation.
+Present all four focuses, models, and efforts
+before approval. The panel version and assignments enter the plan digest. Historical plans without
+`code_review_panel_version` retain their recorded single-reviewer assignment.
 
 ```json
 "model_overrides": {

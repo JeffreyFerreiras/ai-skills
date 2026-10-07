@@ -17,6 +17,7 @@
     "mandatory": {"type": "boolean"},
     "generation": {"type": "integer", "minimum": 0},
     "research_assignment": {"$ref": "#/$defs/researchAssignment"},
+    "code_review_assignment": {"type": "object", "additionalProperties": false, "required": ["focus", "required_skill"], "oneOf": [{"properties": {"focus": {"const": "clean_code"}, "required_skill": {"const": "clean-code-review"}}}, {"properties": {"focus": {"const": "clean_architecture"}, "required_skill": {"const": "clean-architecture-review"}}}, {"properties": {"focus": {"const": "naming"}, "required_skill": {"type": "null"}}}, {"properties": {"focus": {"const": "bug_hunting"}, "required_skill": {"enum": ["review-agent", "review-bugbot", "bug-hunter-review"]}}}], "properties": {"focus": {"enum": ["clean_code", "clean_architecture", "naming", "bug_hunting"]}, "required_skill": {"type": ["string", "null"]}}},
     "status": {"enum": ["pending", "ready", "running", "waiting_for_review_children", "succeeded", "failed", "timed_out", "skipped"]},
     "inputs": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
     "effect_capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},

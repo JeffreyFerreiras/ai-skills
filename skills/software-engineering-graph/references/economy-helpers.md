@@ -23,6 +23,8 @@ approval, or aggregates token usage.
 | test_engineer | yes | yes |
 | security_reviewer | yes | no |
 
+For the bug-hunting focus, neither helper is permitted; its assigned review skill must run in place.
+
 All other roles, fixed researchers, specialists, Pull Request Engineer, and reviewer-fanout children
 have no helper authority. Helpers cannot spawn children. Parents retain interpretation, findings,
 implementation, test strategy, and terminal decisions. The Senior Engineer stays the sole source/test

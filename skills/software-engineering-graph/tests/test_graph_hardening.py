@@ -196,6 +196,10 @@ class GraphHardeningTests(GraphCase):
             {"check_id": key, "relevant_inputs": ["docs/engineering-graph.md"], "complete": True} for key in task["required_check_ids"]]})
         self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2", "--coverage-manifest", str(coverage), "--op-id", "enable")
         selected = {}
+        finding_ids = {
+            "code_reviewer": "FIX-001", "code_reviewer_architecture": "FIX-002",
+            "code_reviewer_naming": "FIX-003", "code_reviewer_bug_hunter": "FIX-004", "test_engineer": "FIX-005",
+        }
         def checks(executor, writer, generation):
             for check_id in task["required_check_ids"]:
                 args = ["check", "run", "--run-id", "RUN-1", "--check-id", check_id,
@@ -222,13 +226,14 @@ class GraphHardeningTests(GraphCase):
                 self.assertEqual(2, packet["remaining_allowances"]["delivery_repairs"])
                 self.assertEqual("unknown", packet["cause"])
                 self.assertEqual([], packet["failed_criterion_ids"])
-                self.assertEqual(2, len(packet["origin_reports"]))
+                self.assertEqual(5, len(packet["origin_reports"]))
                 self.assertIn("FIX-001", str(packet["origin_reports"]))
                 self.assertEqual([item for item in writer["effect_capabilities"] if item["effect"].startswith("filesystem")], packet["authorized_scope"])
             checks(writer, writer, generation)
             self.success(writer, "IMPLEMENTED")
             outputs = [{"path": "docs/artifacts/{}-{}.json".format(key, generation), "purpose": "review_report",
-                        "producer_node_key": key, "artifact_kind": "delivery_review"} for key in ("code_reviewer", "test_engineer")]
+                        "producer_node_key": key, "artifact_kind": "delivery_review"} for key in (
+                            "code_reviewer", "code_reviewer_architecture", "code_reviewer_naming", "code_reviewer_bug_hunter", "test_engineer")]
             outputs.append({"path": "docs/artifacts/acceptance-{}.json".format(generation), "purpose": "acceptance_wrapper",
                             "producer_node_key": "supervisor_delivery_consolidation", "artifact_kind": "acceptance_evidence"})
             output_plan = self.inbox_manifest({"schema_version": 1, "kind": "generated_output_plan", "outputs": outputs})
@@ -243,7 +248,7 @@ class GraphHardeningTests(GraphCase):
             self.graphctl("record", "fanout-assessment", "--run-id", "RUN-1", "--fanout-id", fanout["fanout_id"],
                           "--assessment-manifest", str(assessment), "--authority-ref", "authority:test", "--op-id", "assess-" + str(generation))
             tester = None
-            reviewers = [self.claim_raw(), self.claim_raw()]
+            reviewers = [self.claim_raw() for _ in range(5)]
             if stale_reviews and generation == 0:
                 (self.repo / "docs/new-source.txt").write_text("changed during reviews", encoding="utf-8")
             for reviewer in reviewers:
@@ -251,7 +256,7 @@ class GraphHardeningTests(GraphCase):
                 repair = generation == 0 and (reviewer["node_key"] == "code_reviewer" or stale_reviews)
                 self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
                     "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact, "evidence": [],
-                    "findings": [{"finding_id": "FIX-001" if reviewer["node_key"] == "code_reviewer" else "FIX-002", "disposition": "repair"}] if repair else [],
+                    "findings": [{"finding_id": finding_ids[reviewer["node_key"]], "disposition": "repair"}] if repair else [],
                     "decision": "REVISE" if repair or (stale_reviews and generation == 0) else "APPROVE"})
                 if reviewer["node_key"] == "test_engineer":
                     tester = reviewer
@@ -259,7 +264,7 @@ class GraphHardeningTests(GraphCase):
                 checks(tester, writer, generation)
             if generation == 0:
                 self.advance("delivery_collection")
-                dispositions = [{"finding_id": key, "disposition": "repair"} for key in (["FIX-001", "FIX-002"] if stale_reviews else ["FIX-001"])]
+                dispositions = [{"finding_id": key, "disposition": "repair"} for key in (sorted(finding_ids.values()) if stale_reviews else ["FIX-001"])]
                 self.consolidation("delivery", "REPAIR", dispositions=dispositions)
                 self.advance("delivery_consolidation")
                 recovery = self.graphctl("recovery", "show", "--run-id", "RUN-1")
@@ -346,7 +351,8 @@ class GraphHardeningTests(GraphCase):
         self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2", "--coverage-manifest", str(coverage), "--op-id", "enable")
         output_plan = self.inbox_manifest({"schema_version": 1, "kind": "generated_output_plan", "outputs": [
             {"path": "docs/artifacts/" + key + ".json", "purpose": "review_report", "producer_node_key": key,
-             "artifact_kind": "delivery_review"} for key in ("code_reviewer", "test_engineer")]})
+             "artifact_kind": "delivery_review"} for key in (
+                 "code_reviewer", "code_reviewer_architecture", "code_reviewer_naming", "code_reviewer_bug_hunter", "test_engineer")]})
         join = self.open_join("implementation")
         self.graphctl("join", "advance", "--run-id", "RUN-1", "--join-id", join["join_id"],
                       "--generated-output-plan", str(output_plan), "--op-id", "review-boundary")
@@ -358,14 +364,14 @@ class GraphHardeningTests(GraphCase):
         self.graphctl("record", "fanout-assessment", "--run-id", "RUN-1", "--fanout-id", fanout["fanout_id"],
                       "--assessment-manifest", str(assessment), "--authority-ref", "authority:test", "--op-id", "assess")
         refs = []
-        for _ in range(2):
+        for _ in range(5):
             reviewer = self.claim_raw()
             refs.append(next(item["ref"] for item in reviewer["inputs"] if item["kind"] == "evidence_manifest"))
             artifact = self.repo_artifact("delivery_review", reviewer["node_key"])
             self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
                 "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact,
                 "evidence": [], "findings": [], "decision": "APPROVE"})
-        self.assertEqual(refs[0], refs[1])
+        self.assertEqual(len(set(refs)), 1)
         self.advance("delivery_collection")
         collection = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["joins"] if item["join_key"] == "delivery_collection")
         draft = self.graphctl("consolidation", "draft", "--run-id", "RUN-1", "--join-id", collection["join_id"])

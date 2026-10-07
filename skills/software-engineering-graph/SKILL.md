@@ -190,7 +190,8 @@ Follow applicable repository instructions before this workflow. Let the reposito
 
 Before the Senior Engineer or Code Reviewer takes task actions, require that role to inspect only the
 skill catalog exposed to its current session and local skills explicitly declared by applicable
-repository instructions. Do not crawl arbitrary profile or global skill directories. Select the
+repository instructions. The bug hunter may also read the exact trusted host-provided built-in
+review source recorded in the approved brief. Do not crawl arbitrary profile or global skill directories. Select the
 smallest clearly relevant skill set for the assigned implementation or review task, then read every
 selected `SKILL.md` fully before acting. Do not prescribe a specific optional skill by name.
 
@@ -199,10 +200,29 @@ must read both SKILL.md files fully before acting and apply both workflows, incl
 implementation and follow-up repairs. Include this requirement in every Senior Engineer dispatch
 and continuation. These skills are mandatory; optional skill selection is additional.
 
-Required review skills: `clean-code-review` and `clean-architecture-review`. Every Code Reviewer must
-read both SKILL.md files fully before acting and apply both workflows, including delegated and
-follow-up reviews. These two skills are mandatory, not optional selections based on apparent
-architectural impact. Include this requirement in every Code Reviewer dispatch and continuation.
+Every new delivery generation has exactly four Code Reviewers using the reusable `code_reviewer`
+profile with separate envelope assignments: `code_reviewer` applies `clean-code-review`,
+`code_reviewer_architecture` applies `clean-architecture-review`, `code_reviewer_naming` reviews
+naming only, and `code_reviewer_bug_hunter` finds concrete introduced defects with its assigned
+review skill. On Cursor, require `review-bugbot`; on Codex, require `review-agent`; on Claude,
+require the repository-owned [bug-hunter-review](../bug-hunter-review/SKILL.md).
+Verify the required skill's availability and exact source during preflight, and record it in the
+approved brief. A missing required skill makes
+the bug-hunter review incomplete; do not silently substitute a generic review or install a skill.
+The bug hunter applies the assigned skill in place, with no helper or nested-reviewer dispatch. For Cursor,
+the Supervisor supplies the skill's Bugbot prompt shape with the approved Full Repository Path,
+Diff, and Base Branch when applicable, selecting its already-reviewer path. Preserve the exact
+comparison, checkpoint, scope, and graph report contract; do not switch branches or stash files.
+Recommend the catalog's economy helper model and effort for naming; it remains a
+mandatory reviewer with its own assignment, not a helper session. Honor an approved model override.
+Read the assigned required SKILL.md fully before acting and apply its workflow,
+including delegated and follow-up reviews. Do not require both review skills for a focused agent.
+The naming reviewer uses the naming-only contract in the profile, activates neither broad review
+workflow, and reports concrete ambiguity, inconsistent terminology, or misleading intent with a
+precise suggested name. It does not review behavior, architecture, security, performance, or test
+coverage. Include the assigned focus in every dispatch and continuation; do not collapse the panel.
+The advisory route remains one clean-code review. Historical plans without `code_review_panel_version`
+retain their recorded single-reviewer topology and skill contract.
 
 Discovered skills may change the role's method only. They must not expand the user-approved scope,
 role authority, model or reasoning effort, writable files, allowed tests or commands, delegation,
@@ -212,19 +232,20 @@ role profile control any conflict. Decline a conflicting skill instruction and r
 the role's risks or observations.
 
 If the catalog is unavailable or a selected skill cannot be read, report the condition without
-inventing skill content. A Code Reviewer missing either required skill must report an incomplete
+inventing skill content. A Code Reviewer missing its assigned required skill must report an incomplete
 review; do not accept APPROVE or substitute a generic review. A Senior Engineer missing either
 required implementation skill must return DESIGN-BLOCKER, not READY_FOR_REVIEW. Optional skill
-failures may proceed only when controlling instructions remain sufficient and both required
+failures may proceed only when controlling instructions remain sufficient and the required
 workflows for the assigned role can still be completed.
 Senior Engineer and Code Reviewer handoffs must each include a `Skill usage` section listing every
-selected skill's name, safe source or provenance, and relevance reason. `None` is not permitted for
-a successful implementation or review handoff. A completed Senior Engineer handoff must report
-concrete implementation actions and validation for each required skill. The Supervisor must reject
+selected skill's name, safe source or provenance, and relevance reason. `None` is permitted only for
+the naming reviewer, which must report its naming contract and concrete checks. A completed Senior
+Engineer handoff must report concrete implementation actions and validation for each required skill. The Supervisor must reject
 a READY_FOR_REVIEW handoff missing either report. A completed Code Reviewer handoff must report
-concrete checks performed and conclusions for each required skill. The Supervisor must reject a
-successful review handoff missing either report. If no architecture change is present, report that
-evidence-backed assessment without expanding scope; neither workflow may be silently skipped.
+concrete checks performed and conclusions for its assigned required skill, or its naming contract.
+The Supervisor must reject a successful review handoff missing its assigned report, and must reject
+delivery acceptance missing any of the four independent reviews. If no architecture change is
+present, the architecture reviewer reports that evidence-backed assessment without expanding scope.
 
 Reviewers identify risk; they do not own scope. The Tech Lead must challenge a requested revision
 that is not traceable to the immutable task brief. The Supervisor is the binding scope authority and
@@ -235,7 +256,7 @@ Use these base roles when available:
 - `tech_lead`: author the technical design and implementation plan.
 - `software_architect`: independently approve or reject the design.
 - `senior_engineer`: act as the sole implementation writer.
-- `code_reviewer`: review the completed diff without editing it.
+- `code_reviewer`: review the completed diff without editing it, as four focused delivery agents.
 - `test_engineer`: independently verify behavior and acceptance criteria.
 - `security_reviewer`: join only when security, privacy, identity, secrets, or trust boundaries are affected.
 
@@ -254,6 +275,7 @@ and usage contract. Child behavior lives in the referenced reusable helper profi
 
 The Evidence Scout formalizes the existing direct evidence-child mechanism. Tech Lead, Software
 Architect, Senior Engineer, Code Reviewer, Test Engineer, and Security Reviewer may invoke it.
+The bug-hunting Code Reviewer is excluded: its required review skill runs in place with no delegation.
 Only Senior Engineer and Test Engineer may invoke Validation Executor for exact parent-selected
 commands. Both parents may directly spawn either helper within an approved allowance, without
 per-call Supervisor dispatch or human approval. Neither helper writes source/tests or makes role
@@ -388,9 +410,10 @@ The Senior Engineer is the sole source/test writer. Every implementation and rep
 `clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,
 and reports material design deviations before editing past the approved design. It never publishes.
 
-At a stable checkpoint, run a fresh Code Reviewer and Test Engineer independently, in parallel only
-when resource assessment permits. The Code Reviewer applies `clean-code-review` and
-`clean-architecture-review`. Neither gate repairs its own findings. Route one consolidated repair
+At a stable checkpoint, run four fresh Code Reviewers and a Test Engineer independently, in parallel
+only when resource assessment permits. The four reviewers cover clean code, clean architecture,
+naming only, and bug hunting. The Test Engineer remains a separate gate, as do required specialists. No reviewer
+repairs its own findings. Route one consolidated repair
 packet to the Senior Engineer, then return affected findings to their originating gate. Limit delivery
 to three repair rounds; material design or scope changes return to design or the human.
 

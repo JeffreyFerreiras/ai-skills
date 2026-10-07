@@ -15,7 +15,7 @@ from .contracts import (
 )
 from .config import engine_version_compatible
 from .evidence import reverify_artifact
-from .execution import reconstruct_execution_plan, plan_approval_digest
+from .execution import CODE_REVIEW_PANEL, reconstruct_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST
 from .ids import canonical_bytes, sha256_bytes, stable_id
 from .reviewer_delegation import (
@@ -78,6 +78,9 @@ def _operation_responses(connection: sqlite3.Connection, run_id: str) -> List[Ma
 
 
 def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[str, Any]) -> None:
+    execution_plan = json.loads(connection.execute(
+        "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
+    ).fetchone()[0])
     expected_nodes: Set[str] = set()
     expected_joins: Set[str] = set()
     expected_fanouts: Set[str] = set()
@@ -158,7 +161,7 @@ def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[s
             specs = (
                 design_review_nodes(policy, tags, join["generation"])
                 if join["stage"] == "design"
-                else delivery_review_nodes(policy, tags, join["generation"])
+                else delivery_review_nodes(policy, tags, join["generation"], execution_plan)
             )
             expected_nodes.update(branch_id(run["run_id"], run["policy_digest"], spec) for spec in specs)
             expected_joins.add(stable_id(
@@ -319,6 +322,7 @@ def _validate_review_delegation(
         parent = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (request["parent_branch_id"],)).fetchone()
         attempt = connection.execute("SELECT * FROM branch_attempts WHERE branch_id=? AND attempt_id=?", (request["parent_branch_id"], request["parent_attempt_id"])).fetchone()
         if (parent is None or parent["role"] != "code_reviewer" or parent["depth"] != 0
+                or parent["node_key"] in {"code_reviewer_naming", "code_reviewer_bug_hunter"}
                 or attempt is None or attempt["claim_digest"] != request["parent_claim_digest"]
                 or attempt["outcome"] != "delegated"):
             raise StateError("DELEGATION_PARENT_STATE_INVALID")
@@ -1185,7 +1189,11 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
         else:
             if int(node["depth"]) != 0 or any(node[key] is not None for key in ("parent_branch_id", "request_slot_id", "assignment_id", "ordinal")):
                 raise StateError("NODE_BINDING_INVALID")
-            template = policy["node_templates"].get(node["node_key"])
+            if (node["node_key"] in CODE_REVIEW_PANEL and node["node_key"] != "code_reviewer"
+                    and execution_plan.get("code_review_panel_version") != 1):
+                raise StateError("NODE_BINDING_INVALID")
+            template_key = "code_reviewer" if node["node_key"] in CODE_REVIEW_PANEL else node["node_key"]
+            template = policy["node_templates"].get(template_key)
             if template is None or node["role"] != template["role"] or node["stage"] not in template["stages"] or not node["mandatory"]:
                 raise StateError("NODE_BINDING_INVALID")
             spec = NodeSpec(node["node_key"], node["role"], node["stage"], node["generation"], True, node["specialist_tag"])
@@ -1267,7 +1275,7 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
         immutable_keys = {
             "schema_version", "run_id", "branch_id", "node_instance_id", "node_key", "role",
             "model", "reasoning_effort", "dispatch_runtime", "mandatory", "generation", "inputs", "effect_capabilities", "output_contract",
-            "stopping_condition", "retry_count", "max_retries", "research_assignment",
+            "stopping_condition", "retry_count", "max_retries", "research_assignment", "code_review_assignment",
             "attempt_id", "claim_digest", "lease_expires_at",
         }
         if set(stored_envelope) != set(expected_envelope) or any(
@@ -1428,6 +1436,9 @@ def _expected_join_node_keys(join: Mapping[str, Any], run: Mapping[str, Any], po
 
 
 def _validate_joins(connection: sqlite3.Connection, run: Mapping[str, Any], policy: Mapping[str, Any]) -> None:
+    execution_plan = json.loads(connection.execute(
+        "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
+    ).fetchone()[0])
     for join in connection.execute("SELECT * FROM joins WHERE run_id=?", (run["run_id"],)):
         binding = JOIN_BINDINGS.get(join["join_key"])
         if binding != (join["kind"], join["stage"]) or join["status"] not in {"open", "sealed"}:
@@ -1440,6 +1451,8 @@ def _validate_joins(connection: sqlite3.Connection, run: Mapping[str, Any], poli
             raise StateError("JOIN_MEMBERSHIP_INVALID")
         actual_keys = {member["node_key"] for member in members}
         expected_keys = _expected_join_node_keys(join, run, policy)
+        if join["join_key"] == "delivery_collection" and execution_plan.get("code_review_panel_version") == 1:
+            expected_keys.update(CODE_REVIEW_PANEL)
         senior_redesign_collection = False
         if join["join_key"] == "delivery_collection" and actual_keys == {"senior_engineer"} and len(members) == 1:
             try:
@@ -1548,6 +1561,11 @@ def _validate_route_and_topology(
             ("test_engineer", "delivery"),
             ("supervisor_delivery_consolidation", "delivery"),
         })
+        execution_plan = json.loads(connection.execute(
+            "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
+        ).fetchone()[0])
+        if execution_plan.get("code_review_panel_version") == 1:
+            allowed_bindings.update((key, "delivery") for key in CODE_REVIEW_PANEL)
         allowed_bindings.update(
             (policy["specialists"][tag]["node_key"], "delivery")
             for tag in tags if tag in policy["specialists"]

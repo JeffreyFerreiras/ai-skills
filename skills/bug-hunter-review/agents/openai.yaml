@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bug Hunter Review"
+  short_description: "Find concrete bugs introduced by a change"
+  default_prompt: "Use $bug-hunter-review to review this change for concrete introduced bugs."

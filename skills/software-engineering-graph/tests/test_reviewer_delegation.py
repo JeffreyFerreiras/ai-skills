@@ -409,10 +409,12 @@ class ReviewerDelegationFlowTests(GraphCase):
         policy_path = self.repo / ".codex" / "engineering-graph.json"
         policy = json.loads(policy_path.read_text(encoding="utf-8"))
         policy["reviewer_delegation"] = policy_config()
+        # New panels may delegate specialist security work, never a fifth code review.
+        policy["reviewer_delegation"]["assignments"][0]["role"] = "security_reviewer"
         policy_path.write_text(json.dumps(policy), encoding="utf-8")
         self.policy_bytes = policy_path.read_bytes()
 
-    def _to_delivery_review(self, max_rounds=1, delegation_task=None, task=None):
+    def _to_delivery_review(self, max_rounds=1, delegation_task=None, task=None, primary_key="code_reviewer"):
         task = task or self.task()
         task["reviewer_delegation"] = delegation_task or task_config()
         task["reviewer_delegation"]["limits"]["max_request_rounds"] = max_rounds
@@ -422,13 +424,25 @@ class ReviewerDelegationFlowTests(GraphCase):
         architect = self.claim(); self.success(architect, "APPROVE"); self.advance("design_collection")
         self.consolidation("design", "APPROVE"); self.advance("design_consolidation")
         engineer = self.claim(); self.success(engineer, "IMPLEMENTED"); self.advance("implementation")
-        first = self.claim()
-        if first["role"] == "code_reviewer":
-            return first
-        self.success(first, "APPROVE")
-        reviewer = self.claim()
-        self.assertEqual(reviewer["role"], "code_reviewer")
-        return reviewer
+        primary = None
+        for _ in range(5):
+            reviewer = self.claim()
+            if reviewer["node_key"] == primary_key:
+                primary = reviewer
+            else:
+                self.success(reviewer, "APPROVE")
+        self.assertIsNotNone(primary)
+        return primary
+
+    def test_bug_hunter_cannot_delegate_its_builtin_review(self):
+        parent = self._to_delivery_review(primary_key="code_reviewer_bug_hunter")
+        with self.assertRaisesRegex(StateError, "DELEGATION_PARENT_FORBIDDEN"):
+            self._delegate_round(parent, 1, "BUG-001")
+
+    def test_naming_review_cannot_request_specialist_reviewers(self):
+        parent = self._to_delivery_review(primary_key="code_reviewer_naming")
+        with self.assertRaisesRegex(StateError, "DELEGATION_PARENT_FORBIDDEN"):
+            self._delegate_round(parent, 1, "NAME-001")
 
     def test_usage_counts_parent_child_and_resumed_attempt_once(self):
         from graph_engine.ids import sha256_bytes
@@ -469,7 +483,7 @@ class ReviewerDelegationFlowTests(GraphCase):
         approved = next(item for item in parent["inputs"] if item["kind"] == "implementation_handoff")
         return {key: approved[key] for key in ("kind", "sha256")}
 
-    def _assert_dispatch_redacted(self, envelope, expected_capabilities=None):
+    def _assert_dispatch_redacted(self, envelope, expected_capabilities=None, expected_code_review_assignment=None):
         forbidden_keys = {"authority_ref", "actor", "host_identity", "operation_id", "budget",
                           "evidence_manifest_ref", "result_artifact", "attempts", "authority",
                           "capabilities"}
@@ -511,6 +525,8 @@ class ReviewerDelegationFlowTests(GraphCase):
         self.assertTrue(context["content"]["nested_collections"])
         if expected_capabilities is not None:
             self.assertEqual(envelope["effect_capabilities"], expected_capabilities)
+        if expected_code_review_assignment is not None:
+            self.assertEqual(envelope["code_review_assignment"], expected_code_review_assignment)
         self.assertEqual(set(envelope), {
             "schema_version", "run_id", "branch_id", "node_instance_id", "node_key", "role",
             "model", "reasoning_effort", "mandatory", "generation", "status",
@@ -518,7 +534,8 @@ class ReviewerDelegationFlowTests(GraphCase):
             "review_continuation", "attempt_id", "claim_digest", "lease_expires_at",
             "artifact_ref", "evidence", "decision", "retry_count", "max_retries",
             "failure_code", "started_at", "finished_at",
-        } | ({"claim_token"} if "claim_token" in envelope else set()))
+        } | ({"claim_token"} if "claim_token" in envelope else set())
+          | ({"code_review_assignment"} if "code_review_assignment" in envelope else set()))
 
     def _delegate_round(self, parent, round_number, finding_id, claim_parent=True):
         evidence = self._approved_evidence(parent)
@@ -562,7 +579,7 @@ class ReviewerDelegationFlowTests(GraphCase):
                    "evidence_ids": ["E-1"]}
         self.record(child, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": child["branch_id"], "status": "succeeded",
-            "output_kind": "delivery_review",
+            "output_kind": child["output_contract"]["artifact_kind"],
             "evidence": [], "decision": "REVISE", "findings": [finding],
         })
         if not claim_parent:
@@ -572,6 +589,24 @@ class ReviewerDelegationFlowTests(GraphCase):
             self.success(resumed, "APPROVE")
             resumed = self.claim()
         return recorded, resumed, preliminary, request
+
+    def _assert_continuation_preserves_focus(self, primary_key):
+        parent = self._to_delivery_review(primary_key=primary_key)
+        expected = dict(parent["code_review_assignment"])
+        self._delegate_round(parent, 1, "REV-FOCUS", claim_parent=False)
+        for command in (("ready", "--all"), ("next", "--all")):
+            visible = self.graphctl(*command, "--run-id", "RUN-1")["branches"]
+            dispatch = next(item for item in visible if item["branch_id"] == parent["branch_id"])
+            self._assert_dispatch_redacted(dispatch, expected_code_review_assignment=expected)
+        claimed = self.claim()
+        self.assertEqual(claimed["branch_id"], parent["branch_id"])
+        self._assert_dispatch_redacted(claimed, expected_code_review_assignment=expected)
+
+    def test_clean_code_continuations_preserve_assigned_focus(self):
+        self._assert_continuation_preserves_focus("code_reviewer")
+
+    def test_architecture_continuations_preserve_assigned_focus(self):
+        self._assert_continuation_preserves_focus("code_reviewer_architecture")
 
     def test_resumed_reviewer_dispatch_uses_explicit_read_only_allowlist(self):
         policy = json.loads((self.repo / ".codex" / "engineering-graph.json").read_text(encoding="utf-8"))
@@ -710,13 +745,13 @@ class ReviewerDelegationFlowTests(GraphCase):
             with self.assertRaises(ContractError):
                 self.record(child, {
                     "schema_version": 1, "run_id": "RUN-1", "branch_id": child["branch_id"], "status": "succeeded",
-                    "output_kind": "delivery_review", "evidence": [],
+                    "output_kind": child["output_contract"]["artifact_kind"], "evidence": [],
                     "decision": "REVISE", "findings": invalid,
                 })
             self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["state_revision"], before)
         self.record(child, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": child["branch_id"], "status": "succeeded",
-            "output_kind": "delivery_review", "evidence": [], "decision": "REVISE", "findings": [finding],
+            "output_kind": child["output_contract"]["artifact_kind"], "evidence": [], "decision": "REVISE", "findings": [finding],
         })
         ready = self.graphctl("next", "--run-id", "RUN-1", "--all")
         ready_parent = next(item for item in ready["branches"] if item["branch_id"] == parent["branch_id"])
@@ -1139,13 +1174,13 @@ class ReviewerDelegationFlowTests(GraphCase):
                            "fix_variant": "serialize", "evidence_ids": ["E-1"]}
         self.record(succeeded, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": succeeded["branch_id"],
-            "status": "succeeded", "output_kind": "delivery_review", "evidence": [],
+            "status": "succeeded", "output_kind": succeeded["output_contract"]["artifact_kind"], "evidence": [],
             "decision": "REVISE", "findings": [success_finding],
         })
         failed = claim_delegated()
         self.record(failed, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": failed["branch_id"],
-            "status": "failed", "output_kind": "delivery_review", "evidence": [],
+            "status": "failed", "output_kind": failed["output_contract"]["artifact_kind"], "evidence": [],
             "failure_code": "REVIEW_FAILED", "findings": [],
         })
         timed_out = claim_delegated()
@@ -1166,7 +1201,7 @@ class ReviewerDelegationFlowTests(GraphCase):
             if retried["branch_id"] == failed["branch_id"]:
                 self.record(retried, {
                     "schema_version": 1, "run_id": "RUN-1", "branch_id": retried["branch_id"],
-                    "status": "failed", "output_kind": "delivery_review", "evidence": [],
+                    "status": "failed", "output_kind": retried["output_contract"]["artifact_kind"], "evidence": [],
                     "failure_code": "REVIEW_FAILED", "findings": [],
                 })
             else:
