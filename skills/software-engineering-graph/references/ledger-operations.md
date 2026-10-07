@@ -121,6 +121,10 @@ receipts or parent judgments.
 
 ### Optional reviewer delegation
 
+New plans require four fixed Code Reviewer gates: clean code, clean architecture, naming only, and bug hunting.
+Conditional assignments in these plans may add Security Reviewers, not extra Code Reviewers.
+Historical plans without `code_review_panel_version` retain their prior delegation behavior.
+
 Delegation is disabled unless both the selected policy and task brief provide
 `reviewer_delegation`. An enabled execution-plan v2 lists every conditional assignment and its exact
 role, model, effort, lens, prompt template, reason/acceptance/evidence/scope ceilings, derived

@@ -66,7 +66,7 @@ Setup: a v2 or v3 delivery task names its Jira source, freezes complete acceptan
 resolved implementation and architecture decisions, has no unresolved items or human decisions,
 and remains within the delivery-only risk, scope, uncertainty, and security limits.
 User: "The Jira is complete. Run only the engineer, review, and test loop."
-Expected: `delivery_only` runs Impact Mapper, Senior Engineer, independent Code Reviewer and Test
+Expected: `delivery_only` runs Impact Mapper, Senior Engineer, four independent Code Reviewers and Test
 Engineer, required delivery specialists, Supervisor consolidation, and closure. Repository evidence
 that contradicts readiness escalates to `full_delivery`; delivery `REDESIGN` inserts fresh design
 gates before a new Senior Engineer generation.
@@ -154,6 +154,23 @@ Expected: advance to applicable closure/publication gates. Variant: a new releva
 run affected regression checks and state why more verification is needed.
 Fail: repeatedly runs the same checks, adds implementation-mirroring tests, runs a broad suite with
 no identified reason, or skips a required check merely because a focused test passed.
+
+### R01: Four focused Code Reviewers
+
+Setup: a newly approved panel plan and a stable implementation diff. Include a behavioral defect,
+a dependency-boundary leak, and a misleading identifier in separate locations. Use fresh agents.
+Expected: exactly four Code Reviewer agents return separate reports. The clean-code agent applies
+`clean-code-review`; the architecture agent applies `clean-architecture-review`; the naming agent
+checks identifiers and terminology only, without activating either broad workflow. The bug hunter
+applies the verified assigned skill: `review-bugbot` on Cursor, `review-agent` on Codex, or the
+repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude. It reports
+concrete introduced bugs with triggering paths and file/line evidence, without nested reviewers
+or helpers. Missing required skill content prevents a completed bug-hunter review. The Test
+Engineer and required specialists remain separate. Missing any panel report prevents acceptance.
+Fail: one agent applies both skills in place of separate reviews, a fifth Code Reviewer starts,
+the naming report reviews behavior or architecture, or subjective naming preferences become blockers.
+Variant: resume a genuine historical single-reviewer checkpoint. Preserve its recorded topology and
+skill contract; do not silently insert the new panel. These scenarios have not been run on a live host.
 
 ## Helper scenarios
 

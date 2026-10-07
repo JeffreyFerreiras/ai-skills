@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 
 from .ids import stable_id
 from .config import ENGINE_RESEARCH_NODES, role_capability_allowed
-from .execution import assignment_for, build_execution_plan
+from .execution import CODE_REVIEW_PANEL, assignment_for, build_execution_plan
 
 
 @dataclass(frozen=True)
@@ -141,15 +141,15 @@ def validate_fanout_ordering(
     ))
 
 
-def _template(policy: Mapping[str, Any], key: str) -> Mapping[str, Any]:
-    return policy["node_templates"][key]
+def node_template(policy: Mapping[str, Any], key: str) -> Mapping[str, Any]:
+    return policy["node_templates"]["code_reviewer" if key in CODE_REVIEW_PANEL else key]
 
 
 def make_node(
     policy: Mapping[str, Any], key: str, stage: str, generation: int,
     mandatory: bool = True, specialist_tag: Optional[str] = None,
 ) -> NodeSpec:
-    template = _template(policy, key)
+    template = node_template(policy, key)
     return NodeSpec(key, template["role"], stage, generation, mandatory, specialist_tag)
 
 
@@ -202,9 +202,15 @@ def design_review_nodes(policy: Mapping[str, Any], tags: Sequence[str], generati
     return [make_node(policy, "architect", "design", generation)] + selected_specialists(policy, tags, "design", generation)
 
 
-def delivery_review_nodes(policy: Mapping[str, Any], tags: Sequence[str], generation: int) -> List[NodeSpec]:
+def delivery_review_nodes(
+    policy: Mapping[str, Any], tags: Sequence[str], generation: int,
+    execution_plan: Optional[Mapping[str, Any]] = None,
+) -> List[NodeSpec]:
+    review_keys = ("code_reviewer",)
+    if execution_plan is None or execution_plan.get("code_review_panel_version") == 1:
+        review_keys = tuple(CODE_REVIEW_PANEL)
     return [
-        make_node(policy, "code_reviewer", "delivery", generation),
+        *(make_node(policy, key, "delivery", generation) for key in review_keys),
         make_node(policy, "test_engineer", "delivery", generation),
     ] + selected_specialists(policy, tags, "delivery", generation)
 
@@ -273,7 +279,7 @@ def envelope(
     retry_count: int = 0,
     execution_plan: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
-    template = _template(policy, spec.key)
+    template = node_template(policy, spec.key)
     plan = execution_plan or build_execution_plan(run_id, task)
     assignment = assignment_for(plan, spec.key)
     effective_capabilities = effective_role_capabilities(policy, task, spec.role)
@@ -282,6 +288,8 @@ def envelope(
         if (spec.stage not in {"advisory", "research"}
             or cap["effect"] in {"filesystem_read", "external_read"})
     ]
+    if assignment.get("code_review_assignment", {}).get("focus") == "naming":
+        capabilities = [cap for cap in capabilities if cap["effect"] in {"filesystem_read", "external_read"}]
     output_contract = dict(template["output_contract"])
     max_retries = int(template["max_retries"])
     result = {
@@ -317,6 +325,8 @@ def envelope(
     }
     if "dispatch_runtime" in assignment:
         result["dispatch_runtime"] = assignment["dispatch_runtime"]
+    if "code_review_assignment" in assignment:
+        result["code_review_assignment"] = dict(assignment["code_review_assignment"])
     if spec.key in ENGINE_RESEARCH_NODES:
         totals = task["inspection_budget"]
         first = spec.key == "design_research_architecture"

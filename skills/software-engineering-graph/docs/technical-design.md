@@ -475,12 +475,24 @@ DESIGN-BLOCKER; the Supervisor rejects READY_FOR_REVIEW without both reports. Ar
 does not justify additional layers, abstractions, or scope. This is an instruction-level handoff
 requirement, not a new engine decision or schema field.
 
-The Code Reviewer role requires both `clean-code-review` and `clean-architecture-review` on every
-assignment, including delegated and follow-up reviews. Both workflows must be applied within the
-assigned scope and documented in `Skill usage` with concrete checks and conclusions. A missing or
-unreadable required skill makes review incomplete; the Supervisor rejects approval without both
-reports. This is an instruction-level handoff requirement, not a new engine decision or schema field.
-Optional skill discovery remains bounded, and no architecture scope expansion is authorized.
+New execution plans bind `code_review_panel_version: 1`. Each delivery generation creates exactly
+four mandatory nodes sharing the `code_reviewer` profile and capability ceiling: `code_reviewer`
+applies `clean-code-review`, `code_reviewer_architecture` applies `clean-architecture-review`, and
+`code_reviewer_naming` reviews naming only, and `code_reviewer_bug_hunter` applies the host's
+assigned defect review (`review-bugbot` on Cursor, `review-agent` on Codex, or the repository-owned
+[bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude). Each has a separate stable identity, model/effort
+assignment, review artifact, and decision. Their node templates derive from the existing policy's
+Code Reviewer template, so no profile or policy migration is required. Envelopes bind the focus
+and required skill in `code_review_assignment`. The delivery join requires all four plus the
+Test Engineer and selected specialists. Optional delegation cannot add another Code Reviewer.
+Missing an assigned skill or report makes that review incomplete. The naming reviewer reports its
+explicit contract and concrete naming checks, with no broad review skill required. Historical plans
+without the marker reconstruct with their original topology, assignments, digests, and skill contract.
+The advisory route remains one clean-code review. Optional skill discovery stays within each focus.
+The Supervisor verifies and records the required skill's exact source before bug-hunter dispatch.
+The bug hunter reviews in place and cannot spawn helpers or nested reviewers. Cursor receives
+the built-in's already-reviewer prompt shape bound to the approved repository and comparison.
+An unavailable required skill prevents a completed bug-hunter review; no generic fallback is claimed.
 
 Changes must preserve unrelated work, remain within approved files and behavior, add no dependency
 or packaging system, and avoid generated artifacts. Approved implementation publication follows the

@@ -54,10 +54,19 @@ the roles the work needs:
   Every implementation and follow-up repair must apply both `clean-code` and
   `clean-architecture-code`, reporting concrete actions and validation for each. A missing required
   skill blocks READY_FOR_REVIEW; architecture guidance stays within the approved design.
-- **Code Reviewer** independently reviews the completed change.
-- Every Code Reviewer must apply both `clean-code-review` and `clean-architecture-review`, including
-  delegated and follow-up reviews, and report the checks and conclusions from each. Missing either
-  skill makes the review incomplete; the Supervisor cannot accept approval without both reports.
+- **Four Code Reviewers** independently review the completed change: one applies `clean-code-review`,
+  one applies `clean-architecture-review`, one reviews naming only, and one hunts concrete introduced
+  bugs using Cursor's built-in `review-bugbot`, Codex's built-in `review-agent`, or the repository-owned
+  [bug-hunter-review](../bug-hunter-review/SKILL.md) on Claude. They share the reusable
+  `code_reviewer` profile but receive separate focus assignments, branch identities, and reports.
+  Each skill-based reviewer reports the checks and conclusions from its assigned skill. The naming
+  reviewer reports concrete naming checks and does not activate either broad review workflow.
+  The Supervisor cannot accept delivery without all four independent reviews.
+  The naming-only reviewer defaults to the catalog's economy model: GPT-6.1 Sol `low` on Codex,
+  Sonnet 5.5 `low` on Claude, or Gemini 3.8 Flash `low` on Cursor. Model overrides remain available.
+  The bug hunter retains the review model recommendation, uses its assigned skill in place, and cannot
+  spawn nested reviewers. Verify the required skill source before dispatch; missing content makes
+  its review incomplete. Local built-in files do not prove exposure or enforcement in another host.
 - **Test Engineer** verifies the acceptance criteria and regression evidence.
 - **Security Reviewer** joins when security, privacy, identity, secrets, or trust boundaries are
   affected.
@@ -87,6 +96,11 @@ and a typed request using only approved assignment, reason, acceptance, and evid
 Supervisor alone dispatches engine-managed graph nodes and conditional reviewer-fanout children and
 mutates the ledger. Delegated reviewers receive fresh, read-only envelopes and cannot create another
 reviewer-fanout level.
+
+New plans bind `code_review_panel_version: 1` and four mandatory delivery assignments. Optional
+delegation may add Security Reviewers, but cannot add Code Reviewers beyond this panel. Historical
+plans without the marker retain their recorded single-reviewer topology and delegation behavior.
+The advisory route remains one clean-code review. No additional reusable profiles are installed.
 
 New task/plan v3 proposals include bounded direct helper allowances by default, covered by initial
 plan approval. Actual dispatch depends on useful work, budgets, and verified host capabilities;

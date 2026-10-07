@@ -910,10 +910,10 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(engineer["node_key"], "senior_engineer")
         self.success(engineer, "IMPLEMENTED")
         self.advance("implementation")
-        for _ in range(2):
+        for _ in range(5):
             reviewer = self.claim()
             findings = []
-            if reviewer["role"] == finding_role:
+            if reviewer["node_key"] == finding_role:
                 prefix = "REV" if finding_role == "code_reviewer" else "TEST"
                 findings = [{"finding_id": prefix + "-001", "disposition": disposition}]
             decision = "REVISE" if findings else "APPROVE"
@@ -949,6 +949,42 @@ class CliGoldenTraceTests(GraphCase):
         self.assess_fanout(fanout["fanout_id"])
         ready = self.graphctl("ready", "--run-id", "RUN-1")["branches"]
         self.assertEqual({branch["role"] for branch in ready}, {"code_reviewer", "test_engineer"})
+        reviewers = [branch for branch in ready if branch["role"] == "code_reviewer"]
+        self.assertEqual(len(reviewers), 4)
+        self.assertEqual({branch["code_review_assignment"]["focus"] for branch in reviewers}, {"clean_code", "clean_architecture", "naming", "bug_hunting"})
+
+    def test_delivery_collection_waits_for_each_panel_review(self):
+        self.initialize("delivery", "fast_path")
+        self.impact("fast_path")
+        self.success(self.claim(), "IMPLEMENTED")
+        self.advance("implementation")
+        seen = set()
+        for index in range(5):
+            reviewer = self.claim()
+            seen.add(reviewer["node_key"])
+            self.success(reviewer, "APPROVE")
+            if index < 4:
+                with self.assertRaisesRegex(StateError, "NOT_READY"):
+                    self.advance("delivery_collection")
+        self.assertEqual(seen, {"code_reviewer", "code_reviewer_architecture", "code_reviewer_naming", "code_reviewer_bug_hunter", "test_engineer"})
+        self.advance("delivery_collection")
+        self.consolidation("delivery", "ACCEPT")
+        self.advance("delivery_consolidation")
+
+    def test_panel_focus_cannot_be_changed_in_stored_envelope(self):
+        self.initialize("delivery", "fast_path")
+        self.impact("fast_path")
+        self.success(self.claim(), "IMPLEMENTED")
+        self.advance("implementation")
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.connect(database) as connection:
+            row = connection.execute("SELECT branch_id,envelope_json FROM nodes WHERE node_key='code_reviewer_naming'").fetchone()
+            packet = json.loads(row["envelope_json"])
+            packet["code_review_assignment"] = {"focus": "clean_code", "required_skill": "clean-code-review"}
+            connection.execute("UPDATE nodes SET envelope_json=? WHERE branch_id=?", (json.dumps(packet), row["branch_id"]))
+            connection.commit()
+        with self.assertRaisesRegex(StateError, "ENVELOPE_INVALID"):
+            self.graphctl("status", "--run-id", "RUN-1")
 
     def test_delivery_only_has_writer_then_independent_delivery_gates(self):
         task = self.task_delivery_only(
@@ -1021,7 +1057,7 @@ class CliGoldenTraceTests(GraphCase):
         replacement = self.claim()
         self.assertEqual((replacement["node_key"], replacement["generation"]), ("senior_engineer", 1))
         self.success(replacement, "IMPLEMENTED"); self.advance("implementation", 1)
-        for _ in range(2):
+        for _ in range(5):
             reviewer = self.claim()
             self.assertEqual(reviewer["generation"], 1)
             self.success(reviewer, "APPROVE")
@@ -1268,9 +1304,9 @@ class CliGoldenTraceTests(GraphCase):
         self.advance("design_collection"); self.consolidation("design", "APPROVE"); self.advance("design_consolidation")
         engineer = self.claim(); self.success(engineer, "IMPLEMENTED"); self.advance("implementation")
         seen = set()
-        for _ in range(6):
+        for _ in range(9):
             reviewer = self.claim(); seen.add(reviewer["role"])
-            artifact = self.repo_artifact(reviewer["output_contract"]["artifact_kind"], "missing-decision-" + reviewer["role"])
+            artifact = self.repo_artifact(reviewer["output_contract"]["artifact_kind"], "missing-decision-" + reviewer["node_key"])
             invalid = {
                 "schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
                 "status": "succeeded", "output_kind": reviewer["output_contract"]["artifact_kind"],
