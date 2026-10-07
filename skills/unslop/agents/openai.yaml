@@ -1,0 +1,6 @@
+interface:
+  display_name: "Unslop"
+  short_description: "Remove AI phrasing and filler from writing"
+  default_prompt: "Use $unslop to remove AI phrasing and filler from this text while preserving its meaning and tone."
+policy:
+  allow_implicit_invocation: false

@@ -76,6 +76,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
 | [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
+| [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
 <!-- skill-catalog:end -->
 
