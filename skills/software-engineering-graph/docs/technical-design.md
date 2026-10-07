@@ -498,19 +498,15 @@ Changes must preserve unrelated work, remain within approved files and behavior,
 or packaging system, and avoid generated artifacts. Approved implementation publication follows the
 contract above; profiles, other remote changes, deployment, and release require separate scope.
 
-Only the focused suite below is permitted during implementation:
+Select affected tests from the modules in
+[Contributor validation](../README.md#contributor-validation), with bytecode disabled.
+Run the full focused suite only for broad changes or when the impact cannot be isolated.
+Reuse passing results while the relevant code, configuration, dependencies, and
+environment stay unchanged. An explicit user pause on testing takes precedence.
 
-```powershell
-$env:PYTHONDONTWRITEBYTECODE = '1'
-python -m unittest -v tests.test_contracts tests.test_planner tests.test_validator tests.test_state tests.test_cli tests.test_graph_hardening tests.test_reviewer_delegation
-```
-
-After final review, the Supervisor runs the local read-only hygiene check separately and last:
-
-```powershell
-$env:PYTHONDONTWRITEBYTECODE = '1'
-python -m unittest -v tests.test_standalone_acceptance.StandaloneAcceptanceTests.test_hygiene
-```
+For changes to role inventory, ignored paths, packaging, or repository constraints,
+run the local read-only hygiene check separately and last after final review. The
+contributor validation section gives the commands.
 
 Hygiene checks forbidden artifacts, required ignore patterns, the exact supported nine-profile inventory,
 repository authority wording, skill-discovery guardrails, and absence of stale external requirements.
