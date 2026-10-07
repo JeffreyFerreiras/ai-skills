@@ -17,34 +17,9 @@ POLICY_SOURCE = Path(__file__).parent / "fixtures" / "engineering-graph.json"
 DIGEST = "a" * 64
 
 
-class GraphCase(unittest.TestCase):
+class TaskCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory()
-        # Hosted Windows runners may expose TEMP through an 8.3 path alias.
-        self.root = Path(self.temp.name).resolve()
-        self.repo = self.root / "repo"
-        (self.repo / ".codex").mkdir(parents=True)
-        (self.repo / "docs" / "artifacts").mkdir(parents=True)
-        (self.repo / "docs" / "engineering-graph.md").write_text("# Test graph evidence\n", encoding="utf-8")
-        shutil.copyfile(POLICY_SOURCE, self.repo / ".codex" / "engineering-graph.json")
-        self.skill_root = self.root / "installed-skill"
-        self.skill_root.mkdir()
-        self.runtime_root = self.root / "codex"
-        installed_policy = profile_policy_path(self.repo, self.runtime_root)
-        installed_policy.parent.mkdir(parents=True)
-        os.link(self.repo / ".codex" / "engineering-graph.json", installed_policy)
-        root_override = patch("graph_engine.config.SKILL_ROOT", self.skill_root)
-        root_override.start()
-        self.addCleanup(root_override.stop)
-        runtime_override = patch("graph_engine.config.resolve_state_root", side_effect=lambda explicit=None, **_: explicit or self.runtime_root)
-        runtime_override.start()
-        self.addCleanup(runtime_override.stop)
-        self.policy_bytes = (self.repo / ".codex" / "engineering-graph.json").read_bytes()
-        self.store = StateStore(self.runtime_root)
-        self.counter = 0
-
-    def tearDown(self) -> None:
-        self.temp.cleanup()
+        self.policy_bytes = POLICY_SOURCE.read_bytes()
 
     def task(self, mode: str = "delivery", route: str = "full_delivery", tags: Optional[List[str]] = None) -> Dict[str, Any]:
         return {
@@ -100,6 +75,36 @@ class GraphCase(unittest.TestCase):
             "unresolved_items": [],
         }
         return task
+
+
+class GraphCase(TaskCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        # Hosted Windows runners may expose TEMP through an 8.3 path alias.
+        self.root = Path(self.temp.name).resolve()
+        self.repo = self.root / "repo"
+        (self.repo / ".codex").mkdir(parents=True)
+        (self.repo / "docs" / "artifacts").mkdir(parents=True)
+        (self.repo / "docs" / "engineering-graph.md").write_text("# Test graph evidence\n", encoding="utf-8")
+        shutil.copyfile(POLICY_SOURCE, self.repo / ".codex" / "engineering-graph.json")
+        self.skill_root = self.root / "installed-skill"
+        self.skill_root.mkdir()
+        self.runtime_root = self.root / "codex"
+        installed_policy = profile_policy_path(self.repo, self.runtime_root)
+        installed_policy.parent.mkdir(parents=True)
+        os.link(self.repo / ".codex" / "engineering-graph.json", installed_policy)
+        root_override = patch("graph_engine.config.SKILL_ROOT", self.skill_root)
+        root_override.start()
+        self.addCleanup(root_override.stop)
+        runtime_override = patch("graph_engine.config.resolve_state_root", side_effect=lambda explicit=None, **_: explicit or self.runtime_root)
+        runtime_override.start()
+        self.addCleanup(runtime_override.stop)
+        self.policy_bytes = (self.repo / ".codex" / "engineering-graph.json").read_bytes()
+        self.store = StateStore(self.runtime_root)
+        self.counter = 0
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
 
     def graphctl(self, *args: str):
         return execute(["--repo", str(self.repo), *args], self.store)[0]

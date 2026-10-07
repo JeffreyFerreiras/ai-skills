@@ -14,7 +14,11 @@
 - Do not track cache, bytecode, virtual environment, database, run-state, inbox, secret, environment,
   coverage, build, or temporary artifacts in the source repository. Historical installed-skill
   `policies/` and `state/` directories remain ignored; never stage or sync them.
-- Run only the focused test suite explicitly enumerated in `README.md`, with
-  `PYTHONDONTWRITEBYTECODE=1`. Run hygiene separately and last after final review.
+- Select affected methods, classes, or modules from the test modules listed in
+  `README.md`, with `PYTHONDONTWRITEBYTECODE=1`. Run the full focused suite only for
+  broad changes or when the impact cannot be isolated. Reuse passing results while
+  the relevant code, configuration, dependencies, and environment stay unchanged.
+  Run hygiene separately and last after final review when its checked constraints change.
+  An explicit user pause on testing takes precedence.
 - Do not mutate a profile, consumer repository, or remote system without separately approved scope,
   except writes within the selected runtime home required by an authorized graph run.

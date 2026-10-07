@@ -422,11 +422,42 @@ evaluations, separate from deterministic engine tests; no live Astra results are
 For documentation-only changes, check links, skill structure, and `git diff --check`; engine tests
 are unnecessary. For core engine changes, run the affected tests from the modules below with
 bytecode disabled. Run the full focused suite only when the change spans those modules or its impact
-cannot be isolated:
+cannot be isolated.
+
+- Model catalogs, size assignments, plan reconstruction, and fanout ordering:
+  select cases from `tests.test_planner_unit`. Its task fixture reads the source policy
+  but creates no temporary repository, runtime directories, or ledger.
+- Policy loading, envelope construction, and persisted planner workflows:
+  select cases from `tests.test_planner`. Catalog changes also need affected approval,
+  claim, and resume cases here when they change persisted plan interpretation.
+- Task contracts, schemas, and reference bounds: `tests.test_contracts`.
+- State validation, joins, and closure rules: `tests.test_validator`, plus affected
+  workflows in `tests.test_cli` and `tests.test_graph_hardening`.
+- Dispatch and state transitions: affected classes or methods in `tests.test_cli`.
+- Persistence, recovery, and concurrency: affected cases in `tests.test_state` and
+  `tests.test_graph_hardening`. Keep their real filesystem and transaction checks.
+- Delegated review: `tests.test_reviewer_delegation`, plus affected planner or state
+  checks when the delegation contract changes.
+- Helper registers, check execution, and evidence handling: affected cases in
+  `tests.test_graph_hardening` and `tests.test_contracts`.
+
+Follow the changed code into its callers when selecting cases. The planner unit module
+alone does not verify ledger behavior. Reuse passing results while the relevant code,
+configuration, dependencies, and environment stay unchanged. Review, commit, and push
+do not require a rerun by themselves. An explicit user pause on testing takes precedence.
+
+For example, run one affected planner unit test rather than every planner workflow:
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
-python -m unittest -v tests.test_contracts tests.test_planner tests.test_validator tests.test_state tests.test_cli tests.test_graph_hardening tests.test_reviewer_delegation
+python -m unittest -v tests.test_planner_unit.PlannerUnitTests.test_bug_hunter_binds_host_skill_and_review_model
+```
+
+For broad changes or changes whose impact cannot be isolated, run the full focused suite:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE = '1'
+python -m unittest -v tests.test_contracts tests.test_planner_unit tests.test_planner tests.test_validator tests.test_state tests.test_cli tests.test_graph_hardening tests.test_reviewer_delegation
 ```
 
 For changes that affect the role inventory, ignored paths, packaging, or repository constraints,
