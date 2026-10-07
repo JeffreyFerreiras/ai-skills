@@ -11,32 +11,31 @@ Use Clean Architecture as a constraint on implementation, not as ceremony. Keep 
 
 Use this workflow when the change involves architectural boundaries. For a local naming or readability refactor without boundary changes, use `clean-code`; for review without edits, use `clean-architecture-review`.
 
+General naming, cohesion, abstraction choices, SOLID guidance, and change validation belong to `clean-code`. This skill adds the layer and boundary rules below.
+
 ## Workflow
 
-1. Inspect the existing structure before editing. Identify the current layer names and local conventions; do not impose a four-folder template if the project already has a clear equivalent.
+1. Identify the project's policy and mechanism boundaries. The four circles are schematic, not a required folder or layer count; preserve the dependency rule across the boundaries the project needs.
 2. Name the policy being added or changed. Decide whether it belongs in domain rules, an application use case, an adapter, infrastructure, or composition.
-3. Preserve the dependency rule. Inner code must not import outer code. If control must cross outward, define a port/interface in the inner layer and implement it outward.
-4. Keep boundary data simple. Use DTOs, primitives, value objects, or simple request/response models across layer boundaries. Do not pass framework requests, ORM rows, SDK clients, UI components, or database objects inward.
-5. Add the narrowest abstraction that protects an actual boundary. Avoid interfaces for every class; prefer ports for side effects, policy variation, persistence, external services, and presentation/output boundaries.
-6. Test from the inside out. Cover domain rules and use cases with unit tests before relying on adapter or framework tests.
+3. Preserve the source dependency rule. Inner code must not name outer declarations in imports, signatures, inheritance, annotations, or data formats. Runtime control may flow outward through an inner-owned port implemented outward.
+4. Keep use-case input and output data isolated and simple, in the form most convenient for the inner policy. Map entities and database rows into boundary data instead of passing them through input/output ports. Do not pass framework requests, SDK models, UI components, or database objects inward.
+5. Make domain rules and use cases testable without a UI, database, web server, or external service. Adapter tests cover translation and integration separately; no particular test-writing order is required.
 
 ## Layer Guide
 
-- Domain/entities: enterprise and product rules, invariants, value objects, domain services. No framework, database, HTTP, filesystem, LLM SDK, UI, or environment imports.
-- Application/use cases: user or system workflows. Orchestrate domain objects, transaction boundaries, ports, DTOs, and authorization/policy checks that are application-specific.
+- Domain/entities: the most general enterprise or application business rules and invariants. These may be objects or data structures and functions; they need no particular object model. No framework, database, HTTP, filesystem, LLM SDK, UI, or environment imports.
+- Application/use cases: application-specific business rules and workflows. Orchestrate domain rules, transaction boundaries, ports, DTOs, and application-specific authorization/policy checks. Changes to application workflows should not force changes to general domain rules.
 - Interface adapters: controllers, presenters, mappers, gateways, view models, serializers, and repository adapters. Translate between external formats and application/domain models.
 - Infrastructure/frameworks: database clients, web framework wiring, SDK clients, filesystem/network access, queues, runtime configuration, and dependency injection composition.
 
 ## Implementation Rules
 
-- Put business decisions in names that describe the domain, not the transport or framework.
-- Prefer use cases with one reason to change. A use case may coordinate several collaborators, but should represent one workflow.
 - Define ports close to the use case that owns the need. Let outer adapters depend on those ports.
-- Keep repositories as collections or persistence ports for aggregates/domain concepts, not as generic database pass-throughs.
+- Express persistence ports in terms of the inner policy's needs. Keep SQL, ORM queries, and database row formats in outer persistence adapters; aggregate-based repositories are an option, not a Clean Architecture requirement.
 - Put mapping at boundaries. Do not let ORM entities, JSON payloads, React props, FastAPI/Express request objects, or SDK response types become domain objects.
 - Compose dependencies at the outermost application entry point.
-- When adding an adapter, include failure mapping and retry/timeout policy at the boundary; keep core logic independent of those mechanics.
-- Prefer explicit dependency injection over service locators and hidden globals.
+- Keep technical failure mapping and any required retry/timeout mechanics at the adapter boundary; application-specific failure decisions remain in the use case.
+- Refactor toward boundaries when framework or persistence concerns are already leaking into business rules.
 
 ## Boundary Patterns
 
@@ -48,7 +47,7 @@ adapter implements that port
 infrastructure wires implementation into the use case
 ```
 
-Use direct calls only when the dependency points inward:
+Runtime control can flow outward while source dependencies still point inward. A use case calls its own output port, not a concrete presenter. Examples of inward source dependencies:
 
 ```text
 controller -> use case -> domain
@@ -56,19 +55,20 @@ repository implementation -> application repository port
 presenter -> application output DTO
 ```
 
-## Pragmatic Limits
-
-- Do not add layers that the feature does not need.
-- Do not create an interface with one implementation unless it protects a real boundary or test seam.
-- Do not split an anemic CRUD path into excessive classes just to satisfy a diagram.
-- Do refactor toward boundaries when framework or persistence concerns are already leaking into business rules.
-
 ## Before Finishing
 
-- Verify inner layers have no imports from outer layers.
+- Verify inner layers have no references to outer declarations or outer-owned data formats.
 - Verify use cases depend on abstractions for side effects.
 - Verify DTOs or simple data cross boundaries.
-- Verify tests cover the changed domain rules or use cases.
+- Verify changed domain rules and use cases can be tested without external systems.
+- Check that replacing the UI, database, or framework would leave business rules unchanged; this is a dependency assessment, not a requirement to implement a second adapter.
 - State any intentional boundary compromise and why it is acceptable.
 
-Reference influence: Robert C. Martin's dependency rule and boundary-crossing guidance, plus the linked clean-architecture review skill provided by the user.
+## Use-Case-Centered Structure
+
+Organize architectural modules around the system's use cases rather than letting a web or persistence framework dictate the structure. This concerns architectural organization, not general identifier naming. Keep delivery and storage choices peripheral so they can be deferred or replaced without rewriting business rules; do not replace established technology merely to demonstrate independence.
+
+## Sources
+
+- Robert C. Martin, [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html): dependency rule, policy layers, boundary control and data, and independence from external details.
+- Robert C. Martin, [Screaming Architecture](https://blog.cleancoder.com/uncle-bob/2011/09/30/Screaming-Architecture.html): use-case-centered structure, deferred technology decisions, and independently testable business rules.
