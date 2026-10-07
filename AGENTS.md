@@ -32,6 +32,14 @@ This file is the portable instruction source used by `sync-agents-md`. Keep it u
 - For a material choice that needs user input, offer a short lettered list with the recommended option first.
 - If a skill blocks completion, link its exact instruction, explain the missing requirement, and continue independent authorized work.
 
+## Unslop for chat responses
+
+Use the `unslop` skill's plain-language and brevity rules for chat responses by
+default when the skill is available. Preserve necessary facts, scoped conditions,
+technical meaning, and uncertainty. Keep attention-kind's scanning format where
+useful; it takes precedence over conflicting Unslop style rules. Explicit user
+requests for detail or a specific format take precedence over brevity.
+
 ## Attention kinds
 
 <!-- attention-span:start -->
