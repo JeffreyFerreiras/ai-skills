@@ -14,6 +14,21 @@ from .reviewer_delegation import plan_fragment
 
 TSHIRT_SIZES = ("small", "medium", "large")
 
+# Separate mandatory gates share one reusable profile and read-only authority.
+CODE_REVIEW_PANEL = {
+    "code_reviewer": {"focus": "clean_code", "required_skill": "clean-code-review"},
+    "code_reviewer_architecture": {"focus": "clean_architecture", "required_skill": "clean-architecture-review"},
+    "code_reviewer_naming": {"focus": "naming", "required_skill": None},
+    "code_reviewer_bug_hunter": {"focus": "bug_hunting", "required_skill": "review-agent"},
+}
+
+BUG_HUNTER_SKILLS = {
+    "codex": "review-agent",
+    "codex-astra": "review-agent",
+    "cursor": "review-bugbot",
+    "claude": "bug-hunter-review",
+}
+
 # Role intelligence is host-agnostic. Catalogs map these classes onto vendor IDs.
 CLASS_ASSIGNMENTS: Dict[str, Dict[str, Tuple[str, str]]] = {
     "small": {
@@ -93,6 +108,9 @@ NODE_ROLES = {
     "architect": "software_architect",
     "senior_engineer": "senior_engineer",
     "code_reviewer": "code_reviewer",
+    "code_reviewer_architecture": "code_reviewer",
+    "code_reviewer_naming": "code_reviewer",
+    "code_reviewer_bug_hunter": "code_reviewer",
     "test_engineer": "test_engineer",
     "audio_realtime_specialist": "audio_realtime_specialist",
     "ios_platform_specialist": "ios_platform_specialist",
@@ -139,6 +157,8 @@ def _class_for_node(node_key: str, size: str) -> Tuple[str, str]:
 
 
 def _dispatch_when(node_key: str, task: Mapping[str, Any]) -> str:
+    if node_key in CODE_REVIEW_PANEL:
+        node_key = "code_reviewer"
     route_overrides = DISPATCH_WHEN_BY_MINIMUM_ROUTE.get(node_key, {})
     return route_overrides.get(task["minimum_route"], DISPATCH_WHEN[node_key])
 
@@ -262,7 +282,7 @@ def build_execution_plan(
     delegation = task.get("reviewer_delegation")
     for assignment in delegation["assignments"] if delegation else []:
         require_active_model(assignment["model"])
-    return _build_execution_plan(run_id, task, requested_size, host, revision)
+    return _build_execution_plan(run_id, task, requested_size, host, revision, panel_version=1)
 
 
 def reconstruct_execution_plan(
@@ -275,12 +295,16 @@ def reconstruct_execution_plan(
     if "catalog_revision" in stored_plan:
         if type(revision) is not int or revision not in SUPPORTED_CATALOG_REVISIONS.get(host, ()):
             raise ValueError("CATALOG_REVISION_INVALID")
-    return _build_execution_plan(run_id, task, requested_size, host, revision)
+    panel_version = stored_plan.get("code_review_panel_version")
+    if "code_review_panel_version" in stored_plan and (type(panel_version) is not int or panel_version != 1):
+        raise ValueError("CODE_REVIEW_PANEL_VERSION_INVALID")
+    return _build_execution_plan(run_id, task, requested_size, host, revision, panel_version)
 
 
 def _build_execution_plan(
     run_id: str, task: Mapping[str, Any], requested_size: Optional[str],
     host: str, catalog_revision: Optional[int],
+    panel_version: Optional[int] = None,
 ) -> Dict[str, Any]:
     task_schema_version = task["schema_version"]
     if task_schema_version == 1:
@@ -298,10 +322,17 @@ def _build_execution_plan(
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     overrides = validate_model_overrides(task.get("model_overrides", {}))
+    if panel_version is not None and any(
+        item["role"] == "code_reviewer"
+        for item in (task.get("reviewer_delegation") or {}).get("assignments", [])
+    ):
+        raise ValueError("CODE_REVIEW_PANEL_EXTRA_REVIEWER_FORBIDDEN")
     if overrides and catalog_revision not in {3, 4, 5, 6, 7, 8, 9}:
         raise ValueError("MODEL_OVERRIDES_REQUIRE_CATALOG_3")
     assignments = []
     for node_key in sorted(NODE_ROLES):
+        if node_key in CODE_REVIEW_PANEL and node_key != "code_reviewer" and panel_version is None:
+            continue
         role = NODE_ROLES[node_key]
         intelligence_class, requested_effort = _class_for_node(node_key, size)
         if host == "codex-astra" and catalog_revision == ASTRA_CATALOG_REVISION and node_key in ASTRA_CORE_ASSIGNMENTS:
@@ -311,9 +342,14 @@ def _build_execution_plan(
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
         if catalog_revision in {3, 4, 5, 6, 7, 8, 9} and role != "supervisor":
-            workload = "helper" if role == "impact_mapper" else "review" if node_key in {
-                "architect", "code_reviewer", "security_reviewer", "release_operations_reviewer",
-            } else "implementation"
+            if role == "impact_mapper" or node_key == "code_reviewer_naming":
+                workload = "helper"
+            elif node_key in {
+                "architect", *CODE_REVIEW_PANEL, "security_reviewer", "release_operations_reviewer",
+            }:
+                workload = "review"
+            else:
+                workload = "implementation"
             model, effort = _selected_pair(host, catalog_revision, overrides, node_key, workload)
             intelligence_class = "economy" if workload == "helper" else "reasoning"
             dispatch = selected_dispatch_model(host, model, effort, catalog_revision)
@@ -336,6 +372,11 @@ def _build_execution_plan(
         }
         if catalog_revision == 9 and model == MUSE_MODEL:
             assignment["dispatch_runtime"] = "opencode-cli"
+        if panel_version is not None and node_key in {*CODE_REVIEW_PANEL, "advisory_reviewer"}:
+            focus_key = "code_reviewer" if node_key == "advisory_reviewer" else node_key
+            assignment["code_review_assignment"] = dict(CODE_REVIEW_PANEL[focus_key])
+            if focus_key == "code_reviewer_bug_hunter":
+                assignment["code_review_assignment"]["required_skill"] = BUG_HUNTER_SKILLS[host]
         assignments.append(assignment)
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
@@ -396,6 +437,8 @@ def _build_execution_plan(
         plan["external_economy_option"] = {
             "model": MUSE_MODEL, "reasoning_effort": "xhigh", "dispatch_runtime": "opencode-cli",
         }
+    if panel_version is not None:
+        plan["code_review_panel_version"] = panel_version
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
     return plan
 

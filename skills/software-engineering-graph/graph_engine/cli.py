@@ -39,7 +39,7 @@ from .planner import (
     JoinSpec, NodeSpec, bootstrap, branch_id, closure_join, collection_join,
     consolidation_join, consolidation_node, delivery_review_nodes, design_review_nodes,
     design_research_nodes, envelope, fanout_id, implementation_node, initial_route_nodes, join_id,
-    effective_role_capabilities, next_join_for_success,
+    effective_role_capabilities, next_join_for_success, node_template,
     revised_design_node, validate_fanout_ordering,
 )
 from .state import (
@@ -1296,7 +1296,8 @@ def command_review_fanout(
         parent = conn.execute("SELECT * FROM nodes WHERE branch_id=?", (args.branch_id,)).fetchone()
         if parent is None:
             raise StateError("BRANCH_NOT_FOUND")
-        if parent["role"] != "code_reviewer" or parent["depth"] != 0:
+        if (parent["role"] != "code_reviewer" or parent["depth"] != 0
+                or parent["node_key"] in {"code_reviewer_naming", "code_reviewer_bug_hunter"}):
             raise StateError("DELEGATION_PARENT_FORBIDDEN")
         plan_row = conn.execute("SELECT * FROM execution_plans WHERE run_id=?", (current["run_id"],)).fetchone()
         plan = json.loads(plan_row["plan_json"])
@@ -1897,6 +1898,8 @@ def _review_dispatch_projection(
         "started_at": None,
         "finished_at": None,
     }
+    if "code_review_assignment" in envelope_value:
+        projection["code_review_assignment"] = dict(envelope_value["code_review_assignment"])
     if claim_token is not None:
         projection["claim_token"] = claim_token
     return projection
@@ -2188,12 +2191,15 @@ def command_join_advance(
                 stage = "design"
             else:
                 inputs = _context_inputs(conn, current, [source], include_design=True, include_implementation=True)
-                specs = delivery_review_nodes(policy, tags, join["generation"])
+                plan = json.loads(conn.execute(
+                    "SELECT plan_json FROM execution_plans WHERE run_id=?", (current["run_id"],)
+                ).fetchone()[0])
+                specs = delivery_review_nodes(policy, tags, join["generation"], plan)
                 stage = "delivery"
                 if current["state_schema_version"] == 7:
                     activation_row, activation = evidence_activation(conn, current)
                     source_env = json.loads(source["envelope_json"])
-                    producers = {spec.key: policy["node_templates"][spec.key]["output_contract"]["artifact_kind"] for spec in specs}
+                    producers = {spec.key: node_template(policy, spec.key)["output_contract"]["artifact_kind"] for spec in specs}
                     producers["supervisor_delivery_consolidation"] = "delivery_consolidation"
                     outputs = prepare_generated_outputs(
                         Path(current["repository_path"]), policy, task,

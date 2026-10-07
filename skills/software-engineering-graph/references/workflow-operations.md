@@ -44,9 +44,17 @@ It is the sole source/test writer, preserves unrelated changes, applies the mand
 preflight from `SKILL.md`, runs focused checks, and reports design deviations before implementing
 them. It does not commit, push, open a PR, or remove a worktree.
 
-At a stable checkpoint, dispatch a fresh Code Reviewer and Test Engineer in parallel only when their
-resources do not conflict. Add required read-only specialists. The Code Reviewer checks correctness,
-regressions, design fidelity, maintainability, security implications, and test adequacy. The Test
+At a stable checkpoint, dispatch exactly four fresh Code Reviewers and a Test Engineer in parallel
+only when their resources do not conflict. The reviewers receive separate assignments: clean code
+with `clean-code-review`, clean architecture with `clean-architecture-review`, naming only, and
+bug hunting with the verified assigned skill (`review-bugbot` on Cursor, `review-agent` on Codex,
+or the repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude).
+All four reviews are mandatory. The bug hunter traces concrete introduced failures and applies
+the assigned skill in place, without helpers or nested reviewers. The Supervisor supplies the approved
+comparison and Cursor's already-reviewer prompt shape when applicable. Missing required skill content
+makes the review incomplete. The naming reviewer checks identifiers and terminology, not
+behavior, architecture, security, performance, or test coverage. Add required read-only specialists.
+The Test
 Engineer independently maps acceptance criteria to evidence and distinguishes regressions from
 unrelated failures. Reviewers and testers do not repair their own findings.
 
@@ -102,3 +110,5 @@ Minimum handoffs:
 For reviewer-initiated conditional fan-out, the primary reviewer freezes preliminary findings and
 submits the exhaustive ID-only request. The Supervisor validates, dispatches, seals, and consolidates
 the collection. Never pass raw authority, paths, prompts, operation IDs, or dispatch control data.
+New panel plans permit only Security Reviewer children, keeping exactly four Code Reviewers.
+Historical plans retain their recorded optional delegation behavior.

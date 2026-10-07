@@ -3,7 +3,7 @@ from pathlib import Path
 
 from graph_engine.config import load_policy
 from graph_engine.execution import (
-    CLASS_ASSIGNMENTS, SIZE_ASSIGNMENTS, assignment_for, build_execution_plan, reconstruct_execution_plan,
+    CLASS_ASSIGNMENTS, CODE_REVIEW_PANEL, SIZE_ASSIGNMENTS, assignment_for, build_execution_plan, reconstruct_execution_plan,
     validate_model_assignment, validate_new_plan_assignment,
 )
 from graph_engine.hosts import (
@@ -12,7 +12,7 @@ from graph_engine.hosts import (
 )
 from graph_engine.ids import stable_id
 from graph_engine.planner import (
-    NodeSpec, design_research_nodes, design_review_nodes, envelope, initial_route_nodes,
+    NodeSpec, delivery_review_nodes, design_research_nodes, design_review_nodes, envelope, initial_route_nodes,
     validate_fanout_ordering,
 )
 
@@ -66,6 +66,65 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerTests(GraphCase):
+    def test_new_panel_binds_four_independent_scopes_and_model_selections(self):
+        from graph_engine.contracts import validate_task_brief
+        from tests.test_contracts import _validate_json_schema
+
+        policy, snapshot = load_policy(self.repo)
+        task = self.task_v2(route="fast_path")
+        task["model_overrides"] = {
+            "code_reviewer_architecture": {"model": "gpt-6-astra", "reasoning_effort": "medium"},
+        }
+        normalized = validate_task_brief(task, snapshot.digest, policy)
+        plan = build_execution_plan("RUN-1", normalized)
+        self.assertEqual(plan["code_review_panel_version"], 1)
+        self.assertEqual(reconstruct_execution_plan("RUN-1", normalized, plan), plan)
+        specs = delivery_review_nodes(policy, [], 0, plan)
+        reviewers = [spec for spec in specs if spec.role == "code_reviewer"]
+        self.assertEqual({spec.key for spec in reviewers}, set(CODE_REVIEW_PANEL))
+        self.assertTrue(all(spec.mandatory for spec in reviewers))
+        schema = json.loads((Path(__file__).parents[1] / "references" / "branch-envelope.schema.json").read_text(encoding="utf-8"))
+        envelopes = [envelope("RUN-1", snapshot.digest, policy, normalized, spec, "ready", [], execution_plan=plan) for spec in reviewers]
+        self.assertEqual(len({item["branch_id"] for item in envelopes}), 4)
+        for item in envelopes:
+            _validate_json_schema(item, schema, schema)
+            self.assertEqual(item["code_review_assignment"], CODE_REVIEW_PANEL[item["node_key"]])
+        naming = next(item for item in envelopes if item["node_key"] == "code_reviewer_naming")
+        self.assertEqual((naming["model"], naming["reasoning_effort"]), ("gpt-6.1-sol", "low"))
+        self.assertEqual(assignment_for(plan, "code_reviewer_naming")["intelligence_class"], "economy")
+        self.assertTrue(all(cap["effect"] in {"filesystem_read", "external_read"} for cap in naming["effect_capabilities"]))
+        normalized["model_overrides"]["code_reviewer_naming"] = {"model": "gpt-6-astra", "reasoning_effort": "high"}
+        override = assignment_for(build_execution_plan("RUN-1", normalized), "code_reviewer_naming")
+        self.assertEqual((override["model"], override["reasoning_effort"]), ("gpt-6-astra", "high"))
+
+    def test_bug_hunter_binds_host_skill_and_review_model(self):
+        for host, required_skill in (("codex", "review-agent"), ("codex-astra", "review-agent"),
+                                     ("cursor", "review-bugbot"), ("claude", "bug-hunter-review")):
+            with self.subTest(host=host):
+                plan = build_execution_plan("RUN-1", self.task_v2(), host=host)
+                hunter = assignment_for(plan, "code_reviewer_bug_hunter")
+                self.assertEqual(hunter["role"], "code_reviewer")
+                self.assertEqual(hunter["code_review_assignment"], {"focus": "bug_hunting", "required_skill": required_skill})
+                self.assertEqual((hunter["model"], hunter["reasoning_effort"]),
+                                 (assignment_for(plan, "code_reviewer")["model"], "high"))
+                self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
+
+    def test_historical_plan_keeps_one_reviewer_and_no_focus_envelope(self):
+        policy, snapshot = load_policy(self.repo)
+        task = self.task()
+        legacy = reconstruct_execution_plan("RUN-1", task, {"host": DEFAULT_HOST})
+        specs = delivery_review_nodes(policy, [], 0, legacy)
+        reviewers = [spec for spec in specs if spec.role == "code_reviewer"]
+        self.assertEqual([spec.key for spec in reviewers], ["code_reviewer"])
+        packet = envelope("RUN-1", snapshot.digest, policy, task, reviewers[0], "ready", [], execution_plan=legacy)
+        self.assertNotIn("code_review_assignment", packet)
+        self.assertEqual(reconstruct_execution_plan("RUN-1", task, legacy), legacy)
+
+    def test_invalid_panel_version_fails_closed(self):
+        for marker in (None, True, 0, 2, "1", []):
+            with self.subTest(marker=marker), self.assertRaisesRegex(ValueError, "CODE_REVIEW_PANEL_VERSION_INVALID"):
+                reconstruct_execution_plan("RUN-1", self.task(), {"code_review_panel_version": marker})
+
     def test_retired_models_cannot_enter_new_plans_or_legacy_selection_fallback(self):
         for host in known_hosts():
             for model in ("gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra"):
@@ -491,7 +550,7 @@ class PlannerTests(GraphCase):
         trace.append(self._normalized_topology())
         self._assess_current_fanout_in_order()
         trace.append(self._normalized_topology())
-        for _ in range(3):
+        for _ in range(6):
             self.success(self.claim_raw(), "APPROVE")
         self.advance("delivery_collection")
         trace.append(self._normalized_topology())
@@ -599,7 +658,8 @@ class PlannerTests(GraphCase):
             {
                 "impact_mapper", "design_research_architecture", "design_research_validation",
                 "tech_lead", "architect", "release_operations_reviewer", "senior_engineer",
-                "code_reviewer", "test_engineer", "supervisor_design_consolidation",
+                "code_reviewer", "code_reviewer_architecture", "code_reviewer_naming", "code_reviewer_bug_hunter",
+                "test_engineer", "supervisor_design_consolidation",
                 "supervisor_delivery_consolidation",
             },
         )
@@ -624,7 +684,7 @@ class PlannerTests(GraphCase):
             {item[0][0] for item in final["fanouts"]},
             {"research", "design", "delivery"},
         )
-        self.assertEqual(len(final["fanout_dependencies"]), 4)
+        self.assertEqual(len(final["fanout_dependencies"]), 7)
         closure = next(item for item in final["joins"] if item[0][0] == "closure")
         self.assertEqual(closure[1], "open")
         self.assertEqual(final["run"]["selected_tags"], ["release_operations"])
@@ -828,7 +888,8 @@ class PlannerTests(GraphCase):
                         reconstruct_execution_plan("RUN-1", self.task(),
                                                    {"host": host, "catalog_revision": marker})
             revised = reconstruct_execution_plan("RUN-1", self.task(),
-                                                 {"host": host, "catalog_revision": revision})
+                                                 {"host": host, "catalog_revision": revision,
+                                                  "code_review_panel_version": 1})
             self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):
@@ -841,8 +902,10 @@ class PlannerTests(GraphCase):
             self.assertEqual(rebuilt, legacy)
             self.assertEqual(rebuilt["schema_version"], 2)
             self.assertNotIn("catalog_revision", rebuilt)
+            with self.assertRaisesRegex(ValueError, "CODE_REVIEW_PANEL_EXTRA_REVIEWER_FORBIDDEN"):
+                build_execution_plan("RUN-1", task, "small", "codex-astra")
+            task["reviewer_delegation"]["assignments"][0]["role"] = "security_reviewer"
             candidate = build_execution_plan("RUN-1", task, "small", "codex-astra")
-            self.assertEqual(candidate["conditional_review_assignments"], legacy["conditional_review_assignments"])
             self.assertEqual(candidate["reviewer_delegation_limits"], legacy["reviewer_delegation_limits"])
             self.assertNotEqual(candidate["plan_digest"], legacy["plan_digest"])
 
