@@ -1,0 +1,4 @@
+interface:
+  display_name: "Muse Only Orchestrator"
+  short_description: "Orchestrate with little Muse helpers while the primary only thinks"
+  default_prompt: "Use $muse-only-orchestrator to run this task with the primary only orchestrating little Muse helpers."

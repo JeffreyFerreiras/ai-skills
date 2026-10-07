@@ -66,6 +66,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
 | [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
 | [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
+| [muse-only-orchestrator](skills/muse-only-orchestrator/SKILL.md) | Orchestrate with little Muse helpers while the primary only thinks |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
