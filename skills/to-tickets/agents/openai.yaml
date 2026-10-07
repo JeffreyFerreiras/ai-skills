@@ -1,0 +1,4 @@
+interface:
+  display_name: "To Tickets"
+  short_description: "Draft verifiable tickets with explicit blockers"
+  default_prompt: "Use $to-tickets to break this plan into end-to-end ticket drafts with acceptance criteria and blockers."

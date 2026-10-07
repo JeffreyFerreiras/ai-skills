@@ -38,6 +38,7 @@ Boundary data:
 Ports and dependency inversion:
 - Use ports when an inner layer needs persistence, time, IDs, external APIs, messaging, presentation, or side effects.
 - Ports belong to the inner policy that owns the need. Keep SQL, ORM queries, and database row formats in outer persistence adapters; do not require aggregate-based repositories.
+- A port can protect policy from external details with one adapter. Do not require a second implementation as proof that the boundary is useful.
 - Implementations belong outward and are injected through composition.
 - A use case that invokes a presenter must call an inner-owned output port rather than depend on the concrete presenter.
 
@@ -52,6 +53,7 @@ Architectural independence:
 - Check whether replacing a UI, database, or framework would require business-rule changes. Assess dependency paths; do not require an actual replacement implementation.
 - Check that architectural modules express the system's use cases rather than framework structure. Flag framework-driven organization when it obscures use cases or couples policy to delivery/storage details, not solely because of folder names.
 - For architecture plans, check that use cases can be specified without prematurely binding them to a framework, database, or delivery mechanism. Existing technology choices do not themselves violate independence.
+- Assess abstractions by conceptually removing them. If necessary rules or translation would spread across callers, the abstraction contains useful complexity. If only forwarding disappears, investigate the cost of that indirection. Preserve policy-owned ports and boundary translation; thin code alone is not an architectural defect.
 
 ## Pragmatic Limits
 

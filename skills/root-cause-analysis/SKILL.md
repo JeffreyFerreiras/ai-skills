@@ -15,6 +15,10 @@ Explain the causal mechanism behind the reported issue, supported by reproducibl
 
 ## Trace and test the cause
 
+Choose a repeatable check that detects the reported symptom, not merely a successful exit. Suitable checks include a focused failing test, a CLI with fixture input, an isolated replay of a redacted payload or event trace, or a small disposable harness. Pin inputs and relevant environment state where practical. Keep original incident artifacts intact; replay only copies and replace external side effects with local substitutes. When reproduction is unavailable, continue from reliable incident evidence and state what it cannot establish.
+
+For a suspected regression, run the same fixture through known-good and failing versions or configurations, then compare the relevant output. A difference narrows the search; confirm that it matches the reported defect before treating it as causal evidence. Use bisection only with known endpoints and a reliable verdict. For example, in a clean disposable checkout, `git bisect run cmd /c check-regression.cmd` can use an existing Windows harness. The harness must return 0 for good, 1 for the target failure, and 125 for an untestable revision; setup errors must not count as bad revisions. Use the platform's equivalent runner elsewhere. Do not bisect in a checkout with unrelated work or choose endpoints by guesswork.
+
 1. Follow the failing path through relevant callers, state transitions, configuration, and dependencies. Locate the first point where observed behavior violates the expected contract, rather than stopping at the downstream exception.
 2. Compare a failing case with a known-good case where available. Check differences in code, data, configuration, environment, and timing. Treat change history as a source of hypotheses, not proof of blame.
 3. Keep a small set of plausible explanations. For each serious hypothesis, identify the observation that would distinguish it from alternatives and what evidence would refute it.
