@@ -1,4 +1,4 @@
-# Playback compatibility and bounded delivery
+# Playback compatibility and continuous full-file delivery
 
 ## Quiet playback despite acceptable measurements
 
@@ -14,11 +14,17 @@ For a preselected mono WAV, `pan=stereo|c0=c0|c1=c0` duplicates samples at unity
 
 With `dual_mono=false`, duplicating equal mono at unity can raise two-channel integrated loudness by about 3 LU because both channels contribute energy. This is **not** a 3 dB gain to each channel. Record per-channel peaks/RMS and channel count; compare compatible measurement conventions. Do not attenuate an approved stereo compatibility sample solely to make its aggregate LUFS match the former mono value. Recheck safe peaks and document a suitable delivery target.
 
-## Attachment limits without losing approved audio
+## One continuous full-quality final
 
-Keep the full-quality master. Resolve the actual destination/tool byte limit rather than inventing a universal chat limit; use a conservative budget below it. Confirm attachment/export success explicitly. A tool error or rejected oversized file is not accepted delivery, even if local rendering succeeded.
+Deliver **one continuous full-quality final video**. If the continuous master already exists, verify its identity/completeness and keep it unchanged; do not re-stitch or re-encode an already completed master merely to satisfy a request for the whole video. Approved visual quality, audio packets/timing and complete narration must survive delivery.
 
-If approved AAC audio already works, reduce **only video** in a separate phone copy:
+Resolve the actual destination/tool byte limit rather than inventing a universal chat limit. If chat cannot attach the approved full-quality file, use a supported authorized **private full-file** delivery route that can hold it, or ask for the specific destination needed. Check route capability/access and report any remaining blocker. Do not invent a share/download URL; use only an actual verified tool result, and do not publish or expose a private file without authorization. Confirm successful full-file transfer and file identity. A tool error, rejected oversized file or chapter-preview send does not establish final delivery.
+
+Do not downscale/compress away approved quality just to make the final attach. Chapter clips may be optional requested previews with clear labels and boundary/caption/audio QA; they are never an unsolicited substitute for the continuous final file, nor full acceptance. Preserve full-file delivery as pending until the supported route succeeds. No new episode processing is implied by a delivery-route change.
+
+## Optional reviewed phone copy
+
+When an additional phone-size/compatibility copy is requested, retain the full-quality final. If approved AAC already works, a separate copy can reduce **only video**, within reviewed quality and an actual byte budget:
 
 ```
 python scripts/phone_copy.py WORK/approved-master.mp4 WORK/phone-r2.mp4 --copy-audio --max-bytes N --width 540
@@ -26,8 +32,8 @@ python scripts/phone_copy.py WORK/approved-master.mp4 WORK/phone-r2.mp4 --copy-a
 
 This route uses `-c:a copy`, budgets from actual AAC packet sizes, and requires exact packet payload hashes, timestamps, priming/skip data and codec identity to match. It leaves the master untouched and fails before promoting a file if audio changes, the actual size exceeds budget or decode/timing QA fails. The ordinary phone route re-encodes audio and therefore needs renewed listening; use copy mode when audio preservation is the requirement.
 
-If the budget cannot accommodate the approved audio plus useful video, stop and report the limit. Choose a lower reviewed video bitrate/resolution or another authorized delivery destination; do not silently degrade accepted audio. Make bounded attempts with explicit byte budgets, checking actual size each time. Inspect caption/diagram readability on the encoded phone copy before retrying upload. Preserve frame timing and narration duration; full-quality master delivery remains a separate artifact. Recheck final audio measurements, destination playback and delivery receipt. Never mark full user-ready or published from an upload attempt or sample feedback alone.
+If the budget cannot retain approved audio and visual quality, stop and report the limit; return to the private whole-file route rather than degrading the final or substituting parts. Make bounded optional-copy attempts with explicit budgets, checking actual size and caption/diagram readability each time. Preserve frame timing and narration duration. Recheck final audio measurements, destination playback and successful delivery receipt. Never mark full user-ready or published from an upload attempt or sample feedback alone.
 
 Treat a size-constrained encode as a **new visual candidate**, not an automatic accepted copy. Inspect encoded asset sharpness, contours, crop detail, captions/diagrams and motion against the approved visuals. The width in the example and any calculated bitrate are inputs to review, not preferred quality defaults; low bitrate at a familiar phone width can still look soft. Passing byte/decode checks proves neither attractiveness nor legibility. Keep approved audio unchanged during visual-quality repairs.
 
-If a single attachment cannot retain approved quality, preserve the full-quality master and prefer reviewed higher-quality parts or a supported authorized alternative. Explain quality, number-of-files and access/download tradeoffs. For parts, choose meaningful boundaries, map global/local timecodes and verify captions, continuity and audio coverage/decoded waveform; AAC cutting may alter priming/timestamps and is not automatically equivalent to whole-stream copy. Recheck any boundary handling and do not claim exact packet preservation without evidence. Each part needs independent review within its deliverable cap and actual delivery receipts; splitting is not a way to skip full-video acceptance. Confirm platform/tool support rather than inventing a share destination or asserting delivery after an error.
+Explain route/access or optional-copy tradeoffs without changing the one-file final requirement. For explicitly requested chapter previews, map global/local timecodes and check meaningful boundaries, captions, continuity and audio coverage/decoded waveform; AAC cutting can alter priming/timestamps and is not automatically equivalent to whole-stream copy. Review each preview within its cap, label its scope and keep the continuous master untouched. Confirm destination support and actual receipts rather than treating previews or failed transfer attempts as final delivery.

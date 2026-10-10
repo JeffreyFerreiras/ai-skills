@@ -1,12 +1,12 @@
 # Encoded loudness and sync
 
-Measure **both final master and final phone encode**. PCM sample peak or a clean decode alone can miss quiet speech and inter-sample/AAC peaks. Record integrated LUFS, true peak dBTP, channel layout, measurement settings and exact encoded checksum. A quieter program with one near-ceiling transient cannot safely take an arbitrary gain increase.
+Measure **the final master and every additional phone encode actually produced**; if both exist, both need independent measurement. No optional encode must be created solely for QA. PCM sample peak or a clean decode alone can miss quiet speech and inter-sample/AAC peaks. Record integrated LUFS, true peak dBTP, channel layout, measurement settings and exact encoded checksum. A quieter program with one near-ceiling transient cannot safely take an arbitrary gain increase.
 
 For speech on mobile, start near -18 LUFS, with a review range around -20 to -16 LUFS and a final decoded ceiling at or below -2 dBTP. These are conservative production choices, not universal platform requirements. Adjust to the user's destination, channel layout and actual listening; prioritize headroom over hitting a loudness number. Target about -3 dBTP before lossy encoding to leave extra margin, then measure the encoded result. Mono and stereo measurement conventions differ; these recipes consistently use `dual_mono=false`. Document a changed convention and do not compare incompatible measurements.
 
 ## Measure, normalize, remeasure
 
-Run the read-only helper independently for each final file:
+Run the read-only helper independently for each final file that exists; the phone command applies only to an additional copy actually produced:
 
 ```
 python scripts/loudness.py WORK/master.mp4
@@ -27,7 +27,7 @@ AAC can overshoot the pre-encode ceiling. Remeasure **every final encoded revisi
 
 ## Final evidence
 
-After any audio repair, full-decode both outputs; compare video bitstream hash, frame counts/timestamps and duration with the accepted cut. For audio-only repairs stream-copy video. Check audio start/duration and waveform alignment over several distributed voiced windows (including early/late windows); record correlation lag, method and tolerance, not just file lengths. Correct encoding delay only from measured evidence. Recheck source WAV hash and voice/rate/caption sync. Phone compression/size QA must still pass after repair.
+After any audio repair, full-decode each affected output; compare video bitstream hash, frame counts/timestamps and duration with the accepted cut. For audio-only repairs stream-copy video. Check audio start/duration and waveform alignment over several distributed voiced windows (including early/late windows); record correlation lag, method and tolerance, not just file lengths. Correct encoding delay only from measured evidence. Recheck source WAV hash and voice/rate/caption sync. Any requested phone copy's compression/size QA must still pass after repair.
 
 Have an independent reviewer inspect final encoded measurements and sync evidence. Separately listen at realistic phone volume for intelligibility, transients, pumping, beeps and caption sync. Measurement QA, sampled waveform alignment, independent forced alignment and actual listening are distinct evidence; none implies the others. Do not mark audio user-ready when listening is unavailable.
 

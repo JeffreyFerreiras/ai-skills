@@ -37,7 +37,8 @@ Final master/phone LUFS, true peak dBTP, selected targets, channel/settings and 
 Measured normalization/correction recipe, remeasurement and preserved voice/video/waveform sync:
 Destination file identity, WAV/video compatibility sample and actual listening feedback:
 Actual attachment budget, approved audio packet preservation, phone readability and delivery receipt:
-Encoded visual sharpness against accepted art; full master, reviewed parts/alternative and explicit quality/size/access tradeoff:
+Encoded visual sharpness against accepted art; unchanged one-file continuous full-quality final identity, supported private destination/access and successful full-file transfer receipt:
+Optional requested chapter/phone previews and their limited scope; unresolved whole-file delivery blocker, never a substitute final:
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
 Preview/style approval scope, delivery evidence, full user acceptance and separate publication evidence:

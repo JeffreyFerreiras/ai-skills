@@ -34,7 +34,7 @@ Record requested generation dimensions separately from the actual decoded source
 
 Do not solve every finding by adding decoration, flashes, particles or elaborate camera movement. Recommend the smallest focused visual change that improves appeal and understanding. Preserve useful layouts, identities, native narration/timing and accurate causal operations unless the actual finding requires a change. Coordinate technical truth and editorial timing impacts with those reviewers; an attractive scene cannot pass by hiding a mechanism or breaking readability.
 
-Review actual encoded delivery sharpness as well as source artwork. Inspect fine contours, crop edges, caption/diagram text, moving assets and transitions at the delivered size; a sharp vector/source still does not prove a heavily compressed export is acceptable. If a byte-budget copy loses approved visual quality, do not lower the acceptance bar merely to make it attach. Preserve approved AAC and the full-quality master; require reviewed higher-quality parts or a supported authorized delivery alternative with the quality/size/access tradeoff stated.
+Review actual encoded delivery sharpness as well as source artwork. Inspect fine contours, crop edges, caption/diagram text, moving assets and transitions at the delivered size; a sharp vector/source still does not prove a heavily compressed export is acceptable. If chat cannot attach the approved quality, do not lower the bar or substitute chapter parts. Preserve approved AAC and the unchanged continuous full-quality master; require a supported private full-file route or the specific destination needed. Optional reviewed previews do not establish final delivery or full acceptance.
 
 ## Findings, cap and verdict
 
