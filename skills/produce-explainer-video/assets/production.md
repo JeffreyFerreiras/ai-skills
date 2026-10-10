@@ -13,6 +13,8 @@ Assumptions, failure conditions, tradeoffs and exclusions:
 Source anchors (claim → title/passage/page):
 Target format, platform-safe bounds, voice and capabilities:
 Fresh episode artwork/provenance; source and crop pixel dimensions, maximum projected size, aspect/perspective/geometry checks:
+Supplied aesthetic reference actually inspected (identity/version/dimensions/limits); observed material/lighting/texture/palette/composition matches and mismatches:
+Requested generation size versus actual decoded source size; resampling source/output dimensions and scale:
 
 ## Narration and storyboard
 
@@ -27,6 +29,7 @@ Independent technical review:
 Independent editorial review of native-paced animatic:
 Independent visual "diva" review: every scene/transition coverage, keyframes, temporal/encoded evidence and inspection limits:
 Each completed scene's matte chalk-wiped/dry-grain background plus crisp dimensional objects, stable texture/contrast and label/caption legibility:
+User aesthetic verdict / invalidated style pass / retained unchanged technical evidence / continuing finding IDs and consumed rounds:
 Every-frame geometry/caption audit and visual triage:
 Source checkpoint and dependency/asset provenance:
 Full master and phone-copy QA:

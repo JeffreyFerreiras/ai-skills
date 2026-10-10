@@ -10,6 +10,16 @@ Review **every scene**, not only the cover or best-looking sample. Maintain a co
 
 Inspect actual encoded artifacts for final verdicts; pre-encode keyframes alone cannot approve a final transition or phone legibility. Use exact decoded-frame extraction when helpful, with requested/actual timecodes distinguished. Sampled temporal frames support a sequence claim, not continuous motion, pacing or listening. If playback is unavailable, record the gap and restrict the verdict; do not invent motion inspection, sound review or complete coverage.
 
+## Reference-grounded visual gate
+
+Whenever the user supplies an aesthetic reference, the author and independent visual reviewer must **inspect the actual reference pixels**, not rely on a filename, prior summary, prompt or imagined style. Obtain the accessible reference through the supported file/image route, record its identity/version and actual dimensions in the episode's source/brief, then inspect it alongside the candidate. If the reference cannot be read or only a limited preview is available, record that limit; do not claim a complete reference comparison or pass an unmet aesthetic gate.
+
+Compare material, lighting, texture distribution/scale, palette and composition. Record concrete observed matches and mismatches, with reference/candidate regions or timecodes, their viewing impact and a focused repair. A surface that is merely textured or unclipped, or a native vector, cannot establish aesthetic success. For a physical chalkboard reference, look for its actual rough charcoal/slate material, broad organic erasure clouds, irregular pores and subtle grazing illumination; repeated procedural stripes/speckles or an isolated masked scuff patch are not substitutes when those cues conflict with the supplied reference. These cues are reference-sensitive, not permission to impose the same treatment on every brief. Preserve crisp dimensional foreground and readable teaching overlays.
+
+A failed **user aesthetic verdict invalidates the relevant style pass**, even if automated texture/readability checks or the reviewer previously passed it. Record the rejected verdict and reopen the relevant findings/gate; retain technical passes only for their actual unchanged scope. Do not turn a technical pass into a style approval or override the user's taste with a claimed beauty metric. User-requested corrections continue the relevant capped loop, retaining consumed rounds and old finding IDs; if the cap is already exhausted, surface the material unresolved gate rather than invent another round.
+
+Record requested generation dimensions separately from the actual decoded source pixel dimensions, crop, rendered footprint and any resampling. A request or prompt for 4K does not prove native 4K output. If a background is modestly resampled, disclose the actual source size and derived output size/scale and inspect it at delivery resolution; do not describe resampling as recovered detail or invented native resolution.
+
 ## Art-direction rubric
 
 | Dimension | High bar and actionable rejection |
