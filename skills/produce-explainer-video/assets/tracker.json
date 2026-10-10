@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "topics": [],
+  "entry_contract": {
+    "topic": "Canonical topic and overlap/remake notes",
+    "production_document": "One current document path or artifact identity",
+    "status": "drafted | sample-produced | sample-approved | full-rendered | qa-passed | delivered | user-ready | published",
+    "evidence": "Dated artifact identities, source locks, review scopes, feedback and publication receipt",
+    "blockers": "Unmet gates; do not infer acceptance from delivery"
+  }
+}

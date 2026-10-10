@@ -1,0 +1,4 @@
+interface:
+  display_name: "Produce Explainer Video"
+  short_description: "Create reviewed narrated technical videos"
+  default_prompt: "Use $produce-explainer-video to create a grounded narrated explainer, starting with a representative sample."
