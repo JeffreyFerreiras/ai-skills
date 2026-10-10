@@ -70,6 +70,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
 | [muse-only-orchestrator](skills/muse-only-orchestrator/SKILL.md) | Orchestrate with little Muse helpers while the primary only thinks |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
+| [produce-explainer-video](skills/produce-explainer-video/SKILL.md) | Create reviewed narrated technical videos |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |

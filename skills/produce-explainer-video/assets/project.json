@@ -1,0 +1,14 @@
+{
+  "width": 540,
+  "height": 960,
+  "fps": 24,
+  "wav": "audio/narration.wav",
+  "words": "audio/words.json",
+  "script": "narration.txt",
+  "font": "assets/font.ttf",
+  "renderer": "scene.py",
+  "caption_box": [38, 770, 502, 864],
+  "caption_font_size": 23,
+  "transition_seconds": 0.35,
+  "scenes": []
+}

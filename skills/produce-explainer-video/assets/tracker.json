@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "topics": [],
+  "entry_contract": {
+    "topic": "Canonical topic and overlap/remake notes",
+    "production_document": "One current document path or artifact identity",
+    "status": "drafted | sample-produced | sample-approved | full-rendered | qa-passed | delivered | user-ready | published",
+    "evidence": "Dated artifact identities, source locks, independent asset review rounds/findings/fixes/verification, sample delivery, authorization basis, feedback and publication receipt",
+    "asset_reviews": "Per-deliverable ledger in production document: independent reviewer, technical/editorial scopes, revision/hash, rounds 1-3 maximum; stop early when clean; do not reset on revision",
+    "blockers": "Unmet gates; do not infer acceptance from delivery"
+  }
+}
