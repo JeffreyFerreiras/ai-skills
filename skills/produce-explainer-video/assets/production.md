@@ -26,6 +26,8 @@ Independent editorial review of native-paced animatic:
 Every-frame geometry/caption audit and visual triage:
 Source checkpoint and dependency/asset provenance:
 Full master and phone-copy QA:
+Final master/phone LUFS, true peak dBTP, selected targets, channel/settings and encoded hashes:
+Measured normalization/correction recipe, remeasurement and preserved voice/video/waveform sync:
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
 Delivery evidence, full user acceptance and separate publication evidence:
