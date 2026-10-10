@@ -28,7 +28,7 @@ Approved sample configuration/source lock:
 Independent technical review:
 Independent editorial review of native-paced animatic:
 Independent visual "diva" review: every scene/transition coverage, keyframes, temporal/encoded evidence and inspection limits:
-Each completed scene's matte chalk-wiped/dry-grain background plus crisp dimensional objects, stable texture/contrast and label/caption legibility:
+Each completed scene's physical charcoal/slate board (natural erasure clouds, fine irregular grain, warm grazing light) plus fresh crisp dimensional art; subordinate stable texture, level labels and high karaoke captions, or explicit reference/style override:
 User aesthetic verdict / invalidated style pass / retained unchanged technical evidence / continuing finding IDs and consumed rounds:
 Every-frame geometry/caption audit and visual triage:
 Source checkpoint and dependency/asset provenance:
@@ -40,7 +40,7 @@ Actual attachment budget, approved audio packet preservation, phone readability 
 Encoded visual sharpness against accepted art; full master, reviewed parts/alternative and explicit quality/size/access tradeoff:
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
-Delivery evidence, full user acceptance and separate publication evidence:
+Preview/style approval scope, delivery evidence, full user acceptance and separate publication evidence:
 
 ## Asset review ledger
 
