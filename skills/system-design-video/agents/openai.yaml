@@ -1,0 +1,4 @@
+interface:
+  display_name: "System Design Video"
+  short_description: "Create narrated system design explainer videos"
+  default_prompt: "Use $system-design-video to create a sourced, code-rendered explainer with a consistent architecture, narration-driven events, and checked visuals and media."

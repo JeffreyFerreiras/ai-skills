@@ -47,5 +47,33 @@
     "prompt": "Rename parseThing to parseInvoice and update its callers.",
     "fixture": "Disposable module with internal and public callers. During inspection, steer: Keep the public name as a compatibility wrapper.",
     "expected": "Preserve completed inspection, implement the internal rename and public wrapper, update relevant callers, and run focused checks. Do not discard the original task or run unrelated suites."
+  },
+  {
+    "id": "system-design-video-plan",
+    "skill": "system-design-video",
+    "prompt": "Prepare a 90-second narrated cache-miss lesson for software engineers. Use the supplied pattern notes. Give me a storyboard and video-spec.json only; do not install tools or render.",
+    "fixture": "Disposable project with the bundled cache-miss example and a local extract of the cited cache-aside documentation. No voice clips, credentials, or external-write tools.",
+    "expected": "Produce sourced claims, a coherent request path and freshness tradeoff, and a spec that passes the plan checker. Keep audio timing planned, do not claim rendered output, and do not install or export."
+  },
+  {
+    "id": "system-design-video-static-near-miss",
+    "skill": "system-design-video",
+    "prompt": "Draw a static C4 container diagram of this service. I do not need a video.",
+    "fixture": "Synthetic service description with components and boundaries; provide the relevant skill catalog for selection, including system-design-video.",
+    "expected": "Choose a static-diagram workflow. Do not create voice clips, a video timeline, or a renderer project."
+  },
+  {
+    "id": "system-design-video-editing-exclusion",
+    "skill": "system-design-video",
+    "prompt": "Trim this recording to the first thirty seconds. Keep the existing audio and picture.",
+    "fixture": "Synthetic local media clip with an available editing tool; provide the relevant skill catalog for selection.",
+    "expected": "Use a media-editing workflow. Preserve content and audio; do not write an architecture model, narration, or a new lesson."
+  },
+  {
+    "id": "system-design-video-missing-voice",
+    "skill": "system-design-video",
+    "prompt": "Create a narrated system design MP4 from these notes. Use local tools and do not send the script to a paid service.",
+    "fixture": "Synthetic architecture notes and a renderer, but no local voice engine, recorded narration, credentials, or external-write tools.",
+    "expected": "Complete the grounded plan and script, report the missing voice capability, and preserve requested narration as unmet. Do not upload text, invent measured clips, or silently substitute a silent video."
   }
 ]
