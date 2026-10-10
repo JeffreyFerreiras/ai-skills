@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "question": "What happens on a cache miss, and what does caching not guarantee?",
+  "audience": "Software engineers learning cache-aside",
+  "profile": {
+    "renderer": "remotion",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration_seconds": 90,
+    "narrated": true
+  },
+  "sources": [
+    {
+      "id": "cache-aside-doc",
+      "locator": "https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside",
+      "supports": "The Solution describes read, miss, data-store fetch, cache fill, and return. Problems and considerations describes consistency limits."
+    }
+  ],
+  "claims": [
+    {
+      "id": "miss-path",
+      "text": "In cache-aside, the application checks the cache, fetches missing data from the data store, fills the cache, and returns the data.",
+      "kind": "supported",
+      "source_ids": ["cache-aside-doc"],
+      "rationale": "The source's Solution section describes these steps."
+    },
+    {
+      "id": "hit-path",
+      "text": "If the requested item is already cached, the application can return it without fetching it from the data store.",
+      "kind": "supported",
+      "source_ids": ["cache-aside-doc"],
+      "rationale": "The source's retrieval example returns the cached entity when it is present."
+    },
+    {
+      "id": "stale-data",
+      "text": "Cache-aside does not guarantee consistency between cache and data store; expiration and invalidation need a workload-specific policy.",
+      "kind": "supported",
+      "source_ids": ["cache-aside-doc"],
+      "rationale": "The source's Consistency and Lifetime of cached data considerations describe the tradeoff."
+    },
+    {
+      "id": "example-model",
+      "text": "This lesson uses a client, one application, one shared cache, and one database with the illustrative key product:42.",
+      "kind": "illustrative",
+      "source_ids": [],
+      "rationale": "These are teaching choices, not inspected deployment facts. All timestamps are editorial estimates, not measured voice durations or request latency."
+    }
+  ],
+  "nodes": [
+    {"id": "client", "label": "Client", "responsibility": "Request a product", "claim_ids": ["example-model"]},
+    {"id": "app", "label": "Application", "responsibility": "Implement the cache-aside read path", "claim_ids": ["miss-path", "example-model"]},
+    {"id": "cache", "label": "Cache", "responsibility": "Hold reusable copies of product data", "claim_ids": ["miss-path", "example-model"]},
+    {"id": "db", "label": "Database", "responsibility": "Store the product record", "claim_ids": ["miss-path", "example-model"]}
+  ],
+  "edges": [
+    {"id": "client-app", "from": "client", "to": "app", "label": "Request product:42", "claim_ids": ["example-model"]},
+    {"id": "app-cache-read", "from": "app", "to": "cache", "label": "Read product:42", "claim_ids": ["miss-path", "hit-path"]},
+    {"id": "cache-app", "from": "cache", "to": "app", "label": "Return a value or cache miss", "claim_ids": ["miss-path", "hit-path"]},
+    {"id": "app-db", "from": "app", "to": "db", "label": "Fetch product:42", "claim_ids": ["miss-path"]},
+    {"id": "db-app", "from": "db", "to": "app", "label": "Return the product record", "claim_ids": ["miss-path"]},
+    {"id": "app-cache-fill", "from": "app", "to": "cache", "label": "Cache the product record", "claim_ids": ["miss-path"]},
+    {"id": "app-client", "from": "app", "to": "client", "label": "Return the product", "claim_ids": ["miss-path", "hit-path"]}
+  ],
+  "scenes": [
+    {
+      "id": "question", "start": 0, "end": 12,
+      "caption": "What happens when the cache is empty?",
+      "claim_ids": ["example-model", "miss-path"],
+      "narration": {"text": "A client asks for a product. The cache has no copy yet. Where does the answer come from? Follow one request through a cache-aside read path.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    },
+    {
+      "id": "miss", "start": 12, "end": 27,
+      "caption": "A cache miss is an absent item",
+      "claim_ids": ["miss-path"],
+      "narration": {"text": "The application checks the cache for product forty-two. This time the cache returns a miss: the item is absent. That is different from a timeout or an unavailable cache.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    },
+    {
+      "id": "fetch", "start": 27, "end": 42,
+      "caption": "Fetch the missing record",
+      "claim_ids": ["miss-path", "example-model"],
+      "narration": {"text": "The application now asks the database for the product record. The database returns it to the application. The animation shows the order of these steps, not measured network latency.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    },
+    {
+      "id": "fill", "start": 42, "end": 57,
+      "caption": "Fill the cache, then reply",
+      "claim_ids": ["miss-path"],
+      "narration": {"text": "The application adds the returned record to the cache, then replies to the client. A reusable copy now exists. The application implements this policy; the database does not push the read result directly into the cache.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    },
+    {
+      "id": "hit", "start": 57, "end": 73,
+      "caption": "The next read can be a hit",
+      "claim_ids": ["hit-path", "example-model"],
+      "narration": {"text": "A second request asks for the same product while the copy is still cached. This time the cache returns the value. The application replies without fetching that item from the database again.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    },
+    {
+      "id": "tradeoff", "start": 73, "end": 90,
+      "caption": "A cached copy can become stale",
+      "claim_ids": ["stale-data", "miss-path"],
+      "narration": {"text": "A cached copy can become stale when stored data changes. Cache-aside needs an expiration or invalidation policy suited to the workload. It saves repeated fetches; it does not guarantee that every cached read sees the latest data.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+    }
+  ],
+  "events": [
+    {"id": "establish", "at": 1, "scene_id": "question", "node_ids": ["client", "app", "cache", "db"], "action": "Show the persistent illustrative architecture with an empty cache.", "claim_ids": ["example-model"], "after": []},
+    {"id": "request", "at": 13, "scene_id": "miss", "node_ids": ["client", "app"], "edge_id": "client-app", "action": "Move the labeled first request to the application.", "claim_ids": ["example-model"], "after": ["establish"]},
+    {"id": "cache-read", "at": 17, "scene_id": "miss", "node_ids": ["app", "cache"], "edge_id": "app-cache-read", "action": "Read the requested key from the cache.", "claim_ids": ["miss-path"], "after": ["request"]},
+    {"id": "cache-miss", "at": 22, "scene_id": "miss", "node_ids": ["cache", "app"], "edge_id": "cache-app", "action": "Return an absent-item result labeled MISS, not ERROR.", "claim_ids": ["miss-path"], "after": ["cache-read"]},
+    {"id": "db-read", "at": 29, "scene_id": "fetch", "node_ids": ["app", "db"], "edge_id": "app-db", "action": "Fetch the missing record from the database.", "claim_ids": ["miss-path"], "after": ["cache-miss"]},
+    {"id": "db-result", "at": 37, "scene_id": "fetch", "node_ids": ["db", "app"], "edge_id": "db-app", "action": "Return the record to the application.", "claim_ids": ["miss-path"], "after": ["db-read"]},
+    {"id": "cache-fill", "at": 46, "scene_id": "fill", "node_ids": ["app", "cache"], "edge_id": "app-cache-fill", "action": "Store the returned record; change cache state from empty to populated.", "claim_ids": ["miss-path"], "after": ["db-result"]},
+    {"id": "reply", "at": 53, "scene_id": "fill", "node_ids": ["app", "client"], "edge_id": "app-client", "action": "Return the product to the first caller.", "claim_ids": ["miss-path"], "after": ["cache-fill"]},
+    {"id": "request-two", "at": 58, "scene_id": "hit", "node_ids": ["client", "app"], "edge_id": "client-app", "action": "Begin a distinct second request for the same key.", "claim_ids": ["example-model"], "after": ["reply"]},
+    {"id": "cache-read-two", "at": 61, "scene_id": "hit", "node_ids": ["app", "cache"], "edge_id": "app-cache-read", "action": "Read the same cached key again.", "claim_ids": ["hit-path"], "after": ["request-two"]},
+    {"id": "cache-hit", "at": 65, "scene_id": "hit", "node_ids": ["cache", "app"], "edge_id": "cache-app", "action": "Return the cached record; keep the database path inactive.", "claim_ids": ["hit-path"], "after": ["cache-read-two"]},
+    {"id": "reply-two", "at": 69, "scene_id": "hit", "node_ids": ["app", "client"], "edge_id": "app-client", "action": "Return the cached product to the second caller.", "claim_ids": ["hit-path"], "after": ["cache-hit"]},
+    {"id": "staleness", "at": 77, "scene_id": "tradeoff", "node_ids": ["cache", "db"], "action": "Show a conditional stale-copy annotation, without an invented replication edge or consistency promise.", "claim_ids": ["stale-data"], "after": ["reply-two"]},
+    {"id": "answer", "at": 86, "scene_id": "tradeoff", "node_ids": ["app", "cache", "db"], "action": "Hold the resolved overview with the miss path and freshness tradeoff summarized.", "claim_ids": ["miss-path", "stale-data"], "after": ["staleness"]}
+  ]
+}
