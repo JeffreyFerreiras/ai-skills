@@ -26,6 +26,7 @@ Approved sample configuration/source lock:
 Independent technical review:
 Independent editorial review of native-paced animatic:
 Independent visual "diva" review: every scene/transition coverage, keyframes, temporal/encoded evidence and inspection limits:
+Each completed scene's matte chalk-wiped/dry-grain background plus crisp dimensional objects, stable texture/contrast and label/caption legibility:
 Every-frame geometry/caption audit and visual triage:
 Source checkpoint and dependency/asset provenance:
 Full master and phone-copy QA:
@@ -41,6 +42,8 @@ Delivery evidence, full user acceptance and separate publication evidence:
 ## Asset review ledger
 
 For each scene/asset deliverable record its exact revision/hash, independent reviewer identity, separate technical/editorial/visual scopes and shared round count (1-3 maximum). Stop early when no actionable findings remain. Routine fixes stay internal; revisions or reviewer changes do not reset the cap. At the cap, surface critical or material visual unresolved issues and do not declare a clean pass.
+
+For a new user-requested narrow change, name the scoped dimensions and affected context, and retain old unresolved finding IDs/blockers with their consumed rounds. Do not reset old caps.
 
 | Deliverable / revision | Round / reviewer / scope | Inspection evidence and limits | Actionable findings / impact | Fix / revised hash / verification | Verdict / unresolved issues / next gate |
 | --- | --- | --- | --- | --- | --- |
