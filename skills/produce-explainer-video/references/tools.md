@@ -41,6 +41,8 @@ Select a representative sample range with `--start`/`--seconds`, or make a separ
 
 Before full production create an evidence receipt outside the source root, containing `source_set_sha256` and three objects: `sample_approved`, `technical_preflight`, `editorial_animatic`, each with `passed: true` and a concrete `evidence` string naming feedback/review scope. Author it only from actual completed gates. Receipt validation prevents stale approvals but cannot verify reviewer independence or user consent. Do not fabricate receipts to unlock rendering.
 
+Apply [the per-deliverable three-round maximum](production.md#per-deliverable-review-loop) to these assets and record sample delivery. `sample_approved` may cite passing independent internal sample review plus existing authorization for full production, when the user has not reserved a separate sample decision. Name that basis explicitly; never invent human feedback. No receipt may hide critical unresolved findings, exhausted review rounds or required inspection gaps. Stop early on a clean first/second review and handle routine fixes internally.
+
 ```
 python scripts/render.py PROJECT --lock WORK/source-lock.json --output WORK/master.mp4 --mode full --review WORK/review.json --resume
 ```

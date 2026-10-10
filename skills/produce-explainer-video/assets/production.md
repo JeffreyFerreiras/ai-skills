@@ -20,6 +20,7 @@ For each explanation record: narration; composition type; initial/current/final 
 ## Gates and artifact evidence
 
 Representative narrated sample and feedback:
+Sample delivery receipt and existing full-production authorization / reserved user decisions:
 Approved sample configuration/source lock:
 Independent technical review:
 Independent editorial review of native-paced animatic:
@@ -33,3 +34,11 @@ Actual attachment budget, approved audio packet preservation, phone readability 
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
 Delivery evidence, full user acceptance and separate publication evidence:
+
+## Asset review ledger
+
+For each deliverable record its exact revision/hash, independent reviewer identity, applicable technical/editorial scopes and round count (1-3 maximum). Stop early when no actionable findings remain. Routine fixes stay internal; revisions do not reset the cap. At the cap, surface critical unresolved issues and do not declare a clean pass.
+
+| Deliverable / revision | Round / reviewer / scope | Inspection evidence and limits | Actionable findings / impact | Fix / revised hash / verification | Verdict / unresolved issues / next gate |
+| --- | --- | --- | --- | --- | --- |
+| [Asset] | [1, 2 or 3] | [Actual artifacts/timecodes; sampled/playback/listening] | [Finding IDs or none] | [Concrete evidence or no fix needed] | [Stop clean / another round available / capped; critical blocker] |
