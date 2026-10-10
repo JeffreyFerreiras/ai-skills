@@ -43,6 +43,8 @@ Before full production create an evidence receipt outside the source root, conta
 
 Apply [the per-deliverable three-round maximum](production.md#per-deliverable-review-loop) to these assets and record sample delivery. `sample_approved` may cite passing independent internal sample review plus existing authorization for full production, when the user has not reserved a separate sample decision. Name that basis explicitly; never invent human feedback. No receipt may hide critical unresolved findings, exhausted review rounds or required inspection gaps. Stop early on a clean first/second review and handle routine fixes internally.
 
+Sample/animatic review evidence must also link the [visual reviewer](visual-diva-reviewer.md)'s scene/transition coverage and concrete verdicts, within the same shared per-scene/asset cap. A hash-valid receipt cannot establish art quality or missing temporal/encoded inspection; do not fabricate a beauty score or use technical pass status to bypass material visual findings.
+
 ```
 python scripts/render.py PROJECT --lock WORK/source-lock.json --output WORK/master.mp4 --mode full --review WORK/review.json --resume
 ```

@@ -1,0 +1,34 @@
+# Independent visual "diva" reviewer
+
+Use a dedicated independent subagent for scene-level art direction, alongside separate technical and editorial scopes. Its job is to hold a high bar for **visually striking, attractive scenes**, with concrete improvements rather than accepting mediocre generic graphics. Beauty is a contextual creative judgment, not an objective metric or a fabricated numerical score. Technical truth, teaching clarity and tasteful restraint remain requirements.
+
+## Reviewer brief and coverage
+
+Give the reviewer the production brief, learning purpose of each scene, current storyboard/style direction, exact source revision and candidate artifact hashes. Include stable scene IDs, measured start/end timecodes, keyframes, transitions, representative temporal evidence, encoded master excerpts and phone-size evidence. The asset author must not be its own independent reviewer. This is a skill-local review role, not a new global agent profile.
+
+Review **every scene**, not only the cover or best-looking sample. Maintain a coverage row per scene and each boundary transition, naming the deliverable stage: which keyframes and decoded indexes/timestamps were viewed, which motion intervals were actually played or sampled, and which master/phone encodes were inspected. Keyframes should include the establishing composition, important causal state changes, teaching hold and transition entry/exit. A scene shared by sample and full export retains its ID and review history; prior-stage coverage is not final encoded approval.
+
+Inspect actual encoded artifacts for final verdicts; pre-encode keyframes alone cannot approve a final transition or phone legibility. Use exact decoded-frame extraction when helpful, with requested/actual timecodes distinguished. Sampled temporal frames support a sequence claim, not continuous motion, pacing or listening. If playback is unavailable, record the gap and restrict the verdict; do not invent motion inspection, sound review or complete coverage.
+
+## Art-direction rubric
+
+| Dimension | High bar and actionable rejection |
+| --- | --- |
+| Composition and hierarchy | Deliberate focal point, readable scale, balance/negative space and a clear visual path to the taught relationship. Reject equal-weight generic boxes, awkward empty areas, clutter or competing focal points. |
+| Asset quality | Appealing recognizable context silhouettes, consistent detail/materials, clean contours and crafted diagrams. Reject placeholder cuboids, generic stick figures or low-quality assets as final art when they cannot meet the brief. The procedural starter is scaffolding, not finished art approval. |
+| Contrast, color and depth | Cohesive dark slate/cyan/lavender, semantic accents, controlled shadows and useful shallow depth. Reject washed-out hierarchy, distracting glow, muddy layering or depth that obscures meaning. Keep required labels level and legible, including phone-size captions. |
+| Semantic variety | Scene grammar chosen for its explanation: context, topology, workbench, lanes, tree, journey or comparison as appropriate. Reject repeated generic blocks or one unchanged diorama with only camera moves when mechanisms need distinct views. Consistent identities are useful; repetitive layouts are not variation. |
+| Scene-internal motion | Purposeful actor/screen/LED activity and visible causal changes with stable teaching holds. Reject camera-only motion when the narration teaches an action, random flicker, motion unrelated to a state change or effects that steal attention from speech. |
+| Transitions | Polished continuity through readable intermediate states, retained anchors where useful and no confusing reset/jump/occlusion. Check both sides of each boundary, not just final poses. Reject slanted/illegible labels, abrupt dark resets or busy flourishes that weaken comprehension. |
+
+Do not solve every finding by adding decoration, flashes, particles or elaborate camera movement. Recommend the smallest focused visual change that improves appeal and understanding. Preserve useful layouts, identities, native narration/timing and accurate causal operations unless the actual finding requires a change. Coordinate technical truth and editorial timing impacts with those reviewers; an attractive scene cannot pass by hiding a mechanism or breaking readability.
+
+## Findings, cap and verdict
+
+Return a scene coverage ledger and findings with: stable finding ID, scene ID, exact revision/hash, timecode/frame or transition range, observed issue, visual/learning impact, severity, focused fix and required verification evidence. Separate material visual deficiencies from optional taste preferences; ground both in the brief and observed composition. Mark covered scenes clear only within the actual inspection scope. Missing scenes or required encoded/motion coverage remain pending.
+
+Use the existing **maximum of three rounds per scene/asset deliverable**, shared across technical, editorial and visual reviewers. Counters belong to the identified deliverable stage (for example, scene art, voiced sample, animatic, final master or phone copy), not a lifetime count that prevents required later-stage reviews. Each distinct planned deliverable has its own capped loop and carries the scene's prior review history. Do not reset a current loop by changing reviewers, roles, filenames or revisions, or relabeling a repair as a new stage. These scopes may review concurrently in one round. Stop early when no actionable findings remain; do not force three rounds. A clean still review is limited to stills; its verdict cannot approve the later encoded deliverable.
+
+Handle routine fixes internally, record before/after evidence, then recheck repaired scenes plus neighboring transitions if another round remains. At round three, stop: surface unresolved **material visual findings** and critical issues to the user and block the affected acceptance/dependent gate. Do not silently downgrade the finding, claim clean approval or add a fourth round. Record minor remaining preferences and reviewer disposition as limitations, never as an automatic capped pass. The user may resolve a material creative decision; neither reviewer turnover nor a new export of the same deliverable creates fresh rounds. Do not advance to the next stage to evade an unresolved gate.
+
+Keep mandatory voiced sample creation/review/delivery and already-authorized continuation after actual gates pass. Sample feedback is not full-video acceptance. This role sets future production review behavior; it does not authorize rerendering completed episodes or publishing.

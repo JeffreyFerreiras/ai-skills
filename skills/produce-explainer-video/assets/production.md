@@ -15,7 +15,7 @@ Target format, platform-safe bounds, voice and capabilities:
 
 ## Narration and storyboard
 
-For each explanation record: narration; composition type; initial/current/final state; visible causal action; measured spoken cue; necessary labels; actor/screen/LED activity; path; transition; teaching hold; misconceptions. Fit time to measured native speech and comprehension.
+For each explanation record: stable scene ID and measured start/end; narration; composition type; initial/current/final state; visible causal action; measured spoken cue; necessary labels; actor/screen/LED activity; path; transition; teaching hold; misconceptions. Fit time to measured native speech and comprehension.
 
 ## Gates and artifact evidence
 
@@ -24,6 +24,7 @@ Sample delivery receipt and existing full-production authorization / reserved us
 Approved sample configuration/source lock:
 Independent technical review:
 Independent editorial review of native-paced animatic:
+Independent visual "diva" review: every scene/transition coverage, keyframes, temporal/encoded evidence and inspection limits:
 Every-frame geometry/caption audit and visual triage:
 Source checkpoint and dependency/asset provenance:
 Full master and phone-copy QA:
@@ -37,8 +38,14 @@ Delivery evidence, full user acceptance and separate publication evidence:
 
 ## Asset review ledger
 
-For each deliverable record its exact revision/hash, independent reviewer identity, applicable technical/editorial scopes and round count (1-3 maximum). Stop early when no actionable findings remain. Routine fixes stay internal; revisions do not reset the cap. At the cap, surface critical unresolved issues and do not declare a clean pass.
+For each scene/asset deliverable record its exact revision/hash, independent reviewer identity, separate technical/editorial/visual scopes and shared round count (1-3 maximum). Stop early when no actionable findings remain. Routine fixes stay internal; revisions or reviewer changes do not reset the cap. At the cap, surface critical or material visual unresolved issues and do not declare a clean pass.
 
 | Deliverable / revision | Round / reviewer / scope | Inspection evidence and limits | Actionable findings / impact | Fix / revised hash / verification | Verdict / unresolved issues / next gate |
 | --- | --- | --- | --- | --- | --- |
 | [Asset] | [1, 2 or 3] | [Actual artifacts/timecodes; sampled/playback/listening] | [Finding IDs or none] | [Concrete evidence or no fix needed] | [Stop clean / another round available / capped; critical blocker] |
+
+## Visual scene coverage
+
+| Deliverable stage / scene ID / measured range / revision | Establishing, causal-state and hold keyframes | Temporal intervals / actual inspection method | Encoded master / phone evidence | Entry/exit transition coverage | Visual findings / shared rounds used / verdict / gaps |
+| --- | --- | --- | --- | --- | --- |
+| [Deliverable stage / every scene] | [Actual decoded indexes/times or source images] | [Played or sampled; do not invent motion/listening] | [Hash, dimensions, inspected times] | [Both neighboring states] | [Concrete fixes; no automatic capped approval] |
