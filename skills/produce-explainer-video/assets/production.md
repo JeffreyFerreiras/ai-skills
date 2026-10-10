@@ -12,6 +12,7 @@ Implementation route (built-in/library/command/custom design):
 Assumptions, failure conditions, tradeoffs and exclusions:
 Source anchors (claim → title/passage/page):
 Target format, platform-safe bounds, voice and capabilities:
+Fresh episode artwork/provenance; source and crop pixel dimensions, maximum projected size, aspect/perspective/geometry checks:
 
 ## Narration and storyboard
 
@@ -32,6 +33,7 @@ Final master/phone LUFS, true peak dBTP, selected targets, channel/settings and 
 Measured normalization/correction recipe, remeasurement and preserved voice/video/waveform sync:
 Destination file identity, WAV/video compatibility sample and actual listening feedback:
 Actual attachment budget, approved audio packet preservation, phone readability and delivery receipt:
+Encoded visual sharpness against accepted art; full master, reviewed parts/alternative and explicit quality/size/access tradeoff:
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
 Delivery evidence, full user acceptance and separate publication evidence:
