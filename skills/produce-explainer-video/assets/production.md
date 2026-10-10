@@ -28,6 +28,8 @@ Source checkpoint and dependency/asset provenance:
 Full master and phone-copy QA:
 Final master/phone LUFS, true peak dBTP, selected targets, channel/settings and encoded hashes:
 Measured normalization/correction recipe, remeasurement and preserved voice/video/waveform sync:
+Destination file identity, WAV/video compatibility sample and actual listening feedback:
+Actual attachment budget, approved audio packet preservation, phone readability and delivery receipt:
 Encoded editorial review with timecodes:
 Playback/listening/sampling/alignment scope and missing checks:
 Delivery evidence, full user acceptance and separate publication evidence:
