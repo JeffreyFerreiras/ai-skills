@@ -1,0 +1,4 @@
+interface:
+  display_name: "Produce Long-Form Video"
+  short_description: "Create long-form 16:9 technical explainer videos"
+  default_prompt: "Use $produce-long-form-video to create a grounded, long-form 16:9 explainer with progressive demonstrations, starting with a representative narrated sample."

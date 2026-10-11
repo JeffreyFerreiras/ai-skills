@@ -13,7 +13,7 @@ import uuid
 
 sys.dont_write_bytecode = True
 from audio import audit, check_cues
-from project import capture, outside, ownership, validate
+from project import outside, ownership, validate
 
 
 def run(command):
@@ -101,7 +101,7 @@ def main():
     parser.add_argument('--ffmpeg', default='ffmpeg')
     parser.add_argument('--ffprobe', default='ffprobe')
     parser.add_argument('--resume', action='store_true')
-    parser.add_argument('--preflight-only', action='store_true')
+    parser.add_argument('--preflight-only', action='store_true', help='Audit frames and save checked lossless batches; omit final assembly')
     args = parser.parse_args()
     if not 1 <= args.batch <= 240:
         parser.error('batch must be 1..240')
@@ -153,7 +153,9 @@ def main():
     work = output.with_name(output.stem + '-work')
     work.mkdir(exist_ok=True)
     signature = {'lock': lock['source_set_sha256'], 'frames': frames, 'fps': fps,
-                 'width': width, 'height': height, 'start': args.start}
+                 'width': width, 'height': height, 'start': args.start,
+                 'pipeline_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                 'geometry_receipt_version': 2}
     def stopped():
         if args.stop_file and args.stop_file.exists():
             raise InterruptedError('Stop signal; no final output promoted')
@@ -161,25 +163,11 @@ def main():
         if output.exists():
             raise FileExistsError('Preserve valid output; use a new revision name')
         stopped()
-        issues = []
-        from PIL import Image
-        for index in range(frames):
-            stopped()
-            t = args.start + index / fps
-            image, objects = module.frame(t, config, root)
-            if image.size != (width, height):
-                raise ValueError('Renderer dimensions mismatch')
-            for issue in geometry_issues(objects, width, height, config['caption_box']):
-                issues.append({'frame': index, 'time': t, 'issue': issue})
-        validate(root, lock)
-        report = {'frames': frames, 'source_set_sha256': lock['source_set_sha256'],
-                  'issues': issues, 'scope': 'Every requested frame: conservative crop/caption/path-pulse/glow/actor/label envelopes. Alpha and intentional occlusion need visual triage.'}
-        (work / 'geometry.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-        if issues:
-            raise ValueError('Geometry issues; see work/geometry.json; repair or explicitly classify in renderer and visually recheck')
-        if args.preflight_only:
-            print(json.dumps(report))
-            return
+        report = {'frames': frames, 'frames_checked': 0, 'source_set_sha256': lock['source_set_sha256'],
+                  'issues': [], 'scope': 'Every requested frame: conservative crop/caption/path-pulse/glow/actor/label envelopes. Alpha and intentional occlusion need visual triage.'}
+        def save_geometry():
+            (work / 'geometry.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+        save_geometry()
         parts, expected_hashes = [], []
         for begin in range(0, frames, args.batch):
             stopped()
@@ -190,19 +178,29 @@ def main():
             key = {**signature, 'begin': begin, 'count': count}
             if args.resume and part.exists() and receipt.exists():
                 saved = json.loads(receipt.read_text())
-                if saved['signature'] != key or saved['sha256'] != hashlib.sha256(part.read_bytes()).hexdigest():
+                if saved['signature'] != key or saved['sha256'] != hashlib.sha256(part.read_bytes()).hexdigest() or saved.get('geometry_frames') != count:
                     raise ValueError('Stale or corrupt resume batch')
+                report['frames_checked'] += count
             else:
                 partial = part.with_name(part.stem + '.partial.mkv')
                 command = [args.ffmpeg, '-v', 'error', '-y', '-f', 'rawvideo', '-pixel_format', 'rgb24',
                            '-video_size', f'{width}x{height}', '-framerate', str(fps), '-i', 'pipe:0',
-                           '-c:v', 'ffv1', '-pix_fmt', 'bgr0', str(partial)]
+                           '-c:v', 'libx264rgb', '-crf', '0', '-preset', 'veryfast', '-threads', '4', '-pix_fmt', 'rgb24', str(partial)]
                 with (work / f'encode-{begin}.log').open('wb') as log:
                     process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=log)
                     try:
                         for index in range(begin, begin + count):
                             stopped()
-                            image, _ = module.frame(args.start + index / fps, config, root)
+                            t = args.start + index / fps
+                            image, objects = module.frame(t, config, root)
+                            if image.size != (width, height):
+                                raise ValueError('Renderer dimensions mismatch')
+                            faults = geometry_issues(objects, width, height, config['caption_box'])
+                            report['frames_checked'] += 1
+                            if faults:
+                                report['issues'].extend({'frame': index, 'time': t, 'issue': fault} for fault in faults)
+                                save_geometry()
+                                raise ValueError('Geometry issues; see work/geometry.json; repair or explicitly classify in renderer and visually recheck')
                             process.stdin.write(image.convert('RGB').tobytes())
                         process.stdin.close()
                         if process.wait() != 0:
@@ -214,13 +212,19 @@ def main():
                 validate(root, lock)
                 media_qa(partial, count, fps, width, height, args.ffmpeg, args.ffprobe, False)
                 os.replace(partial, part)
-                receipt.write_text(json.dumps({'signature': key, 'sha256': hashlib.sha256(part.read_bytes()).hexdigest()}))
+                receipt.write_text(json.dumps({'signature': key, 'sha256': hashlib.sha256(part.read_bytes()).hexdigest(), 'geometry_frames': count}))
             hashes = frame_hashes(part, args.ffmpeg)
             if len(hashes) != count:
                 raise ValueError('Batch decoded frame count mismatch')
             expected_hashes += hashes
             parts.append(part)
+            save_geometry()
             print(json.dumps({'frames_complete': begin + count, 'frames_total': frames}), flush=True)
+        stopped()
+        validate(root, lock)
+        if args.preflight_only:
+            print(json.dumps(report))
+            return
         concat = work / 'concat.txt'
         # Only safe generated basenames enter the concat format; arbitrary paths never do.
         concat.write_text('ffconcat version 1.0\n' + ''.join(f"file '{p.name}'\n" for p in parts), encoding='utf-8')

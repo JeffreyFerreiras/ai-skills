@@ -1,5 +1,19 @@
 # Visual and motion direction
 
+## Compose for long-form landscape
+
+Default to 1920x1080, 16:9 horizontal. Use width for readable relationships,
+ordered sequences, and comparisons, with clear separation from captions. Author
+the layout for landscape; do not stretch portrait geometry, crop away the taught
+state, or leave an unchanged phone column centered in a wide frame. Check the
+actual delivery size and honor an explicit format override.
+
+Choose visual changes from [the teaching beat](story-and-pacing.md), not from a
+timer or a quota of different layouts. Each causal action needs a visible result.
+Use purposeful changes inside the scene and stable holds to make that result
+readable. More decoration cannot resolve an unexplained mechanism or redundant
+script. The same chalkboard style can support several useful explanatory views.
+
 ## Default visual baseline
 
 Use a convincingly physical **matte charcoal/slate chalkboard** with broad natural erasure clouds, irregular fine surface grain and restrained warm grazing illumination. The board stays subordinate to the explanation yet discernible in the actual delivery encode. Reject fake green procedural stripe/speckle boards, dense synthetic scratch masks and flat-gradient-only substitutions. Keep the texture stable and low contrast, without shimmer, glossy glare or busy marks competing with labels; lighting supports the material rather than replacing it.

@@ -130,7 +130,8 @@ class Contracts(unittest.TestCase):
             scene=importlib.util.module_from_spec(spec)
             spec.loader.exec_module(scene)
             config=json.loads((SKILL/'assets/project.json').read_text())
-            config.update(font='font.ttf', words='words.json')
+            config.update(font='font.ttf', words='words.json', width=540, height=960,
+                          design_width=540, design_height=960, caption_box=[38, 770, 502, 864])
             config['scenes']=[{'start':0,'end':2,'type':'diagram','title':'Test','nodes':[{'id':'cropped','label':'Visible','box':[-100,300,300,100]}], 'paths':[{'id':'outside','points':[[-40,450],[-20,470]],'start':1,'end':2}]}]
             _, objects=scene.frame(.75, config, root)
             issues=geometry_issues(objects,540,960,config['caption_box'])
@@ -165,6 +166,8 @@ class Contracts(unittest.TestCase):
             work, root = Path(temporary), Path(temporary)/'source'
             root.mkdir()
             shutil.copy2(SKILL/'assets/scene.py', root/'scene.py')
+            with (root/'scene.py').open('a') as renderer:
+                renderer.write("\n_draw = frame\ndef frame(t, config, root):\n    with (root.parent / 'draw-calls.txt').open('a') as log:\n        log.write(str(t) + '\\n')\n    return _draw(t, config, root)\n")
             shutil.copy2(font, root/'font.ttf')
             with wave.open(str(root/'voice.wav'), 'wb') as wav:
                 wav.setparams((1, 2, 24000, 0, 'NONE', 'not compressed'))
@@ -175,7 +178,8 @@ class Contracts(unittest.TestCase):
             words = [{'text': text, 'start': i*.25, 'end': min((i+1)*.25, 2.51)} for i, text in enumerate(tokens)]
             (root/'words.json').write_text(json.dumps(words))
             config = json.loads((SKILL/'assets/project.json').read_text())
-            config.update(wav='voice.wav', words='words.json', font='font.ttf', width=540, height=960)
+            config.update(wav='voice.wav', words='words.json', font='font.ttf', width=540, height=960,
+                          design_width=540, design_height=960, caption_box=[38, 770, 502, 864])
             config['scenes'] = [{'start': 0, 'end': 1.2, 'type': 'context', 'title': 'Why save state?',
                                  'nodes': [{'id': 'app', 'label': 'Saved state', 'box': [160, 320, 200, 80], 'activate': .6}]},
                                 {'start': 1.2, 'end': 2.51, 'type': 'diagram', 'title': 'Restore a copy',
@@ -194,9 +198,27 @@ class Contracts(unittest.TestCase):
             self.assertFalse((work/'stopped.mp4').exists())
             self.assertNotEqual(0, invoke('--output', str(work/'full.mp4'), '--mode', 'full').returncode)
             sample = work/'sample.mp4'
-            result = invoke('--output', str(sample), '--seconds', '2.51')
+            result = invoke('--output', str(sample), '--seconds', '2.51', '--preflight-only')
             self.assertEqual(0, result.returncode, result.stderr)
+            self.assertFalse(sample.exists())
+            batches = sorted((work/'sample-work').glob('part-*.mkv'))
+            before = [(p.stat().st_mtime_ns, p.read_bytes()) for p in batches]
+            self.assertEqual(4, len(batches))
+            geometry = json.loads((work/'sample-work/geometry.json').read_text())
+            self.assertEqual(61, geometry['frames_checked'])
+            self.assertEqual(61, len((work/'draw-calls.txt').read_text().splitlines()))
+            result = invoke('--output', str(sample), '--seconds', '2.51', '--resume')
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(before, [(p.stat().st_mtime_ns, p.read_bytes()) for p in batches])
+            self.assertEqual(61, len((work/'draw-calls.txt').read_text().splitlines()))
             qa = json.loads(sample.with_suffix('.qa.json').read_text())
+            spec = importlib.util.spec_from_file_location('lossless_source', root/'scene.py')
+            renderer = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(renderer)
+            expected_rgb = renderer.frame(0, config, root)[0].convert('RGB').tobytes()
+            decoded_rgb = subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(batches[0]),
+                                                   '-frames:v', '1', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'])
+            self.assertEqual(expected_rgb, decoded_rgb)
             self.assertEqual(61, qa['frames'])
             self.assertTrue(qa['joined_frames_verified'])
             self.assertEqual(0, qa['full_decode_errors'])
@@ -214,12 +236,25 @@ class Contracts(unittest.TestCase):
             self.assertFalse((work/'mixed.mp4').exists())
             (root/'added.png').unlink()
             with (root/'scene.py').open('a') as renderer:
-                renderer.write("\n_original_frame = frame\n_calls = 0\ndef frame(t, config, root):\n    global _calls\n    _calls += 1\n    if _calls == 65:\n        (root / 'mid-render-asset.png').write_bytes(b'changed during encode')\n    return _original_frame(t, config, root)\n")
+                renderer.write("\n_original_frame = frame\n_calls = 0\ndef frame(t, config, root):\n    global _calls\n    _calls += 1\n    if _calls == 25:\n        (root / 'mid-render-asset.png').write_bytes(b'changed during encode')\n    return _original_frame(t, config, root)\n")
             lock_path.write_text(json.dumps(capture(root)))
             result = invoke('--output', str(work/'mid-render.mp4'), '--seconds', '2.51')
             self.assertNotEqual(0, result.returncode)
             self.assertIn('Source set changed', result.stderr)
             self.assertFalse((work/'mid-render.mp4').exists())
+            (root/'mid-render-asset.png').unlink()
+            shutil.copy2(SKILL/'assets/scene.py', root/'scene.py')
+            with (root/'scene.py').open('a') as renderer:
+                renderer.write("\n_draw = frame\ndef frame(t, config, root):\n    image, objects = _draw(t, config, root)\n    if t >= 1:\n        objects.append({'id':'bad', 'kind':'shape', 'box':[-1,0,5,5]})\n    return image, objects\n")
+            lock_path.write_text(json.dumps(capture(root)))
+            result = invoke('--output', str(work/'fault.mp4'), '--seconds', '2.51')
+            self.assertNotEqual(0, result.returncode)
+            self.assertFalse((work/'fault.mp4').exists())
+            report = json.loads((work/'fault-work/geometry.json').read_text())
+            self.assertEqual(25, report['frames_checked'])
+            self.assertEqual('crop:bad', report['issues'][0]['issue'])
+            self.assertTrue((work/'fault-work/part-00000000.json').exists())
+            self.assertFalse((work/'fault-work/part-00000020.json').exists())
 
 
 if __name__ == '__main__':

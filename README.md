@@ -37,6 +37,36 @@ python -m unittest discover -s tests -v
 
 The [authoring guide](docs/authoring.md) includes a minimal complete example. Discovery checking is read-only: a canonical-only checkout needs no repository copy, and the command says so. It checks parity if an optional Cursor copy exists.
 
+## Long-form horizontal video production
+
+Use [`produce-long-form-video`](skills/produce-long-form-video/SKILL.md) for a complete technical explanation in **16:9**, normally **1920x1080**, with native-paced local narration. Chapters build on one continuing example; the explanation determines duration. A request for only an outline, script, or storyboard stops at that artifact.
+
+```mermaid
+flowchart TD
+    A["Primary sources + learning outcome"] --> B["Chapter questions + storyboard<br/>Mechanism, consequence, tradeoff, recap"]
+    B --> C["Narrated sample + concept-specific scenes<br/>Actors, comparisons, timelines and state changes"]
+    C --> D{"Independent technical/editorial<br/>and scene diva review"}
+    D -->|"Repair within the shared 3-round cap"| C
+    D -->|"Unresolved at cap"| X["Report findings and limits"]
+    D -->|"Sample gates pass"| E["Full animatic at native pace<br/>Check explanations, transitions and geometry"]
+    E --> F["Freeze exact sources<br/>Artwork + script + WAV + cues + code"]
+    F --> G["Render checked, resumable batches<br/>Draw each frame once; reuse verified work"]
+    G --> H["Review encoded master<br/>Visuals, playback, loudness and audio sync"]
+    H --> I["Deliver continuous full-quality video<br/>Captions + production record + recovery ZIP"]
+    classDef plan fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
+    classDef review fill:#fef3c7,stroke:#b45309,color:#78350f;
+    classDef output fill:#dcfce7,stroke:#15803d,color:#14532d;
+    class A,B,C,F plan;
+    class D,E,H,X review;
+    class I output;
+```
+
+**Read the diagram from top to bottom:** prove the teaching approach in a narrated sample, review the full timeline, then freeze the exact inputs for a reproducible render. Blue boxes prepare the material, amber boxes show review or evidence limits, and green marks delivery. Each deliverable has at most three shared review rounds; changing reviewers does not reset that limit.
+
+**Visual variety must explain something.** An actor view follows a request, a comparison exposes a choice, and a timeline explains event order or expiry. The scene diva checks composition, readability and purposeful motion; technical/editorial review checks correctness and the explanation. Native narration remains unchanged during visual repairs, while cached caption layouts and reusable lossless batches reduce repeated work.
+
+The final encode still needs playback and media checks. Frame sampling and a successful full decode do not prove continuous watching or listening; record missing evidence explicitly. Delivery, viewer acceptance and publication remain separate states. See the [scene vocabulary](skills/produce-long-form-video/references/scene-vocabulary.md), [production gates](skills/produce-long-form-video/references/production.md), and [chapter validation report](docs/validation/produce-long-form-video-20261011.md).
+
 ## Skill catalog
 
 Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries come from `agents/openai.yaml`. Regenerate with `python scripts/build-docs.py`; the test suite rejects stale output.
@@ -70,7 +100,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
 | [muse-only-orchestrator](skills/muse-only-orchestrator/SKILL.md) | Orchestrate with little Muse helpers while the primary only thinks |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
-| [produce-explainer-video](skills/produce-explainer-video/SKILL.md) | Create reviewed narrated technical videos |
+| [produce-long-form-video](skills/produce-long-form-video/SKILL.md) | Create long-form 16:9 technical explainer videos |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |

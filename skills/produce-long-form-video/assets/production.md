@@ -12,17 +12,24 @@ Implementation route (built-in/library/command/custom design):
 Assumptions, failure conditions, tradeoffs and exclusions:
 Source anchors (claim → title/passage/page):
 Target format, platform-safe bounds, voice and capabilities:
+Default master: 1920x1080, 16:9 horizontal; explicit override and rationale:
+User duration constraint, or explanation-led runtime without padding:
 Fresh episode artwork/provenance; source and crop pixel dimensions, maximum projected size, aspect/perspective/geometry checks:
 Supplied aesthetic reference actually inspected (identity/version/dimensions/limits); observed material/lighting/texture/palette/composition matches and mismatches:
 Requested generation size versus actual decoded source size; resampling source/output dimensions and scale:
 
 ## Narration and storyboard
 
-For each explanation record: stable scene ID and measured start/end; narration; composition type; initial/current/final state; visible causal action; measured spoken cue; necessary labels; actor/screen/LED activity; path; transition; teaching hold; misconceptions. Fit time to measured native speech and comprehension.
+Chapter questions and progression: starting understanding, demonstration/new constraint, answer earned, and next question:
+
+For each explanation record: stable chapter/scene ID and measured start/end; viewer question; narration; composition type and reason; initial/current/final state with visible values; trigger, causal action and consequence; measured spoken cue; necessary labels; actor/screen/LED activity; path; transition; teaching hold and its purpose; misconceptions. Fit time to measured native speech and comprehension.
+
+For a dull existing cut: inspected interval, observed repetition/missing explanation, effect on understanding, focused repair, and accepted choices to preserve:
 
 ## Gates and artifact evidence
 
 Representative narrated sample and feedback:
+Core mechanism, complete visible consequence, and difficult transition/comparison represented by the sample:
 Sample delivery receipt and existing full-production authorization / reserved user decisions:
 Approved sample configuration/source lock:
 Independent technical review:

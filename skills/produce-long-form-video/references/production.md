@@ -4,6 +4,8 @@ Keep the production brief authoritative for presentation, not facts. Begin it wi
 
 The narrative is orientation (what/why) → concrete scenario → definition/uses → normal mechanism → practical implementation → failures/limits → synthesis. A scenario-only opening needs an orientation. Every explanation needs its own useful composition, chosen for its mechanism. Reuse identities and local anchors, not one unchanged diorama throughout.
 
+For long-form structure, use [story and pacing](story-and-pacing.md). Outline chapter questions and the change in understanding each earns. In each scene, identify the visible state change and consequence, then justify its hold and transition. A technically correct slideshow or repeated traveling-dot diagram can still fail editorial review. Diagnose the actual cut before adding motion or rewriting accepted narration.
+
 ## Per-deliverable review loop
 
 Each asset deliverable needs an independent subagent reviewer before its dependent production gate or delivery. Cover the production document, narration/storyboard, context art and concept diagrams, native audio/cues, captions, voiced sample, animatic, encoded master, phone copy and recovery package as they become deliverables. Related files may be reviewed together only when each asset is explicitly inspected and recorded; one final video review cannot substitute for earlier asset reviews. A self-check does not satisfy independence. If reviewers are unavailable, record the missing gate rather than inventing approval.
@@ -24,13 +26,15 @@ Bring the user a material creative choice, unresolved critical or capped materia
 
 ## Reviews before long rendering
 
-The sample must demonstrate the mechanism, captions and transition with real narration, not just a pretty cover. Apply the bounded independent review, record feedback and the exact source revision, then deliver it with actual delivery evidence. Approval of a style still or silent test does not approve a narrated sample. An approved sample is not full-video acceptance. When requested changes are narrow, fix those dimensions while preserving accepted decisions.
+The sample must demonstrate a core mechanism, its visible consequence, captions and a transition or explanatory comparison with real narration. Select a representative difficult passage, not just a pretty cover or easy introduction. Apply the bounded independent review, record feedback and the exact source revision, then deliver it with actual delivery evidence. Approval of a style still or silent test does not approve a narrated sample. An approved sample is not full-video acceptance. When requested changes are narrow, fix those dimensions while preserving accepted decisions.
 
 When the user has already authorized full production, sample delivery plus passing internal gates permits continuing without another routine user checkpoint. Record the authorization and independent review evidence as the basis; do not label internal feedback as user feedback. If they explicitly reserved a sample decision, honor that instruction. Material creative decisions, unresolved critical findings and actual permission blockers still need their involvement. Full-video acceptance and publishing authority remain separate.
 
 After the sample, review a native-paced animatic covering each explanation and challenging transitions. Do not compress a minute into a few seconds to assess pacing. Sampled temporal frames can establish visual sequence but cannot establish perceived spoken pacing. When continuous playback/listening is unavailable, record that evidence gap and arrange human playback instead of claiming the gate passed in full.
 
 Editorial findings need timecode, observed issue, learning/viewing impact and focused repair. Check orientation, stakes, scene variety, progressive mechanism, matched narration/state, internal action, readability, restrained depth, transitions, stable pauses, continuity and cognitive load. Check that quality survives the complete runtime. Recheck repaired portions plus surrounding context within the deliverable's remaining rounds.
+
+For each chapter, state what the viewer learns that was not already clear. Flag unchanged pictures under new mechanisms, repeated explanation without a new constraint, unreadable fast action, and empty holds. A useful reading/comparison hold is not a defect merely because little moves. Review the explanation at native speed; a count of cuts, layouts, or particles cannot establish engagement.
 
 Technical findings need the violated contract and evidence: source support, state/event order, IDs/values, protocol/math assumptions, hashes, alpha/clipping/layer/camera behavior, geometry, captions, waveform, full decode, frame count/timestamps, dimensions/codecs and completeness. Tests of finite example states do not prove a general distributed-systems guarantee.
 

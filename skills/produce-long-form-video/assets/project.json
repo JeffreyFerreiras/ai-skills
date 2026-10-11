@@ -1,14 +1,16 @@
 {
-  "width": 540,
-  "height": 960,
+  "width": 1920,
+  "height": 1080,
+  "design_width": 960,
+  "design_height": 540,
   "fps": 24,
   "wav": "audio/narration.wav",
   "words": "audio/words.json",
   "script": "narration.txt",
   "font": "assets/font.ttf",
   "renderer": "scene.py",
-  "caption_box": [38, 770, 502, 864],
+  "caption_box": [240, 840, 1680, 1000],
   "caption_font_size": 23,
-  "transition_seconds": 0.35,
+  "transition_seconds": 0,
   "scenes": []
 }

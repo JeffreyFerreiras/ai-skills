@@ -8,6 +8,13 @@ Give the reviewer the production brief, learning purpose of each scene, current 
 
 Review **every scene**, not only the cover or best-looking sample. Maintain a coverage row per scene and each boundary transition, naming the deliverable stage: which keyframes and decoded indexes/timestamps were viewed, which motion intervals were actually played or sampled, and which master/phone encodes were inspected. Keyframes should include the establishing composition, important causal state changes, teaching hold and transition entry/exit. A scene shared by sample and full export retains its ID and review history; prior-stage coverage is not final encoded approval.
 
+Check the 16:9 composition at delivery size: readable relationships across the
+frame, purposeful use of width, and captions separated from taught state. Reject
+stretched portrait art and repeated generic cards when the current mechanism
+needs a different view. Coordinate with editorial review on what changed in the
+viewer's understanding; attractive art alone cannot clear that finding. A stable
+comparison hold can be correct even when it contains little motion.
+
 Inspect actual encoded artifacts for final verdicts; pre-encode keyframes alone cannot approve a final transition or phone legibility. Use exact decoded-frame extraction when helpful, with requested/actual timecodes distinguished. Sampled temporal frames support a sequence claim, not continuous motion, pacing or listening. If playback is unavailable, record the gap and restrict the verdict; do not invent motion inspection, sound review or complete coverage.
 
 ## Reference-grounded visual gate

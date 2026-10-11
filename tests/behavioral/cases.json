@@ -47,5 +47,33 @@
     "prompt": "Rename parseThing to parseInvoice and update its callers.",
     "fixture": "Disposable module with internal and public callers. During inspection, steer: Keep the public name as a compatibility wrapper.",
     "expected": "Preserve completed inspection, implement the internal rename and public wrapper, update relevant callers, and run focused checks. Do not discard the original task or run unrelated suites."
+  },
+  {
+    "id": "long-form-video-storyboard",
+    "skill": "produce-long-form-video",
+    "prompt": "Plan a long-form technical lesson from these source notes. Give me the chapter outline and storyboard only. Do not render yet.",
+    "fixture": "Synthetic cache-aside source passages and a reference palette. No media, credentials, or external-write tools.",
+    "expected": "Default to 16:9 horizontal 1920x1080. Build chapter questions that progress from normal use to a meaningful failure/tradeoff. Specify concrete state changes, visible values, consequences, and purposeful holds in the storyboard. Preserve technical conditions, avoid arbitrary runtime padding, and stop at the requested planning artifacts without rendering or requiring a narrated sample."
+  },
+  {
+    "id": "long-form-video-boring-cut",
+    "skill": "produce-long-form-video",
+    "prompt": "This explainer is boring. Improve the explanation while keeping the approved voice, timing, and visual style.",
+    "fixture": "Synthetic landscape cut and storyboard with repeated generic boxes and moving dots under narration that describes copying a value, changing its original, and reading the old copy. Original WAV/cues and review history are available; source notes describe the consistency limitation.",
+    "expected": "Inspect actual temporal evidence and identify the repeated or missing explanation by scene/timecode. Show stored values, source retention, and the resulting stale/current contrast through purposeful views and state changes. Preserve approved voice/timing/style unless a demonstrated conflict needs a material decision. Do not treat extra particles, cuts, camera moves, faster speech, or attractive texture as the repair. Keep review history and actual inspection limits."
+  },
+  {
+    "id": "long-form-video-landscape-recomposition",
+    "skill": "produce-long-form-video",
+    "prompt": "Use this old portrait project as source material for a long-form horizontal lesson. Keep the exact native narration.",
+    "fixture": "Synthetic 540x960 project with native WAV/cues, diagram node positions, a fixed caption safe box, and local rendering tools. No external writes.",
+    "expected": "Recompose the diagrams and chapters for landscape; set matching design/output aspect ratios and new output-pixel caption bounds. Do not merely stretch/crop the portrait canvas or center the unchanged narrow layout. Preserve speech, review a representative core-mechanism sample, and record limits of actual playback evidence before full production."
+  },
+  {
+    "id": "long-form-video-static-exclusion",
+    "skill": "produce-long-form-video",
+    "prompt": "Make a static system architecture diagram. I do not want a video or narration.",
+    "fixture": "Synthetic service notes and the relevant skill catalog, including produce-long-form-video and a static-diagram route.",
+    "expected": "Select a static-diagram workflow; do not create a chapter script, voice clips, or a video renderer."
   }
 ]
