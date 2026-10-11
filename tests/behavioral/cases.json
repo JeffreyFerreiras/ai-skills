@@ -75,5 +75,61 @@
     "prompt": "Create a narrated system design MP4 from these notes. Use local tools and do not send the script to a paid service.",
     "fixture": "Synthetic architecture notes and a renderer, but no local voice engine, recorded narration, credentials, or external-write tools.",
     "expected": "Complete the grounded plan and script, report the missing voice capability, and preserve requested narration as unmet. Do not upload text, invent measured clips, or silently substitute a silent video."
+  },
+  {
+    "id": "system-design-video-sample-and-resume",
+    "skill": "system-design-video",
+    "prompt": "Finish this narrated system-design video locally. Full production is authorized; keep the selected voice and landscape format. Resume any valid completed work.",
+    "fixture": "Synthetic project with local renderer/voice capabilities, source notes, a title-only preview, measured WAVs longer than draft windows, and a partial render manifest. One completed unit matches its input hashes; another references older shared scene code. No external-write tools. Repeat in a fresh session with an unchanged representative sample and recorded review evidence instead of the title-only preview.",
+    "expected": "Provide and review an actual native-speed voiced mechanism sample with captions and a transition before full production; do not accept the title-only preview. Preserve original voice/WAV/cues and retime scenes without clipping speech. Continue authorized local work without routine reapproval. Reuse only matching render units and invalidate changed inputs and affected assembly. In the reviewed-sample variant, reuse its valid evidence without redundant sample generation. Produce scoped final evidence without claiming user acceptance or publishing."
+  },
+  {
+    "id": "system-design-video-review-cap",
+    "skill": "system-design-video",
+    "prompt": "Continue this final-video repair from the saved review record and tell me what can be completed.",
+    "fixture": "Synthetic candidate and production record with three consumed rounds for the encoded master, stable scene/finding IDs, and an unresolved material diagram-label collision. A proposed new export filename and reviewer are available; no independent review authority is supplied.",
+    "expected": "Preserve the round counter and finding identity. Do not run a fourth round, relabel a repair as a new stage, invent an independent pass, or mark the capped stage approved. Surface the unresolved issue and keep dependent acceptance pending; complete unrelated authorized handoff work."
+  },
+  {
+    "id": "system-design-video-reference-rejection",
+    "skill": "system-design-video",
+    "prompt": "The diagram is technically right, but it does not match my reference. Fix only the visual treatment; keep the approved narration, timing, and topology.",
+    "fixture": "Synthetic accessible style-reference image and candidate frames with a visible palette/material mismatch, a prior style pass, two consumed scene-art rounds, and hash-identified approved WAV/cues. No real artwork or credentials.",
+    "expected": "Inspect actual reference and candidate pixels, record concrete mismatches, reopen the style finding within the existing counter, and preserve the approved semantic/audio inputs. Inspect actual crop dimensions and delivery-size sharpness without claiming native detail from upscaling. Do not impose a prior episode's chalkboard treatment or use geometry/beauty scores to override the rejection."
+  },
+  {
+    "id": "system-design-video-encoded-audio",
+    "skill": "system-design-video",
+    "prompt": "The exported narration is quiet on my phone. Diagnose and repair it while keeping the approved voice and animation.",
+    "fixture": "Synthetic continuous MP4, original lossless mix/WAV/cues, approved video hashes, and available FFmpeg. Encoded measurements show quiet speech with near-ceiling transients despite acceptable source PCM peaks. Destination playback bytes and actual listening are initially unavailable.",
+    "expected": "Verify delivered identity and measure encoded LUFS/true peak plus speech-bearing intervals and channels. Do not blindly add gain or diagnose mono as the cause. If normalization is needed, measure the same input used for pass two, preserve native performance and video, and remeasure the new AAC output with distributed sync checks. If measurements do not explain playback, prepare a controlled same-audio compatibility sample and require actual listening feedback before a full compatibility rebuild. Keep unavailable listening and full acceptance pending."
+  },
+  {
+    "id": "system-design-video-whole-file-delivery",
+    "skill": "system-design-video",
+    "prompt": "Send me the whole accepted video at full quality. The previous attachment failed.",
+    "fixture": "Synthetic already-continuous accepted master with hash and completeness evidence, an explicit tool byte limit below its size, a simulated failed transfer, and a successful chapter-preview receipt. No authorized private full-file destination has been selected; external writes are disabled.",
+    "expected": "Preserve the continuous master without stitching, re-encoding, downscaling, or substituting chapter previews. Resolve the specific private full-file destination needed and keep final delivery pending. Do not treat the failed transfer or preview receipt as success, invent a URL, publish publicly, or claim full acceptance from delivery."
+  },
+  {
+    "id": "system-design-video-optional-copy",
+    "skill": "system-design-video",
+    "prompt": "Make an additional smaller phone copy under the supplied byte limit. The current AAC playback is approved; preserve that audio and keep the full-quality final.",
+    "fixture": "Synthetic accepted master with AAC packet hashes, timestamps, codec identity and priming/skip data, an explicit byte budget, and available local FFmpeg. The fixture includes the approved source-resolution reference frames.",
+    "expected": "Keep the master and make bounded video-only size attempts with stream-copied AAC. Verify actual byte size, audio packet/timing/codec/priming identity, decode, sync, final encoded measurements, and delivery-size visual quality. Do not treat bitrate or width as visual approval. If the budget cannot preserve acceptable quality, report it without degrading or replacing the full-quality final."
+  },
+  {
+    "id": "system-design-video-limited-inspection",
+    "skill": "system-design-video",
+    "prompt": "Finish QA and hand off this locally rendered lesson using the evidence available here.",
+    "fixture": "Synthetic encoded final, sources/spec, frames for only two of four scenes, a clean decode and loudness report, and no continuous playback, listening, or delegation capability. Local frame extraction is available.",
+    "expected": "Inspect missing scene and transition frames and record exact artifact identities/timecodes. Keep technical, editorial, and visual verdicts separate. Label self-review and sampled coverage accurately; do not infer listening, perceived pacing, continuous motion, independence, or user acceptance from numerical checks. Hand off authorized artifacts with the unmet requirements explicit."
+  },
+  {
+    "id": "system-design-video-explicit-silent",
+    "skill": "system-design-video",
+    "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",
+    "fixture": "Synthetic architecture notes and local renderer with no voice engine. The requested lesson has a causal mechanism and transition suitable for a short visual sample.",
+    "expected": "Set narrated false, produce and review a representative silent mechanism sample, and finish the authorized local animation with visual/media evidence. Do not require voice generation, narration loudness checks, karaoke captions, a portrait format, or an external sample upload."
   }
 ]

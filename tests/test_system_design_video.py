@@ -149,9 +149,15 @@ class SystemDesignVideoTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.plan["scenes"][0]["narration"]["file"] = name
                 self.assertTrue(self.errors(ready=True))
+
+    def test_symlink_audio_paths_cannot_escape_project(self) -> None:
+        self.measured_plan()
         with tempfile.TemporaryDirectory() as outside:
             (Path(outside) / "voice.wav").write_bytes((self.project / "voice.wav").read_bytes())
-            (self.project / "escaped.wav").symlink_to(Path(outside) / "voice.wav")
+            try:
+                (self.project / "escaped.wav").symlink_to(Path(outside) / "voice.wav")
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"Symlink creation unavailable: {error}")
             self.plan["scenes"][0]["narration"]["file"] = "escaped.wav"
             self.assert_issue("must stay inside", ready=True)
 

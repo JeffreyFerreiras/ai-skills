@@ -46,6 +46,10 @@ Set each clip's `file`, measured `duration_seconds`, and `timing_basis: measured
 Read its duration from the generated audio, not a word-count estimate. Recompute
 scene windows and dependent event times. Keep word/phrase alignment as a separate
 artifact when the voice engine supplies it; it is not validated by this checker.
+Preserve original WAVs and cues after review. The measured clip duration can be
+exact while word cues remain model estimates. Check those cues against the audio
+before claiming word-accurate reveals or captions. Retiming must preserve complete
+native speech, including any partial final frame.
 
 Resolve the skill directory from the installation, then run:
 
@@ -76,3 +80,7 @@ Checking only the final frame misses intermediate collisions and causal errors.
 
 Final media checks are separate. A structurally valid spec does not prove that
 audio reached the MP4, that subtitles align, or that a viewer can read the labels.
+Keep review rounds, hashes, actual playback coverage, encoded measurements, and
+delivery receipts in the [production record](../assets/production-record.md), not
+as invented certified fields in this schema. Follow
+[production review](production-review.md) for those evidence-based verdicts.

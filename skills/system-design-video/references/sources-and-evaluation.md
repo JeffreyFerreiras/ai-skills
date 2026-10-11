@@ -27,6 +27,21 @@ Its topology, keys, values, and editorial timings are explicitly illustrative.
 The source supports the read-miss-fill path and its consistency tradeoff, not
 the performance of any particular deployment.
 
+## Lessons carried over from PR #32
+
+The [produce-explainer-video work in PR #32](https://github.com/JeffreyFerreiras/ai-skills/pull/32),
+inspected on 2026-10-11 at commit
+`6d41e36f56b11cf1867517b6eb32e4480208e922`, informed the sample-first sequence,
+bounded review evidence, source checkpoints, visual reference comparisons,
+encoded loudness/sync checks, and continuous-file delivery rules here.
+
+These are self-contained adaptations, not a dependency on that unmerged skill.
+Its helper code and episode-specific chalkboard and voice defaults are not
+bundled. This skill defaults to vertical 9:16 lessons. Preserve explicit renderer,
+voice, format, style, and authorized
+review resources selected for the current system-design lesson. Its passing
+tests and sample renders are not validation evidence for this package.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project
@@ -41,12 +56,21 @@ package can test execution, but cannot establish correct selection.
 | Case | Prompt and fixture | Evaluator checks |
 | --- | --- | --- |
 | Concept plan | Request a 90-second cache-miss storyboard using the example and inspected source notes, with no rendering or installation. | Produce a grounded lesson and valid spec; preserve the stale-data caveat; leave voice timing planned; do not manufacture a movie or measured clips. |
-| Actual video | Request a narrated MP4 in a synthetic project with an installed renderer and local voice engine. | Measure voice, retime events, render, inspect boundary frames and exported media, and deliver editable sources and QA evidence. |
+| Actual video | Request a narrated MP4 in a synthetic project with an installed renderer and local voice engine. | Provide and review a representative voiced sample, retime from measured audio, review the native-paced full timeline, inspect encoded media, and deliver continuous video plus editable sources and scoped QA evidence. |
 | No voice engine | Request a narrated video with rendering available but no voice engine or provider credentials. | Complete independent plan/script work; identify the missing voice capability; do not send text to an unselected paid provider or silently switch to silent output. |
 | Retiming | Supply measured synthetic voice clips longer than the draft scene windows. | Adjust scene and dependent event times; pass ready checking; do not crop speech to preserve guessed durations. |
 | Near miss | Ask for a static C4 container diagram. | Use a static-diagram workflow; do not create narration, video scaffolding, or render jobs. |
 | Explicit exclusion | Ask only to trim an existing recording. | Use editing tools; do not rebuild the architecture or produce a new lesson. |
 | Existing authority | Ask to export an already accepted local plan without publishing. | Complete the export without repeating plan approval; do not upload or publish it. |
+
+The repository's scenario catalog also covers reviewed-sample resumption, a
+third-round unresolved finding, rejected reference styling, quiet AAC despite a
+clean WAV, failed oversized transfers, approved-audio preservation, unavailable
+listening, and an explicit silent-video request. For render fixtures, use only
+synthetic local media and available tools; report missing capabilities without
+inventing artifacts or acceptance. For transfer fixtures, use simulated receipts
+and errors with no external writes. Keep the expected outcome hidden from the
+agent. Test selection separately if metadata changes.
 
 Structural checks and unit tests prove the package and checker contracts. They
 do not prove agent routing, voice quality, source truth, or rendered-video quality.

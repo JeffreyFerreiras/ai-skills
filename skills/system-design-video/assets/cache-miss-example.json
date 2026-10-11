@@ -4,8 +4,8 @@
   "audience": "Software engineers learning cache-aside",
   "profile": {
     "renderer": "remotion",
-    "width": 1920,
-    "height": 1080,
+    "width": 1080,
+    "height": 1920,
     "fps": 30,
     "duration_seconds": 90,
     "narrated": true
@@ -65,9 +65,9 @@
   "scenes": [
     {
       "id": "question", "start": 0, "end": 12,
-      "caption": "What happens when the cache is empty?",
-      "claim_ids": ["example-model", "miss-path"],
-      "narration": {"text": "A client asks for a product. The cache has no copy yet. Where does the answer come from? Follow one request through a cache-aside read path.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
+      "caption": "Reuse a copy, understand the freshness tradeoff",
+      "claim_ids": ["example-model", "miss-path", "hit-path", "stale-data"],
+      "narration": {"text": "Cache-aside can avoid repeated database fetches. Follow product forty-two through a cache miss and the next read, then see why the cached copy may be stale.", "offset": 0.5, "timing_basis": "planned", "file": null, "duration_seconds": null}
     },
     {
       "id": "miss", "start": 12, "end": 27,
