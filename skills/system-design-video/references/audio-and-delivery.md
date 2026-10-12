@@ -3,6 +3,9 @@
 Use the destination's audio/container requirements and the user's chosen route.
 Preserve original narration, voice/rate, cues, and the accepted continuous master.
 Record measurements and delivery evidence in the current production record.
+Match sample and final playback loudness for meaningful voice comparisons; keep
+listening preference separate from ASR correctness and numerical safety checks.
+Use [local narration](local-narration.md) for the preferred engine and timing rules.
 
 ## Measure the encoded audio
 
@@ -93,7 +96,16 @@ destination needed. Keep the master unchanged and delivery pending until that
 route succeeds. Do not silently lower quality, publish a private file, or replace
 the final with chapter clips. Route changes alone do not call for reprocessing.
 
-Create phone copies or chapter previews only when requested. Keep them distinct
+For a chat handoff covered by the brief, provide a compact full-length 1080p
+review copy alongside the continuous HQ master. About 17-18 MB worked for tested
+full-length 1080p chat deliveries; this is an observed working budget, not a
+universal upload limit or visual-quality guarantee. Resolve the current route's
+limit and inspect actual encoded diagrams, high word-highlighted subtitles,
+motion, and audio. Keep the HQ master unchanged and final delivery distinct from
+the preview receipt. If quality cannot fit, report the tradeoff and use an
+authorized whole-file route rather than degrading the final or splitting it.
+
+Create other phone copies or chapter previews only when requested. Keep them distinct
 from the continuous full-quality final. For a size-limited copy, make bounded
 attempts against an explicit byte budget and inspect encoded sharpness, captions,
 diagrams, and motion. A bitrate calculation or familiar width is not approval.
@@ -105,6 +117,11 @@ and priming/skip data before claiming preservation. Remeasure final audio even
 after copy; if audio is re-encoded, renew listening and sync checks too. Cutting
 chapter clips can change AAC priming/timestamps, so whole-stream equivalence
 cannot be assumed. Map local/global timecodes and inspect each clip's boundaries.
+
+Store finished videos at the configured user destination and verify exact
+whole-file identity there. Keep editable sources/checkpoints in their configured
+project or artifact store; final-video delivery authority does not cover source
+bundles or broader sharing. Do not hard-code a machine path into reusable commands.
 
 Delivery, full acceptance, and publication are separate. Acceptance needs explicit
 full-video feedback or a satisfied user-defined condition. Publication needs its

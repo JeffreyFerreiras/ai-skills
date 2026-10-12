@@ -64,6 +64,8 @@ flowchart TD
 
 Each scene must show a meaningful change, such as a request arriving before its response leaves. Reviews record what was actually inspected: sampled frames and automated media checks cannot establish continuous watching or listening. Delivery does not imply viewer acceptance or permission to publish. See the [production review](skills/system-design-video/references/production-review.md) and [audio and delivery](skills/system-design-video/references/audio-and-delivery.md) guides.
 
+Start with a production document and an opening that explains the problem, relevance, solution, and learning points in lesson order. For new local narration, prefer MOSS-TTS Local Transformer v1.5 with Qwen fallback, native adaptive prosody, and configurable model storage; preserve approved recordings. Use authentic chalkboard scenes with crisp drawn diagrams, varied causal action, upright labels, and high word highlighting. Review every asset and assign a dedicated visual reviewer to every scene within the shared three-round cap. Chat handoffs covered by the brief include a separate full-length 1080p review copy alongside the continuous HQ master. See [local narration and its measured limits](skills/system-design-video/references/local-narration.md).
+
 ## Skill catalog
 
 Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries come from `agents/openai.yaml`. Regenerate with `python scripts/build-docs.py`; the test suite rejects stale output.

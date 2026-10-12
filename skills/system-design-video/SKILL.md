@@ -54,20 +54,32 @@ as a source of measured audio timings or a claim about a real deployment.
 
 ## Write the lesson and timeline
 
-Open with what the viewer will learn and why it matters. Establish the actors,
+Create one production document before the sample and full production: script, storyboard,
+source/claim ledger, visual direction, voice choice, and review plan. Open with
+what the system or concept is, the problem it solves, why the viewer should care,
+and a brief solution overview before mechanics. Preview learning points in the
+order the lesson actually teaches them. Establish the actors,
 goal, and stakes before tracing one concrete request or item through the system.
 Show what changes, why that change matters, and what the approach costs. End with
 the answer and the scope of the conclusion. Each scene should teach one idea.
 
 Write narration before animation. For a narrated video, generate or record the
 voice, measure each audio clip, and obtain word or phrase timestamps when precise
-reveals need them. Prefer an available local voice engine when the brief does not
-select a provider. Fix acronym pronunciation before setting the final timeline.
+reveals need them. For new local narration without an explicit engine choice,
+prefer MOSS-TTS Local Transformer v1.5, with Qwen3-TTS as fallback. Preserve an
+existing approved performance. Read [local narration](references/local-narration.md)
+for synthetic-reference provenance, tested limits, configurable model storage,
+and matched listening. Fix acronym pronunciation before the final timeline.
 Never label estimated script timing as measured audio timing.
-Preserve the selected voice, native rate, original WAVs, and alignment cues after
-review. Change scene lengths to fit speech; do not trim, stretch, or resynthesize
-approved narration to fix layout, export size, or loudness. Label model-generated
-word cues as estimates until checked against the actual audio.
+Preserve the selected voice, native adaptive prosody, original WAVs, and alignment
+cues after review. Let delivery follow meaning, complexity, and natural pauses;
+do not impose a fixed speed multiplier. Change scene lengths to fit speech; do
+not trim, stretch, or resynthesize approved narration to fix layout, export size,
+or loudness. Label model-generated
+word cues as estimates until checked against the actual audio. Preserve approved
+intro/body audio, and retime captions and visual anchors to the actual processed
+waveform. Reconcile alignment to canonical words and flag uncertain recognition;
+do not scale old timestamps or invent uniform word durations.
 
 Use those measurements to set scene windows, narration offsets, event times, and
 subtitle cues. Run the bundled checker after drafting and after audio retiming:
@@ -110,8 +122,10 @@ or listening as an open evidence gap, not a passed check.
 
 Render from the spec's event timeline and shared style tokens. Derive every frame
 from its timeline position so seeks and repeated renders produce the same state.
-Keep a persistent diagram when the components stay the same. Move a labeled
-request, record, or message along its real directed relationship; show the
+Use concept-specific scenes and varied compositions as the explanation changes,
+with stable local anchors and identities. Keep a persistent diagram while it
+serves the current concept. Move a labeled request, record, or message along its
+real directed relationship; show the
 resulting state change. Use declared event dependencies for causal order.
 
 Reveal a component or label when its explanation reaches it. Keep one interaction
@@ -146,8 +160,10 @@ quality, reference comparison, and safe captions, use the visual guidance in
 
 Record the inspected revision, scene IDs/timecodes, findings, repairs, and actual
 inspection scope under [production review](references/production-review.md).
-When delegation is available and authorized, use a non-author reviewer; otherwise
-self-review and disclose that limit. Neither method implies unavailable playback.
+Use a non-author reviewer for every asset deliverable and a dedicated visual
+reviewer for every scene when delegation is available and authorized. Otherwise
+self-review, disclose the missing independent gate, and leave it pending when
+the brief requires independence. Neither method implies unavailable playback.
 
 ## Deliver and hand off
 
@@ -155,13 +171,18 @@ Provide the requested video or preview, subtitles when narrated, editable scene
 source, script, `video-spec.json`, and a short QA report. Keep output in the chosen
 project, outside the installed skill. Record exact runtime versions, commands,
 source locators, clip durations, and any remaining defects in the report. Preserve
-existing work and use new versioned output names for revisions.
+existing work and use new versioned output names for revisions. Resolve final
+video storage from the configured user destination; do not hard-code a drive or
+copy source bundles there unless requested. Workflow or preference updates do
+not authorize rerendering completed videos.
 Use [the production record](assets/production-record.md) in the project, or add
 its evidence fields to the existing record. Checkpoint exact sources, assets,
 WAVs/cues, dependencies, and render commands so interrupted work can resume.
 
-A final video is one continuous full-quality file. Keep an accepted continuous
-master unchanged during delivery. Follow [audio and delivery](references/audio-and-delivery.md)
+A final video is one continuous full-quality file, stitched and checked when
+rendered in units. Also provide a distinct compact full-length 1080p review copy
+for chat delivery when requested or covered by the brief. Keep an accepted
+continuous master unchanged during delivery. Follow [audio and delivery](references/audio-and-delivery.md)
 for final encoded loudness, quiet playback, size limits, and verified transfer.
 Do not substitute unsolicited chapter clips or a degraded copy. Keep rendered,
 QA passed, delivered, accepted, and published states separate, with evidence for

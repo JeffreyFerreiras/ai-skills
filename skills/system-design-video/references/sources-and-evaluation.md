@@ -36,11 +36,26 @@ bounded review evidence, source checkpoints, visual reference comparisons,
 encoded loudness/sync checks, and continuous-file delivery rules here.
 
 These are self-contained adaptations, not a dependency on that unmerged skill.
-Its helper code and episode-specific chalkboard and voice defaults are not
-bundled. This skill defaults to vertical 9:16 lessons. Preserve explicit renderer,
+Its helper code is not bundled. PR #32 is closed unmerged and is not an execution
+dependency. This skill defaults to vertical 9:16 lessons. Preserve explicit renderer,
 voice, format, style, and authorized
 review resources selected for the current system-design lesson. Its passing
 tests and sample renders are not validation evidence for this package.
+
+## Verified production guidance refreshed on 2026-10-12
+
+The current production guide informed the contextual opening and ordered learning
+preview, native adaptive prosody, original synthetic-reference conditioning,
+MOSS preference with Qwen fallback, configurable model storage, dedicated visual
+review per scene, and continuous HQ plus compact full-length 1080p delivery.
+Private episode history, storage IDs, and machine-specific absolute paths are
+excluded. These portable defaults yield to the current brief and approved assets;
+they do not authorize old-video rerenders, model migration, or publication.
+
+[Local narration](local-narration.md) records the tested runtime, staged GPU
+measurements, generation/decode scope, listening preference, and official model
+and codec sources. Recorded production observations were not re-benchmarked by
+this documentation update. Qwen has no new comparative latency result here.
 
 ## Behavioral evaluation
 

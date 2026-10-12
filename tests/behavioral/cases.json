@@ -126,6 +126,13 @@
     "expected": "Inspect missing scene and transition frames and record exact artifact identities/timecodes. Keep technical, editorial, and visual verdicts separate. Label self-review and sampled coverage accurately; do not infer listening, perceived pacing, continuous motion, independence, or user acceptance from numerical checks. Hand off authorized artifacts with the unmet requirements explicit."
   },
   {
+    "id": "system-design-video-moss-and-approved-intro",
+    "skill": "system-design-video",
+    "prompt": "Prepare the production document and sample plan for a new narrated cache-aside lesson. Use my existing large-volume model root and original generated female voice reference. Keep the approved intro WAV unchanged, use the preferred engine for the new body, and include a continuous HQ final and compact full-length 1080p chat preview when production later starts. No rendering, installation, migration, or publishing now.",
+    "fixture": "Synthetic cache-aside source notes, configured MODEL_ROOT with available MOSS runtime/model/codec and Qwen fallback, original synthetic reference transcript/hash, approved 12-second intro with 576000 samples at 48000 Hz, and planned body timings. Storyboard previews invalidation before read miss but teaches read miss first. No measured body audio or rendered assets. Delegation capability is available for future production; no external writes.",
+    "expected": "Produce one sourced production document and representative voiced-sample plan, correct the opening learning order, preserve approved intro bytes, prefer MOSS for the new body with Qwen fallback, and retain the original synthetic reference. Reuse configured storage without migration/global changes or fixed-speed processing. Keep body timing planned pending actual waveform alignment, including intro offsets. Plan every-asset and dedicated every-scene visual reviews within the shared three-round cap, continuous HQ delivery, and separately checked full-length 1080p preview without promising a universal byte limit. Do not render, install, publish, or claim new GPU benchmarks, listening, or acceptance."
+  },
+  {
     "id": "system-design-video-explicit-silent",
     "skill": "system-design-video",
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",

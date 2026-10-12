@@ -10,19 +10,28 @@ its mathematics or algorithm choreography justifies stitching.
 Honor the chosen style and supplied references. Inspect actual reference pixels;
 record identity, material, lighting, texture, palette, and composition matches
 and mismatches. Do not infer an aesthetic match from a filename or prompt.
-When no style is selected, use clear diagrams, restrained depth, and readable
-semantic colors. A particular chalkboard treatment or voice from a prior episode
-is not a universal requirement. Compose for the default 9:16 canvas; do not shrink
+When no style is selected, prefer an authentic matte charcoal chalkboard with
+soft overlapping eraser marks and restrained grain, plus crisp drawn technical
+diagrams and semantic colors. Compare supplied board references as actual pixels;
+uniform speckles, scratch masks, or a flat green gradient are not substitutes.
+Keep foreground edges and text clean rather than coating every object in noise.
+This drawn chalk direction permits tasteful dimensional or 3D forms when they
+help explain the lesson. Honor explicit alternatives. Compose for 9:16; do not shrink
 a wide architecture diagram until its labels become unreadable.
 
 Give each mechanism a useful composition: topology for boundaries, lanes for
-ordering, or a comparison for divergent states. Keep stable IDs and colors across
+ordering, or a comparison for divergent states. Vary scenes with the concept;
+do not reuse one diorama or the same generic block for unrelated roles. Use fresh
+episode-specific artwork, retaining shared code and design tokens where useful.
+Keep stable IDs and colors across
 views. Preserve a useful layout during focused polish. Shallow depth and shadows
 must not obscure arrow direction, node identity, or level labels. Background
-texture stays subordinate and stable through motion and compression.
+texture stays subordinate and stable through motion and compression. Keep detailed
+labels upright and front-facing during teaching holds. Purposeful whole-scene
+transitions complement internal causal actions; camera motion alone is insufficient.
 
 Create topic-specific art where the explanation needs it; reuse authorized assets
-and design components when they still fit. Check actual decoded pixel dimensions,
+and design components only where the brief permits reuse. Check actual decoded pixel dimensions,
 crop dimensions, and the largest projected footprint during motion. A requested
 4K generation or upscaled bitmap is not evidence of native detail. Preserve aspect
 ratio and inspect crop sharpness in the final encode; repair soft sources instead
@@ -31,8 +40,11 @@ of hiding them with blur or glow. Record asset/font provenance and licenses.
 Inspect travel corridors, departure/docking, occlusion, glows, and transition
 states, not just endpoint bounding boxes. Keep captions in screen space outside
 camera transforms and platform overlays. Measure text with the selected font;
-inspect wrapping and contrast at actual delivery size. If word highlighting is
-requested, derive it from checked cues, not guessed reading speed. Keep stable
+inspect wrapping and contrast at actual delivery size. For the default narrated
+chalk lesson, use high, screen-space word-highlighted subtitles clear of platform
+overlays. Honor explicit caption overrides. Derive highlighting from checked cues,
+not guessed reading speed; leave pauses and end holds without a falsely active
+word. Keep stable
 teaching holds between meaningful causal changes.
 
 ## Checkpoint and resume
@@ -115,9 +127,11 @@ assuming that API is authorized.
 
 ## Audio and subtitles
 
-Local Kokoro is one option, not a required global installation. Use an available
-voice engine or the user's selected provider. Record its version, voice, speed,
-pronunciation overrides, generated clip paths, and measured durations. Resolve
+Use [local narration](local-narration.md) for preferred MOSS, Qwen fallback,
+synthetic references, and configurable storage. Kokoro remains an alternative
+when selected; no engine is a required global installation. Record voice/version,
+prosody settings, pronunciation overrides, generated clip paths, and measured
+durations. Resolve
 credentials through the configured client without printing them.
 Keep original WAVs and cues unchanged; derive mixes and normalized audio as new
 files. Adjust the timeline to fit native speech, including the final partial
@@ -126,8 +140,9 @@ frame. Do not trim the last word or speed up audio to meet a guessed frame count
 For narrated output, generate SRT or VTT from actual alignment and inspect cue
 order, line length, reading speed, and end times. If only scene-level timing is
 available, create phrase-level cues conservatively and disclose that alignment
-precision. Burn subtitles into the picture only when requested or required by
-the destination. Keep text within the final format's safe area.
+precision. Use burned word highlighting for the default narrated chalk treatment
+and retain a separate subtitle track. For other briefs, burn subtitles only when
+requested or required by the destination. Keep text within the final safe area.
 
 ## Final media inspection
 
