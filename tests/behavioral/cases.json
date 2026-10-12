@@ -133,6 +133,20 @@
     "expected": "Produce one sourced production document and representative voiced-sample plan, correct the opening learning order, preserve approved intro bytes, prefer MOSS for the new body with Qwen fallback, and retain the original synthetic reference. Reuse configured storage without migration/global changes or fixed-speed processing. Keep body timing planned pending actual waveform alignment, including intro offsets. Plan every-asset and dedicated every-scene visual reviews within the shared three-round cap, continuous HQ delivery, and separately checked full-length 1080p preview without promising a universal byte limit. Do not render, install, publish, or claim new GPU benchmarks, listening, or acceptance."
   },
   {
+    "id": "system-design-video-continuous-voice-and-pauses",
+    "skill": "system-design-video",
+    "prompt": "Plan a repair of this authorized short narration experiment before retiming the visuals. I hear a different voice at a scene join and rushed phrases. Keep speech connected within sentences and use clear sentence pauses. Do not synthesize or render yet.",
+    "fixture": "Synthetic raw PCM manifest, canonical sentences, scene-wise retake provenance using one generated reference, draft cues, and two consumed narration review rounds. One scene boundary falls inside a sentence. Gap candidates of 550 ms sentence and 650 ms scene are trial settings. No audio listening capability, but waveform/ASR evidence is available.",
+    "expected": "Plan a dedicated independent voice-consistency gate before final visual retiming. Label available checks instrumented and leave perceived naturalness/identity pending for audition; do not fabricate listening. Prefer one complete bounded take if speech repair is authorized, revise the script for duration rather than fixed-WPM stretching or unrelated splices, and test longer strategies separately. Treat gap examples as configurable, avoid midphrase/phoneme insertion and stacked pauses, preserve original PCM for pause-only edits, and update all cues/highlights/anchors to actual waveform offsets. Retain two consumed rounds, stop by round three, and disclose material unresolved issues. Do not synthesize or render."
+  },
+  {
+    "id": "system-design-video-cinematic-sample-boundary",
+    "skill": "system-design-video",
+    "prompt": "Plan standalone cinematic motion samples for the opening and section bridges. Keep the main chalkboard lesson unchanged until I give feedback. Samples are authorized, but do not render during this planning pass.",
+    "fixture": "Synthetic approved chalkboard cut with locked audio and crisp labels; reference notes describe deep server aisles, phone imagery, rack/circuit cutaways, and moving fiber light. A proposed candidate has only a static rack image and camera pan. No rendered samples, temporal evidence, or sample feedback exists.",
+    "expected": "Plan separate samples that combine actual scene-internal activity with purposeful camera motion and clarify the story. Reject a pan over a still as sufficient animation. Preserve readable chalkboard explanations and accepted audio, require actual temporal/decoded evidence and feedback before main-cut integration, and record authorized/planned versus rendered/reviewed/approved states honestly. Do not claim these samples validated, integrate them prematurely, or render in this planning pass."
+  },
+  {
     "id": "system-design-video-explicit-silent",
     "skill": "system-design-video",
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",

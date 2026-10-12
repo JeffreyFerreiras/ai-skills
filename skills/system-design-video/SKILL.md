@@ -70,6 +70,11 @@ prefer MOSS-TTS Local Transformer v1.5, with Qwen3-TTS as fallback. Preserve an
 existing approved performance. Read [local narration](references/local-narration.md)
 for synthetic-reference provenance, tested limits, configurable model storage,
 and matched listening. Fix acronym pronunciation before the final timeline.
+For short samples, prefer one continuous narration take, then segment visuals
+around the actual audio. Review voice consistency independently before locking
+final visual timing: cadence, within-sentence continuity, sentence pauses,
+identity/timbre/energy, and neighboring joins. See the narration reference for
+bounded repairs and honest handling when perceptual listening is unavailable.
 Never label estimated script timing as measured audio timing.
 Preserve the selected voice, native adaptive prosody, original WAVs, and alignment
 cues after review. Let delivery follow meaning, complexity, and natural pauses;
@@ -112,6 +117,13 @@ editorial, and visual verdicts, evidence coverage, and the three-round limit.
 Continue already-authorized full production after applicable internal checks;
 honor a user-reserved sample decision. Do not require an external upload for a
 local-only request or regenerate an unchanged, reviewed sample on resumption.
+
+For a new cinematic direction, make standalone motion samples and obtain feedback
+before integrating it into the main video. Brief dimensional openings or section
+bridges may complement readable chalkboard explanations when they clarify the
+story. Internal scene activity and purposeful camera motion must both be visible;
+a pan over a still is insufficient. Sample authorization does not establish an
+approved style, completed motion, or permission for full integration.
 
 Before expensive rendering, review a rough full timeline at native pace. Check
 each explanation and transition, including the most crowded scene. Still samples

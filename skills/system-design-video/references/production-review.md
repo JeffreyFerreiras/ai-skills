@@ -21,6 +21,11 @@ ends at the plan.
 - Editorial: check orientation, stakes, definitions, mechanism, practical use,
   failures, and scope of the conclusion. Inspect native-paced explanations,
   transitions, holds, and narration/state agreement across the complete lesson.
+- Voice consistency: use a dedicated independent reviewer before final visual
+  retiming. Follow [local narration](local-narration.md#independent-voice-consistency-gate)
+  for rushing/dragging, midphrase pauses, identity/timbre/energy, and neighboring
+  joins. Record actual listening coverage separately from instrumented checks;
+  leave perceived naturalness pending for user audition when listening is absent.
 - Visual: cover every scene and boundary transition, including the actual encoded
   final at delivery size. Inspect composition, hierarchy, asset sharpness, labels,
   causal motion, and reference matches. A geometry pass is not an aesthetic pass.
@@ -58,7 +63,7 @@ passes only where their verified inputs and scope are unchanged.
 ## Bounded repairs
 
 Use at most three review rounds per identified deliverable stage. Stop at the
-first clean round. Technical, editorial, and visual scopes share that stage's
+first clean round. Technical, editorial, visual, and voice scopes share that stage's
 counter; reviewer changes, revised files, and renamed exports do not reset it.
 Scene findings remain within that asset/stage budget; the dedicated visual role
 does not add three extra rounds. Use focused frames/excerpts and targeted renders,

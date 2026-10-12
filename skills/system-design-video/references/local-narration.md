@@ -33,6 +33,68 @@ within engine limits, then measure actual WAVs. For explicitly authorized tempo
 or pause edits, retain raw sources and sample offsets, align the processed waveform
 afresh, and renew listening checks.
 
+## Continuous takes and sentence pauses
+
+Independent scene synthesis and mixed retakes can change perceived identity,
+timbre, or energy even with one reference. For a short sample, prefer one
+continuous generation and segment visuals around that actual recording. If the
+bounded take is too short or long, revise the script and regenerate the complete
+take rather than rushing speech, padding excessive dead air, or splicing unrelated
+voice takes. Preserve approved audio unless a change is authorized. Test a longer
+narration strategy explicitly; do not assume unlimited text fits one generation
+or that matching reference settings guarantee continuity across chunks.
+
+One user-accepted 60-second sample used a single 145-word take with 54.24 seconds
+of native narration, 126.958 ms of verified quiet-gap additions, and a 5.633-second
+visual recap hold; the displayed figures are rounded. No speech stretching was
+applied. The user's audition established acceptance of that repaired sample;
+instrumented review alone did not.
+These describe a bounded case, not a required script length or hold template,
+universal engine capacity, or a listening pass for every future sample. Keep
+native audio, pause edits, and the final visual hold as separate measured values.
+
+Use clean audible pauses between sentences while keeping within-sentence speech
+connected and naturally emphasized. Trial minimum gaps of 550 ms between
+sentences and 650 ms at scene boundaries are configurable examples, not a locked
+pace, fixed-WPM policy, or permission for global time stretching. A scene boundary
+inside a sentence does not justify interrupting that sentence; move the visual
+boundary or keep its narration connected. At coincident boundaries, choose one
+intended pause rather than stacking both minimum gaps.
+
+For authorized pause-only edits, identify actual waveform/sentence boundaries;
+never cut inside a phoneme. Preserve the original PCM speech spans exactly and
+write a derived output with a sample-offset edit map. Verify clean joins, unchanged
+speech samples, actual pause lengths, and total duration. Update all downstream
+word/phrase cues, captions, visual anchors, scene windows, and end holds from the
+new waveform. Suppress word highlights during silence. Metrics locate candidates;
+listening determines whether pauses or joins sound natural.
+
+## Independent voice-consistency gate
+
+Assign a dedicated non-author voice reviewer before final visual retiming and the
+full render, within the existing narration asset's review budget. Inspect actual
+delivery within phrases, between sentences, and across joins. Check rushing or
+dragging, unnatural midphrase pauses, intelligibility/pronunciation, perceived
+identity and timbre, energy, loudness continuity, and transitions to neighboring
+material and the selected reference. Natural emphasis and semantic pauses should
+remain; constant WPM or equal sentence lengths are not the goal.
+
+Record each finding's phrase/scene, audio time range, observed issue, consequence,
+specific repair, and both neighboring-join checks. Use timing, speech-region
+rates, pause lengths, and loudness to locate outliers, never to certify naturalness.
+State exactly which intervals were heard. If listening is unavailable, label the
+review instrumented and leave naturalness/identity judgment pending for user
+audition; ASR correctness cannot substitute for a perceptual pass.
+
+Use at most three coordinated review/fix rounds per authorized narration
+experiment/asset, stopping at the first clear round. The voice role shares the
+existing cap; changing reviewers or retakes does not reset it. Report material
+unresolved cadence/identity issues at the limit. For a short continuity experiment,
+regenerate the complete bounded take when speech needs repair. For longer work,
+test any context-aware passage repair with both neighboring joins instead of
+assuming a splice will preserve identity. After an authorized repair, reconcile
+fresh cues to canonical words before locking final visuals and retain uncertainty.
+
 ## Tested setup and limits
 
 The production record verified the following on an RTX 4080 SUPER with 16 GB

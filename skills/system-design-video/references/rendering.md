@@ -30,6 +30,31 @@ texture stays subordinate and stable through motion and compression. Keep detail
 labels upright and front-facing during teaching holds. Purposeful whole-scene
 transitions complement internal causal actions; camera motion alone is insufficient.
 
+## Cinematic motion experiments
+
+Interleave brief dimensional openings or section bridges with readable chalkboard
+explanations when they clarify the story. A message-journey reference suggested
+deep server aisles and phone imagery, dramatic rack cutaways, overloaded hardware
+or circuit layers, and moving fiber light. These are a scene vocabulary to adapt
+to the lesson, not mandatory decorations or evidence that any new sample works.
+Keep technical claims grounded and labels crisp in explanatory scenes.
+
+Require scene-internal motion: status lights change, screens show activity,
+request particles travel, or layered objects transform with the narrated event.
+Combine that activity with purposeful camera motion. Panning or zooming a static
+image alone does not establish internally animated cinematic motion. Inspect
+actual-paced temporal evidence and the decoded result, not only attractive stills.
+
+Create standalone motion samples and obtain feedback before integrating the new
+direction into the main cut. Record each sample's requested scope, authorization,
+render/review status, temporal evidence, feedback, and integration decision.
+Authorized or in-progress samples remain unapproved until feedback exists; do
+not treat generation as validation. Preserve accepted audio, explanations, and
+source checkpoints while the experiment remains separate. Use the existing
+three-round asset budget for internal fixes, without inventing a passed review.
+
+## Visual assets and caption layout
+
 Create topic-specific art where the explanation needs it; reuse authorized assets
 and design components only where the brief permits reuse. Check actual decoded pixel dimensions,
 crop dimensions, and the largest projected footprint during motion. A requested

@@ -57,6 +57,14 @@ measurements, generation/decode scope, listening preference, and official model
 and codec sources. Recorded production observations were not re-benchmarked by
 this documentation update. Qwen has no new comparative latency result here.
 
+The verified production guide also supplies the independent voice-consistency
+gate and the continuous-take, sentence-pause, and
+cinematic-reference lessons. The recorded short-take timing is a case study;
+configurable gap examples are not universal cadence requirements. Cinematic
+motion samples are authorized experiments awaiting their own feedback, not
+validated assets. No new synthesis or motion sample was produced by this skill
+documentation update.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project

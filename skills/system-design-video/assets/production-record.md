@@ -12,6 +12,8 @@ checks pending; remove branches outside the requested deliverable.
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
 - Native prosody, synthetic reference/transcript/hash and provenance, model/codec
   revisions and dtypes, staged loading, fallback reason, measured timing scope:
+- Continuous-take strategy and tested length limits; sentence/scene pause choices,
+  waveform boundaries, original PCM checks, sample-offset edit map, new cue hashes:
 - Configurable model/runtime/cache roots, any scoped relocation/junction tests
   and rollback evidence; configured finished-video destination:
 - Accepted choices, local/external authorization, any reserved sample decision:
@@ -26,12 +28,16 @@ Repeat per deliverable stage, retaining previous rounds and finding IDs.
 - Stage, candidate path/hash, scene IDs/time range, round number, reviewer identity:
 - Technical verdict and source/contract evidence:
 - Editorial verdict and native-speed playback/listening coverage:
+- Independent voice-consistency reviewer, heard intervals versus instrumented
+  checks, cadence/identity/energy/join findings, round count, user-audition gaps:
 - Visual verdict, reference comparison, encoded size and scene/transition coverage:
 - Dedicated visual reviewer per scene, scene ID/time range, establishing/mechanism
   keyframes, motion/transition evidence, round count, findings, and outcome:
 - Evidence paths, exact sampled frames, played/listened intervals, uninspected scope:
 - Finding ID, observed issue, impact/severity, focused fix, revised hash, verification:
 - Remaining requirements/limitations and next permitted action:
+- Standalone cinematic motion sample scope/status, internal activity and camera
+  evidence, feedback, and decision before integration into the main cut:
 
 ## Final media and delivery
 

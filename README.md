@@ -66,6 +66,8 @@ Each scene must show a meaningful change, such as a request arriving before its 
 
 Start with a production document and an opening that explains the problem, relevance, solution, and learning points in lesson order. For new local narration, prefer MOSS-TTS Local Transformer v1.5 with Qwen fallback, native adaptive prosody, and configurable model storage; preserve approved recordings. Use authentic chalkboard scenes with crisp drawn diagrams, varied causal action, upright labels, and high word highlighting. Review every asset and assign a dedicated visual reviewer to every scene within the shared three-round cap. Chat handoffs covered by the brief include a separate full-length 1080p review copy alongside the continuous HQ master. See [local narration and its measured limits](skills/system-design-video/references/local-narration.md).
 
+Before final visual timing, a dedicated voice reviewer checks cadence, sentence pauses, identity, energy, and joins. Short samples prefer one continuous take; pause-only edits preserve PCM speech and refresh downstream cues. New cinematic directions start as standalone motion samples with internal activity and camera motion, then await feedback before integration. Instrumented checks do not count as perceptual listening or style approval.
+
 ## Skill catalog
 
 Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries come from `agents/openai.yaml`. Regenerate with `python scripts/build-docs.py`; the test suite rejects stale output.
