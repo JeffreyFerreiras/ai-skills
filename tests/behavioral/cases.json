@@ -147,6 +147,20 @@
     "expected": "Plan separate samples that combine actual scene-internal activity with purposeful camera motion and clarify the story. Reject a pan over a still as sufficient animation. Preserve readable chalkboard explanations and accepted audio, require actual temporal/decoded evidence and feedback before main-cut integration, and record authorized/planned versus rendered/reviewed/approved states honestly. Do not claim these samples validated, integrate them prematurely, or render in this planning pass."
   },
   {
+    "id": "system-design-video-hook-before-narration",
+    "skill": "system-design-video",
+    "prompt": "Plan the hook and opening for this shadow-traffic lesson. Use TESTS PASSED. READY FOR REAL TRAFFIC? visually over the approved voice. A cover animation is optional. Keep the audio unchanged and use no em dashes. Do not render yet.",
+    "fixture": "Synthetic approved narration/cue hashes and sourced notes: a candidate receives mirrored requests, customer responses remain production-only, and writes or side effects require separate safeguards. A draft cover wrongly promises zero-risk production testing. No encoded opening or audience-retention evidence exists. Repeat with a new lesson whose final narration has not yet been generated.",
+    "expected": "Plan an accurate compelling promise and immediate payoff, reject zero-risk wording, retain side-effect caveats, and preserve approved audio/cues for the visual hook. Design a phone-safe first frame and purposeful opening motion, optionally using the cover without a long static delay. Follow with contextual what/problem/why/solution and the roadmap in actual teaching order. Review promise, logical implications, first frame, temporal opening and narration join within the existing three-round asset budget. Use no em dashes in user-facing copy. In the new-lesson variant, complete hook review before script lock/final narration. Do not synthesize, render, or claim retention/integration approval."
+  },
+  {
+    "id": "system-design-video-fresh-logical-layered-motion",
+    "skill": "system-design-video",
+    "prompt": "Plan logical review of this hand-drawn layered transition before integrating it with the chalk explanation. The style is accepted; I want a reviewer seeing it fresh. Keep the approved voice and do not render during this pass.",
+    "fixture": "Synthetic foreground phone, station backdrop and near-column layer manifest, approved silent style feedback, and a hero still. Creator notes contain intended device identities and connector endpoints; no full-scene temporal/encoded evidence or voiced integration exists. Two asset review rounds are consumed; a connector vanishes behind a crop and a result appears before arrival.",
+    "expected": "Plan a logical reviewer distinct from the visual reviewer, withholding creator reasoning and intended identities until the first audience-visible interpretation is recorded. Require full-scene temporal evidence for identities, support, complete connectors, causal order and domain roles, then compare against intended/source claims. Retain the one remaining asset round and surface unresolved material issues without resetting it. Preserve original separated assets/prompts/alpha, stable foreground and independent depth/action timing; distinguish authored 2.5D from true 3D or a flat-image pan. Keep approved audio and style acceptance separate from pending voiced integration/caption/cutback checks. Do not infer motion from the hero still or invent playback, listening, or approval."
+  },
+  {
     "id": "system-design-video-explicit-silent",
     "skill": "system-design-video",
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",

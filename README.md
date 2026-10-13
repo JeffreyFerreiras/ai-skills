@@ -43,8 +43,9 @@ Use [`system-design-video`](skills/system-design-video/SKILL.md) to teach one sy
 
 ```mermaid
 flowchart TD
-    A["Sources + teaching question"] --> B["Grounded script + architecture<br/>Actors, success path, failure or tradeoff"]
-    B --> C["Record narration and measure timing<br/>Align events and subtitles to speech"]
+    A["Sources + teaching question"] --> B["Grounded lesson + architecture<br/>Actors, success path, failure or tradeoff"]
+    B --> J["Develop and review the hook<br/>Accurate promise, first frame, immediate payoff"]
+    J --> C["Record narration and measure timing<br/>Align events and subtitles to speech"]
     C --> D["Narrated vertical sample<br/>Show a real state change and transition"]
     D --> E{"Technical, editorial<br/>and visual review"}
     E -->|"Repair within the shared 3-round cap"| D
@@ -55,7 +56,7 @@ flowchart TD
     classDef plan fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
     classDef review fill:#fef3c7,stroke:#b45309,color:#78350f;
     classDef output fill:#dcfce7,stroke:#15803d,color:#14532d;
-    class A,B,C plan;
+    class A,B,J,C plan;
     class E,G,X review;
     class H output;
 ```
@@ -67,6 +68,8 @@ Each scene must show a meaningful change, such as a request arriving before its 
 Start with a production document and an opening that explains the problem, relevance, solution, and learning points in lesson order. For new local narration, prefer MOSS-TTS Local Transformer v1.5 with Qwen fallback, native adaptive prosody, and configurable model storage; preserve approved recordings. Use authentic chalkboard scenes with crisp drawn diagrams, varied causal action, upright labels, and high word highlighting. Review every asset and assign a dedicated visual reviewer to every scene within the shared three-round cap. Chat handoffs covered by the brief include a separate full-length 1080p review copy alongside the continuous HQ master. See [local narration and its measured limits](skills/system-design-video/references/local-narration.md).
 
 Before final visual timing, a dedicated voice reviewer checks cadence, sentence pauses, identity, energy, and joins. Short samples prefer one continuous take; pause-only edits preserve PCM speech and refresh downstream cues. New cinematic directions start as standalone motion samples with internal activity and camera motion, then await feedback before integration. Instrumented checks do not count as perceptual listening or style approval.
+
+Develop and review an accurate hook before locking new narration; an animated cover in the first seconds is optional. Preserve approved audio when a visual hook can carry the promise. Pair chalk explanations with the accepted hand-drawn layered-depth transition direction, and use a separate fresh-context logical reviewer to check object roles and complete causal paths through temporal evidence. Keep all reviewers within the existing asset budget. User-facing copy uses no em dashes. See [hook development](skills/system-design-video/references/hook-development.md).
 
 ## Skill catalog
 

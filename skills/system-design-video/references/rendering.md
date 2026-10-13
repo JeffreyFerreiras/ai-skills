@@ -32,18 +32,31 @@ transitions complement internal causal actions; camera motion alone is insuffici
 
 ## Cinematic motion experiments
 
-Interleave brief dimensional openings or section bridges with readable chalkboard
-explanations when they clarify the story. A message-journey reference suggested
-deep server aisles and phone imagery, dramatic rack cutaways, overloaded hardware
-or circuit layers, and moving fiber light. These are a scene vocabulary to adapt
-to the lesson, not mandatory decorations or evidence that any new sample works.
-Keep technical claims grounded and labels crisp in explanatory scenes.
+Prefer richly hand-drawn, layered-depth transitions alongside readable chalkboard
+explanations when the brief leaves transition style open. An original illustrated
+prototype earned style approval through user feedback. That selects a treatment,
+not acceptance of a future voiced integration. Earlier material-only polished
+3D prototypes are not the current style baseline; tasteful 3D remains available
+when explicitly selected or useful to the lesson. Keep labels crisp and causal
+actions grounded regardless of method.
+
+Separate original detailed background, transparent foreground subject, and near
+occluder assets so planes move independently. Preserve full artwork prompts,
+alpha, and provenance; avoid baked text and render readable UI/labels in code.
+Use overscan and deterministic transforms to avoid exposed edges. A stable
+audience anchor, differently moving depth layers, and independently timed UI or
+sketch actions provide authored 2.5D motion. Do not call this true 3D or imply
+character locomotion from parallax. Inspect actual reference motion before
+choosing a method; observed movement does not reveal its original production tool.
 
 Require scene-internal motion: status lights change, screens show activity,
 request particles travel, or layered objects transform with the narrated event.
 Combine that activity with purposeful camera motion. Panning or zooming a static
 image alone does not establish internally animated cinematic motion. Inspect
-actual-paced temporal evidence and the decoded result, not only attractive stills.
+actual-paced temporal evidence spanning the scene and cutback, plus the decoded
+result, not only attractive stills. Record whether inspection sampled frames or
+used continuous playback. A silent style sample cannot certify caption placement,
+narration sync, or the logical flow of a new voiced edit.
 
 Create standalone motion samples and obtain feedback before integrating the new
 direction into the main cut. Record each sample's requested scope, authorization,

@@ -8,6 +8,8 @@ checks pending; remove branches outside the requested deliverable.
 
 - Learning question, audience, what/problem/why/solution opening, ordered learning
   preview, concrete example, limits, and source/claim locators:
+- Hook promise and immediate payoff, first-frame phone-safe design, optional
+  animated-cover choice, review before new narration lock, preserved-audio hashes:
 - Requested deliverable, format, duration constraint, style/reference identities:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
 - Native prosody, synthetic reference/transcript/hash and provenance, model/codec
@@ -33,6 +35,10 @@ Repeat per deliverable stage, retaining previous rounds and finding IDs.
 - Visual verdict, reference comparison, encoded size and scene/transition coverage:
 - Dedicated visual reviewer per scene, scene ID/time range, establishing/mechanism
   keyframes, motion/transition evidence, round count, findings, and outcome:
+- Fresh-context logical reviewer, audience-visible inputs, first interpretation
+  before intended meaning, object/support/path/causal findings and revised evidence:
+- Exact first encoded frame and opening/cutback motion coverage; audience-copy
+  punctuation review, sampled versus continuous playback, hook-retention limits:
 - Evidence paths, exact sampled frames, played/listened intervals, uninspected scope:
 - Finding ID, observed issue, impact/severity, focused fix, revised hash, verification:
 - Remaining requirements/limitations and next permitted action:

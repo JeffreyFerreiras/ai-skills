@@ -65,6 +65,15 @@ motion samples are authorized experiments awaiting their own feedback, not
 validated assets. No new synthesis or motion sample was produced by this skill
 documentation update.
 
+The 2026-10-13 guide refresh adds hook development before final narration,
+fresh-context logical scene review, and the accepted original hand-drawn
+layered-depth transition treatment. Review reference and candidate motion through
+actual temporal evidence; single frames cannot establish animation or integration
+quality. Keep style acceptance, voiced integration, final acceptance, and measured
+audience retention separate. A later explicit copy preference excludes em dashes
+from user-facing text. No new hook render or scene integration is certified by
+this documentation change.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project
