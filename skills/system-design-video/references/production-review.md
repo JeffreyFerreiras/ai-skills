@@ -23,6 +23,10 @@ ends at the plan.
   transitions, holds, and narration/state agreement across the complete lesson.
   Review and lock the spoken hook's accurate promise and immediate payoff before full narration
   lock, and verify that the contextual introduction and ordered roadmap follow.
+  Accept question, phrase, or defensible claim without requiring a question mark.
+  Apply the hook rubric to specific relevance/interest, evidence, payoff, natural
+  delivery, and picture alignment. The 3-6-second heuristic cannot justify rushed
+  speech, and ad guidance is not proof of organic retention.
 - Voice consistency: use a dedicated independent reviewer before final visual
   retiming. Follow [local narration](local-narration.md#independent-voice-consistency-gate)
   for rushing/dragging, midphrase pauses, identity/timbre/energy, and neighboring

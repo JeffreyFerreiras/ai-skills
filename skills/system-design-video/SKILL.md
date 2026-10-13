@@ -57,16 +57,20 @@ as a source of measured audio timings or a claim about a real deployment.
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
 review the spoken hook before locking a new script or generating full narration.
-For narrated videos, open with a captivating question or phrase spoken in the
-first seconds, making an accurate promise the lesson answers. Pair it with a
-phone-safe first frame, purposeful motion, and immediate payoff. On-screen text
+For narrated videos, open with a captivating question, punchy phrase, or defensible
+claim spoken in the first seconds, making an accurate promise the lesson answers.
+Pair it with a phone-safe first frame, purposeful motion, and immediate payoff. On-screen text
 or an optional animated cover supports the spoken hook and cannot replace it.
 Use [hook development](references/hook-development.md) for promise/payoff review,
 minimal authorized repairs to existing narration, and encoded-audio verification.
+Use the sourced rubric there for relevance, specific curiosity, honest payoff,
+concise natural delivery, and picture/speech alignment. A roughly 3-6-second
+landing is a flexible editorial target, not a deadline or reason to speed the voice.
 After the hook, open with
 what the system or concept is, the problem it solves, why the viewer should care,
 and a brief solution overview before mechanics. Preview learning points in the
-order the lesson actually teaches them. Establish the actors,
+order the lesson actually teaches them. Combine these naturally when they overlap;
+do not repeat the opening as five separate introductions. Establish the actors,
 goal, and stakes before tracing one concrete request or item through the system.
 Show what changes, why that change matters, and what the approach costs. End with
 the answer and the scope of the conclusion. Each scene should teach one idea.

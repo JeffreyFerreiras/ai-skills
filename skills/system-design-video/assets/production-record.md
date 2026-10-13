@@ -10,6 +10,8 @@ checks pending; remove branches outside the requested deliverable.
   preview, concrete example, limits, and source/claim locators:
 - Exact spoken hook, promise/payoff, first-frame phone-safe design, optional
   supporting animated cover, lock/review before full narration, body-audio hashes:
+- Hook form (question/phrase/claim), relevance and specific interest, claim sources,
+  payoff, natural landing time, picture alignment, ad-evidence versus workflow scope:
 - Requested deliverable, format, duration constraint, style/reference identities:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
 - Native prosody, synthetic reference/transcript/hash and provenance, model/codec
