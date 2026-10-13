@@ -55,13 +55,21 @@ as a source of measured audio timings or a claim about a real deployment.
 ## Write the lesson and timeline
 
 Create one production document before the sample and full production: script, storyboard,
-source/claim ledger, visual direction, voice choice, and review plan. Open with
+source/claim ledger, visual direction, voice choice, and review plan. Develop and
+review the hook before locking a new script or generating final narration. Make
+an accurate compelling promise the lesson answers, with a phone-safe first frame,
+purposeful opening motion, and immediate payoff. An animated cover in the first
+seconds is optional. Use [hook development](references/hook-development.md) for
+promise/payoff review and adding a visual hook without regenerating approved audio.
+After the hook, open with
 what the system or concept is, the problem it solves, why the viewer should care,
 and a brief solution overview before mechanics. Preview learning points in the
 order the lesson actually teaches them. Establish the actors,
 goal, and stakes before tracing one concrete request or item through the system.
 Show what changes, why that change matters, and what the approach costs. End with
 the answer and the scope of the conclusion. Each scene should teach one idea.
+Do not use em dashes in user-facing scripts, captions, covers, titles,
+descriptions, or handoff copy; use periods, commas, or a clear sentence rewrite.
 
 Write narration before animation. For a narrated video, generate or record the
 voice, measure each audio clip, and obtain word or phrase timestamps when precise
@@ -173,7 +181,11 @@ quality, reference comparison, and safe captions, use the visual guidance in
 Record the inspected revision, scene IDs/timecodes, findings, repairs, and actual
 inspection scope under [production review](references/production-review.md).
 Use a non-author reviewer for every asset deliverable and a dedicated visual
-reviewer for every scene when delegation is available and authorized. Otherwise
+reviewer for every scene when delegation is available and authorized. Add a
+distinct fresh-context logical reviewer who sees audience-visible full-scene
+frames and temporal evidence before learning the intended interpretation. Use
+[production review](references/production-review.md#fresh-context-logical-scene-review)
+for object identity, connector continuity, support, and causal-flow checks. Otherwise
 self-review, disclose the missing independent gate, and leave it pending when
 the brief requires independence. Neither method implies unavailable playback.
 

@@ -21,6 +21,8 @@ ends at the plan.
 - Editorial: check orientation, stakes, definitions, mechanism, practical use,
   failures, and scope of the conclusion. Inspect native-paced explanations,
   transitions, holds, and narration/state agreement across the complete lesson.
+  Review the hook's accurate promise and immediate payoff before new narration
+  lock, and verify that the contextual introduction and ordered roadmap follow.
 - Voice consistency: use a dedicated independent reviewer before final visual
   retiming. Follow [local narration](local-narration.md#independent-voice-consistency-gate)
   for rushing/dragging, midphrase pauses, identity/timbre/energy, and neighboring
@@ -60,10 +62,36 @@ and any access limit. User aesthetic rejection reopens the relevant style findin
 automated checks or numerical beauty scores cannot override it. Preserve other
 passes only where their verified inputs and scope are unchanged.
 
+## Fresh-context logical scene review
+
+Use an independent logical scene reviewer distinct from the creator and visual
+reviewer. Start with only the context an audience receives: actual full-scene
+frames, visible labels, and temporal evidence. Withhold creator reasoning,
+intended object identities, and the explanation of how it is supposed to work
+until the reviewer records what each important object is, its role, and inferred
+flow. Then compare that first reading with intended claims and technical sources.
+A plausible first reading alone does not establish domain correctness.
+
+Check recognizable identities, legible support/mounting for physical equipment,
+and visible source/destination continuity for every meaningful connector. Follow
+paths through entrances, camera moves, crossings, occlusions, and cutbacks; reject
+wires that appear from nowhere or objects that read as unrelated devices. Establish
+intentional abstraction before showing floating data. Check trigger before
+response, travel before arrival, processing before result, and accurate direction
+and roles across the whole composition.
+
+Record initial interpretation, intended meaning, concrete mismatch, consequence,
+visible repair, scene/time range, and revised evidence. Inspect temporal evidence
+spanning the scene and causal boundaries, not only a hero still or source geometry.
+State sampled-frame versus continuous-playback coverage precisely. Logical review
+adds a responsibility within the existing asset budget; it does not reset rounds
+or replace visual, technical, story, or voice review. Unresolved material logical
+findings block dependent acceptance and must be reported at the cap.
+
 ## Bounded repairs
 
 Use at most three review rounds per identified deliverable stage. Stop at the
-first clean round. Technical, editorial, visual, and voice scopes share that stage's
+first clean round. Technical, editorial, logical, visual, and voice scopes share that stage's
 counter; reviewer changes, revised files, and renamed exports do not reset it.
 Scene findings remain within that asset/stage budget; the dedicated visual role
 does not add three extra rounds. Use focused frames/excerpts and targeted renders,
