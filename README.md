@@ -37,6 +37,37 @@ python -m unittest discover -s tests -v
 
 The [authoring guide](docs/authoring.md) includes a minimal complete example. Discovery checking is read-only: a canonical-only checkout needs no repository copy, and the command says so. It checks parity if an optional Cursor copy exists.
 
+## Vertical system design videos
+
+Use [`system-design-video`](skills/system-design-video/SKILL.md) to teach one system mechanism in a phone-friendly **9:16 video**, normally **1080x1920 at 30 fps**. About **90 seconds** is a planning estimate; scene lengths follow the measured narration. A request for only a script or storyboard stops at that artifact.
+
+```mermaid
+flowchart TD
+    A["Sources + teaching question"] --> B["Grounded script + architecture<br/>Actors, success path, failure or tradeoff"]
+    B --> C["Record narration and measure timing<br/>Align events and subtitles to speech"]
+    C --> D["Narrated vertical sample<br/>Show a real state change and transition"]
+    D --> E{"Technical, editorial<br/>and visual review"}
+    E -->|"Repair within the shared 3-round cap"| D
+    E -->|"Unresolved at cap"| X["Report findings and limits"]
+    E -->|"Applicable checks pass"| F["Full timeline + local render<br/>Requests follow real directed relationships"]
+    F --> G["Inspect encoded video<br/>Readability, playback, audio and sync"]
+    G --> H["Deliver one continuous video<br/>Subtitles + editable source + QA evidence"]
+    classDef plan fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
+    classDef review fill:#fef3c7,stroke:#b45309,color:#78350f;
+    classDef output fill:#dcfce7,stroke:#15803d,color:#14532d;
+    class A,B,C plan;
+    class E,G,X review;
+    class H output;
+```
+
+**Read the diagram from top to bottom:** the sourced lesson determines the narration; measured speech determines animation timing. The sample tests whether the explanation works before the full render. Blue boxes prepare the lesson, amber boxes show review or evidence limits, and green marks delivery.
+
+Each scene must show a meaningful change, such as a request arriving before its response leaves. Reviews record what was actually inspected: sampled frames and automated media checks cannot establish continuous watching or listening. Delivery does not imply viewer acceptance or permission to publish. See the [production review](skills/system-design-video/references/production-review.md) and [audio and delivery](skills/system-design-video/references/audio-and-delivery.md) guides.
+
+Start with a production document and an opening that explains the problem, relevance, solution, and learning points in lesson order. For new local narration, prefer MOSS-TTS Local Transformer v1.5 with Qwen fallback, native adaptive prosody, and configurable model storage; preserve approved recordings. Use authentic chalkboard scenes with crisp drawn diagrams, varied causal action, upright labels, and high word highlighting. Review every asset and assign a dedicated visual reviewer to every scene within the shared three-round cap. Chat handoffs covered by the brief include a separate full-length 1080p review copy alongside the continuous HQ master. See [local narration and its measured limits](skills/system-design-video/references/local-narration.md).
+
+Before final visual timing, a dedicated voice reviewer checks cadence, sentence pauses, identity, energy, and joins. Short samples prefer one continuous take; pause-only edits preserve PCM speech and refresh downstream cues. New cinematic directions start as standalone motion samples with internal activity and camera motion, then await feedback before integration. Instrumented checks do not count as perceptual listening or style approval.
+
 ## Skill catalog
 
 Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries come from `agents/openai.yaml`. Regenerate with `python scripts/build-docs.py`; the test suite rejects stale output.
@@ -79,6 +110,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
+| [system-design-video](skills/system-design-video/SKILL.md) | Create narrated vertical system design videos |
 | [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
 | [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
