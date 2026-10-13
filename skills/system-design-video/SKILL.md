@@ -56,11 +56,13 @@ as a source of measured audio timings or a claim about a real deployment.
 
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
-review the hook before locking a new script or generating final narration. Make
-an accurate compelling promise the lesson answers, with a phone-safe first frame,
-purposeful opening motion, and immediate payoff. An animated cover in the first
-seconds is optional. Use [hook development](references/hook-development.md) for
-promise/payoff review and adding a visual hook without regenerating approved audio.
+review the spoken hook before locking a new script or generating full narration.
+For narrated videos, open with a captivating question or phrase spoken in the
+first seconds, making an accurate promise the lesson answers. Pair it with a
+phone-safe first frame, purposeful motion, and immediate payoff. On-screen text
+or an optional animated cover supports the spoken hook and cannot replace it.
+Use [hook development](references/hook-development.md) for promise/payoff review,
+minimal authorized repairs to existing narration, and encoded-audio verification.
 After the hook, open with
 what the system or concept is, the problem it solves, why the viewer should care,
 and a brief solution overview before mechanics. Preview learning points in the

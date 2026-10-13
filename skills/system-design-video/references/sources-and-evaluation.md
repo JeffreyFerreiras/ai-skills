@@ -74,6 +74,12 @@ audience retention separate. A later explicit copy preference excludes em dashes
 from user-facing text. No new hook render or scene integration is certified by
 this documentation change.
 
+The later explicit clarification makes the hook spoken for narrated videos:
+a captivating question or phrase must be present in the first seconds of the
+actual encoded audio. An animated cover or visual question only supports it.
+This supersedes the guide's earlier visual-only option; preserve unaffected body
+audio when making an authorized spoken addition, and retain silent-video overrides.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project
