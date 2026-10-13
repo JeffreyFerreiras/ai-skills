@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -34,12 +35,14 @@ class SystemDesignVideoTests(unittest.TestCase):
     def assert_issue(self, expected: str, ready: bool = False) -> None:
         self.assertTrue(any(expected in error for error in self.errors(ready=ready)), self.errors(ready=ready))
 
-    def write_audio(self, name: str = "voice.wav", seconds: float = 1.0) -> None:
+    def write_audio(
+        self, name: str = "voice.wav", seconds: float = 1.0, *, channels: int = 1, sample_width: int = 2
+    ) -> None:
         with wave.open(str(self.project / name), "wb") as clip:
-            clip.setnchannels(1)
-            clip.setsampwidth(2)
+            clip.setnchannels(channels)
+            clip.setsampwidth(sample_width)
             clip.setframerate(8000)
-            clip.writeframes(b"\x00\x00" * round(seconds * 8000))
+            clip.writeframes(b"\x00" * channels * sample_width * round(seconds * 8000))
 
     def measured_plan(self) -> None:
         self.write_audio()
@@ -132,6 +135,39 @@ class SystemDesignVideoTests(unittest.TestCase):
         self.assert_issue("cannot measure PCM WAV", ready=True)
         (self.project / "voice.wav").write_text("not a wave file", encoding="utf-8")
         self.assert_issue("cannot measure PCM WAV", ready=True)
+
+    def test_truncated_pcm_payloads_fail_ready_check(self) -> None:
+        self.measured_plan()
+        clip_path = self.project / "voice.wav"
+        for seconds, missing_bytes in ((1, 16000), (1, 8000), (1, 1), (9, 8000)):
+            with self.subTest(seconds=seconds, missing_bytes=missing_bytes):
+                self.write_audio(seconds=seconds)
+                for scene in self.plan["scenes"]:
+                    scene["narration"]["duration_seconds"] = seconds
+                clip_path.write_bytes(clip_path.read_bytes()[:-missing_bytes])
+                self.assert_issue("cannot measure PCM WAV", ready=True)
+
+    def test_incomplete_pcm_frame_fails_ready_check(self) -> None:
+        self.measured_plan()
+        clip_path = self.project / "voice.wav"
+        encoded = bytearray(clip_path.read_bytes())
+        data_header = encoded.index(b"data")
+        data_bytes = len(encoded) - data_header - 8
+        # Add one sample fragment and its separate RIFF padding byte.
+        encoded.extend(b"\x00\x00")
+        struct.pack_into("<I", encoded, 4, len(encoded) - 8)
+        struct.pack_into("<I", encoded, data_header + 4, data_bytes + 1)
+        clip_path.write_bytes(encoded)
+        self.assert_issue("incomplete PCM frame", ready=True)
+
+    def test_complete_longer_pcm_clips_pass_ready_check(self) -> None:
+        self.measured_plan()
+        for channels, sample_width in ((1, 1), (1, 2), (2, 3)):
+            with self.subTest(channels=channels, sample_width=sample_width):
+                self.write_audio(seconds=9, channels=channels, sample_width=sample_width)
+                for scene in self.plan["scenes"]:
+                    scene["narration"]["duration_seconds"] = 9
+                self.assertEqual([], self.errors(ready=True))
 
     def test_audio_declared_duration_and_actual_scene_fit_are_checked(self) -> None:
         self.measured_plan()

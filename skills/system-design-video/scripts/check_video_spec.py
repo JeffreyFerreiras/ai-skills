@@ -14,6 +14,7 @@ from typing import Any
 
 ROUNDING_TOLERANCE = 1e-6
 AUDIO_TOLERANCE = 0.1
+AUDIO_CHUNK_BYTES = 64 * 1024
 
 
 class SpecChecker:
@@ -100,7 +101,19 @@ class SpecChecker:
             return
         try:
             with wave.open(str(path), "rb") as clip:
-                measured = clip.getnframes() / clip.getframerate()
+                frame_bytes = clip.getnchannels() * clip.getsampwidth()
+                chunk_frames = max(1, AUDIO_CHUNK_BYTES // frame_bytes)
+                expected_bytes = clip.getnframes() * frame_bytes
+                measured_bytes = 0
+                while data := clip.readframes(chunk_frames):
+                    if len(data) % frame_bytes:
+                        raise wave.Error("audio data contains an incomplete PCM frame")
+                    measured_bytes += len(data)
+                if measured_bytes != expected_bytes:
+                    raise wave.Error(
+                        f"PCM audio is truncated: expected {expected_bytes} bytes, read {measured_bytes}"
+                    )
+                measured = measured_bytes / frame_bytes / clip.getframerate()
         except (OSError, EOFError, wave.Error, ZeroDivisionError) as error:
             self.error(f"{where}.file", f"cannot measure PCM WAV: {error}")
             return
