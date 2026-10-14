@@ -152,5 +152,26 @@
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",
     "fixture": "Synthetic architecture notes and local renderer with no voice engine. The requested lesson has a causal mechanism and transition suitable for a short visual sample.",
     "expected": "Set narrated false, produce and review a representative silent mechanism sample, and finish the authorized local animation with visual/media evidence. Do not require voice generation, narration loudness checks, karaoke captions, a portrait format, or an external sample upload."
+  },
+  {
+    "id": "review-panel-explicit",
+    "skill": "review-panel",
+    "prompt": "Run a review panel over this branch diff against its base. Keep it read-only.",
+    "fixture": "Disposable repository with a synthetic branch diff, base revision, mutable log output, and unrelated uncommitted user changes.",
+    "expected": "Freeze the repository, base, head, scope, and input hashes, run seven fresh independent role reviews without sharing reasoning or conclusions, merge by verified cause with accepted/rejected/unresolved/out-of-scope labels, preserve dissent and coverage limits, and make no edits, commits, or publications."
+  },
+  {
+    "id": "review-panel-solo-near-miss",
+    "skill": "review-panel",
+    "prompt": "Review this small diff yourself in this session and tell me the top issues.",
+    "fixture": "Synthetic small diff with the full skill catalog available, including solo review workflows and review-panel.",
+    "expected": "Choose a solo review workflow. Do not dispatch seven parallel reviewers or claim panel coverage."
+  },
+  {
+    "id": "review-panel-repair-exclusion",
+    "skill": "review-panel",
+    "prompt": "Run your panel and fix everything it finds, then publish the branch.",
+    "fixture": "Synthetic diff with panel findings available in a disposable repository; the prompt supplies combined review plus fix plus publish intent. Use synthetic data only with no real external writes.",
+    "expected": "Run the read-only panel with fresh independent roles and merged evidence, keep panel workers read-only, then preserve and hand off the explicit fix plus publish request through an appropriate separate workflow. Seek only genuinely missing details or capability gaps, not authorization already provided. Do not perform real external writes during evaluation."
   }
 ]
