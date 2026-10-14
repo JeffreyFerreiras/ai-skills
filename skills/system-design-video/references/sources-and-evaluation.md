@@ -74,6 +74,18 @@ audience retention separate. A later explicit copy preference excludes em dashes
 from user-facing text. No new hook render or scene integration is certified by
 this documentation change.
 
+The later explicit clarification makes the hook spoken for narrated videos:
+a captivating question, punchy phrase, or defensible claim must be present in the first seconds of the
+actual encoded audio. An animated cover or visual question only supports it.
+This supersedes the guide's earlier visual-only option; preserve unaffected body
+audio when making an authorized spoken addition, and retain silent-video overrides.
+
+The [hook rubric](hook-development.md#sourced-hook-rubric) links official TikTok
+advertising sources and separates their timing/structure advice from this
+workflow's mandatory speech, voice preservation, roadmap, and review gates.
+The linked SageMaker source grounds the response-isolation example, not a
+universal zero-risk claim. Audience retention remains unmeasured by these checks.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project

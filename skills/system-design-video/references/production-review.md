@@ -21,13 +21,19 @@ ends at the plan.
 - Editorial: check orientation, stakes, definitions, mechanism, practical use,
   failures, and scope of the conclusion. Inspect native-paced explanations,
   transitions, holds, and narration/state agreement across the complete lesson.
-  Review the hook's accurate promise and immediate payoff before new narration
+  Review and lock the spoken hook's accurate promise and immediate payoff before full narration
   lock, and verify that the contextual introduction and ordered roadmap follow.
+  Accept question, phrase, or defensible claim without requiring a question mark.
+  Apply the hook rubric to specific relevance/interest, evidence, payoff, natural
+  delivery, and picture alignment. The 3-6-second heuristic cannot justify rushed
+  speech, and ad guidance is not proof of organic retention.
 - Voice consistency: use a dedicated independent reviewer before final visual
   retiming. Follow [local narration](local-narration.md#independent-voice-consistency-gate)
   for rushing/dragging, midphrase pauses, identity/timbre/energy, and neighboring
   joins. Record actual listening coverage separately from instrumented checks;
   leave perceived naturalness pending for user audition when listening is absent.
+  Verify that a narrated final's actual encoded opening audio contains the hook
+  and leads into the explanation; cover text and subtitles alone cannot pass it.
 - Visual: cover every scene and boundary transition, including the actual encoded
   final at delivery size. Inspect composition, hierarchy, asset sharpness, labels,
   causal motion, and reference matches. A geometry pass is not an aesthetic pass.
