@@ -327,9 +327,8 @@ def resolve_external_skill(source: Path, destination: Path) -> dict[str, str]:
                 path = PurePosixPath(entry.filename)
                 if (path.is_absolute() or ".." in path.parts or "\\" in entry.filename
                         or ":" in entry.filename or not path.parts
-                        or any(PureWindowsPath(part).is_reserved() or part != part.rstrip(" .")
-                               for part in path.parts)):
-                    raise ValueError("External archive path escapes the skill")
+                        or any(is_reserved_windows_name(part) or part != part.rstrip(" .")
+                               for part in path.parts)):                    raise ValueError("External archive path escapes the skill")
                 # These install repository development skills, not runtime dependencies.
                 if (path.parts[0] in {".git", ".agents", ".cursor", ".codex", ".claude"}
                         or path.parts[:2] == (".github", "skills")
@@ -363,12 +362,21 @@ def resolve_external_skill(source: Path, destination: Path) -> dict[str, str]:
     return provenance
 
 
+def is_reserved_windows_name(name: str) -> bool:
+    stem = name.split(".", 1)[0].upper()
+    if stem in {"CON", "PRN", "AUX", "NUL"}:
+        return True
+    if len(stem) == 4 and stem[:3] in {"COM", "LPT"} and stem[3] in "123456789":
+        return True
+    return False
+
+
 def copy_source(source: Path, target_root: Path, target_name: str | None, apply: bool, force: bool,
                 backup_root: Path | None = None, no_backup: bool = False) -> dict[str, object]:
     name = target_name if target_name is not None else source.name
     if (not name or name in {".", ".."} or name != name.rstrip(" .")
             or any(character in name for character in '/\\:<>"|?*')
-            or any(ord(character) < 32 for character in name) or PureWindowsPath(name).is_reserved()):
+            or any(ord(character) < 32 for character in name) or is_reserved_windows_name(name)):
         raise ValueError("target name must be a single non-reserved filename")
     source = source.expanduser().absolute()
     reject_link_paths(source)
