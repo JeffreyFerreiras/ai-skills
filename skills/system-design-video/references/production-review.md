@@ -4,6 +4,9 @@ Use the project's current production record. The
 [template](../assets/production-record.md) supplies evidence fields when none
 exist. Keep technical truth, teaching quality, and visual quality separate.
 The spec checker certifies none of them.
+Run the [built-in review loop](video-review-loop.md) for each gate. Its state,
+candidate binding, same-Writer repair, fresh-Reviewer, and decision rules are
+required workflow here, not an optional external loop invocation.
 
 ## Scope and evidence
 
@@ -14,6 +17,11 @@ document/script, storyboard/art, narration/cues, representative sample, full
 render, and delivery encode. Group related files when each is covered explicitly;
 do not create extra exports just to populate a checklist. A plan-only request
 ends at the plan.
+Obtain independent technical and narrative approval of the current script,
+spoken hook, source claims and storyboard before TTS or any rendering. Review
+voice consistency before final visual timing, every scene's visual and logical
+clarity, then the current encoded delivery. No earlier-stage pass approves a
+materially changed later revision.
 
 - Technical: trace claims to inspected passages, distinguish illustrative choices
   from product guarantees, and verify event order, state, labels, cues, and media
@@ -43,8 +51,9 @@ exact revision and artifact hashes, stable scene IDs, and actual artifacts.
 The author cannot act as its own independent reviewer. Technical and editorial
 scopes may share a reviewer with distinct verdicts. Assign a dedicated visual
 reviewer, separate from the creator and technical/editorial roles, to every scene.
-When delegation is unavailable or unauthorized, perform scoped self-review and
-record the missing independent gate; leave it pending if required by the brief.
+When delegation is unavailable or unauthorized, record scoped self-check evidence
+and leave the independent gate pending. The creator cannot self-approve the script
+or clear a dependent production gate.
 
 Keep a scene ledger with scene ID/time range, establishing and mechanism frames,
 transition/movement evidence, actual encoded delivery size, round count, findings,
@@ -97,7 +106,10 @@ findings block dependent acceptance and must be reported at the cap.
 ## Bounded repairs
 
 Use at most three review rounds per identified deliverable stage. Stop at the
-first clean round. Technical, editorial, logical, visual, and voice scopes share that stage's
+first clear round; the initial review counts as round one, with at most two
+repair/review cycles. Run the loop's validation and current-digest checks before
+each independent review. A missing or malformed decision blocks the pass.
+Technical, editorial, logical, visual, and voice scopes share that stage's
 counter; reviewer changes, revised files, and renamed exports do not reset it.
 Scene findings remain within that asset/stage budget; the dedicated visual role
 does not add three extra rounds. Use focused frames/excerpts and targeted renders,
@@ -107,7 +119,10 @@ own counter. Carry unresolved findings forward; advancing stages cannot evade a
 failed prerequisite. An optional requested copy has a separate encoded review.
 
 For each round, record candidate hash, reviewer/self-review identity, scope,
-coverage, findings, and verdict. Each finding needs a stable ID, scene/timecode,
+candidate manifest/digest, role results and stable criterion/finding IDs, plus
+validation receipts and consumed round reservations. Self-check identity is
+evidence of a self-check only, never an independent approval. Record inspection
+coverage, findings, and `APPROVE`, `REVISE`, or `BLOCK`. Each finding needs a stable ID, scene/timecode,
 observed defect, impact, severity, focused repair, and verification evidence.
 Fix routine defects within authorization, then recheck changed intervals and
 neighboring transitions within the remaining rounds. Preserve accepted voice,
@@ -118,6 +133,8 @@ visual findings, or unmet requirements and keep dependent acceptance pending.
 The cap does not imply approval. Minor limitations need an explicit disposition.
 A narrow new request may limit the review scope, but retains prior unresolved
 findings and consumed rounds. Do not run extra rounds under a new filename.
+Material revisions invalidate affected approvals and finding resolutions; obtain
+explicit current-digest re-review. An omitted prior finding stays outstanding.
 
 Provide the reviewed sample through the authorized local or delivery route.
 Record internal review separately from user feedback. Continue authorized work

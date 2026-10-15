@@ -45,9 +45,12 @@ Use [`system-design-video`](skills/system-design-video/SKILL.md) to teach one sy
 flowchart TD
     A["Sources + teaching question"] --> B["Grounded lesson + architecture<br/>Actors, success path, failure or tradeoff"]
     B --> J["Lock and review the spoken hook<br/>Accurate promise, first frame, immediate payoff"]
-    J --> C["Record narration and measure timing<br/>Align events and subtitles to speech"]
+    J --> K{"Independent script approval<br/>Technical truth + narrative flow"}
+    K -->|"Repair within 3 total rounds"| B
+    K -->|"Blocked or unresolved at cap"| X
+    K -->|"Current revision approved"| C["Record narration and measure timing<br/>Align events and subtitles to speech"]
     C --> D["Narrated vertical sample<br/>Show a real state change and transition"]
-    D --> E{"Technical, editorial<br/>and visual review"}
+    D --> E{"Independent asset reviews<br/>Voice, visual, logical + media/story"}
     E -->|"Repair within the shared 3-round cap"| D
     E -->|"Unresolved at cap"| X["Report findings and limits"]
     E -->|"Applicable checks pass"| F["Full timeline + local render<br/>Requests follow real directed relationships"]
@@ -57,7 +60,7 @@ flowchart TD
     classDef review fill:#fef3c7,stroke:#b45309,color:#78350f;
     classDef output fill:#dcfce7,stroke:#15803d,color:#14532d;
     class A,B,J,C plan;
-    class E,G,X review;
+    class K,E,G,X review;
     class H output;
 ```
 
@@ -70,6 +73,8 @@ Start with a production document and an opening that explains the problem, relev
 Before final visual timing, a dedicated voice reviewer checks cadence, sentence pauses, identity, energy, and joins. Short samples prefer one continuous take; pause-only edits preserve PCM speech and refresh downstream cues. New cinematic directions start as standalone motion samples with internal activity and camera motion, then await feedback before integration. Instrumented checks do not count as perceptual listening or style approval.
 
 Lock and review a captivating spoken question, punchy phrase, or defensible claim before full narration. It must appear in a narrated video's first seconds and lead into the explanation; an on-screen question or optional animated cover supports it and cannot replace it. Preserve unaffected approved audio when adding missing speech, and verify the actual encoded opening audio. The sourced relevance/curiosity/payoff rubric treats roughly 3-6 seconds as flexible advertising guidance, not a voice-speed target or retention guarantee. Pair chalk explanations with the accepted hand-drawn layered-depth transition direction, and use a separate fresh-context logical reviewer to check object roles and complete causal paths through temporal evidence. Keep all reviewers within the existing asset budget. User-facing copy uses no em dashes. See [hook development](skills/system-design-video/references/hook-development.md).
+
+The review loop is built into the video skill: one bound Writer, validation of the exact artifact revision, fresh independent Reviewers, explicit finding dispositions, and recoverable state. Independent technical and narrative script approval comes before TTS or rendering; voice consistency and every-scene visual/logical gates precede final delivery approval. Three total rounds per deliverable is a ceiling, with early stop when clear. Material changes invalidate affected approvals. See [the built-in video loop](skills/system-design-video/references/video-review-loop.md).
 
 ## Skill catalog
 

@@ -175,6 +175,34 @@
     "expected": "Plan a logical reviewer distinct from the visual reviewer, withholding creator reasoning and intended identities until the first audience-visible interpretation is recorded. Require full-scene temporal evidence for identities, support, complete connectors, causal order and domain roles, then compare against intended/source claims. Retain the one remaining asset round and surface unresolved material issues without resetting it. Preserve original separated assets/prompts/alpha, stable foreground and independent depth/action timing; distinguish authored 2.5D from true 3D or a flat-image pan. Keep approved audio and style acceptance separate from pending voiced integration/caption/cutback checks. Do not infer motion from the hero still or invent playback, listening, or approval."
   },
   {
+    "id": "system-design-video-loop-script-prerequisite",
+    "skill": "system-design-video",
+    "prompt": "Create the representative narrated sample from this draft using the skill's built-in review loop. TTS and rendering are available; stop before external delivery.",
+    "fixture": "Synthetic sourced lesson, draft script/hook/storyboard, no independent approval, local tools and available independent workers. Script has a qualified source claim rewritten as an unsupported absolute. No loop plugin is installed. Disposable outputs only; simulated tool results, no real inference or render required for planning evaluation.",
+    "expected": "Use the self-contained Plan/Write/Validate/Review protocol without requiring another installation. Freeze scope, criteria, ordered checks and assignments; bind one Writer; require independent technical and narrative script approval on the current digest before TTS/rendering. Do not treat self-review or a spec-checker pass as that approval. Settle writes before non-Writer validation/fresh review; keep candidate-bound state and findings. Stop at the first clear round within three total rounds, then plan native voice, scene and sample gates. Do not claim real inference/render evidence from simulation."
+  },
+  {
+    "id": "system-design-video-loop-stale-review",
+    "skill": "system-design-video",
+    "prompt": "Continue this sample revision from the saved review record and decide whether it can advance to full rendering.",
+    "fixture": "Synthetic sample manifest, old candidate-bound approval, material script/audio-anchor/scene changes, two consumed total rounds, and outstanding finding LOG-2. A new report says APPROVE with no findings but references the old digest and omits LOG-2. Current candidate files are locally readable; no listening capability exists.",
+    "expected": "Reject stale approval and omitted-finding closure. Recompute a full actual-byte candidate manifest with workspace/base/scope identity, invalidate affected receipts/resolutions and downstream approvals, preserve LOG-2 and two consumed rounds, and require current-digest validation and a new non-Writer Reviewer. Retain only provably unchanged evidence; record listening gaps. A remaining material finding after round three blocks advancement, not a reset or fourth pass."
+  },
+  {
+    "id": "system-design-video-loop-unknown-dispatch",
+    "skill": "system-design-video",
+    "prompt": "Resume the interrupted video review loop without losing the completed work or review budget.",
+    "fixture": "Synthetic versioned state checkpoints with a valid prior snapshot, a prepared Writer intent whose dispatch timed out, unknown execution status and a missing handle, and a consumed review-round reservation. Host cannot reconcile or stop the old Writer yet. Candidate includes tracked and untracked files; newest pointer outcome is ambiguous.",
+    "expected": "Load/check the last trusted state, reconcile the uncertain dispatch and checkpoint before starting any worker, and report BLOCK when old execution or state cannot be established. Do not assume a timeout means no worker, replace the bound Writer, duplicate a repair attempt, overlap review with possible writes, or reset consumed rounds. Preserve work and report exact uncertainty rather than inventing approval."
+  },
+  {
+    "id": "system-design-video-loop-delivery-gates",
+    "skill": "system-design-video",
+    "prompt": "Review this encoded lesson for handoff using the built-in loop. Keep the approved native audio and style; use available evidence honestly.",
+    "fixture": "Synthetic encoded file/hash and successful decode, two scenes with only one scene's visual review, no fresh-context logical review, narration ASR metrics without listening, and an undelivered representative sample. Independent reviewer capability is unavailable. No external writes are permitted.",
+    "expected": "Keep voice, every-scene visual-diva and distinct logical gates pending where independent or temporal/listening evidence is missing. Do not substitute the author's self-check, decode, ASR, or one scene's pass for whole-video approval. Preserve sample-first sequencing and report the blocked production/delivery approval with findings and exact hashes; a labelled evidence handoff is distinct from cleared final delivery. Keep native audio/style and do not publish or fabricate listening."
+  },
+  {
     "id": "system-design-video-explicit-silent",
     "skill": "system-design-video",
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",
