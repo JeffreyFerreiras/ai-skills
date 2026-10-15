@@ -3,6 +3,11 @@
 Read when choosing or setting up local TTS. Explicit voice choices and approved
 recordings take precedence. This package supplies guidance, not model weights,
 an inference runner, or permission for downloads or migration.
+Before generating any new narration, require independent technical and narrative
+approval of the current script/hook/storyboard through the
+[built-in loop](video-review-loop.md). Voice-engine availability or passing ASR
+does not waive that prerequisite. Material script repairs invalidate the affected
+script approval before resynthesis.
 
 ## Preferred engine and voice identity
 

@@ -4,6 +4,11 @@ Choose a backend from the existing project and the lesson's visual needs. Resolv
 tools and versions from its package files and command help. Keep one rendering
 engine for a simple lesson; use an independently rendered Manim insert only when
 its mathematics or algorithm choreography justifies stitching.
+Require current independent technical/narrative script and storyboard approval
+before rendering even the representative sample. Use the
+[built-in loop](video-review-loop.md) for scene, sample and encoded-output gates;
+material scene/timing/encode changes invalidate affected evidence and need fresh
+review before dependent delivery approval.
 
 ## Visual direction and assets
 

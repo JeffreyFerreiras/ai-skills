@@ -86,6 +86,23 @@ workflow's mandatory speech, voice preservation, roadmap, and review gates.
 The linked SageMaker source grounds the response-isolation example, not a
 universal zero-risk claim. Audience retention remains unmeasured by these checks.
 
+## Video loop provenance
+
+The built-in video loop adapts the canonical
+[generic-loop protocol](https://github.com/JeffreyFerreiras/ai-skills/blob/403e40c89bee5792181a3df4a648ea1a840af67e/skills/generic-loop/SKILL.md),
+inspected from the remote default branch on 2026-10-15. It carries forward frozen
+plans, one bound Writer, settled writes, exact candidate manifests/digests,
+ordered validation, fresh Reviewers, explicit decisions/finding lifecycles, and
+durable recovery/dispatch reconciliation. The reference is provenance, not a
+runtime dependency or permission to modify another skill.
+
+Video production keeps its stricter existing limit of three total review rounds
+per deliverable, including the initial review, rather than the general protocol's
+three repair slots after an initial candidate. Independent technical/narrative
+script approval precedes TTS/rendering. Voice, every-scene visual-diva/logical,
+sample and encoded-final gates retain scoped evidence and exact artifact binding.
+This documentation does not itself run a production loop or validate a real video.
+
 ## Behavioral evaluation
 
 Run fresh sessions with only the user prompt, installed package, relevant project

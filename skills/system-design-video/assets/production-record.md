@@ -29,6 +29,15 @@ checks pending; remove branches outside the requested deliverable.
 
 Repeat per deliverable stage, retaining previous rounds and finding IDs.
 
+- Frozen task/stage ID, scope/allowed paths, exclusions, criterion IDs and checks
+  in order; Supervisor, bound Writer, verifier and fresh Reviewer identities:
+- Selected model/effort per role, verified dispatch assignment, separately
+  observed actual runtime metadata or its absence, isolation limitations:
+- Exact candidate manifest/SHA-256 digest and workspace/base identity; per-asset
+  revisions/hashes, baseline and excluded-state preservation evidence:
+- Reserved total review rounds (maximum 3 including initial), remaining budget,
+  explicit decision token per role, and every old finding's current disposition:
+
 - Stage, candidate path/hash, scene IDs/time range, round number, reviewer identity:
 - Technical verdict and source/contract evidence:
 - Editorial verdict and native-speed playback/listening coverage:
@@ -48,6 +57,23 @@ Repeat per deliverable stage, retaining previous rounds and finding IDs.
 - Remaining requirements/limitations and next permitted action:
 - Standalone cinematic motion sample scope/status, internal activity and camera
   evidence, feedback, and decision before integration into the main cut:
+
+## Loop recovery checkpoint
+
+Keep this Supervisor-owned recovery state in the project's durable task metadata
+or a declared sidecar excluded from the candidate digest. Do not copy live state
+into the installed skill. Retain the previous last-good checkpoint.
+
+- Schema version, increasing sequence, checkpoint integrity digest, last trusted
+  snapshot, current phase, frozen plan and immutable Writer identity:
+- Per-dispatch attempt/idempotency key, selected assignment, candidate digest,
+  execution handle/status, settled proof, and unresolved/unknown execution:
+- Ordered per-command validation receipts bound to the candidate digest and
+  workspace; per-round review bindings, decisions, stable finding lifecycle:
+- Material revisions, invalidated approvals/resolutions, affected downstream
+  gates, consumed reservations on resume, outstanding IDs and next permitted step:
+- Actual atomic/persistence mechanism and limitations, reconciliation evidence
+  before redispatch, blocked reason or final current-digest approval:
 
 ## Final media and delivery
 
@@ -69,7 +95,9 @@ is not publishing permission.
 
 | State | Evidence or pending requirement |
 | --- | --- |
+| Current script independently approved technically and narratively before TTS/render | |
 | Representative sample provided and reviewed | |
+| Voice and every-scene visual/logical gates reviewed on current artifact hashes | |
 | Full continuous video rendered | |
 | Brief-authorized full-length 1080p review copy provided | |
 | Applicable QA passed | |

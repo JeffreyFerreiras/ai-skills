@@ -32,6 +32,24 @@ video includes its local render or export unless the user selects preview-only
 work. Publishing, account changes, and external sharing require corresponding
 user intent. Do not add approval checkpoints to already-authorized local work.
 
+## Run the built-in review loop
+
+Use the self-contained [video review loop](references/video-review-loop.md) at
+each deliverable gate. Freeze scope and criteria, use one bound Writer, settle
+its writes, validate the exact artifact revision, then use fresh independent
+reviewers to approve, request a bounded repair, or block. Keep durable round and
+finding records, bind results to actual artifact hashes, and invalidate stale
+approvals after material revisions. No separate loop skill installation is needed.
+
+Obtain independent technical and narrative approval of the script, spoken hook,
+source claims, and storyboard before TTS or rendering, including sample production.
+Keep voice-consistency review before final visual retiming, dedicated visual-diva
+and fresh-context logical review for every scene, and encoded-final review before
+delivery. All reviewers share at most three total rounds per deliverable, stopping
+early when clear. Missing independent review leaves the gate pending; self-checks
+cannot approve the author's own work. Report unresolved findings and actual
+inspection limits rather than silently clearing a gate.
+
 ## Ground the system
 
 Identify the source of each claim and relationship. Use inspected code, official
@@ -78,7 +96,8 @@ Do not use em dashes in user-facing scripts, captions, covers, titles,
 descriptions, or handoff copy; use periods, commas, or a clear sentence rewrite.
 
 Write narration before animation. For a narrated video, generate or record the
-voice, measure each audio clip, and obtain word or phrase timestamps when precise
+voice only after the current script has passed the independent script gate. Then
+measure each audio clip and obtain word or phrase timestamps when precise
 reveals need them. For new local narration without an explicit engine choice,
 prefer MOSS-TTS Local Transformer v1.5, with Qwen3-TTS as fallback. Preserve an
 existing approved performance. Read [local narration](references/local-narration.md)
@@ -128,6 +147,8 @@ different lesson cannot establish this lesson's quality.
 
 Use [production review](references/production-review.md) for separate technical,
 editorial, and visual verdicts, evidence coverage, and the three-round limit.
+Run the sample through the built-in loop and provide it before the full render;
+an instrumented review with listening unavailable must retain that evidence gap.
 Continue already-authorized full production after applicable internal checks;
 honor a user-reserved sample decision. Do not require an external upload for a
 local-only request or regenerate an unchanged, reviewed sample on resumption.
@@ -191,9 +212,10 @@ reviewer for every scene when delegation is available and authorized. Add a
 distinct fresh-context logical reviewer who sees audience-visible full-scene
 frames and temporal evidence before learning the intended interpretation. Use
 [production review](references/production-review.md#fresh-context-logical-scene-review)
-for object identity, connector continuity, support, and causal-flow checks. Otherwise
-self-review, disclose the missing independent gate, and leave it pending when
-the brief requires independence. Neither method implies unavailable playback.
+for object identity, connector continuity, support, and causal-flow checks. When
+independent review is unavailable, record scoped self-check evidence and the
+pending gate; do not substitute it for independent approval. Neither method
+implies unavailable playback.
 
 ## Deliver and hand off
 
