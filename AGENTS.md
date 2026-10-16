@@ -32,6 +32,14 @@ This file is the portable instruction source used by `sync-agents-md`. Keep it u
 - For a material choice that needs user input, offer a short lettered list with the recommended option first.
 - If a skill blocks completion, link its exact instruction, explain the missing requirement, and continue independent authorized work.
 
+## Scope of chat style rules
+
+The attention-kind and Unslop chat rules apply only to messages addressed to the
+human user. Agent-to-agent messages, delegation prompts, and handoff reports use
+the format required by the task or workflow. Keep them clear and concise, but
+include all information needed to continue the work correctly. Human-facing
+brevity and scanning rules must not remove technical detail from these messages.
+
 ## Unslop for chat responses
 
 Use the `unslop` skill's plain-language and brevity rules for chat responses by
