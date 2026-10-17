@@ -61,6 +61,73 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerUnitTests(TaskCase):
+    def test_simplification_assignment_is_bound_separately_from_delivery_panel(self):
+        for host in known_hosts():
+            for task in (self.task(), self.task_v2(route="fast_path"), self.task_delivery_only()):
+                with self.subTest(host=host, route=task["minimum_route"]):
+                    plan = build_execution_plan("RUN-1", task, host=host)
+                    review = plan["simplification_assignment"]
+                    panel = assignment_for(plan, "code_reviewer")
+                    self.assertEqual(plan["simplification_review_version"], 1)
+                    self.assertEqual(review["role"], "code_reviewer")
+                    self.assertEqual(review["code_review_assignment"], {
+                        "focus": "simplification", "required_skill": None,
+                    })
+                    self.assertEqual((review["model"], review["reasoning_effort"]),
+                                     (panel["model"], panel["reasoning_effort"]))
+                    self.assertEqual(review["max_passes_per_generation"], 1)
+                    self.assertEqual(len([row for row in plan["assignments"]
+                                          if row.get("code_review_assignment") and row["node_key"] != "advisory_reviewer"]), 4)
+                    self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+
+    def test_simplification_override_changes_digest_and_preserves_runtime(self):
+        task = self.task_v2()
+        before = build_execution_plan("RUN-1", task)
+        for model, effort in (("gpt-6.1-sol", "medium"), (MUSE_MODEL, "low")):
+            with self.subTest(model=model):
+                task["model_overrides"] = {"simplification_assignment": {
+                    "model": model, "reasoning_effort": effort,
+                }}
+                plan = build_execution_plan("RUN-1", task)
+                review = plan["simplification_assignment"]
+                self.assertEqual((review["model"], review["reasoning_effort"]), (model, effort))
+                self.assertNotEqual(plan["plan_digest"], before["plan_digest"])
+                self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+                if model == MUSE_MODEL:
+                    self.assertEqual(review["dispatch_runtime"], "opencode-cli")
+        task["model_overrides"]["simplification_assignment"]["reasoning_effort"] = "max"
+        with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+            build_execution_plan("RUN-1", task)
+
+    def test_simplification_does_not_upgrade_historical_or_nondelivery_plans(self):
+        task = self.task_v2()
+        old = reconstruct_execution_plan("RUN-1", task, {
+            "host": DEFAULT_HOST, "catalog_revision": CURRENT_CATALOG_REVISIONS[DEFAULT_HOST],
+            "code_review_panel_version": 1,
+        })
+        self.assertNotIn("simplification_assignment", old)
+        self.assertNotIn("simplification_review_version", old)
+        self.assertEqual(reconstruct_execution_plan("RUN-1", task, old), old)
+        for mode, route in (("advisory", "advisory"), ("design", "design_only")):
+            task = self.task_v2(mode=mode, route=route)
+            plan = build_execution_plan("RUN-1", task)
+            self.assertNotIn("simplification_assignment", plan)
+            self.assertEqual(reconstruct_execution_plan("RUN-1", task, plan), plan)
+            task["model_overrides"] = {"simplification_assignment": {
+                "model": "gpt-6.1-sol", "reasoning_effort": "low",
+            }}
+            with self.assertRaisesRegex(ValueError, "SIMPLIFICATION_REVIEW_NOT_ENABLED"):
+                build_execution_plan("RUN-1", task)
+
+    def test_invalid_simplification_version_fails_closed(self):
+        for marker in (None, True, 0, 2, "1", []):
+            with self.subTest(marker=marker), self.assertRaisesRegex(ValueError, "SIMPLIFICATION_REVIEW_VERSION_INVALID"):
+                reconstruct_execution_plan("RUN-1", self.task_v2(), {"simplification_review_version": marker})
+        with self.assertRaisesRegex(ValueError, "SIMPLIFICATION_REVIEW_VERSION_INVALID"):
+            reconstruct_execution_plan("RUN-1", self.task_v2(mode="advisory", route="advisory"), {
+                "simplification_review_version": 1,
+            })
+
     def test_bug_hunter_binds_host_skill_and_review_model(self):
         for host, required_skill in (("codex", "review-agent"), ("codex-astra", "review-agent"),
                                      ("cursor", "review-bugbot"), ("claude", "bug-hunter-review")):
@@ -86,7 +153,7 @@ class PlannerUnitTests(TaskCase):
                         with self.assertRaisesRegex(ValueError, "MODEL_RETIRED"):
                             selected_dispatch_model(host, model, "max", revision)
                 for key in ("tech_lead", "impact_mapper", "design_research_validation",
-                            "supervisor_recommendation", "publication_assignment"):
+                            "supervisor_recommendation", "publication_assignment", "simplification_assignment"):
                     task = self.task_v2()
                     task["model_overrides"] = {key: {"model": model, "reasoning_effort": "max"}}
                     with self.subTest(host=host, model=model, key=key):
@@ -492,7 +559,8 @@ class PlannerUnitTests(TaskCase):
                 plan = reconstruct_execution_plan("RUN-COMPAT", task, {"host": host}, size)
                 self.assertNotIn("catalog_revision", plan)
                 self.assertEqual(plan["plan_digest"], expected_digest, (host, size))
-                self.assertNotEqual(build_execution_plan("RUN-COMPAT", task, size, host)["plan_digest"], plan["plan_digest"])
+                current_task = {**task, "request_mode": "delivery"}
+                self.assertNotEqual(build_execution_plan("RUN-COMPAT", current_task, size, host)["plan_digest"], plan["plan_digest"])
 
     def test_catalog_revision_markers_fail_closed(self):
         for host in known_hosts():
@@ -506,7 +574,8 @@ class PlannerUnitTests(TaskCase):
                                                    {"host": host, "catalog_revision": marker})
             revised = reconstruct_execution_plan("RUN-1", self.task(),
                                                  {"host": host, "catalog_revision": revision,
-                                                  "code_review_panel_version": 1})
+                                                  "code_review_panel_version": 1,
+                                                  "simplification_review_version": 1})
             self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):

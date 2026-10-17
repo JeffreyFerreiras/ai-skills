@@ -49,6 +49,13 @@ Present all four focuses, models, and efforts
 before approval. The panel version and assignments enter the plan digest. Historical plans without
 `code_review_panel_version` retain their recorded single-reviewer assignment.
 
+New delivery plans separately bind `simplification_review_version: 1` and
+`simplification_assignment`, using the host's review recommendation. Override its pair with
+`model_overrides.simplification_assignment` in task/plan v2 or v3. This read-only pass reuses the
+Code Reviewer profile before the panel; it is not a graph node or conditional fan-out member.
+Present its exact pair before approval. Historical plans without the marker and non-delivery
+plans do not gain this dispatch. See [Simplification review](simplification-review.md).
+
 ```json
 "model_overrides": {
   "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},

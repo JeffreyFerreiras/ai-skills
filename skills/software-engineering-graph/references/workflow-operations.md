@@ -44,6 +44,15 @@ It is the sole source/test writer, preserves unrelated changes, applies the mand
 preflight from `SKILL.md`, runs focused checks, and reports design deviations before implementing
 them. It does not commit, push, open a PR, or remove a worktree.
 
+For new delivery plans with `simplification_review_version`, follow
+[Simplification review](simplification-review.md) before recording the successful implementation
+result. The Supervisor dispatches one fresh read-only session using the existing Code Reviewer
+profile, then returns a consolidated reduction packet to the same Senior Engineer within its
+active attempt. Settle required proposals, retain optional preferences as non-blocking, and bind
+the report, dispositions, affected validation, and final checkpoint in the implementation handoff.
+The engine binds the assignment; the Supervisor enforces this instruction-level pass. It is not
+part of the four-reviewer collection and does not add a ledger branch or repair budget.
+
 At a stable checkpoint, dispatch exactly four fresh Code Reviewers and a Test Engineer in parallel
 only when their resources do not conflict. The reviewers receive separate assignments: clean code
 with `clean-code-review`, clean architecture with `clean-architecture-review`, naming only, and
@@ -103,6 +112,8 @@ Minimum handoffs:
 - research: verified evidence manifest, null decision, and empty findings;
 - design/review: proposal or decision, stable findings, evidence, revisions and unresolved choices;
 - implementation: changed files, acceptance mapping, checks, deviations, risks and skill usage;
+- simplification when planned: reviewed checkpoint, concrete reductions, preservation evidence,
+  writer dispositions, resulting checkpoint, lifecycle and separate usage;
 - code review/test: independent decision, evidence, gaps, conformance and required skill usage;
 - helper: the selected canonical helper packet and registered lifecycle, never a parent decision;
 - closure: delivered outcome, validation, residual risk, approvals and next action.

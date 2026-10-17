@@ -105,6 +105,15 @@ This documentation does not itself run a production loop or validate a real vide
 
 ## Behavioral evaluation
 
+For a small executable integration check, use the
+[reference-video workflow](production-tools.md#reproducible-integration-fixture).
+It exercises two narrated scenes, duration-aware request/reply motion, subtitles,
+speech-driven retiming, sample frames, and an encoded MP4 through the bundled
+Remotion starter. Record the actual host, dependency lock, voice provenance and
+media report. Windows fixture speech is an explicit test option, not a production
+engine recommendation. Passing it does not establish agent routing or perceptual
+quality; those still need the fresh-session cases below.
+
 Run fresh sessions with only the user prompt, installed package, relevant project
 instructions, and synthetic fixture. Keep evaluator expectations out of the
 session. Disable external writes and real credentials. Record host/model/effort,

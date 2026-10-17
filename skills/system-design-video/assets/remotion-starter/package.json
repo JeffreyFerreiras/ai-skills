@@ -1,0 +1,18 @@
+{
+  "name": "system-design-video-project",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.jsx",
+    "render": "remotion render src/index.jsx Explainer outputs/explainer.mp4",
+    "still": "remotion still src/index.jsx Explainer",
+    "test": "node --test src/timeline.test.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "remotion": "4.0.536",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  }
+}

@@ -13,6 +13,8 @@ checks pending; remove branches outside the requested deliverable.
 - Hook form (question/phrase/claim), relevance and specific interest, claim sources,
   payoff, natural landing time, picture alignment, ad-evidence versus workflow scope:
 - Requested deliverable, format, duration constraint, style/reference identities:
+- Capability preflight: renderer/media tools, selected voice/alignment, reviewer
+  dispatch, playback/listening, GPU/RAM/storage evidence and unresolved items:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
 - Native prosody, synthetic reference/transcript/hash and provenance, model/codec
   revisions and dtypes, staged loading, fallback reason, measured timing scope:
@@ -22,6 +24,8 @@ checks pending; remove branches outside the requested deliverable.
   and rollback evidence; configured finished-video destination:
 - Accepted choices, local/external authorization, any reserved sample decision:
 - Spec and scene source revision/hashes, assets/fonts/licenses, dependency lock:
+- Contract version, event start/completion times and resulting states, caption
+  cue precision, preview frame indexes covering travel and completion:
 - Render entrypoint, exact commands, output paths, unit/frame ranges and hashes:
 - Resume method, completed units, invalidated inputs, next action:
 

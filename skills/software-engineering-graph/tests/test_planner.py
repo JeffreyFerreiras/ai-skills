@@ -107,6 +107,8 @@ class PlannerTests(GraphCase):
         self.graphctl("status", "--run-id", "RUN-1")
 
     def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
+        from tests.test_contracts import _validate_json_schema
+
         task = self.task_v2(route="fast_path")
         path = self.repo / "docs" / "task.json"
         path.write_text(json.dumps(task), encoding="utf-8")
@@ -115,6 +117,7 @@ class PlannerTests(GraphCase):
         task["model_overrides"] = {
             "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
             "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
+            "simplification_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
         }
         path.write_text(json.dumps(task), encoding="utf-8")
         adjusted = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path))["execution_plan"]
@@ -122,9 +125,14 @@ class PlannerTests(GraphCase):
         initialized = self.initialize_task(task)
         self.assertEqual(initialized["execution_plan_digest"], adjusted["plan_digest"])
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume", "--run-id", "RUN-1")
+        resumed = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(resumed["execution_plan"]["simplification_assignment"], adjusted["simplification_assignment"])
         self.impact("fast_path")
         writer = self.claim()
         self.assertEqual((writer["model"], writer["reasoning_effort"]), ("gpt-6.1-sol", "medium"))
+        self.assertEqual(writer["simplification_review_version"], 1)
+        schema = json.loads((Path(__file__).parents[1] / "references" / "branch-envelope.schema.json").read_text(encoding="utf-8"))
+        _validate_json_schema(writer, schema, schema)
 
     def test_invalid_model_overrides_fail_without_creating_state(self):
         from graph_engine.contracts import ContractError

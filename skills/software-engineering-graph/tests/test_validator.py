@@ -39,6 +39,7 @@ class ValidatorTests(GraphCase):
             recorded = next(row for row in legacy["assignments"] if row["node_key"] == "senior_engineer")
             self.assertEqual(writer["node_key"], "senior_engineer")
             self.assertEqual(recorded["intelligence_class"], "economy")
+            self.assertNotIn("simplification_review_version", writer)
             self.assertEqual((writer["model"], writer["reasoning_effort"]),
                              (recorded["model"], recorded["reasoning_effort"]))
             with self.store.connect(database) as connection:
@@ -57,6 +58,7 @@ class ValidatorTests(GraphCase):
             writer = self.claim()
             self.assertEqual(writer["node_key"], "senior_engineer")
             self.assertEqual(writer["reasoning_effort"], "medium")
+            self.assertEqual(writer["simplification_review_version"], 1)
             self.assertIn(writer["model"], {"gpt-6.1-sol", "grok-4.7"})
             plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
             self.assertEqual(plan["plan_digest"], initialized["execution_plan_digest"])

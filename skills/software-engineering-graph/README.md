@@ -54,6 +54,9 @@ the roles the work needs:
   Every implementation and follow-up repair must apply both `clean-code` and
   `clean-architecture-code`, reporting concrete actions and validation for each. A missing required
   skill blocks READY_FOR_REVIEW; architecture guidance stays within the approved design.
+- **Simplification Reviewer** runs one read-only pass before the delivery panel, reusing the Code
+  Reviewer profile. It proposes concrete deletions or simpler alternatives with evidence that required
+  behavior survives. The Senior Engineer applies accepted reductions; preferences are non-blocking.
 - **Four Code Reviewers** independently review the completed change: one applies `clean-code-review`,
   one applies `clean-architecture-review`, one reviews naming only, and one hunts concrete introduced
   bugs using Cursor's built-in `review-bugbot`, Codex's built-in `review-agent`, or the repository-owned
@@ -101,6 +104,14 @@ New plans bind `code_review_panel_version: 1` and four mandatory delivery assign
 delegation may add Security Reviewers, but cannot add Code Reviewers beyond this panel. Historical
 plans without the marker retain their recorded single-reviewer topology and delegation behavior.
 The advisory route remains one clean-code review. No additional reusable profiles are installed.
+
+New delivery plans also bind `simplification_review_version: 1` and `simplification_assignment`,
+including its exact model and effort. This preceding pass is an instruction-level host session,
+not a fifth panel gate or ledger branch. The engine binds its assignment; the Supervisor enforces
+completion and dispositions before recording implementation success. Historical plans without
+the marker retain their workflow. Advisory and design-only plans omit it. Read
+[Simplification review](references/simplification-review.md) for its scope, single-pass bound,
+sole-writer settlement, and evidence contract.
 
 New task/plan v3 proposals include bounded direct helper allowances by default, covered by initial
 plan approval. Actual dispatch depends on useful work, budgets, and verified host capabilities;

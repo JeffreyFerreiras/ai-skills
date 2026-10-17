@@ -327,6 +327,8 @@ def envelope(
         result["dispatch_runtime"] = assignment["dispatch_runtime"]
     if "code_review_assignment" in assignment:
         result["code_review_assignment"] = dict(assignment["code_review_assignment"])
+    if spec.key == "senior_engineer" and "simplification_review_version" in plan:
+        result["simplification_review_version"] = plan["simplification_review_version"]
     if spec.key in ENGINE_RESEARCH_NODES:
         totals = task["inspection_budget"]
         first = spec.key == "design_research_architecture"

@@ -27,6 +27,15 @@ algorithmic and mathematical scenes. For setup and backend-specific rules, read
 paid service must stay within existing authorization. Do not assume that another
 skill, an API key, or a vendor account is installed.
 
+Before committing to narrated or rendered production, check the selected renderer,
+voice and alignment engines, independent review dispatch, actual playback/listening,
+hardware capacity, and output storage. Record available, unavailable, or unknown
+with evidence. Missing capabilities leave dependent gates pending; continue the
+independent plan/script work. Do not install, download, or change providers merely
+to turn an inventory result green. Use [production tools](references/production-tools.md)
+for preflight, the Remotion starter, duration-aware previews, media checks, and
+artifact-bound records. Plan-only work does not require rendering capabilities.
+
 A request for a script or storyboard ends with that artifact. A request for a
 video includes its local render or export unless the user selects preview-only
 work. Publishing, account changes, and external sharing require corresponding
@@ -132,6 +141,9 @@ The first command checks a plan. `--ready` also requires measured PCM WAV clips
 for narrated scenes and verifies their declared duration and fit. It checks
 inputs for animation, not the final movie or the truth of the architecture.
 Its standard-library helper requires Python 3.10+.
+New plans use contract version 2 with event durations, completion-state labels,
+and subtitle cues. Version 1 plans remain supported. Dependencies wait for a
+preceding event to finish; distinguish an animation's start from its result.
 
 If voice generation is unavailable, complete the sourced plan and script. Report
 the missing capability. Deliver a silent or caption-only video only when that
@@ -156,8 +168,8 @@ local-only request or regenerate an unchanged, reviewed sample on resumption.
 For a new cinematic direction, make standalone motion samples and obtain feedback
 before integrating it into the main video. Brief dimensional openings or section
 bridges may complement readable chalkboard explanations when they clarify the
-story. Internal scene activity and purposeful camera motion must both be visible;
-a pan over a still is insufficient. Sample authorization does not establish an
+story. For these cinematic samples, internal scene activity and purposeful camera
+motion must both be visible; a pan over a still is insufficient. Sample authorization does not establish an
 approved style, completed motion, or permission for full integration.
 
 Before expensive rendering, review a rough full timeline at native pace. Check
@@ -176,8 +188,9 @@ real directed relationship; show the
 resulting state change. Use declared event dependencies for causal order.
 
 Reveal a component or label when its explanation reaches it. Keep one interaction
-in focus. Use camera moves only when the diagram cannot remain readable at the
-delivery size. Preserve context during zooms. Decorative pulses must not imply
+in focus. In explanatory diagrams, use camera moves only when the diagram cannot
+remain readable at the delivery size. Cinematic openings and bridges follow the
+separately sampled motion direction above. Preserve context during zooms. Decorative pulses must not imply
 traffic, replication, or concurrency that the explanation does not support.
 
 Distinguish a cache miss from a timeout, receipt from durable acknowledgement,

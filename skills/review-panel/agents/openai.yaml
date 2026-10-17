@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Panel"
+  short_description: "Run a seven-role independent review panel"
+  default_prompt: "Use $review-panel to run a seven-role independent review of this change."
