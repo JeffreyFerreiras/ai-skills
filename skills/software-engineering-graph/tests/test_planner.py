@@ -107,6 +107,8 @@ class PlannerTests(GraphCase):
         self.graphctl("status", "--run-id", "RUN-1")
 
     def test_preview_can_be_adjusted_before_initialization_and_approved_selection_survives_resume(self):
+        from tests.test_contracts import _validate_json_schema
+
         task = self.task_v2(route="fast_path")
         path = self.repo / "docs" / "task.json"
         path.write_text(json.dumps(task), encoding="utf-8")
