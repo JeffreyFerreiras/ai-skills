@@ -1276,6 +1276,7 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
             "schema_version", "run_id", "branch_id", "node_instance_id", "node_key", "role",
             "model", "reasoning_effort", "dispatch_runtime", "mandatory", "generation", "inputs", "effect_capabilities", "output_contract",
             "stopping_condition", "retry_count", "max_retries", "research_assignment", "code_review_assignment",
+            "simplification_review_version",
             "attempt_id", "claim_digest", "lease_expires_at",
         }
         if set(stored_envelope) != set(expected_envelope) or any(

@@ -158,8 +158,9 @@ class SpecChecker:
         if not isinstance(doc, dict):
             self.error("spec", "must be an object")
             return self.errors
-        if type(doc.get("schema_version")) is not int or doc["schema_version"] != 1:
-            self.error("schema_version", "must be 1")
+        version = doc.get("schema_version")
+        if type(version) is not int or version not in (1, 2):
+            self.error("schema_version", "must be 1 or 2")
         self.text(doc.get("question"), "question")
         self.text(doc.get("audience"), "audience")
         profile = doc.get("profile")
@@ -231,6 +232,7 @@ class SpecChecker:
             self.error("scenes", "last scene must end at profile.duration_seconds")
 
         prior_events: dict[str, dict[str, Any]] = {}
+        completion_times: dict[str, float] = {}
         previous_time = 0.0
         for identifier, event in events.items():
             where = f"events.{identifier}"
@@ -239,7 +241,19 @@ class SpecChecker:
             self.refs([event.get("scene_id")], scenes, f"{where}.scene_id")
             participants = self.refs(event.get("node_ids"), nodes, f"{where}.node_ids")
             self.refs(event.get("claim_ids"), claims, f"{where}.claim_ids")
-            self.refs(event.get("after"), prior_events, f"{where}.after", required=False)
+            dependencies = self.refs(event.get("after"), prior_events, f"{where}.after", required=False)
+            event_duration = self.number(
+                event.get("duration_seconds", 0 if version == 1 else None), f"{where}.duration_seconds"
+            )
+            if version == 2 or "state_after" in event:
+                state = event.get("state_after")
+                if not isinstance(state, dict) or not state:
+                    self.error(f"{where}.state_after", "must be a nonempty object of node IDs to state labels")
+                else:
+                    for node_id, label in state.items():
+                        if node_id not in participants:
+                            self.error(f"{where}.state_after", f"state node {node_id!r} must participate in the event")
+                        self.text(label, f"{where}.state_after.{node_id}")
             edge_id = event.get("edge_id")
             if edge_id is not None:
                 matches = self.refs([edge_id], edges, f"{where}.edge_id")
@@ -254,8 +268,36 @@ class SpecChecker:
                     self.error(where, "events must be chronological")
                 if window and not window[0] <= at < window[1]:
                     self.error(where, "event must occur inside its scene window")
+                if event_duration is not None:
+                    completion = at + event_duration
+                    completion_times[identifier] = completion
+                    if window and completion > window[1] + ROUNDING_TOLERANCE:
+                        self.error(where, "event completion extends beyond its scene")
+                    for dependency in dependencies:
+                        if at + ROUNDING_TOLERANCE < completion_times.get(dependency, 0):
+                            self.error(where, f"starts before dependency {dependency!r} completes")
                 previous_time = at
             prior_events[identifier] = event
+        if "captions" in doc or (version == 2 and narrated is True):
+            captions = doc.get("captions")
+            if not isinstance(captions, list) or (narrated is True and not captions):
+                self.error("captions", "must be an array, nonempty for narrated v2 plans")
+            else:
+                previous_end = 0.0
+                for index, caption in enumerate(captions):
+                    where = f"captions[{index}]"
+                    if not isinstance(caption, dict):
+                        self.error(where, "must be an object")
+                        continue
+                    start = self.number(caption.get("start"), f"{where}.start")
+                    end = self.number(caption.get("end"), f"{where}.end", positive=True)
+                    self.text(caption.get("text"), f"{where}.text")
+                    if start is not None and end is not None:
+                        if end <= start or start < previous_end - ROUNDING_TOLERANCE:
+                            self.error(where, "cues must be ordered, positive-length and nonoverlapping")
+                        if duration is not None and end > duration + ROUNDING_TOLERANCE:
+                            self.error(where, "cue extends beyond the video")
+                        previous_end = end
         return self.errors
 
 

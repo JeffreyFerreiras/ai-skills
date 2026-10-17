@@ -201,7 +201,8 @@ implementation and follow-up repairs. Include this requirement in every Senior E
 and continuation. These skills are mandatory; optional skill selection is additional.
 
 Every new delivery generation has exactly four Code Reviewers using the reusable `code_reviewer`
-profile with separate envelope assignments: `code_reviewer` applies `clean-code-review`,
+profile in the delivery panel, preceded by a separate simplification pass as defined below.
+The panel uses separate envelope assignments: `code_reviewer` applies `clean-code-review`,
 `code_reviewer_architecture` applies `clean-architecture-review`, `code_reviewer_naming` reviews
 naming only, and `code_reviewer_bug_hunter` finds concrete introduced defects with its assigned
 review skill. On Cursor, require `review-bugbot`; on Codex, require `review-agent`; on Claude,
@@ -239,10 +240,12 @@ failures may proceed only when controlling instructions remain sufficient and th
 workflows for the assigned role can still be completed.
 Senior Engineer and Code Reviewer handoffs must each include a `Skill usage` section listing every
 selected skill's name, safe source or provenance, and relevance reason. `None` is permitted only for
-the naming reviewer, which must report its naming contract and concrete checks. A completed Senior
+the naming reviewer and the separate simplification pass, which must report their focused contracts
+and concrete checks. A completed Senior
 Engineer handoff must report concrete implementation actions and validation for each required skill. The Supervisor must reject
 a READY_FOR_REVIEW handoff missing either report. A completed Code Reviewer handoff must report
 concrete checks performed and conclusions for its assigned required skill, or its naming contract.
+The separate simplification pass reports its focused contract and concrete reduction checks.
 The Supervisor must reject a successful review handoff missing its assigned report, and must reject
 delivery acceptance missing any of the four independent reviews. If no architecture change is
 present, the architecture reviewer reports that evidence-backed assessment without expanding scope.
@@ -276,6 +279,7 @@ and usage contract. Child behavior lives in the referenced reusable helper profi
 The Evidence Scout formalizes the existing direct evidence-child mechanism. Tech Lead, Software
 Architect, Senior Engineer, Code Reviewer, Test Engineer, and Security Reviewer may invoke it.
 The bug-hunting Code Reviewer is excluded: its required review skill runs in place with no delegation.
+The separate simplification pass also runs without delegation.
 Only Senior Engineer and Test Engineer may invoke Validation Executor for exact parent-selected
 commands. Both parents may directly spawn either helper within an approved allowance, without
 per-call Supervisor dispatch or human approval. Neither helper writes source/tests or makes role
@@ -409,6 +413,17 @@ the unresolved decision to the Supervisor or human. Begin implementation only af
 The Senior Engineer is the sole source/test writer. Every implementation and repair applies
 `clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,
 and reports material design deviations before editing past the approved design. It never publishes.
+
+New delivery plans bind `simplification_review_version: 1` and a `simplification_assignment`.
+Before recording each successful Senior Engineer implementation result, the Supervisor runs one
+fresh read-only simplification pass using the existing `code_reviewer` profile with focus
+`simplification`. Read [Simplification review](references/simplification-review.md) when planning,
+dispatching, or settling this pass. It proposes concrete deletions or simpler alternatives; only
+the Senior Engineer applies accepted reductions, within the current implementation attempt.
+Preferences are non-blocking. The pass is an instruction-level host session, not a fifth delivery
+panel gate or a ledger branch. The Supervisor enforces its completion and dispositions; the engine
+binds its assignment but does not enforce its execution. Historical plans without this marker retain
+their approved workflow. Advisory and design-only plans do not add this pass.
 
 At a stable checkpoint, run four fresh Code Reviewers and a Test Engineer independently, in parallel
 only when resource assessment permits. The four reviewers cover clean code, clean architecture,

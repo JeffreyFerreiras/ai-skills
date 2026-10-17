@@ -62,7 +62,7 @@ block new dispatch while a write outcome or newest checkpoint is ambiguous.
 Persist after plan freeze, before/after dispatch, after snapshots, each validation
 result, and each review decision.
 
-Use one exact `candidateDigest`: SHA-256 of a canonical length-delimited manifest
+Use one exact `candidateDigest`: SHA-256 of an unambiguous canonical manifest
 of workspace/repository identity, exact base revision, frozen scope, state-path
 exclusion, and sorted entries for every allowed tracked and untracked path.
 Hash actual working bytes, not status text or a diff-stat. Include path status,
@@ -70,6 +70,17 @@ kind/mode, link target and submodule identity where relevant; represent deletion
 explicitly with their base hashes and renames with both paths and relationship.
 Enumerate allowed directories recursively. Preserve the manifest and excluded-state
 baseline; unreadable/missing scope evidence blocks the snapshot.
+
+For ordinary local file trees, use the snapshot and record commands under
+[production tools](production-tools.md#artifact-manifests-and-durable-receipts).
+Their encoding is UTF-8 JSON with sorted keys, compact separators, no nonfinite
+numbers, and no ASCII escaping; exclude the digest field itself when hashing.
+Supply the full frozen plan and complete scope, keeping state outside it. The
+helper rejects links and embedded repositories instead of partially certifying
+them. Use project-native snapshot support when those file kinds are required.
+Receipt persistence does not enforce gate transitions, reviewer independence,
+round reservations, dispatch reconciliation, or excluded-state preservation;
+the Supervisor must still establish those facts.
 
 Bind every validation result, finding disposition and approval to that digest,
 workspace and reviewed artifact revision. Record per-file hashes as useful review

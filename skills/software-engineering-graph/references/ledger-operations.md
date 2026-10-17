@@ -124,6 +124,9 @@ receipts or parent judgments.
 New plans require four fixed Code Reviewer gates: clean code, clean architecture, naming only, and bug hunting.
 Conditional assignments in these plans may add Security Reviewers, not extra Code Reviewers.
 Historical plans without `code_review_panel_version` retain their prior delegation behavior.
+The separately bound [simplification pass](simplification-review.md) runs before implementation
+success is recorded. It is an instruction-level session, not a member of this conditional fan-out
+or the four-reviewer ledger collection; the Supervisor tracks its completion in run artifacts.
 
 Delegation is disabled unless both the selected policy and task brief provide
 `reviewer_delegation`. An enabled execution-plan v2 lists every conditional assignment and its exact

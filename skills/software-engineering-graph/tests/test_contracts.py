@@ -208,9 +208,10 @@ class ContractTests(GraphCase):
     def test_model_selection_schema_matches_runtime_contract(self):
         schema = json.loads((Path(__file__).parents[1] / "references/task-brief.schema.json").read_text(encoding="utf-8"))
         task = self.task_v2()
-        task["model_overrides"] = {"senior_engineer": {
-            "model": "gpt-5.6-sol", "reasoning_effort": "medium",
-        }}
+        task["model_overrides"] = {
+            "senior_engineer": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"},
+            "simplification_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
+        }
         validate_task_brief(task, self.snapshot.digest, self.policy)
         _validate_json_schema(task, schema, schema)
         invalid_tasks = []

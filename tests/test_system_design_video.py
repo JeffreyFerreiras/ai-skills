@@ -98,6 +98,28 @@ class SystemDesignVideoTests(unittest.TestCase):
         self.plan["events"][0]["at"] = 12
         self.assert_issue("event must occur inside its scene window")
 
+    def test_duration_aware_dependencies_wait_for_completion(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        self.plan["events"][1].update(at=0.5, scene_id="send")
+        self.assert_issue("starts before dependency")
+        self.plan["events"][1].update(at=1.1, scene_id="receive")
+        self.assertEqual([], self.errors())
+
+    def test_v2_rejects_missing_duration_state_and_overflow(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        del self.plan["events"][0]["duration_seconds"]
+        self.plan["events"][1]["state_after"] = {"unknown": "done"}
+        self.assert_issue("duration_seconds")
+        self.assert_issue("must participate")
+        self.plan["events"][0]["duration_seconds"] = 2
+        self.assert_issue("completion extends beyond")
+
+    def test_caption_order_and_video_fit_are_checked(self) -> None:
+        self.plan["captions"] = [{"start": 1, "end": 3, "text": "First"},
+                                 {"start": 2, "end": 91, "text": "Second"}]
+        self.assert_issue("nonoverlapping")
+        self.assert_issue("cue extends beyond")
+
     def test_scene_gaps_overlaps_and_incomplete_duration_fail(self) -> None:
         for start in (11, 13):
             with self.subTest(start=start):

@@ -167,10 +167,30 @@ repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude
 concrete introduced bugs with triggering paths and file/line evidence, without nested reviewers
 or helpers. Missing required skill content prevents a completed bug-hunter review. The Test
 Engineer and required specialists remain separate. Missing any panel report prevents acceptance.
-Fail: one agent applies both skills in place of separate reviews, a fifth Code Reviewer starts,
+Fail: one agent applies both skills in place of separate reviews, a fifth delivery-panel reviewer starts,
 the naming report reviews behavior or architecture, or subjective naming preferences become blockers.
 Variant: resume a genuine historical single-reviewer checkpoint. Preserve its recorded topology and
 skill contract; do not silently insert the new panel. These scenarios have not been run on a live host.
+
+### S01: Bounded simplification before the delivery panel
+
+Setup: a new approved delivery plan with its simplification assignment, a stable preliminary writer
+handoff, and an active implementation attempt. The diff adds a single-use pass-through wrapper,
+an unused speculative option, and a security check required by an acceptance criterion.
+Expected: the Supervisor dispatches one fresh read-only simplification session with the approved
+model/effort and exact comparison. It proposes evidenced reductions for unnecessary constructs,
+preserves the required security check, and returns no manufactured findings if nothing qualifies.
+The same Senior Engineer applies accepted reductions and records evidence-backed rejections or
+optional deferrals. Affected checks run, and the implementation handoff binds the report,
+dispositions, and final checkpoint before success is recorded. Four fresh panel reviewers and
+the Test Engineer then independently inspect that final checkpoint. No new ledger branch appears.
+Fail: the reducer edits, delegates, runs checks, weakens required behavior, requires a subjective
+preference, expands scope, replaces a panel reviewer, repeats the pass within the generation,
+or the Supervisor records implementation success before settlement. Interrupted or inaccessible
+review evidence must remain incomplete, not silently redispatched or called complete.
+Variants: advisory/design-only plans omit the pass; historical plans retain their workflow;
+resume uses applicable recorded evidence; rejected proposals do not recur without changed evidence.
+This scenario has not been run on a live host. Planner tests verify assignment binding only.
 
 ## Helper scenarios
 

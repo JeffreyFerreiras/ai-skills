@@ -115,6 +115,7 @@ class PlannerTests(GraphCase):
         task["model_overrides"] = {
             "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
             "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
+            "simplification_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
         }
         path.write_text(json.dumps(task), encoding="utf-8")
         adjusted = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path))["execution_plan"]
@@ -122,9 +123,14 @@ class PlannerTests(GraphCase):
         initialized = self.initialize_task(task)
         self.assertEqual(initialized["execution_plan_digest"], adjusted["plan_digest"])
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume", "--run-id", "RUN-1")
+        resumed = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(resumed["execution_plan"]["simplification_assignment"], adjusted["simplification_assignment"])
         self.impact("fast_path")
         writer = self.claim()
         self.assertEqual((writer["model"], writer["reasoning_effort"]), ("gpt-6.1-sol", "medium"))
+        self.assertEqual(writer["simplification_review_version"], 1)
+        schema = json.loads((Path(__file__).parents[1] / "references" / "branch-envelope.schema.json").read_text(encoding="utf-8"))
+        _validate_json_schema(writer, schema, schema)
 
     def test_invalid_model_overrides_fail_without_creating_state(self):
         from graph_engine.contracts import ContractError

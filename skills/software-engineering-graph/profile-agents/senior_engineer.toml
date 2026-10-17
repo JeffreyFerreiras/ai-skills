@@ -53,6 +53,15 @@ and run focused validation. If the approved design is insufficient or implementa
 a material interface, dependency, persistence, security, deployment, or scope change, stop
 and return DESIGN-BLOCKER instead of redesigning silently.
 
+For plans with simplification_review_version, supply a preliminary handoff at a stable checkpoint
+and pause edits while the Supervisor runs the separate read-only simplification pass. Continue
+within the same implementation attempt after the Supervisor sends its consolidated packet. Apply
+accepted reductions as the sole writer and record every SIMPL- proposal as accepted, rejected with
+evidence, or deferred as optional. Preserve required behavior and rerun only affected checks.
+Include the reduction report, dispositions, and final checkpoint in the implementation handoff.
+Do not dispatch the simplification reviewer yourself or start another pass. Optional preferences
+do not block completion; unresolved material design changes retain the DESIGN-BLOCKER path.
+
 Return exactly these sections:
 - Implementation status: READY_FOR_REVIEW or DESIGN-BLOCKER.
 - Changed files and purpose.
@@ -60,6 +69,8 @@ Return exactly these sections:
 - Tests added or changed.
 - Validation run and results.
 - Finding IDs resolved.
+- Simplification dispositions: report/checkpoint references and each proposal's disposition when
+  the approved plan includes the pass; otherwise not applicable.
 - Design deviations and remaining risks.
 - Skill usage: each selected skill name, safe source or provenance, and relevance reason;
   concrete implementation actions and validation for each required skill; catalog or read failures

@@ -193,7 +193,7 @@ def validate_new_plan_assignment(
 def validate_model_overrides(value: Any) -> Dict[str, Dict[str, str]]:
     """Validate the selection shape independently of the chosen harness."""
     allowed = {key for key, role in NODE_ROLES.items() if role != "supervisor"}
-    allowed.update({"supervisor_recommendation", "publication_assignment"})
+    allowed.update({"supervisor_recommendation", "publication_assignment", "simplification_assignment"})
     if not isinstance(value, dict) or not set(value).issubset(allowed):
         raise ValueError("MODEL_OVERRIDES_INVALID")
     result = {}
@@ -282,7 +282,10 @@ def build_execution_plan(
     delegation = task.get("reviewer_delegation")
     for assignment in delegation["assignments"] if delegation else []:
         require_active_model(assignment["model"])
-    return _build_execution_plan(run_id, task, requested_size, host, revision, panel_version=1)
+    return _build_execution_plan(
+        run_id, task, requested_size, host, revision, panel_version=1,
+        simplification_version=1 if task["request_mode"] == "delivery" else None,
+    )
 
 
 def reconstruct_execution_plan(
@@ -298,13 +301,22 @@ def reconstruct_execution_plan(
     panel_version = stored_plan.get("code_review_panel_version")
     if "code_review_panel_version" in stored_plan and (type(panel_version) is not int or panel_version != 1):
         raise ValueError("CODE_REVIEW_PANEL_VERSION_INVALID")
-    return _build_execution_plan(run_id, task, requested_size, host, revision, panel_version)
+    simplification_version = stored_plan.get("simplification_review_version")
+    if "simplification_review_version" in stored_plan and (
+        type(simplification_version) is not int or simplification_version != 1
+        or task["request_mode"] != "delivery"
+    ):
+        raise ValueError("SIMPLIFICATION_REVIEW_VERSION_INVALID")
+    return _build_execution_plan(
+        run_id, task, requested_size, host, revision, panel_version, simplification_version,
+    )
 
 
 def _build_execution_plan(
     run_id: str, task: Mapping[str, Any], requested_size: Optional[str],
     host: str, catalog_revision: Optional[int],
     panel_version: Optional[int] = None,
+    simplification_version: Optional[int] = None,
 ) -> Dict[str, Any]:
     task_schema_version = task["schema_version"]
     if task_schema_version == 1:
@@ -322,6 +334,10 @@ def _build_execution_plan(
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     overrides = validate_model_overrides(task.get("model_overrides", {}))
+    if simplification_version is not None and catalog_revision not in {3, 4, 5, 6, 7, 8, 9}:
+        raise ValueError("SIMPLIFICATION_REVIEW_REQUIRES_CATALOG_3")
+    if "simplification_assignment" in overrides and simplification_version is None:
+        raise ValueError("SIMPLIFICATION_REVIEW_NOT_ENABLED")
     if panel_version is not None and any(
         item["role"] == "code_reviewer"
         for item in (task.get("reviewer_delegation") or {}).get("assignments", [])
@@ -439,6 +455,20 @@ def _build_execution_plan(
         }
     if panel_version is not None:
         plan["code_review_panel_version"] = panel_version
+    if simplification_version is not None:
+        model, effort = _selected_pair(host, catalog_revision, overrides, "simplification_assignment", "review")
+        plan["simplification_review_version"] = simplification_version
+        plan["simplification_assignment"] = {
+            "role": "code_reviewer",
+            "model": model,
+            "reasoning_effort": effort,
+            "dispatch_model": selected_dispatch_model(host, model, effort, catalog_revision),
+            "code_review_assignment": {"focus": "simplification", "required_skill": None},
+            "dispatch_when": "before recording each Senior Engineer implementation result",
+            "max_passes_per_generation": 1,
+        }
+        if catalog_revision == 9 and model == MUSE_MODEL:
+            plan["simplification_assignment"]["dispatch_runtime"] = "opencode-cli"
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
     return plan
 
