@@ -10,7 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
 
-from .contracts import ContractError, bounded_string, digest, opaque, require_keys, safe_file_snapshot, lexical_relative, validate_ref
+from .contracts import (
+    ContractError, bounded_string, digest, is_actionable_finding, opaque, require_keys, safe_file_snapshot,
+    lexical_relative, validate_ref,
+)
 from .config import _repository_target
 from .evidence import resolve_reference
 from .ids import canonical_bytes, sha256_bytes
@@ -446,9 +449,14 @@ def validate_repair_and_acceptance_history(connection, run, task, activation):
             for origin in packet["origin_reports"]:
                 member = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (origin["branch_id"],)).fetchone()
                 env = json.loads(member["envelope_json"])
+                findings = json.loads(member["result_json"]).get("findings", [])
+                # Packets written before `observations` existed carry every finding in `findings`.
                 if (origin["attempt_id"] != env["attempt_id"] or origin["result_ref"]["sha256"] != member["result_digest"]
                         or origin["artifact_ref"] != env["artifact_ref"] or origin["evidence"] != env["evidence"]
-                        or origin["findings"] != json.loads(member["result_json"]).get("findings", [])):
+                        or origin["findings"] != [item for item in findings if is_actionable_finding(item)]
+                        or origin.get("observations", []) != [
+                            item for item in findings if not is_actionable_finding(item)
+                        ]):
                     raise StateError("REPAIR_PACKET_INVALID")
         allowed = json.loads(branch["envelope_json"])["effect_capabilities"]
         for capability in packet["authorized_scope"]:

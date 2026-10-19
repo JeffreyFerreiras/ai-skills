@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
-from . import STATE_SCHEMA_VERSION
+from . import PHASE_DISPOSITIONS_ENGINE_VERSION, STATE_SCHEMA_VERSION
 from .checks import configured_check, validate_check_receipt, validate_receipt_integrity, validate_lifecycle_integrity
 from .contracts import (
-    ContractError, authoritative_task_subset, bounded_string, digest, opaque, safe_json_snapshot,
-    validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
+    ContractError, authoritative_task_subset, bounded_string, digest, is_actionable_finding, opaque,
+    safe_json_snapshot, validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
 )
-from .config import engine_version_compatible
+from .config import engine_version_compatible, version_tuple
 from .evidence import reverify_artifact
 from .execution import CODE_REVIEW_PANEL, reconstruct_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST
@@ -870,7 +870,7 @@ def compute_delivery_outcome(source_members: Sequence[Mapping[str, Any]]) -> Tup
             precedence = max(precedence, 2)
         for finding in result.get("findings", []):
             findings.append(finding["finding_id"])
-            if member["mandatory"]:
+            if member["mandatory"] and is_actionable_finding(finding):
                 precedence = max(precedence, DELIVERY_PRECEDENCE.get(finding["disposition"], 0))
     return DELIVERY_OUTCOMES[precedence], sorted(set(findings))
 
@@ -971,7 +971,8 @@ def _delivery_outcome_without_delegated_echoes(
         for finding in result.get("findings", []):
             finding_id = finding["finding_id"]
             findings.append(finding_id)
-            if member["mandatory"] and finding_id not in delegated_ids.get(member["branch_id"], set()):
+            if (member["mandatory"] and is_actionable_finding(finding)
+                    and finding_id not in delegated_ids.get(member["branch_id"], set())):
                 precedence = max(precedence, DELIVERY_PRECEDENCE.get(finding["disposition"], 0))
     return DELIVERY_OUTCOMES[precedence], sorted(set(findings))
 
@@ -1164,6 +1165,10 @@ def _validate_review_result_binding(
         raise StateError("DELEGATION_DISPOSITION_MISSING")
 
 
+def _predates_phase_dispositions(run: Mapping[str, Any]) -> bool:
+    return version_tuple(run["engine_version"]) < version_tuple(PHASE_DISPOSITIONS_ENGINE_VERSION)
+
+
 def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task: Mapping[str, Any], policy: Mapping[str, Any]) -> None:
     execution_plan = json.loads(
         connection.execute("SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()[0]
@@ -1354,10 +1359,12 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
                             "outcome", "attempt_id", "claim_digest",
                         }
                         validate_result_manifest(
-                            {key: result[key] for key in consolidation_keys if key in result}, branch_contract
+                            {key: result[key] for key in consolidation_keys if key in result}, branch_contract,
                         )
                     else:
-                        validate_result_manifest(result, branch_contract)
+                        validate_result_manifest(
+                            result, branch_contract, historical=_predates_phase_dispositions(run),
+                        )
                         if node["status"] == "succeeded":
                             _validate_review_result_binding(connection, stored_envelope, result)
                 else:

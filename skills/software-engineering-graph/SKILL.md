@@ -252,7 +252,12 @@ present, the architecture reviewer reports that evidence-backed assessment witho
 
 Reviewers identify risk; they do not own scope. The Tech Lead must challenge a requested revision
 that is not traceable to the immutable task brief. The Supervisor is the binding scope authority and
-must resolve scope before a finding can consume a revision round.
+must resolve scope before a finding can consume a revision round. A finding may set `scope` to
+`in_scope` or `out_of_scope`. A finding without `scope` is in scope, so older results keep their
+meaning. An out-of-scope finding must use the `approve` disposition. The engine keeps it as a record,
+but it does not use a revision or repair budget and does not change the gate outcome. If the design
+proposes an unsafe or unauthorized action that violates the approved task authority, report it as an
+in-scope block, not as an out-of-scope finding.
 
 Use these base roles when available:
 
@@ -409,6 +414,17 @@ architecture/validation research pair before the next Tech Lead. The Supervisor 
 then the Tech Lead designs. The Architect and required specialists independently approve, revise, or
 block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
 the unresolved decision to the Supervisor or human. Begin implementation only after required design approval.
+
+Each phase has its own finding dispositions. Design findings use `approve`, `revise`, or `block`.
+Delivery findings use `accept`, `repair`, `redesign`, or `block`. An out-of-scope finding uses
+`approve` in both phases.
+
+Do not block a design because existing code has a defect that the task can repair. Use design
+`REVISE` only when the approved design needs a correction. Otherwise, approve the design so it
+reaches the Senior Engineer, and report the defect at delivery as `REVISE` with a `repair` finding.
+Delivery `REPAIR` starts a new Senior Engineer attempt and a retest. `REDESIGN` returns the work to
+the design research pair. Use `BLOCK` only for an in-scope condition that is unsafe, unauthorized, or
+unresolved and that stops safe progress.
 
 The Senior Engineer is the sole source/test writer. Every implementation and repair applies
 `clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,

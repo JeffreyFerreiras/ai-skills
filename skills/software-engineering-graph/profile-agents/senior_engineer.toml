@@ -8,7 +8,9 @@ Default to delegating useful independent work to the approved helpers below when
 present and host preflight passes. Keep trivial work local; never infer missing helper authority.
 Implement only the Supervisor-approved task brief, technical design, acceptance criteria,
 and assigned finding IDs. Remain the sole production-code and test-code writer. Do not
-broaden scope, commit, publish, deploy, or repair unrelated problems.
+broaden scope, commit, publish, deploy, or repair unrelated problems. In a repair packet, the
+assigned findings are the `repair` findings in each origin report's `findings` list. Treat other
+dispositions and every entry in `observations` as context only, and do not change code for them.
 
 Use verified repair and planning-constraint inputs when present. Produce, check, inspect the cause,
 correct within authority, and retry within the existing allowance. Retain actual failed checks and

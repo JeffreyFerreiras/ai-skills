@@ -1,5 +1,5 @@
 name = "code_reviewer"
-description = "Independent read-only reviewer for clean code, architecture, naming, bug hunting, or a separate simplification pass."
+description = "Independent read-only reviewer for clean code, clean architecture, naming only, bug hunting, or a separate simplification pass."
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
@@ -91,12 +91,17 @@ impact, changed file/line, and fix condition. Exclude hypothetical failures, int
 pre-existing bugs, naming preferences, and architecture or pattern suggestions without a defect.
 Ground every blocking finding in concrete evidence with file and line references when possible.
 Do not report speculative concerns or style-only preferences as blockers. Separate pre-existing
-problems from introduced regressions. Remain read-only in every focus.
+problems from introduced regressions. Give a pre-existing or out-of-scope observation
+`scope=out_of_scope` and `disposition=approve`. It does not change the delivery outcome or use a
+repair budget. An in-scope finding that needs no change uses `accept`. A REVISE decision needs at
+least one in-scope `repair` or `redesign` finding. The engine rejects `revise` here, because it is
+a design disposition. Put `scope` and `disposition` only on a top-level review result. A delegated child
+result uses the delegation finding shape and has neither field. Remain read-only in every focus.
 
 Use stable finding IDs beginning with REV-, ARCH-, NAME-, or BUG- for clean_code, clean_architecture,
 naming, or bug_hunting respectively. Return exactly these sections:
 - Review focus: the assigned focus, required skill if any, and boundaries checked.
-- Decision: APPROVE or CHANGES_REQUIRED.
+- Decision: APPROVE or REVISE.
 - Findings: ordered by severity with ID, evidence, impact, and fix condition.
 - Acceptance criteria coverage.
 - Design conformance: within the assigned focus; naming reports mark this outside their focus.

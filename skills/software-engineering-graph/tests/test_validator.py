@@ -4,13 +4,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from graph_engine.config import load_policy
-from graph_engine.contracts import ContractError
+from graph_engine.contracts import ContractError, validate_result_manifest
 from graph_engine.execution import reconstruct_execution_plan
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import (
     compute_delivery_outcome, compute_design_outcome, validate_consolidation_manifest,
-    verify_resume, verify_semantic_state, _validate_execution_plan,
+    verify_resume, verify_semantic_state, _delivery_outcome_without_delegated_echoes,
+    _predates_phase_dispositions, _validate_execution_plan,
 )
 
 from tests.test_support import GraphCase
@@ -140,6 +141,78 @@ class ValidatorTests(GraphCase):
         self.assertEqual(compute_delivery_outcome([repair, redesign])[0], "REDESIGN")
         block = {"status": "succeeded", "mandatory": 1, "result_json": '{"decision":"BLOCK","findings":[{"finding_id":"SEC-001","disposition":"block"}]}' }
         self.assertEqual(compute_delivery_outcome([repair, redesign, block])[0], "BLOCK")
+
+    def test_out_of_scope_findings_do_not_raise_delivery_outcome(self):
+        observation = {"finding_id": "REL-001", "disposition": "approve", "scope": "out_of_scope"}
+        members = [{
+            "status": "succeeded", "mandatory": 1, "branch_id": "a",
+            "result_json": json.dumps({"decision": "APPROVE", "findings": [observation]}),
+        }]
+        self.assertEqual(compute_delivery_outcome(members), ("ACCEPT", ["REL-001"]))
+        unrelated_delegation = [{"parent_branch_id": "other", "issues": []}]
+        self.assertEqual(
+            _delivery_outcome_without_delegated_echoes(members, unrelated_delegation),
+            ("ACCEPT", ["REL-001"]),
+        )
+
+    def _review_branch(self, stage, node_key, output_kind):
+        return {
+            "node_key": node_key, "stage": stage, "run_id": "RUN-1", "branch_id": "branch-1",
+            "output_contract": {"artifact_kind": output_kind, "artifact_required": False},
+        }
+
+    def _review_result(self, output_kind, decision, findings):
+        return {
+            "schema_version": 1, "run_id": "RUN-1", "branch_id": "branch-1", "status": "succeeded",
+            "output_kind": output_kind, "evidence": [], "attempt_id": "attempt-1",
+            "claim_digest": "0" * 64, "decision": decision, "findings": findings,
+        }
+
+    def test_stored_cross_phase_dispositions_remain_valid_on_reverification(self):
+        branch = self._review_branch("design", "architect", "design_review")
+        result = self._review_result("design_review", "REVISE", [
+            {"finding_id": "ARCH-001", "disposition": "revise"},
+            {"finding_id": "ARCH-002", "disposition": "accept"},
+        ])
+        with self.assertRaisesRegex(ContractError, "PHASE_DISPOSITION_MISMATCH"):
+            validate_result_manifest(result, branch)
+        validate_result_manifest(result, branch, historical=True)
+        consolidation_branch = {
+            "node_key": "supervisor_design_consolidation", "run_id": "RUN-1",
+            "branch_id": "branch-2", "generation": 0,
+        }
+        consolidation = {
+            "schema_version": 1, "kind": "design_consolidation", "run_id": "RUN-1",
+            "join_id": "join-1", "generation": 0, "source_branch_ids": ["branch-1"],
+            "finding_dispositions": [{"finding_id": "ARCH-002", "disposition": "accept"}],
+            "outcome": "REVISE", "attempt_id": "attempt-2", "claim_digest": "0" * 64,
+        }
+        validate_result_manifest(consolidation, consolidation_branch)
+        consolidation["finding_dispositions"] = [{"finding_id": "ARCH-002", "disposition": "invented"}]
+        with self.assertRaisesRegex(ContractError, "disposition:UNKNOWN_VALUE"):
+            validate_result_manifest(consolidation, consolidation_branch)
+
+    def test_only_runs_from_earlier_engines_keep_shared_dispositions_on_reverification(self):
+        self.assertTrue(_predates_phase_dispositions({"engine_version": "2.7.0"}))
+        self.assertFalse(_predates_phase_dispositions({"engine_version": "2.8.0"}))
+        self.assertFalse(_predates_phase_dispositions({"engine_version": "2.9.0"}))
+
+    def test_delivery_rejects_in_scope_approve_disposition(self):
+        branch = self._review_branch("delivery", "code_reviewer", "delivery_review")
+        result = self._review_result("delivery_review", "REVISE", [
+            {"finding_id": "REV-001", "disposition": "repair"},
+            {"finding_id": "REV-002", "disposition": "approve", "scope": "in_scope"},
+        ])
+        with self.assertRaisesRegex(ContractError, "PHASE_DISPOSITION_MISMATCH"):
+            validate_result_manifest(result, branch)
+
+    def test_unknown_finding_scope_is_rejected(self):
+        branch = self._review_branch("design", "architect", "design_review")
+        result = self._review_result("design_review", "APPROVE", [
+            {"finding_id": "ARCH-001", "disposition": "approve", "scope": "OUT_OF_SCOPE"},
+        ])
+        with self.assertRaisesRegex(ContractError, "scope:UNKNOWN_VALUE"):
+            validate_result_manifest(result, branch)
 
     def test_duplicate_and_conflicting_finding_ids_are_rejected(self):
         sources = [

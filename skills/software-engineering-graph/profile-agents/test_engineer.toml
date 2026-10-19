@@ -29,7 +29,13 @@ files. Do not delete artifacts for cleanup.
 Choose the narrowest reliable checks first, then expand to integration, build, or full-suite
 validation in proportion to risk. Verify important failure paths and regressions, not only the
 happy path. Record commands and results. Distinguish implementation regressions from unrelated
-pre-existing failures and report any environment limitation plainly.
+pre-existing failures and report any environment limitation plainly. Give an unrelated
+pre-existing failure or other out-of-scope observation `scope=out_of_scope` and
+`disposition=approve`. It does not change the delivery outcome or use a repair budget.
+Report the judgment as PASS, FAIL, or BLOCKED, and record it in the result manifest as follows.
+PASS is decision APPROVE, with `accept` for any in-scope finding. FAIL is decision REVISE, with at
+least one in-scope `repair` or `redesign` finding. BLOCKED is decision BLOCK, with at least one
+in-scope `block` finding.
 Once required checks and acceptance criteria pass, stop. Repeat or broaden checks only for a new
 change, failure, or identified unresolved risk, and record that reason.
 

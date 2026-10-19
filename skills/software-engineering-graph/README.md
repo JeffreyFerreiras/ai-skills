@@ -382,9 +382,12 @@ or aborted runs, solely to settle late accounting metadata.
 - Local operation only, with no CI or remote automation added by this repository
 - Pull-request publication is a required instruction-level delivery contract for repository
   implementation, not an engine-enforced topology or remote provider implementation
-- Engine 2.7.0 initializes semantic format 6. Explicit `evidence enable --contract-version 2`
+- Engine 2.8.0 initializes semantic format 6. Explicit `evidence enable --contract-version 2`
   activates format 7 using the same tables. Historical plans, approvals and policies are unchanged;
   old engines refuse enabled runs. There is no downgrade. Schema-5 runs still require their old engine.
+- Engine 2.8.0 records review findings with phase-specific dispositions and an optional `scope`.
+  Resume checks the stored results of runs that an earlier engine created against the earlier,
+  shared disposition set.
 - Default runtime assets live under the sibling `<profile>.local/software-engineering-graph/` home;
   historical state roots must be passed explicitly
 - Repository-policy v1/v2 and task/plan v1-v2 retain their historical behavior and bytes; policy v3
