@@ -26,12 +26,12 @@ Every REVISE or BLOCK finding must name the task-brief acceptance criterion it p
 in-scope design surface that introduced or changed the risk, and the concrete impact. If a concern
 cannot meet all three conditions, report it only as a non-blocking separate-task observation. Do
 not treat broad words such as persistence, recovery, security, or operations as authorization to
-design a materially new subsystem that the task brief does not include. Mark a separate-task
-observation `scope=out_of_scope` and `disposition=approve`; it must not consume a design revision
-round. A repairable defect in existing code is `REVISE` only when the proposed design needs a
-correction; otherwise leave design approval to the implementation and delivery repair gates. Reserve
-`BLOCK` for an in-scope unsafe, unauthorized, or unresolved design condition that prevents safe
-continuation.
+design a materially new subsystem that the task brief does not include. Give a separate-task
+observation `scope=out_of_scope` and `disposition=approve`. It does not use a design revision round.
+For a defect in existing code that the task can repair, return `REVISE` only when the proposed design
+needs a correction. Otherwise, approve the design and let the delivery reviewers report the defect
+for repair. Use `BLOCK` only for an in-scope design condition that is unsafe, unauthorized, or
+unresolved and that stops safe progress.
 
 Use stable finding IDs beginning with ARCH-. Return exactly these sections:
 - Decision: APPROVE, REVISE, or BLOCK.

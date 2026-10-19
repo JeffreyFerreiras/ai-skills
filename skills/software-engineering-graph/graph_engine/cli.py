@@ -8,6 +8,7 @@ import secrets
 import sqlite3
 import sys
 from dataclasses import asdict
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -17,8 +18,8 @@ from .checks import (configured_check, run_check, validate_check_receipt, valida
                      receipt_eligibility, prepare_generated_outputs, verify_generated_outputs)
 from .config import branch_lease_seconds, load_policy
 from .contracts import (
-    ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, lexical_relative,
-    opaque, require_keys, safe_json_snapshot, validate_fanout_assessment, validate_impact_map,
+    ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, is_actionable_finding,
+    lexical_relative, opaque, require_keys, safe_json_snapshot, validate_fanout_assessment, validate_impact_map,
     validate_ref, validate_result_manifest, validate_task_brief,
 )
 from .evidence import (
@@ -2351,9 +2352,12 @@ def _delivery_repair_packet(connection, run, writer, collection, members, consol
     for member in members:
         env = json.loads(member["envelope_json"])
         result = json.loads(member["result_json"])
+        findings = result.get("findings", [])
         origins.append({"branch_id": member["branch_id"], "attempt_id": env["attempt_id"],
                         "result_ref": _ledger_input(connection, member), "artifact_ref": env["artifact_ref"],
-                        "findings": result.get("findings", []), "evidence": env["evidence"]})
+                        "findings": [item for item in findings if is_actionable_finding(item)],
+                        "observations": [item for item in findings if not is_actionable_finding(item)],
+                        "evidence": env["evidence"]})
     packet.update({"origin_kind": "delivery_review", "origin_gate": consolidation["node_key"],
                    "origin_collection_id": collection["join_id"], "origin_consolidation_ref": _ledger_input(connection, consolidation),
                    "origin_reports": origins, "return_gates": ["senior_engineer"] + sorted({member["node_key"] for member in members}) + [consolidation["node_key"]],
@@ -2931,8 +2935,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@lru_cache(maxsize=1)
+def _shared_parser() -> argparse.ArgumentParser:
+    return build_parser()
+
+
 def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = None) -> Tuple[Dict[str, Any], int]:
-    args = build_parser().parse_args(argv)
+    args = _shared_parser().parse_args(argv)
     if args.command == "usage":
         return usage.checkpoint(args.session_log), 0
     if args.repo is None:

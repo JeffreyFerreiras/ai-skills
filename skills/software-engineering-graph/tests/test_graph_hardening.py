@@ -53,7 +53,15 @@ class GraphHardeningTests(GraphCase):
             {**packet, "origin_reports": []},
         ]
         report = packet["origin_reports"][0]
+        scoped_findings = [
+            {"finding_id": "FIX-001", "disposition": "repair", "scope": "in_scope"},
+            {"finding_id": "FIX-002", "disposition": "approve", "scope": "out_of_scope"},
+        ]
+        _validate_json_schema(
+            {**packet, "origin_reports": [{**report, "findings": scoped_findings}]}, schema, schema,
+        )
         for invalid_report in (
+            {**report, "findings": [{"finding_id": "FIX-001", "disposition": "repair", "scope": "invented"}]},
             {key: value for key, value in report.items() if key != "attempt_id"},
             {**report, "unexpected": True},
             {**report, "attempt_id": None},
@@ -200,6 +208,7 @@ class GraphHardeningTests(GraphCase):
             "code_reviewer": "FIX-001", "code_reviewer_architecture": "FIX-002",
             "code_reviewer_naming": "FIX-003", "code_reviewer_bug_hunter": "FIX-004", "test_engineer": "FIX-005",
         }
+        observation = {"finding_id": "FIX-901", "disposition": "approve", "scope": "out_of_scope"}
         def checks(executor, writer, generation):
             for check_id in task["required_check_ids"]:
                 args = ["check", "run", "--run-id", "RUN-1", "--check-id", check_id,
@@ -228,6 +237,10 @@ class GraphHardeningTests(GraphCase):
                 self.assertEqual([], packet["failed_criterion_ids"])
                 self.assertEqual(5, len(packet["origin_reports"]))
                 self.assertIn("FIX-001", str(packet["origin_reports"]))
+                code_origin = next(item for item in packet["origin_reports"] if observation in item["observations"])
+                self.assertEqual(["FIX-001"], [item["finding_id"] for item in code_origin["findings"]])
+                self.assertEqual([observation], code_origin["observations"])
+                self.assertNotIn("FIX-901", str([item["findings"] for item in packet["origin_reports"]]))
                 self.assertEqual([item for item in writer["effect_capabilities"] if item["effect"].startswith("filesystem")], packet["authorized_scope"])
             checks(writer, writer, generation)
             self.success(writer, "IMPLEMENTED")
@@ -254,9 +267,12 @@ class GraphHardeningTests(GraphCase):
             for reviewer in reviewers:
                 artifact = self.repo_artifact("delivery_review", reviewer["node_key"] + "-" + str(generation))
                 repair = generation == 0 and (reviewer["node_key"] == "code_reviewer" or stale_reviews)
+                findings = [{"finding_id": finding_ids[reviewer["node_key"]], "disposition": "repair"}] if repair else []
+                if generation == 0 and reviewer["node_key"] == "code_reviewer":
+                    findings.append(observation)
                 self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
                     "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact, "evidence": [],
-                    "findings": [{"finding_id": finding_ids[reviewer["node_key"]], "disposition": "repair"}] if repair else [],
+                    "findings": findings,
                     "decision": "REVISE" if repair or (stale_reviews and generation == 0) else "APPROVE"})
                 if reviewer["node_key"] == "test_engineer":
                     tester = reviewer
@@ -265,6 +281,7 @@ class GraphHardeningTests(GraphCase):
             if generation == 0:
                 self.advance("delivery_collection")
                 dispositions = [{"finding_id": key, "disposition": "repair"} for key in (sorted(finding_ids.values()) if stale_reviews else ["FIX-001"])]
+                dispositions.append({"finding_id": observation["finding_id"], "disposition": "approve"})
                 self.consolidation("delivery", "REPAIR", dispositions=dispositions)
                 self.advance("delivery_consolidation")
                 recovery = self.graphctl("recovery", "show", "--run-id", "RUN-1")

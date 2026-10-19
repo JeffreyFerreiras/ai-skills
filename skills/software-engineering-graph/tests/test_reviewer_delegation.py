@@ -235,6 +235,7 @@ class ReviewerDelegationContractTests(GraphCase):
         mutations = [
             {"acceptance_id": "AC-999"}, {"location": "src/Cache.cs"},
             {"evidence_ids": ["E-2"]}, {"finding_id": "invalid"},
+            {"scope": "out_of_scope"}, {"disposition": "approve"},
         ]
         for mutation in mutations:
             with self.subTest(mutation=mutation), self.assertRaises(ContractError):
@@ -593,7 +594,7 @@ class ReviewerDelegationFlowTests(GraphCase):
     def _assert_continuation_preserves_focus(self, primary_key):
         parent = self._to_delivery_review(primary_key=primary_key)
         expected = dict(parent["code_review_assignment"])
-        self._delegate_round(parent, 1, "REV-FOCUS", claim_parent=False)
+        self._delegate_round(parent, 1, "REV-910", claim_parent=False)
         for command in (("ready", "--all"), ("next", "--all")):
             visible = self.graphctl(*command, "--run-id", "RUN-1")["branches"]
             dispatch = next(item for item in visible if item["branch_id"] == parent["branch_id"])

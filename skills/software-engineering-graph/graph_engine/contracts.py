@@ -15,8 +15,11 @@ OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
 FINDING_ID = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]{3,}$")
 FINDING_SCOPES = {"in_scope", "out_of_scope"}
+OUT_OF_SCOPE_DISPOSITION = "approve"
 DESIGN_FINDING_DISPOSITIONS = {"approve", "revise", "block"}
-DELIVERY_FINDING_DISPOSITIONS = {"approve", "accept", "repair", "redesign", "block"}
+DELIVERY_FINDING_DISPOSITIONS = {"accept", "repair", "redesign", "block"}
+# Before it enforced phase-specific sets, the engine accepted any of these values in either phase.
+ALL_FINDING_DISPOSITIONS = DESIGN_FINDING_DISPOSITIONS | DELIVERY_FINDING_DISPOSITIONS
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 CREDENTIAL_VALUE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:bearer\s+[A-Za-z0-9._~+/=-]+)|"
@@ -705,7 +708,23 @@ def validate_impact_map(value: Any, task: Mapping[str, Any], policy: Mapping[str
     return result
 
 
-def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str, Any]:
+def is_actionable_finding(finding: Mapping[str, Any]) -> bool:
+    return finding.get("scope", "in_scope") != "out_of_scope"
+
+
+def phase_finding_dispositions(stage: Any, historical: bool = False) -> set:
+    if historical:
+        return ALL_FINDING_DISPOSITIONS
+    if stage == "design":
+        return DESIGN_FINDING_DISPOSITIONS
+    if stage == "delivery":
+        return DELIVERY_FINDING_DISPOSITIONS
+    return ALL_FINDING_DISPOSITIONS
+
+
+def validate_result_manifest(
+    value: Any, branch: Mapping[str, Any], historical: bool = False,
+) -> Dict[str, Any]:
     if branch["node_key"] == "impact_mapper" and isinstance(value, dict) and "status" not in value:
         return value
     if branch["node_key"] in {"supervisor_design_consolidation", "supervisor_delivery_consolidation"}:
@@ -721,10 +740,6 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
         if value["schema_version"] != 1 or value["run_id"] != branch["run_id"]:
             raise ContractError("consolidation", "RUN_OR_SCHEMA_MISMATCH")
         expected_kind = "design_consolidation" if branch["node_key"].startswith("supervisor_design") else "delivery_consolidation"
-        phase_dispositions = (
-            DESIGN_FINDING_DISPOSITIONS if expected_kind.startswith("design")
-            else DELIVERY_FINDING_DISPOSITIONS
-        )
         if value["kind"] != expected_kind or value["generation"] != branch["generation"]:
             raise ContractError("consolidation", "KIND_OR_GENERATION_MISMATCH")
         opaque(value["join_id"], "join_id")
@@ -739,8 +754,9 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
             require_keys(item, {"finding_id", "disposition"}, {"finding_id", "disposition"}, "finding_dispositions")
             if not FINDING_ID.fullmatch(item["finding_id"]):
                 raise ContractError("finding_id", "INVALID_ID")
-            if item["disposition"] not in phase_dispositions:
-                raise ContractError("disposition", "PHASE_DISPOSITION_MISMATCH")
+            # Consolidations copy source dispositions, which may predate phase-specific sets.
+            if item["disposition"] not in ALL_FINDING_DISPOSITIONS:
+                raise ContractError("disposition", "UNKNOWN_VALUE")
             if item["finding_id"] in seen:
                 raise ContractError("finding_id", "DUPLICATE_ID")
             seen.add(item["finding_id"])
@@ -868,6 +884,7 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
     if branch.get("depth") == 1:
         return dict(value)
     stage = branch.get("stage")
+    phase_dispositions = phase_finding_dispositions(stage, historical)
     seen = set()
     for finding in findings:
         if not isinstance(finding, dict):
@@ -881,22 +898,19 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
         scope = finding.get("scope", "in_scope")
         if scope not in FINDING_SCOPES:
             raise ContractError("scope", "UNKNOWN_VALUE")
-        if finding["disposition"] not in (
-            DESIGN_FINDING_DISPOSITIONS if stage == "design" else
-            DELIVERY_FINDING_DISPOSITIONS if stage == "delivery" else
-            {"approve", "revise", "accept", "repair", "redesign", "block"}
-        ):
+        if finding["disposition"] not in ALL_FINDING_DISPOSITIONS:
+            raise ContractError("disposition", "UNKNOWN_VALUE")
+        if scope == "out_of_scope":
+            if finding["disposition"] != OUT_OF_SCOPE_DISPOSITION:
+                raise ContractError("findings", "OUT_OF_SCOPE_ACTIONABLE")
+        elif finding["disposition"] not in phase_dispositions:
             raise ContractError("disposition", "PHASE_DISPOSITION_MISMATCH")
-        if scope == "out_of_scope" and finding["disposition"] != "approve":
-            raise ContractError("findings", "OUT_OF_SCOPE_ACTIONABLE")
         if finding["finding_id"] in seen:
             raise ContractError("finding_id", "DUPLICATE_ID")
         seen.add(finding["finding_id"])
     decision = value.get("decision")
-    dispositions = {finding["disposition"] for finding in findings}
     actionable_dispositions = {
-        finding["disposition"] for finding in findings
-        if finding.get("scope", "in_scope") == "in_scope"
+        finding["disposition"] for finding in findings if is_actionable_finding(finding)
     }
     if stage == "design" and branch["node_key"] not in {"tech_lead"}:
         if decision == "APPROVE" and actionable_dispositions - {"approve"}:

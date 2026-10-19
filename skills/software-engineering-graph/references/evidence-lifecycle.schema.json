@@ -76,6 +76,10 @@
       "type": "object", "additionalProperties": false, "required": ["kind", "ref", "sha256", "size_bytes"],
       "properties": {"kind": {"type": "string", "minLength": 1}, "ref": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0}}
     },
+    "originFinding": {
+      "type": "object", "additionalProperties": false, "required": ["finding_id", "disposition"],
+      "properties": {"finding_id": {"type": "string", "minLength": 1}, "disposition": {"enum": ["approve", "revise", "accept", "repair", "redesign", "block"]}, "scope": {"enum": ["in_scope", "out_of_scope"]}}
+    },
     "originReport": {
       "type": "object", "additionalProperties": false,
       "required": ["branch_id", "attempt_id", "result_ref", "artifact_ref", "findings", "evidence"],
@@ -83,10 +87,8 @@
         "branch_id": {"type": "string", "minLength": 1}, "attempt_id": {"type": "string", "minLength": 1},
         "result_ref": {"$ref": "#/$defs/artifactInput"},
         "artifact_ref": {"anyOf": [{"$ref": "#/$defs/artifactReference"}, {"type": "null"}]},
-        "findings": {"type": "array", "items": {
-          "type": "object", "additionalProperties": false, "required": ["finding_id", "disposition"],
-          "properties": {"finding_id": {"type": "string", "minLength": 1}, "disposition": {"enum": ["approve", "revise", "accept", "repair", "redesign", "block"]}}
-        }},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/originFinding"}},
+        "observations": {"type": "array", "items": {"$ref": "#/$defs/originFinding"}},
         "evidence": {"type": "array", "items": {"$ref": "#/$defs/artifactReference"}}
       }
     },

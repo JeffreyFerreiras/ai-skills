@@ -252,12 +252,12 @@ present, the architecture reviewer reports that evidence-backed assessment witho
 
 Reviewers identify risk; they do not own scope. The Tech Lead must challenge a requested revision
 that is not traceable to the immutable task brief. The Supervisor is the binding scope authority and
-must resolve scope before a finding can consume a revision round. Findings may carry an explicit
-`scope`: `in_scope` (the default for backward compatibility) or `out_of_scope`. An out-of-scope
-observation is non-blocking and must use the `approve` disposition; it is retained for provenance
-but cannot consume a revision/repair budget or change gate outcome. A proposed unsafe or unauthorized
-action is an in-scope blocker when it violates the approved task authority; do not hide it as an
-out-of-scope observation.
+must resolve scope before a finding can consume a revision round. A finding may set `scope` to
+`in_scope` or `out_of_scope`. A finding without `scope` is in scope, so older results keep their
+meaning. An out-of-scope finding must use the `approve` disposition. The engine keeps it as a record,
+but it does not use a revision or repair budget and does not change the gate outcome. If the design
+proposes an unsafe or unauthorized action that violates the approved task authority, report it as an
+in-scope block, not as an out-of-scope finding.
 
 Use these base roles when available:
 
@@ -415,13 +415,16 @@ then the Tech Lead designs. The Architect and required specialists independently
 block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
 the unresolved decision to the Supervisor or human. Begin implementation only after required design approval.
 
-Keep gate dispositions phase-correct: design findings are `approve`, `revise`, or `block`; delivery
-findings are `accept`, `repair`, `redesign`, or `block`. A repairable existing-code defect is not a
-design `BLOCK`: use design `REVISE` only when the approved design needs correction, otherwise let the
-approved design reach the Senior Engineer and use delivery `REVISE` with `repair` for an implementation
-defect. Delivery `REPAIR` creates a fresh Senior Engineer attempt and retest; `REDESIGN` returns to the
-design research pair. `BLOCK` is reserved for an in-scope unsafe, unauthorized, or otherwise unresolved
-condition that prevents safe continuation.
+Each phase has its own finding dispositions. Design findings use `approve`, `revise`, or `block`.
+Delivery findings use `accept`, `repair`, `redesign`, or `block`. An out-of-scope finding uses
+`approve` in both phases.
+
+Do not block a design because existing code has a defect that the task can repair. Use design
+`REVISE` only when the approved design needs a correction. Otherwise, approve the design so it
+reaches the Senior Engineer, and report the defect at delivery as `REVISE` with a `repair` finding.
+Delivery `REPAIR` starts a new Senior Engineer attempt and a retest. `REDESIGN` returns the work to
+the design research pair. Use `BLOCK` only for an in-scope condition that is unsafe, unauthorized, or
+unresolved and that stops safe progress.
 
 The Senior Engineer is the sole source/test writer. Every implementation and repair applies
 `clean-code` and `clean-architecture-code`, preserves unrelated work, runs approved focused checks,
