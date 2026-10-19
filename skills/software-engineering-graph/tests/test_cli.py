@@ -1321,6 +1321,27 @@ class CliGoldenTraceTests(GraphCase):
         with self.assertRaisesRegex(StateError, "TERMINAL_RUN"):
             self.graphctl("abort", "--run-id", "RUN-1", "--reason-code", "OTHER", "--authority-ref", "authority:test", "--op-id", "abort-2")
 
+    def test_recovery_does_not_advertise_retry_for_blocked_run(self):
+        self.initialize()
+        self.impact("full_delivery")
+        branch = self.claim()
+        evidence = self.repo_artifact("failure", "blocked-recovery-failure")
+        self.record(branch, {
+            "schema_version": 1, "run_id": "RUN-1", "branch_id": branch["branch_id"],
+            "status": "failed", "output_kind": branch["output_contract"]["artifact_kind"],
+            "failure_code": "TOOL_FAILURE", "evidence": [evidence],
+        })
+        manifest = self.control_manifest("block", "STOP")
+        self.graphctl(
+            "block", "--run-id", "RUN-1", "--reason-code", "STOP",
+            "--evidence-manifest", str(manifest), "--op-id", "block-after-failure",
+        )
+
+        recovery = self.graphctl("recovery", "show", "--run-id", "RUN-1", "--branch-id", branch["branch_id"])
+        packet = recovery["packets"][0]
+        self.assertEqual("supervisor_assessment", packet["next_permitted_action"])
+        self.assertEqual("blocked", self.graphctl("status", "--run-id", "RUN-1")["status"])
+
     def test_timeout_is_frozen_into_collection_and_forces_block(self):
         self._design_to_reviews()
         architect = self.claim()

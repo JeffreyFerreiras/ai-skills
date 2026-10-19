@@ -2372,7 +2372,12 @@ def _repair_packet(connection, run, branch, judgment=None):
         "SELECT * FROM budgets WHERE run_id=?", (run["run_id"],))}
     sealed = connection.execute("SELECT 1 FROM joins j JOIN join_members m USING(join_id) WHERE m.branch_id=? AND j.status='sealed'",
                                 (branch["branch_id"],)).fetchone()
-    retryable = branch["status"] in {"failed", "timed_out"} and branch["retry_count"] < branch["max_retries"] and not sealed
+    retryable = (
+        run["status"] not in {"blocked", "complete", "aborted"}
+        and branch["status"] in {"failed", "timed_out"}
+        and branch["retry_count"] < branch["max_retries"]
+        and not sealed
+    )
     packet = {"kind": "repair_packet", "schema_version": 1, "run_id": run["run_id"],
             "task_digest": run["task_digest"], "plan_digest": plan[0], "branch_id": branch["branch_id"],
             "attempt_id": env.get("attempt_id"), "generation": branch["generation"], "state_revision": run["state_revision"],

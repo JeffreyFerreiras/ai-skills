@@ -235,6 +235,8 @@ persisted attempts/results. `record retry` may accept `--repair-manifest INBOX_J
 unknown. Criteria must belong to the task and scope must remain within the failed role's authority.
 Missing judgments stay explicit; unavailable source-change summaries are not proof of no change.
 Retry retains the failed result reference and claim refreshes the packet without changing its authority.
+For a `blocked`, `complete`, or `aborted` run, the packet reports `supervisor_assessment`
+instead of `retry`; terminal state is not reopened implicitly by recovery inspection.
 
 `consolidation draft --run-id RUN --join-id COLLECTION_ID` uses the same source/finding reducers as
 validation. It returns a manifest bound to the sealed collection digest. Delegated issues requiring
