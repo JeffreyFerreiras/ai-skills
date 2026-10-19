@@ -1388,7 +1388,7 @@ class CliGoldenTraceTests(GraphCase):
             "failure_result_ref": "ledger:" + failed["branch_id"] + "#sha256=" + branch["result_digest"],
             "required_skill": "review-agent", "replacement_skill": "bug-hunter-review",
             "decision": "APPROVE", "equivalence_basis": "user-authorized-equivalent-review",
-            "scope_refs": sorted(item["ref"] for item in envelope["inputs"]),
+            "prior_input_refs": sorted(item["ref"] for item in envelope["inputs"]),
             "effect_capabilities_digest": sha256_bytes(canonical_bytes(envelope["effect_capabilities"])),
             "failure_evidence": envelope["evidence"], "evidence": [equivalent],
         }
@@ -1415,6 +1415,11 @@ class CliGoldenTraceTests(GraphCase):
         while not accepted_equivalent:
             branch_to_review = self.claim()
             if branch_to_review["node_key"] == "code_reviewer_bug_hunter":
+                self.assertEqual(branch_to_review["code_review_assignment"]["required_skill"], "bug-hunter-review")
+                self.assertEqual(
+                    branch_to_review["code_review_assignment"]["skill_override"]["to"],
+                    "bug-hunter-review",
+                )
                 equivalent_result = self.repo_artifact("delivery_review", "equivalent-bug-hunter-result")
                 self.record(branch_to_review, {
                     "schema_version": 1, "run_id": "RUN-1", "branch_id": branch_to_review["branch_id"],

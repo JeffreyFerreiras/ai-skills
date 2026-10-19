@@ -532,7 +532,7 @@ def _validate_recovery_manifest(
     required = {
         "schema_version", "kind", "run_id", "branch_id", "blocked_reason", "reason_code",
         "authority_ref", "task_digest", "plan_digest", "failure_result_ref", "required_skill",
-        "replacement_skill", "decision", "equivalence_basis", "scope_refs",
+        "replacement_skill", "decision", "equivalence_basis", "prior_input_refs",
         "effect_capabilities_digest", "failure_evidence", "evidence",
     }
     require_keys(value, required, required, "recovery_manifest")
@@ -570,10 +570,10 @@ def _validate_recovery_manifest(
         "ledger:" + branch["branch_id"] + "#sha256=" + branch["result_digest"]
     ):
         raise ContractError("failure_result_ref", "FAILURE_RESULT_MISMATCH")
-    expected_scope = sorted(item["ref"] for item in env["inputs"])
-    scope_refs = value["scope_refs"]
-    if not isinstance(scope_refs, list) or scope_refs != expected_scope:
-        raise ContractError("scope_refs", "IMMUTABLE_SCOPE_MISMATCH")
+    expected_input_refs = sorted(item["ref"] for item in env["inputs"])
+    prior_input_refs = value["prior_input_refs"]
+    if not isinstance(prior_input_refs, list) or prior_input_refs != expected_input_refs:
+        raise ContractError("prior_input_refs", "IMMUTABLE_SCOPE_MISMATCH")
     expected_capabilities = sha256_bytes(canonical_bytes(env["effect_capabilities"]))
     if value["effect_capabilities_digest"] != expected_capabilities:
         raise ContractError("effect_capabilities_digest", "IMMUTABLE_SCOPE_MISMATCH")
@@ -1866,12 +1866,53 @@ def command_check_run(
     )
 
 
+def _effective_code_review_assignment(
+    connection: sqlite3.Connection, envelope_value: Mapping[str, Any], assignment: Mapping[str, Any],
+) -> Dict[str, Any]:
+    projected = dict(assignment)
+    if projected.get("required_skill") != "review-agent":
+        return projected
+    for input_item in envelope_value.get("inputs", []):
+        if input_item.get("kind") != "evidence_manifest":
+            continue
+        artifact = connection.execute(
+            "SELECT content_json FROM artifacts WHERE ref=? AND immutable=1",
+            (input_item["ref"],),
+        ).fetchone()
+        if artifact is None or not artifact["content_json"]:
+            continue
+        try:
+            recovery = json.loads(artifact["content_json"])
+        except json.JSONDecodeError:
+            continue
+        if (
+            recovery.get("kind") == "recovery_authorization"
+            and recovery.get("branch_id") == envelope_value.get("branch_id")
+            and recovery.get("required_skill") == "review-agent"
+            and recovery.get("replacement_skill") == "bug-hunter-review"
+            and recovery.get("decision") == "APPROVE"
+            and recovery.get("equivalence_basis") == "user-authorized-equivalent-review"
+        ):
+            projected["required_skill"] = recovery["replacement_skill"]
+            projected["skill_override"] = {
+                "from": recovery["required_skill"],
+                "to": recovery["replacement_skill"],
+                "authorization_ref": input_item["ref"],
+            }
+            break
+    return projected
+
+
 def _review_dispatch_projection(
     connection: sqlite3.Connection, envelope_value: Mapping[str, Any], claim_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     continuation = envelope_value.get("review_continuation")
     if not continuation:
         projection = dict(envelope_value)
+        if "code_review_assignment" in projection:
+            projection["code_review_assignment"] = _effective_code_review_assignment(
+                connection, envelope_value, projection["code_review_assignment"],
+            )
         if claim_token is not None:
             projection["claim_token"] = claim_token
         return projection
@@ -1968,7 +2009,10 @@ def _review_dispatch_projection(
         "finished_at": None,
     }
     if "code_review_assignment" in envelope_value:
-        projection["code_review_assignment"] = dict(envelope_value["code_review_assignment"])
+        assignment = _effective_code_review_assignment(
+            connection, envelope_value, envelope_value["code_review_assignment"],
+        )
+        projection["code_review_assignment"] = assignment
     if claim_token is not None:
         projection["claim_token"] = claim_token
     return projection
@@ -2468,7 +2512,8 @@ def _repair_packet(connection, run, branch, judgment=None):
                     if prior.get("origin_kind") == "delivery_review":
                         for key in ("origin_kind", "origin_collection_id", "origin_consolidation_ref", "origin_reports"):
                             packet[key] = prior[key]
-                        packet["next_permitted_action"] = "implement_repair"
+                        if retryable:
+                            packet["next_permitted_action"] = "implement_repair"
     if judgment is not None:
         fields = {"schema_version", "kind", "cause", "failed_criterion_ids", "authorized_scope"}
         require_keys(judgment, fields, fields, "repair_judgment")
@@ -2538,8 +2583,9 @@ def command_recover(
             persist_artifact(conn, current["run_id"], verified)
             verified_items.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
         manifest["evidence"] = sorted(verified_items, key=lambda item: (item["kind"], item["ref"]))
+        operation_digest = sha256_bytes(opaque(args.op_id, "op_id").encode("utf-8"))
         recovery_artifact = canonical_ledger_artifact(
-            "recovery-" + opaque(args.op_id, "op_id"), "evidence_manifest", manifest,
+            "recovery-" + operation_digest[:55], "evidence_manifest", manifest,
         )
         persist_artifact(conn, current["run_id"], recovery_artifact)
 
@@ -2552,7 +2598,7 @@ def command_recover(
             "next_permitted_action": "retry",
         })
         repair_artifact = _persist_payload(
-            conn, current, policy, "repair-" + opaque(args.op_id, "op_id"), "failure", packet,
+            conn, current, policy, "repair-" + operation_digest[:57], "failure", packet,
         )
 
         env = json.loads(branch["envelope_json"])

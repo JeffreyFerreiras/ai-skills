@@ -246,7 +246,8 @@ recover --run-id RUN --branch-id ID --reason-code CODE --authority-ref authority
 ```
 
 The manifest must be `kind:recovery_authorization` and bind the exact task digest, approved plan
-digest and authority, failed ledger result reference, prior input references, prior failure evidence,
+digest and authority, failed ledger result reference, `prior_input_refs` (the exact prior input
+references), prior failure evidence,
 effect-capability digest, and fresh evidence. It must state `blocked_reason:
 MISSING_REQUIRED_REVIEW_SKILL`, `required_skill: review-agent`, `replacement_skill: bug-hunter-review`,
 `decision: APPROVE`, and `equivalence_basis: user-authorized-equivalent-review`. The Supervisor
