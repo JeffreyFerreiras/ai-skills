@@ -144,6 +144,9 @@ For explicitly enabled format 7 runs, use the repairable evidence and planning-c
 in [Ledger operations](references/ledger-operations.md). Produce, check, inspect the cause, correct
 within authority, and retry within the existing allowance. Return repairs to their originating gates;
 fresh checks never refresh an older review's source binding. Keep all mandatory independent gates.
+For a blocked format-6 run, only the documented audited equivalent-review `recover` operation may
+reopen the exact resolved missing-review-skill case; it must preserve prior scope/evidence and leave
+the independent architecture gate pending. Terminal security/policy denials stay closed.
 
 Before any ledger operation, preserve these invariants: the Supervisor is the sole ledger mutator;
 the immutable execution plan requires explicit human approval before a claim; every attempt-scoped
