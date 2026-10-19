@@ -2512,7 +2512,7 @@ def _repair_packet(connection, run, branch, judgment=None):
                     if prior.get("origin_kind") == "delivery_review":
                         for key in ("origin_kind", "origin_collection_id", "origin_consolidation_ref", "origin_reports"):
                             packet[key] = prior[key]
-                        if retryable:
+                        if run["status"] not in {"blocked", "complete", "aborted"}:
                             packet["next_permitted_action"] = "implement_repair"
     if judgment is not None:
         fields = {"schema_version", "kind", "cause", "failed_criterion_ids", "authorized_scope"}
