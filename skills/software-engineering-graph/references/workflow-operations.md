@@ -33,6 +33,13 @@ correction without ingesting them, rejects scope expansion, deduplicates valid f
 one bounded revision packet. The Tech Lead may return `SCOPE_OBJECTION` with the controlling scope
 text, missing causal link, and smallest in-scope alternative. The Supervisor adjudicates it.
 
+Gate findings are phase-specific. Design findings use `approve`, `revise`, or `block`; delivery
+findings use `accept`, `repair`, `redesign`, or `block`. A repairable existing-code defect is not a
+design block: correct the design only when the design is incomplete or unsafe, otherwise route the
+implementation defect through delivery `REVISE`/`repair`. An explicitly `out_of_scope` observation
+must be recorded as non-blocking `approve` provenance and cannot affect gate outcome or loop budgets.
+An unsafe or unauthorized action that violates the approved authority remains an in-scope `block`.
+
 The design loop allows at most two revision rounds. After the second unsuccessful revision, block
 and return the unresolved decision to the Supervisor or human. A material scope expansion requires
 the human-authorized new brief and plan path. Implementation waits for design approval.

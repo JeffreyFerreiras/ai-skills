@@ -905,7 +905,7 @@ class CliGoldenTraceTests(GraphCase):
         self.consolidation("design", "APPROVE")
         self.advance("design_consolidation")
 
-    def _delivery_to_collection(self, finding_role=None, disposition=None):
+    def _delivery_to_collection(self, finding_role=None, disposition=None, scope=None):
         engineer = self.claim()
         self.assertEqual(engineer["node_key"], "senior_engineer")
         self.success(engineer, "IMPLEMENTED")
@@ -916,6 +916,8 @@ class CliGoldenTraceTests(GraphCase):
             if reviewer["node_key"] == finding_role:
                 prefix = "REV" if finding_role == "code_reviewer" else "TEST"
                 findings = [{"finding_id": prefix + "-001", "disposition": disposition}]
+                if scope is not None:
+                    findings[0]["scope"] = scope
             decision = "REVISE" if findings else "APPROVE"
             self.success(reviewer, decision=decision, findings=findings)
         self.advance("delivery_collection")
@@ -1082,6 +1084,98 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(result["outcome"], "BLOCK")
         self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["status"], "blocked")
 
+    def test_out_of_scope_observation_does_not_stop_scoped_design_delivery(self):
+        self._design_to_reviews()
+        architect = self.claim()
+        self.success(
+            architect, "APPROVE",
+            [{"finding_id": "REL-001", "disposition": "approve", "scope": "out_of_scope"}],
+        )
+        self.advance("design_collection")
+        self.consolidation(
+            "design", "APPROVE",
+            dispositions=[{"finding_id": "REL-001", "disposition": "approve"}],
+        )
+        result = self.advance("design_consolidation")
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(result["outcome"], "APPROVE")
+        self.assertEqual(
+            [(branch["node_key"], branch["status"]) for branch in status["branches"]
+             if branch["status"] == "ready"],
+            [("senior_engineer", "ready")],
+        )
+
+    def test_out_of_scope_block_is_rejected_instead_of_silently_blocking(self):
+        self._design_to_reviews()
+        architect = self.claim()
+        with self.assertRaisesRegex(ContractError, "OUT_OF_SCOPE_ACTIONABLE"):
+            self.success(
+                architect, "BLOCK",
+                [{"finding_id": "REL-002", "disposition": "block", "scope": "out_of_scope"}],
+            )
+
+    def test_in_scope_security_block_still_stops_design_delivery(self):
+        self._design_to_reviews()
+        architect = self.claim()
+        self.success(
+            architect, "BLOCK",
+            [{"finding_id": "SEC-001", "disposition": "block", "scope": "in_scope"}],
+        )
+        self.advance("design_collection")
+        self.consolidation(
+            "design", "BLOCK",
+            dispositions=[{"finding_id": "SEC-001", "disposition": "block"}],
+        )
+        result = self.advance("design_consolidation")
+        self.assertEqual(result["outcome"], "BLOCK")
+        self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["status"], "blocked")
+
+    def test_design_rejects_delivery_repair_disposition(self):
+        self._design_to_reviews()
+        architect = self.claim()
+        with self.assertRaisesRegex(ContractError, "PHASE_DISPOSITION_MISMATCH"):
+            self.success(
+                architect, "REVISE",
+                [{"finding_id": "REV-003", "disposition": "repair", "scope": "in_scope"}],
+            )
+
+    def test_delivery_rejects_design_revise_disposition(self):
+        self._design_to_reviews()
+        self._approve_design_to_implementation()
+        engineer = self.claim()
+        self.success(engineer, "IMPLEMENTED")
+        self.advance("implementation")
+        reviewer = self.claim()
+        with self.assertRaisesRegex(ContractError, "PHASE_DISPOSITION_MISMATCH"):
+            self.success(
+                reviewer, "REVISE",
+                [{"finding_id": "REV-004", "disposition": "revise", "scope": "in_scope"}],
+            )
+
+    def test_out_of_scope_delivery_observation_does_not_block_acceptance(self):
+        self._design_to_reviews()
+        self._approve_design_to_implementation()
+        engineer = self.claim()
+        self.success(engineer, "IMPLEMENTED")
+        self.advance("implementation")
+        for index in range(5):
+            reviewer = self.claim()
+            if index == 0:
+                self.success(
+                    reviewer, "APPROVE",
+                    [{"finding_id": "REL-003", "disposition": "approve", "scope": "out_of_scope"}],
+                )
+            else:
+                self.success(reviewer, "APPROVE")
+        self.advance("delivery_collection")
+        self.consolidation(
+            "delivery", "ACCEPT",
+            dispositions=[{"finding_id": "REL-003", "disposition": "approve"}],
+        )
+        result = self.advance("delivery_consolidation")
+        self.assertEqual(result["outcome"], "ACCEPT")
+        self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["status"], "active")
+
     def test_golden_revise_activates_only_next_design_generation(self):
         self._design_to_reviews()
         self._record_design_review("REVISE", "ARCH-001")
@@ -1110,7 +1204,7 @@ class CliGoldenTraceTests(GraphCase):
     def test_golden_repair_activates_fresh_implementation_generation(self):
         self._design_to_reviews()
         self._approve_design_to_implementation()
-        self._delivery_to_collection("code_reviewer", "repair")
+        self._delivery_to_collection("code_reviewer", "repair", scope="in_scope")
         before = self.graphctl("status", "--run-id", "RUN-1")
         self.assertEqual(next(b for b in before["budgets"] if b["budget_id"] == "delivery_repairs")["used"], 0)
         self.consolidation("delivery", "REPAIR", dispositions=[{"finding_id": "REV-001", "disposition": "repair"}])

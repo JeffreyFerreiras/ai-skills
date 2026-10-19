@@ -848,8 +848,15 @@ def compute_design_outcome(source_members: Sequence[Mapping[str, Any]]) -> Tuple
             decision = "BLOCK" if member["mandatory"] else "APPROVE"
         else:
             result = json.loads(member["result_json"])
+            member_findings = result.get("findings", [])
+            actionable = [
+                item for item in member_findings
+                if item.get("scope", "in_scope") == "in_scope"
+            ]
             decision = result.get("decision", "BLOCK" if member["mandatory"] else "APPROVE")
-            findings.extend(item["finding_id"] for item in result.get("findings", []))
+            if member_findings and not actionable:
+                decision = "APPROVE"
+            findings.extend(item["finding_id"] for item in member_findings)
         if member["mandatory"] and DESIGN_PRECEDENCE.get(decision, 2) > DESIGN_PRECEDENCE[outcome]:
             outcome = decision
     return outcome, sorted(set(findings))
@@ -864,13 +871,21 @@ def compute_delivery_outcome(source_members: Sequence[Mapping[str, Any]]) -> Tup
                 precedence = max(precedence, 3)
             continue
         result = json.loads(member["result_json"])
-        if result.get("decision") == "BLOCK":
+        member_findings = result.get("findings", [])
+        actionable = [
+            item for item in member_findings
+            if item.get("scope", "in_scope") == "in_scope"
+        ]
+        decision = result.get("decision")
+        if member_findings and not actionable:
+            decision = "APPROVE"
+        if decision == "BLOCK":
             precedence = max(precedence, 3)
-        if result.get("decision") == "REDESIGN_REQUIRED":
+        if decision == "REDESIGN_REQUIRED":
             precedence = max(precedence, 2)
-        for finding in result.get("findings", []):
+        for finding in member_findings:
             findings.append(finding["finding_id"])
-            if member["mandatory"]:
+            if member["mandatory"] and finding in actionable:
                 precedence = max(precedence, DELIVERY_PRECEDENCE.get(finding["disposition"], 0))
     return DELIVERY_OUTCOMES[precedence], sorted(set(findings))
 
@@ -964,14 +979,23 @@ def _delivery_outcome_without_delegated_echoes(
             continue
         result = json.loads(member["result_json"])
         is_delegating_parent = member["branch_id"] in delegated_ids
-        if not is_delegating_parent and result.get("decision") == "BLOCK":
+        member_findings = result.get("findings", [])
+        actionable = [
+            item for item in member_findings
+            if item.get("scope", "in_scope") == "in_scope"
+        ]
+        decision = result.get("decision")
+        if member_findings and not actionable:
+            decision = "APPROVE"
+        if not is_delegating_parent and decision == "BLOCK":
             precedence = max(precedence, 3)
-        if not is_delegating_parent and result.get("decision") == "REDESIGN_REQUIRED":
+        if not is_delegating_parent and decision == "REDESIGN_REQUIRED":
             precedence = max(precedence, 2)
         for finding in result.get("findings", []):
             finding_id = finding["finding_id"]
             findings.append(finding_id)
-            if member["mandatory"] and finding_id not in delegated_ids.get(member["branch_id"], set()):
+            if (member["mandatory"] and finding in actionable
+                    and finding_id not in delegated_ids.get(member["branch_id"], set())):
                 precedence = max(precedence, DELIVERY_PRECEDENCE.get(finding["disposition"], 0))
     return DELIVERY_OUTCOMES[precedence], sorted(set(findings))
 

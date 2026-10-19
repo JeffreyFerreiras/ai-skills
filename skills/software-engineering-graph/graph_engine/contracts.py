@@ -14,6 +14,9 @@ from .ids import sha256_bytes
 OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
 FINDING_ID = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]{3,}$")
+FINDING_SCOPES = {"in_scope", "out_of_scope"}
+DESIGN_FINDING_DISPOSITIONS = {"approve", "revise", "block"}
+DELIVERY_FINDING_DISPOSITIONS = {"approve", "accept", "repair", "redesign", "block"}
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 CREDENTIAL_VALUE = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:bearer\s+[A-Za-z0-9._~+/=-]+)|"
@@ -718,6 +721,10 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
         if value["schema_version"] != 1 or value["run_id"] != branch["run_id"]:
             raise ContractError("consolidation", "RUN_OR_SCHEMA_MISMATCH")
         expected_kind = "design_consolidation" if branch["node_key"].startswith("supervisor_design") else "delivery_consolidation"
+        phase_dispositions = (
+            DESIGN_FINDING_DISPOSITIONS if expected_kind.startswith("design")
+            else DELIVERY_FINDING_DISPOSITIONS
+        )
         if value["kind"] != expected_kind or value["generation"] != branch["generation"]:
             raise ContractError("consolidation", "KIND_OR_GENERATION_MISMATCH")
         opaque(value["join_id"], "join_id")
@@ -732,8 +739,8 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
             require_keys(item, {"finding_id", "disposition"}, {"finding_id", "disposition"}, "finding_dispositions")
             if not FINDING_ID.fullmatch(item["finding_id"]):
                 raise ContractError("finding_id", "INVALID_ID")
-            if item["disposition"] not in {"approve", "revise", "accept", "repair", "redesign", "block"}:
-                raise ContractError("disposition", "UNKNOWN_VALUE")
+            if item["disposition"] not in phase_dispositions:
+                raise ContractError("disposition", "PHASE_DISPOSITION_MISMATCH")
             if item["finding_id"] in seen:
                 raise ContractError("finding_id", "DUPLICATE_ID")
             seen.add(item["finding_id"])
@@ -860,40 +867,56 @@ def validate_result_manifest(value: Any, branch: Mapping[str, Any]) -> Dict[str,
         raise ContractError("findings", "INVALID_LIST")
     if branch.get("depth") == 1:
         return dict(value)
+    stage = branch.get("stage")
     seen = set()
     for finding in findings:
         if not isinstance(finding, dict):
             raise ContractError("findings", "INVALID_OBJECT")
-        require_keys(finding, {"finding_id", "disposition"}, {"finding_id", "disposition"}, "findings")
+        require_keys(
+            finding, {"finding_id", "disposition"},
+            {"finding_id", "disposition", "scope"}, "findings",
+        )
         if not FINDING_ID.fullmatch(finding["finding_id"]):
             raise ContractError("finding_id", "INVALID_ID")
-        if finding["disposition"] not in {"approve", "revise", "accept", "repair", "redesign", "block"}:
-            raise ContractError("disposition", "UNKNOWN_VALUE")
+        scope = finding.get("scope", "in_scope")
+        if scope not in FINDING_SCOPES:
+            raise ContractError("scope", "UNKNOWN_VALUE")
+        if finding["disposition"] not in (
+            DESIGN_FINDING_DISPOSITIONS if stage == "design" else
+            DELIVERY_FINDING_DISPOSITIONS if stage == "delivery" else
+            {"approve", "revise", "accept", "repair", "redesign", "block"}
+        ):
+            raise ContractError("disposition", "PHASE_DISPOSITION_MISMATCH")
+        if scope == "out_of_scope" and finding["disposition"] != "approve":
+            raise ContractError("findings", "OUT_OF_SCOPE_ACTIONABLE")
         if finding["finding_id"] in seen:
             raise ContractError("finding_id", "DUPLICATE_ID")
         seen.add(finding["finding_id"])
     decision = value.get("decision")
-    stage = branch.get("stage")
     dispositions = {finding["disposition"] for finding in findings}
+    actionable_dispositions = {
+        finding["disposition"] for finding in findings
+        if finding.get("scope", "in_scope") == "in_scope"
+    }
     if stage == "design" and branch["node_key"] not in {"tech_lead"}:
-        if decision == "APPROVE" and dispositions - {"approve"}:
+        if decision == "APPROVE" and actionable_dispositions - {"approve"}:
             raise ContractError("decision", "DECISION_FINDING_MISMATCH")
-        if decision == "REVISE" and "revise" not in dispositions:
+        if decision == "REVISE" and "revise" not in actionable_dispositions:
             raise ContractError("decision", "REVISION_FINDING_REQUIRED")
-        if decision == "BLOCK" and "block" not in dispositions:
+        if decision == "BLOCK" and "block" not in actionable_dispositions:
             raise ContractError("decision", "BLOCK_FINDING_REQUIRED")
     elif stage == "delivery":
-        if decision == "APPROVE" and dispositions - {"accept"}:
+        if decision == "APPROVE" and actionable_dispositions - {"accept"}:
             raise ContractError("decision", "DECISION_FINDING_MISMATCH")
-        if decision == "REVISE" and not dispositions.intersection({"repair", "redesign"}):
+        if decision == "REVISE" and not actionable_dispositions.intersection({"repair", "redesign"}):
             raise ContractError("decision", "REVISION_FINDING_REQUIRED")
-        if decision == "BLOCK" and "block" not in dispositions:
+        if decision == "BLOCK" and "block" not in actionable_dispositions:
             raise ContractError("decision", "BLOCK_FINDING_REQUIRED")
     elif branch["node_key"] == "senior_engineer":
-        if decision == "IMPLEMENTED" and dispositions - {"accept"}:
+        if decision == "IMPLEMENTED" and actionable_dispositions - {"accept"}:
             raise ContractError("decision", "DECISION_FINDING_MISMATCH")
         if decision == "REDESIGN_REQUIRED":
-            if dispositions != {"redesign"}:
+            if actionable_dispositions != {"redesign"}:
                 raise ContractError("decision", "REDESIGN_FINDING_REQUIRED")
     elif findings:
         raise ContractError("findings", "FINDINGS_NOT_ALLOWED")

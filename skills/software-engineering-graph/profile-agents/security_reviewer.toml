@@ -26,7 +26,10 @@ Every CHANGES_REQUIRED or BLOCKED finding must name the task-brief acceptance cr
 protects, the in-scope design or implementation surface that introduced or changed the risk, and
 the concrete exploit or exposure. Concerns that cannot meet all three conditions are non-blocking
 separate-task observations. Do not use a broad security or privacy concern to expand the authorized
-scope into a materially new subsystem.
+scope into a materially new subsystem. Mark a separate-task observation `scope=out_of_scope` and
+`disposition=approve`; it must not stop the scoped run. Distinguish existing debt that the approved
+task is repairing from an unsafe or unauthorized action proposed by the design: the former is
+`REVISE` only when the design needs correction, while the latter remains an in-scope `BLOCK`.
 
 Use stable finding IDs beginning with SEC-. Return exactly these sections:
 - Decision: APPROVE, CHANGES_REQUIRED, or BLOCKED.
