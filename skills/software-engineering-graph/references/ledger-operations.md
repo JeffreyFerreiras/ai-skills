@@ -238,6 +238,26 @@ Retry retains the failed result reference and claim refreshes the packet without
 For a `blocked`, `complete`, or `aborted` run, the packet reports `supervisor_assessment`
 instead of `retry`; terminal state is not reopened implicitly by recovery inspection.
 
+The only supported format-6 recovery transition is the audited equivalent-review repair:
+
+```text
+recover --run-id RUN --branch-id ID --reason-code CODE --authority-ref authority:ID \
+  --recovery-manifest INBOX_JSON --op-id ID
+```
+
+The manifest must be `kind:recovery_authorization` and bind the exact task digest, approved plan
+digest and authority, failed ledger result reference, prior input references, prior failure evidence,
+effect-capability digest, and fresh evidence. It must state `blocked_reason:
+MISSING_REQUIRED_REVIEW_SKILL`, `required_skill: review-agent`, `replacement_skill: bug-hunter-review`,
+`decision: APPROVE`, and `equivalence_basis: user-authorized-equivalent-review`. The Supervisor
+records the authorization and a failure repair packet atomically, increments only the target branch's
+retry count, resets that branch to a fresh `ready` attempt, and reopens the run as `active`. The old
+result and evidence remain immutable inputs; a new claim and attempt fence are required. The
+independent `code_reviewer_architecture` gate remains mandatory and is never marked complete by this
+transition. Security/policy denials, retry exhaustion, changed task or plan digests, scope/evidence
+mismatches, and `complete`/`aborted` runs remain closed. Do not edit SQLite state or use `resume` as a
+substitute for this command.
+
 `consolidation draft --run-id RUN --join-id COLLECTION_ID` uses the same source/finding reducers as
 validation. It returns a manifest bound to the sealed collection digest. Delegated issues requiring
 judgment remain unresolved and cannot manufacture ACCEPT. The Supervisor still claims, inspects,

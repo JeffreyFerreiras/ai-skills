@@ -523,6 +523,74 @@ def _validate_control_manifest(value: Any, kind: str, run_id: str, branch_id: Op
     return normalized
 
 
+def _validate_recovery_manifest(
+    value: Any, run: Mapping[str, Any], branch: Mapping[str, Any], plan: Mapping[str, Any],
+    reason_code: str, authority_ref: str,
+) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ContractError("recovery_manifest", "INVALID_OBJECT")
+    required = {
+        "schema_version", "kind", "run_id", "branch_id", "blocked_reason", "reason_code",
+        "authority_ref", "task_digest", "plan_digest", "failure_result_ref", "required_skill",
+        "replacement_skill", "decision", "equivalence_basis", "scope_refs",
+        "effect_capabilities_digest", "failure_evidence", "evidence",
+    }
+    require_keys(value, required, required, "recovery_manifest")
+    if (
+        value["schema_version"] != 1
+        or value["kind"] != "recovery_authorization"
+        or value["run_id"] != run["run_id"]
+        or value["branch_id"] != branch["branch_id"]
+        or value["blocked_reason"] != "MISSING_REQUIRED_REVIEW_SKILL"
+        or value["reason_code"] != reason_code
+        or value["authority_ref"] != authority_ref
+        or value["task_digest"] != run["task_digest"]
+        or value["plan_digest"] != plan["plan_digest"]
+    ):
+        raise ContractError("recovery_manifest", "AUTHORIZATION_MISMATCH")
+    if run["state_schema_version"] != 6 or run["blocked_reason"] != "MISSING_REQUIRED_REVIEW_SKILL":
+        raise StateError("RECOVERY_NOT_PERMITTED")
+    if plan["status"] != "approved" or plan["authority_ref"] != authority_ref:
+        raise StateError("RECOVERY_AUTHORITY_MISMATCH")
+    if branch["node_key"] != "code_reviewer_bug_hunter" or branch["status"] not in {"failed", "timed_out"}:
+        raise StateError("RECOVERY_NOT_PERMITTED")
+    if branch["failure_code"] != "MISSING_REQUIRED_SKILL" or branch["retry_count"] >= branch["max_retries"]:
+        raise StateError("RECOVERY_NOT_PERMITTED")
+    env = json.loads(branch["envelope_json"])
+    assignment = env.get("code_review_assignment")
+    if not isinstance(assignment, dict) or assignment.get("required_skill") != "review-agent":
+        raise StateError("RECOVERY_NOT_PERMITTED")
+    if value["required_skill"] != "review-agent" or value["replacement_skill"] != "bug-hunter-review":
+        raise ContractError("recovery_manifest", "UNSUPPORTED_EQUIVALENT_SKILL")
+    if value["decision"] != "APPROVE" or value["equivalence_basis"] != "user-authorized-equivalent-review":
+        raise ContractError("recovery_manifest", "EQUIVALENCE_ACCEPTANCE_REQUIRED")
+    validate_ref(value["authority_ref"], "authority_ref")
+    validate_ref(value["failure_result_ref"], "failure_result_ref", content_required=True)
+    if value["failure_result_ref"] != (
+        "ledger:" + branch["branch_id"] + "#sha256=" + branch["result_digest"]
+    ):
+        raise ContractError("failure_result_ref", "FAILURE_RESULT_MISMATCH")
+    expected_scope = sorted(item["ref"] for item in env["inputs"])
+    scope_refs = value["scope_refs"]
+    if not isinstance(scope_refs, list) or scope_refs != expected_scope:
+        raise ContractError("scope_refs", "IMMUTABLE_SCOPE_MISMATCH")
+    expected_capabilities = sha256_bytes(canonical_bytes(env["effect_capabilities"]))
+    if value["effect_capabilities_digest"] != expected_capabilities:
+        raise ContractError("effect_capabilities_digest", "IMMUTABLE_SCOPE_MISMATCH")
+    if value["failure_evidence"] != env["evidence"]:
+        raise ContractError("failure_evidence", "FAILURE_EVIDENCE_MISMATCH")
+    if not isinstance(value["evidence"], list) or not value["evidence"]:
+        raise ContractError("evidence", "EVIDENCE_REQUIRED")
+    for item in value["evidence"]:
+        if not isinstance(item, dict):
+            raise ContractError("evidence", "INVALID_OBJECT")
+        require_keys(item, {"kind", "ref", "sha256"}, {"kind", "ref", "sha256"}, "evidence")
+        bounded_string(item["kind"], "evidence.kind", 64)
+        validate_ref(item["ref"], "evidence.ref", content_required=True)
+        digest(item["sha256"], "evidence.sha256")
+    return dict(value)
+
+
 def _claim_token_digest(token: str) -> str:
     if not token:
         raise ContractError("claim_token", "MISSING_FIELD")
@@ -2440,6 +2508,95 @@ def command_recovery(connection, run, branch_id=None):
     return _json_result(True, "RECOVERY", run["run_id"], run["state_revision"], packets=packets)
 
 
+def command_recover(
+    args: argparse.Namespace, connection: sqlite3.Connection, run: sqlite3.Row,
+    policy: Mapping[str, Any], store: StateStore, semantic_validator: SemanticValidator,
+) -> Dict[str, Any]:
+    snapshot = _manifest_snapshot(store, policy, run["run_id"], args.recovery_manifest)
+    request = {
+        "command": "recover",
+        "branch_id": opaque(args.branch_id, "branch_id"),
+        "reason_code": opaque(args.reason_code, "reason_code"),
+        "authority_ref": validate_ref(args.authority_ref, "authority_ref"),
+        "manifest_digest": snapshot.digest,
+    }
+
+    def action(conn: sqlite3.Connection, current: sqlite3.Row, revision: int) -> Dict[str, Any]:
+        plan = conn.execute("SELECT * FROM execution_plans WHERE run_id=?", (current["run_id"],)).fetchone()
+        branch = conn.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (current["run_id"], args.branch_id)).fetchone()
+        if plan is None or branch is None:
+            raise StateError("BRANCH_NOT_FOUND")
+        manifest = _validate_recovery_manifest(
+            snapshot.parsed, current, branch, plan, request["reason_code"], request["authority_ref"],
+        )
+        verified_items = []
+        for item in manifest["evidence"]:
+            verified = resolve_reference(
+                item["ref"], item["sha256"], item["kind"], Path(current["repository_path"]),
+                Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root,
+            )
+            persist_artifact(conn, current["run_id"], verified)
+            verified_items.append({"kind": verified.kind, "ref": verified.ref, "sha256": verified.sha256})
+        manifest["evidence"] = sorted(verified_items, key=lambda item: (item["kind"], item["ref"]))
+        recovery_artifact = canonical_ledger_artifact(
+            "recovery-" + opaque(args.op_id, "op_id"), "evidence_manifest", manifest,
+        )
+        persist_artifact(conn, current["run_id"], recovery_artifact)
+
+        active_run = dict(current)
+        active_run["status"] = "active"
+        packet = _repair_packet(conn, active_run, branch)
+        packet.update({
+            "state_revision": revision,
+            "recovery_authorization_ref": recovery_artifact.ref,
+            "next_permitted_action": "retry",
+        })
+        repair_artifact = _persist_payload(
+            conn, current, policy, "repair-" + opaque(args.op_id, "op_id"), "failure", packet,
+        )
+
+        env = json.loads(branch["envelope_json"])
+        env["inputs"] = sorted(
+            env["inputs"] + [recovery_artifact.as_input(), repair_artifact.as_input()],
+            key=lambda item: (item["kind"], item["ref"]),
+        )
+        env.update({
+            "status": "ready",
+            "retry_count": int(branch["retry_count"]) + 1,
+            "attempt_id": None,
+            "claim_digest": None,
+            "lease_expires_at": None,
+            "artifact_ref": None,
+            "evidence": [],
+            "decision": None,
+            "failure_code": None,
+            "finished_at": None,
+        })
+        conn.execute(
+            """UPDATE nodes SET status='ready',retry_count=retry_count+1,envelope_json=?,result_json=NULL,
+            result_digest=NULL,failure_code=NULL,reason_code=NULL,finished_at=NULL WHERE branch_id=?""",
+            (json.dumps(env, sort_keys=True), branch["branch_id"]),
+        )
+        conn.execute(
+            "UPDATE runs SET status='active',blocked_reason=NULL,finished_at=NULL WHERE run_id=?",
+            (current["run_id"],),
+        )
+        return {
+            "code": "GRAPH_RECOVERED",
+            "status": "active",
+            "branch_id": branch["branch_id"],
+            "branch_status": "ready",
+            "recovery_authorization_ref": recovery_artifact.ref,
+            "repair_packet_ref": repair_artifact.ref,
+            "required_return_gates": [branch["node_key"], "code_reviewer_architecture"],
+        }
+
+    return store.mutate(
+        connection, run["run_id"], opaque(args.op_id, "op_id"), request, action,
+        semantic_validator=semantic_validator,
+    )
+
+
 def command_consolidation_draft(connection, run, requested_join):
     join = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_id=?", (run["run_id"], requested_join)).fetchone()
     if join is None or join["kind"] != "collection" or join["stage"] not in {"design", "delivery"} or join["status"] != "sealed":
@@ -2920,6 +3077,10 @@ def build_parser() -> argparse.ArgumentParser:
     recoveries = recovery.add_subparsers(dest="recovery_kind", required=True)
     show = recoveries.add_parser("show")
     show.add_argument("--run-id", required=True); show.add_argument("--branch-id")
+    recover = commands.add_parser("recover")
+    recover.add_argument("--run-id", required=True); recover.add_argument("--branch-id", required=True)
+    recover.add_argument("--reason-code", required=True); recover.add_argument("--authority-ref", required=True)
+    recover.add_argument("--recovery-manifest", required=True); recover.add_argument("--op-id", required=True)
     consolidation = commands.add_parser("consolidation")
     drafts = consolidation.add_subparsers(dest="consolidation_kind", required=True)
     draft = drafts.add_parser("draft")
@@ -2995,7 +3156,7 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
             runtime_root=state.state_root,
         )
         is_mutation = (
-            args.command in {"record", "complete", "block", "abort", "check", "evidence"}
+            args.command in {"record", "complete", "block", "abort", "check", "evidence", "recover"}
             or (args.command in {"next", "ready"} and args.claim)
             or (args.command == "join" and args.join_kind == "advance")
         )
@@ -3004,7 +3165,9 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
                 connection, run, repo, policy_snapshot.digest, policy, skill_root,
                 case_sensitive=case_sensitive, runtime_root=state.state_root,
             )
-        if args.command == "recovery":
+        if args.command == "recover":
+            result = command_recover(args, connection, run, stored_policy, state, semantic_validator)
+        elif args.command == "recovery":
             result = command_recovery(connection, run, args.branch_id)
         elif args.command == "consolidation":
             result = command_consolidation_draft(connection, run, args.join_id)

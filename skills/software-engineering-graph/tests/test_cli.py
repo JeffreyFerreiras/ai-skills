@@ -1342,6 +1342,98 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual("supervisor_assessment", packet["next_permitted_action"])
         self.assertEqual("blocked", self.graphctl("status", "--run-id", "RUN-1")["status"])
 
+    def test_audited_recovery_reopens_equivalent_bug_review_and_preserves_architecture_gate(self):
+        self.initialize("delivery", "fast_path")
+        self.impact("fast_path")
+        engineer = self.claim()
+        self.success(engineer, "IMPLEMENTED")
+        self.advance("implementation")
+
+        failed = None
+        while failed is None:
+            reviewer = self.claim()
+            if reviewer["node_key"] == "code_reviewer_bug_hunter":
+                failure_evidence = self.repo_artifact("failure", "missing-review-agent")
+                self.record(reviewer, {
+                    "schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
+                    "status": "failed", "output_kind": reviewer["output_contract"]["artifact_kind"],
+                    "failure_code": "MISSING_REQUIRED_SKILL", "evidence": [failure_evidence],
+                })
+                failed = reviewer
+            else:
+                self.success(reviewer, "APPROVE")
+
+        block_manifest = self.control_manifest("block", "MISSING_REQUIRED_REVIEW_SKILL")
+        self.graphctl(
+            "block", "--run-id", "RUN-1", "--reason-code", "MISSING_REQUIRED_REVIEW_SKILL",
+            "--evidence-manifest", str(block_manifest), "--op-id", "block-missing-review-agent",
+        )
+        before = self.graphctl("status", "--run-id", "RUN-1")
+        architecture = next(
+            branch for branch in before["branches"] if branch["node_key"] == "code_reviewer_architecture"
+        )
+        self.assertIn(architecture["status"], {"ready", "pending"})
+
+        with self.store.connect(self.store.db_path("albanian-live-translate", "RUN-1")) as connection:
+            run = connection.execute("SELECT * FROM runs WHERE run_id='RUN-1'").fetchone()
+            branch = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (failed["branch_id"],)).fetchone()
+            plan = connection.execute("SELECT * FROM execution_plans WHERE run_id='RUN-1'").fetchone()
+            envelope = json.loads(branch["envelope_json"])
+        equivalent = self.repo_artifact("delivery_review", "equivalent-bug-hunter-review")
+        recovery = {
+            "schema_version": 1, "kind": "recovery_authorization", "run_id": "RUN-1",
+            "branch_id": failed["branch_id"], "blocked_reason": "MISSING_REQUIRED_REVIEW_SKILL",
+            "reason_code": "REVIEW_EQUIVALENT_SKILL_AUTHORIZED", "authority_ref": plan["authority_ref"],
+            "task_digest": run["task_digest"], "plan_digest": plan["plan_digest"],
+            "failure_result_ref": "ledger:" + failed["branch_id"] + "#sha256=" + branch["result_digest"],
+            "required_skill": "review-agent", "replacement_skill": "bug-hunter-review",
+            "decision": "APPROVE", "equivalence_basis": "user-authorized-equivalent-review",
+            "scope_refs": sorted(item["ref"] for item in envelope["inputs"]),
+            "effect_capabilities_digest": sha256_bytes(canonical_bytes(envelope["effect_capabilities"])),
+            "failure_evidence": envelope["evidence"], "evidence": [equivalent],
+        }
+        recovery_path = self.inbox_manifest(recovery, "recover-equivalent-bug-hunter.json")
+        resumed = self.graphctl(
+            "recover", "--run-id", "RUN-1", "--branch-id", failed["branch_id"],
+            "--reason-code", "REVIEW_EQUIVALENT_SKILL_AUTHORIZED", "--authority-ref", plan["authority_ref"],
+            "--recovery-manifest", str(recovery_path), "--op-id", "recover-equivalent-bug-hunter",
+        )
+        self.assertEqual(resumed["code"], "GRAPH_RECOVERED")
+        self.assertEqual(resumed["status"], "active")
+        after = self.graphctl("status", "--run-id", "RUN-1")
+        recovered = next(branch for branch in after["branches"] if branch["branch_id"] == failed["branch_id"])
+        self.assertEqual(recovered["status"], "ready")
+        self.assertEqual(recovered["retry_count"], 1)
+        architecture_after_recovery = next(
+            branch for branch in after["branches"] if branch["node_key"] == "code_reviewer_architecture"
+        )
+        self.assertIn(architecture_after_recovery["status"], {"ready", "pending"})
+        self.assertNotEqual(architecture_after_recovery["status"], "succeeded")
+
+        seen_architecture = False
+        accepted_equivalent = False
+        while not accepted_equivalent:
+            branch_to_review = self.claim()
+            if branch_to_review["node_key"] == "code_reviewer_bug_hunter":
+                equivalent_result = self.repo_artifact("delivery_review", "equivalent-bug-hunter-result")
+                self.record(branch_to_review, {
+                    "schema_version": 1, "run_id": "RUN-1", "branch_id": branch_to_review["branch_id"],
+                    "status": "succeeded", "output_kind": "delivery_review",
+                    "artifact_ref": equivalent_result, "evidence": [], "decision": "APPROVE", "findings": [],
+                })
+                accepted_equivalent = True
+            else:
+                seen_architecture = seen_architecture or branch_to_review["node_key"] == "code_reviewer_architecture"
+                self.success(branch_to_review, "APPROVE")
+        self.assertTrue(accepted_equivalent)
+        self.assertTrue(seen_architecture or architecture_after_recovery["status"] in {"ready", "pending"})
+        remaining = self.graphctl("status", "--run-id", "RUN-1")["branches"]
+        architecture_final = next(branch for branch in remaining if branch["node_key"] == "code_reviewer_architecture")
+        if seen_architecture:
+            self.assertEqual(architecture_final["status"], "succeeded")
+        else:
+            self.assertNotEqual(architecture_final["status"], "succeeded")
+
     def test_timeout_is_frozen_into_collection_and_forces_block(self):
         self._design_to_reviews()
         architect = self.claim()

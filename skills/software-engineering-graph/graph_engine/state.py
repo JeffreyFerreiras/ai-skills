@@ -281,6 +281,7 @@ MUTATION_RUN_STATES = {
     "complete": {"active"},
     "block": {"initialized", "active"},
     "abort": {"initialized", "active", "blocked"},
+    "recover": {"blocked"},
 }
 
 
