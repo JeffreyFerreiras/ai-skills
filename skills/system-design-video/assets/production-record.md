@@ -16,6 +16,10 @@ checks pending; remove branches outside the requested deliverable.
 - Capability preflight: renderer/media tools, selected voice/alignment, reviewer
   dispatch, playback/listening, GPU/RAM/storage evidence and unresolved items:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
+- Default Kokoro CPU config identity, explicit selected embedding versus unresolved
+  voice approval, runtime/asset lock, worker deadline and verified process affinity:
+- Native WAV sample rate/channels, any explicit 48 kHz/stereo conversion and unity
+  channel mapping, exact-input loudness passes, final-WAV ASR/cue evidence and gaps:
 - Laptop identity: exact CPU SKU/NPU generation, OS build, NPU driver, detected
   OpenVINO devices/full names, NVIDIA GPU/VRAM, probe report and unresolved fields:
 - Kokoro runtime/model/voice/dictionary revisions and hashes, licenses/notices,
