@@ -5,7 +5,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from graph_engine.cli import build_parser, main
+from graph_engine.cli import _validate_recovery_manifest, build_parser, main
 from graph_engine.contracts import ContractError
 from graph_engine.evidence import canonical_ledger_artifact
 from graph_engine.ids import canonical_bytes, sha256_bytes
@@ -1438,6 +1438,92 @@ class CliGoldenTraceTests(GraphCase):
             self.assertEqual(architecture_final["status"], "succeeded")
         else:
             self.assertNotEqual(architecture_final["status"], "succeeded")
+
+    def test_equivalent_review_authorization_rejects_other_failures_and_exhausted_retries(self):
+        evidence = {"kind": "finding", "ref": "repo:docs/proof.json#sha256=" + "a" * 64, "sha256": "a" * 64}
+        env = {"code_review_assignment": {"required_skill": "review-agent"},
+               "inputs": [], "effect_capabilities": [], "evidence": [evidence]}
+        branch = {"branch_id": "failed-review", "node_key": "code_reviewer_bug_hunter", "status": "failed",
+                  "failure_code": "MISSING_REQUIRED_SKILL", "retry_count": 0, "max_retries": 1,
+                  "envelope_json": json.dumps(env), "result_digest": "b" * 64}
+        plan = {"status": "approved", "authority_ref": "authority:test", "plan_digest": "c" * 64}
+        run = {"run_id": "RUN-1", "state_schema_version": 6, "task_digest": "d" * 64,
+               "blocked_reason": "MISSING_REQUIRED_REVIEW_SKILL"}
+        manifest = {"schema_version": 1, "kind": "recovery_authorization", "run_id": "RUN-1",
+            "branch_id": branch["branch_id"], "blocked_reason": run["blocked_reason"], "reason_code": "EQUIVALENT",
+            "authority_ref": plan["authority_ref"], "task_digest": run["task_digest"], "plan_digest": plan["plan_digest"],
+            "failure_result_ref": "ledger:failed-review#sha256=" + branch["result_digest"],
+            "required_skill": "review-agent", "replacement_skill": "bug-hunter-review", "decision": "APPROVE",
+            "equivalence_basis": "user-authorized-equivalent-review", "prior_input_refs": [],
+            "effect_capabilities_digest": sha256_bytes(canonical_bytes([])), "failure_evidence": [evidence], "evidence": [evidence]}
+        # Pure validation must reject alternate gate/failure types without changing its inputs.
+        for version in (6, 7):
+            current_run = {**run, "state_schema_version": version}
+            self.assertEqual(manifest, _validate_recovery_manifest(manifest, current_run, branch, plan, "EQUIVALENT", "authority:test"))
+            cases = [
+                (current_run, {**branch, "node_key": "code_reviewer_architecture"}, plan),
+                (current_run, {**branch, "status": "succeeded"}, plan),
+                (current_run, {**branch, "failure_code": "POLICY_DENIED"}, plan),
+                (current_run, {**branch, "failure_code": "TOOL_FAILURE"}, plan),
+                (current_run, {**branch, "retry_count": 1}, plan),
+                (current_run, {**branch, "max_retries": 0}, plan),
+                (current_run, {**branch, "envelope_json": json.dumps({**env,
+                    "code_review_assignment": {"required_skill": "another-review"}})}, plan),
+                (current_run, branch, {**plan, "status": "pending"}),
+                (current_run, branch, {**plan, "authority_ref": "authority:other"}),
+            ]
+            cases += [({**current_run, "blocked_reason": reason}, branch, plan)
+                      for reason in ("SECURITY_DENIED", "POLICY_DENIED", "CONSOLIDATION_BLOCK", "BUDGET_LIMIT")]
+            for candidate_run, candidate_branch, candidate_plan in cases:
+                before = canonical_bytes([manifest, candidate_run, candidate_branch, candidate_plan])
+                with self.subTest(version=version, branch=candidate_branch, plan=candidate_plan), self.assertRaises(StateError):
+                    _validate_recovery_manifest(manifest, candidate_run, candidate_branch, candidate_plan, "EQUIVALENT", "authority:test")
+                self.assertEqual(before, canonical_bytes([manifest, candidate_run, candidate_branch, candidate_plan]))
+
+    def test_equivalent_recovery_cannot_reopen_aborted_or_security_policy_blocked_runs(self):
+        for version, reason in ((version, reason) for version in (6, 7)
+                                for reason in ("SECURITY_DENIED", "POLICY_DENIED", "stop")):
+            with self.subTest(version=version, reason=reason):
+                # Each case owns a fresh disposable ledger; all mutations use the CLI.
+                case = GraphCase(methodName="runTest")
+                case.setUp()
+                try:
+                    case.initialize()
+                    if version == 7:
+                        coverage = case.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+                            {"check_id": "repo-check", "relevant_inputs": ["docs/engineering-graph.md"], "complete": True}]})
+                        case.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                                      "--coverage-manifest", str(coverage), "--op-id", "enable")
+                    if reason == "stop":
+                        case.graphctl("abort", "--run-id", "RUN-1", "--reason-code", reason,
+                                      "--authority-ref", "authority:test", "--op-id", "abort")
+                    else:
+                        block = case.control_manifest("block", reason)
+                        case.graphctl("block", "--run-id", "RUN-1", "--reason-code", reason,
+                                      "--evidence-manifest", str(block), "--op-id", "block")
+                    before = case.graphctl("status", "--run-id", "RUN-1")
+                    with case.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                        run = connection.execute("SELECT * FROM runs").fetchone()
+                        original_ledger = tuple(connection.iterdump())
+                    manifest = {"schema_version": 1, "kind": "recovery_authorization", "run_id": "RUN-1",
+                        "branch_id": before["branches"][0]["branch_id"], "blocked_reason": "MISSING_REQUIRED_REVIEW_SKILL",
+                        "reason_code": "EQUIVALENT", "authority_ref": "authority:test", "task_digest": run["task_digest"],
+                        "plan_digest": before["execution_plan"]["plan_digest"], "failure_result_ref": "ledger:failed#sha256=" + "a" * 64,
+                        "required_skill": "review-agent", "replacement_skill": "bug-hunter-review", "decision": "APPROVE",
+                        "equivalence_basis": "user-authorized-equivalent-review", "prior_input_refs": [],
+                        "effect_capabilities_digest": "b" * 64, "failure_evidence": [], "evidence": []}
+                    recovery = case.inbox_manifest(manifest)
+                    with self.assertRaisesRegex(StateError, "TERMINAL_RUN" if reason == "stop" else "RECOVERY_NOT_PERMITTED"):
+                        case.graphctl("recover", "--run-id", "RUN-1", "--branch-id", before["branches"][0]["branch_id"],
+                            "--reason-code", "EQUIVALENT", "--authority-ref", "authority:test",
+                            "--recovery-manifest", str(recovery), "--op-id", "forbidden-recovery")
+                    after = case.graphctl("status", "--run-id", "RUN-1")
+                    self.assertEqual(before, after)
+                    with case.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                        self.assertEqual(original_ledger, tuple(connection.iterdump()))
+                finally:
+                    case.doCleanups()
+                    case.tearDown()
 
     def test_timeout_is_frozen_into_collection_and_forces_block(self):
         self._design_to_reviews()
