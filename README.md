@@ -37,6 +37,13 @@ python -m unittest discover -s tests -v
 
 The [authoring guide](docs/authoring.md) includes a minimal complete example. Discovery checking is read-only: a canonical-only checkout needs no repository copy, and the command says so. It checks parity if an optional Cursor copy exists.
 
+## Hooks
+
+[`hooks/laya`](hooks/laya/README.md) provides local English Laya model selection
+for subagents in normal Codex chats, plus optional advisory lifecycle hooks.
+It has a separate installer; model weights, tokens,
+environments, logs, and machine configuration stay outside this repository.
+
 ## Vertical system design videos
 
 Use [`system-design-video`](skills/system-design-video/SKILL.md) to teach one system mechanism in a phone-friendly **9:16 video**, normally **1080x1920 at 30 fps**. About **90 seconds** is a planning estimate; scene lengths follow the measured narration. A request for only a script or storyboard stops at that artifact.
