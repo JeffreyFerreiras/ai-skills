@@ -6,17 +6,20 @@ import shutil
 import subprocess
 import sys
 import unittest
+import ntpath
+import posixpath
 from pathlib import Path
 from unittest.mock import patch
 
 from graph_engine.config import (
     ENGINE_ARTIFACT_MAX, ENGINE_COLLECTION_MAX_BYTES, ENGINE_COLLECTION_MAX_MEMBERS,
-    _default_profile_policy, load_policy, role_capability_allowed,
+    _default_profile_policy, load_policy, role_capability_allowed, validate_task_capability_paths,
 )
 from graph_engine.cli import execute
-from graph_engine.contracts import ContractError, validate_impact_map, validate_ref, validate_task_brief
+from graph_engine.contracts import ContractError, capability_within, validate_impact_map, validate_ref, validate_task_brief
 from graph_engine.evidence import resolve_reference, resolve_unhashed_reference
 from graph_engine.ids import sha256_bytes
+from graph_engine.planner import effective_role_capabilities
 
 from tests.test_support import GraphCase
 
@@ -1016,3 +1019,141 @@ class ContractTests(GraphCase):
         artifact = self.repo_artifact("acceptance_evidence", "digest-mismatch")
         with self.assertRaisesRegex(ContractError, "DIGEST_DISAGREEMENT"):
             self.graphctl("record", "acceptance-evidence", "--run-id", "RUN-1", "--criterion-id", "AC-001", "--artifact-ref", artifact["ref"], "--artifact-sha256", "b" * 64, "--op-id", "mismatch-evidence")
+
+
+class CapabilityNarrowingTests(GraphCase):
+    def test_case_only_prefix_requires_existing_filesystem_identity(self):
+        policy, snapshot = load_policy(self.repo)
+        (self.repo / "src").mkdir()
+        task = self.task()
+        candidate = {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:SRC/new.py"}
+        task["authority"]["capabilities"].append(candidate)
+        # Simulate Windows lexical rules on any host. False identity represents
+        # distinct case-sensitive siblings, without changing filesystem settings.
+        with patch("graph_engine.contracts.os.path.normcase", ntpath.normcase):
+            validated = validate_task_brief(task, snapshot.digest, policy)
+            for outcome in (False, FileNotFoundError(), PermissionError()):
+                with self.subTest(outcome=type(outcome).__name__), patch(
+                    "graph_engine.config.os.path.samefile",
+                    side_effect=outcome if isinstance(outcome, OSError) else None,
+                    return_value=outcome,
+                ), self.assertRaisesRegex(ContractError, "CAPABILITY_CASE_IDENTITY_UNPROVEN"):
+                    validate_task_capability_paths(self.repo, validated, policy)
+            with patch("graph_engine.config.os.path.samefile", return_value=True) as identity:
+                validate_task_capability_paths(self.repo, validated, policy)
+                left, right = identity.call_args.args
+                self.assertEqual(str(self.repo / "SRC"), str(left))
+                self.assertEqual(str(self.repo / "src"), str(right))
+            self.assertIn(candidate, effective_role_capabilities(policy, validated, "senior_engineer"))
+        if os.name == "nt":
+            # Real ordinary Windows identity, separate from the simulated cases.
+            self.assertTrue(os.path.samefile(self.repo / "src", self.repo / "SRC"))
+            validate_task_capability_paths(self.repo, validated, policy)
+
+    def test_exact_new_grants_and_legacy_projection_do_not_need_case_proof(self):
+        policy, _ = load_policy(self.repo)
+        task = self.task()
+        grant = {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:src/new/"}
+        task["authority"]["capabilities"].append(grant)
+        with patch("graph_engine.config.os.path.samefile") as identity:
+            validate_task_capability_paths(self.repo, task, policy)
+            grant["target_ref"] = "repo:SRC/new/"
+            validate_task_capability_paths(self.repo, task, policy, capability_projection_version=None)
+            identity.assert_not_called()
+
+    def test_policy_union_match_cannot_hide_an_unproved_role_pair(self):
+        policy, snapshot = load_policy(self.repo)
+        policy["schema_version"] = 2
+        task = self.task()
+        grant = {"effect": "filesystem_read", "action": "read", "target_ref": "repo:SRC/new.py"}
+        task["authority"]["capabilities"].append(grant)
+        policy["role_capabilities"]["supervisor"].append({**grant, "target_ref": "repo:SRC/"})
+        with patch("graph_engine.contracts.os.path.normcase", ntpath.normcase):
+            validated = validate_task_brief(task, snapshot.digest, policy)
+            self.assertIn(grant, effective_role_capabilities(policy, validated, "supervisor"))
+            self.assertIn(grant, effective_role_capabilities(policy, validated, "tech_lead"))
+            with patch("graph_engine.config.os.path.samefile", return_value=False), self.assertRaisesRegex(
+                ContractError, "CAPABILITY_CASE_IDENTITY_UNPROVEN",
+            ):
+                validate_task_capability_paths(self.repo, validated, policy)
+
+    def test_runtime_case_only_prefix_also_requires_identity(self):
+        grant = {"effect": "filesystem_write", "action": "edit", "target_ref": "runtime:artifacts/OUTPUTS/new.py"}
+        task = {"authority": {"capabilities": [grant]}}
+        policy = {"denied_patterns": [], "role_capabilities": {
+            "senior_engineer": [{**grant, "target_ref": "runtime:artifacts/outputs/"}]}}
+        with patch("graph_engine.contracts.os.path.normcase", ntpath.normcase):
+            for runtime in (None, self.runtime_root):
+                with self.subTest(runtime=runtime), patch("graph_engine.config.os.path.samefile", return_value=False), self.assertRaisesRegex(
+                    ContractError, "CAPABILITY_CASE_IDENTITY_UNPROVEN",
+                ):
+                    validate_task_capability_paths(self.repo, task, policy, runtime)
+            with patch("graph_engine.config.os.path.samefile", return_value=True):
+                validate_task_capability_paths(self.repo, task, policy, self.runtime_root)
+
+    def test_filesystem_grants_narrow_directory_ceilings_without_replacing_them(self):
+        policy, snapshot = load_policy(self.repo)
+        task = self.task()
+        grants = [{"effect": "filesystem_write", "action": "edit", "target_ref": target}
+                  for target in ("repo:src/slots.py", "repo:src/test_slots.py")]
+        task["authority"]["capabilities"] += grants
+        validated = validate_task_brief(task, snapshot.digest, policy)
+        self.assertEqual(grants, [item for item in validated["authority"]["capabilities"]
+                                  if item["effect"] == "filesystem_write"])
+        self.assertTrue(any(item["target_ref"] == "repo:src/" for item in
+                            policy["role_capabilities"]["senior_engineer"]))
+
+    def test_filesystem_containment_uses_host_case_policy_and_preserves_spelling(self):
+        outer = {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:src/"}
+        candidate = {**outer, "target_ref": "repo:SRC/slots.py"}
+        policy, snapshot = load_policy(self.repo)
+        task = self.task()
+        task["authority"]["capabilities"].append(candidate)
+        for normalizer, expected in ((ntpath.normcase, True), (posixpath.normcase, False)):
+            with self.subTest(normalizer=normalizer.__module__), patch(
+                "graph_engine.contracts.os.path.normcase", normalizer,
+            ):
+                self.assertEqual(expected, capability_within(candidate, outer))
+                self.assertEqual(expected, capability_within(candidate, {**outer, "target_ref": "repo:src/slots.py"}))
+                if expected:
+                    validated = validate_task_brief(task, snapshot.digest, policy)
+                    self.assertIn(candidate, validated["authority"]["capabilities"])
+                    self.assertIn(candidate, effective_role_capabilities(policy, validated, "senior_engineer"))
+                else:
+                    with self.assertRaisesRegex(ContractError, "POLICY_AUTHORITY_EXCEEDED"):
+                        validate_task_brief(task, snapshot.digest, policy)
+                self.assertFalse(capability_within({**candidate, "target_ref": "repo:SRC-other/slots.py"}, outer))
+                external = {"effect": "external_read", "action": "inspect", "target_ref": "Service"}
+                self.assertFalse(capability_within({**external, "target_ref": "service"}, external))
+                with self.assertRaises(ContractError):
+                    capability_within({**candidate, "target_ref": "repo:SRC/../secret.py"}, outer)
+        self.assertEqual("repo:SRC/slots.py", candidate["target_ref"])
+
+    def test_narrowing_refuses_parent_sibling_action_scheme_and_nonfilesystem_prefixes(self):
+        ceiling = {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:src/feature/"}
+        for changes in (
+            {"target_ref": "repo:src/"}, {"target_ref": "repo:src/feature2/file.py"},
+            {"target_ref": "runtime:artifacts/src/feature/file.py"}, {"action": "delete"},
+        ):
+            with self.subTest(changes=changes):
+                self.assertFalse(capability_within({**ceiling, **changes}, ceiling))
+        exact = {**ceiling, "target_ref": "repo:src/file.py"}
+        self.assertFalse(capability_within({**exact, "target_ref": "repo:src/file.py/child"}, exact))
+        for effect in ("command", "external_read", "external_write"):
+            outer = {"effect": effect, "action": "run", "target_ref": "service"}
+            self.assertFalse(capability_within({**outer, "target_ref": "service-child"}, outer))
+
+    def test_narrowing_rejects_ambiguous_sensitive_hashed_and_custom_denied_paths(self):
+        policy, snapshot = load_policy(self.repo)
+        policy["denied_patterns"] += ["**/private.txt"]
+        for target in (
+            "repo:src/../docs/file.py", "repo:src\\file.py", "repo:src//file.py",
+            "repo:src/*.py", "repo:src/[a].py", "repo:src/file.py#sha256=" + "a" * 64,
+            "repo:src/file.py:stream", "repo:src/file.py.", "repo:src/.git/config",
+            "repo:src/.env", "repo:src/private.txt",
+        ):
+            with self.subTest(target=target), self.assertRaises(ContractError):
+                task = self.task()
+                task["authority"]["capabilities"].append({
+                    "effect": "filesystem_read", "action": "read", "target_ref": target})
+                validate_task_brief(task, snapshot.digest, policy)

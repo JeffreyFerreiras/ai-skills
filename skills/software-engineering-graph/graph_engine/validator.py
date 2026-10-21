@@ -13,7 +13,7 @@ from .contracts import (
     ContractError, authoritative_task_subset, bounded_string, digest, is_actionable_finding, opaque,
     safe_json_snapshot, validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
 )
-from .config import engine_version_compatible, version_tuple
+from .config import engine_version_compatible, version_tuple, validate_task_capability_paths
 from .evidence import reverify_artifact
 from .execution import CODE_REVIEW_PANEL, reconstruct_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST
@@ -1706,8 +1706,15 @@ def _verify_semantic_state(
     snapshot = safe_json_snapshot(task_path, roots, policy["artifact_kinds"]["task_brief"]["max_bytes"])
     if snapshot.digest != run["task_digest"]:
         raise StateError("INPUT_DIGEST_MISMATCH")
-    full_task = validate_task_brief(snapshot.parsed, run["policy_digest"], policy)
     task = json.loads(run["task_json"])
+    execution_plan = _validate_execution_plan(connection, run, task)
+    full_task = validate_task_brief(
+        snapshot.parsed, run["policy_digest"], policy,
+        execution_plan.get("capability_projection_version"),
+    )
+    validate_task_capability_paths(
+        repo, full_task, policy, selected_root, execution_plan.get("capability_projection_version"),
+    )
     expected_task = authoritative_task_subset(full_task)
     stored_evidence = task.get("evidence_paths", [])
     if [ref.split("#sha256=", 1)[0] for ref in stored_evidence] != sorted(full_task["evidence_paths"]):
@@ -1717,7 +1724,6 @@ def _verify_semantic_state(
         raise StateError("TASK_METADATA_INVALID")
     _validate_budget_state(connection, run, task, policy)
     _validate_operation_ledger(connection, run)
-    _validate_execution_plan(connection, run, task)
     _validate_nodes(connection, run, task, policy)
     _validate_joins(connection, run, policy)
     _validate_reconstructed_graph(connection, run)

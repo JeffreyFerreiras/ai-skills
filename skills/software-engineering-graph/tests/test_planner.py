@@ -1,11 +1,16 @@
 import json
+import ntpath
 from pathlib import Path
+from unittest.mock import patch
 
 from graph_engine.config import load_policy
 from graph_engine.execution import (
     CODE_REVIEW_PANEL, assignment_for, build_execution_plan, reconstruct_execution_plan,
 )
 from graph_engine.hosts import DEFAULT_HOST, MUSE_MODEL
+from graph_engine.ids import canonical_bytes, sha256_bytes
+from graph_engine.config import role_capability_allowed
+from graph_engine.contracts import ContractError, validate_task_brief
 from graph_engine.planner import (
     NodeSpec, delivery_review_nodes, design_research_nodes, design_review_nodes,
     envelope, initial_route_nodes,
@@ -15,6 +20,112 @@ from tests.test_support import GraphCase
 
 
 class PlannerTests(GraphCase):
+    def test_case_identity_is_rechecked_on_status_resume_and_dispatch(self):
+        (self.repo / "src").mkdir()
+        task = self.task(route="fast_path")
+        task["authority"]["capabilities"].append({
+            "effect": "filesystem_write", "action": "edit", "target_ref": "repo:SRC/new.py"})
+        # Model a directory identity changing after approval. No stored input,
+        # policy, plan, envelope, or approval is rewritten to create this case.
+        with patch("graph_engine.contracts.os.path.normcase", ntpath.normcase):
+            with patch("graph_engine.config.os.path.samefile", return_value=False), self.assertRaisesRegex(
+                ContractError, "CAPABILITY_CASE_IDENTITY_UNPROVEN",
+            ):
+                self.initialize_task(task, approve=False)
+            with patch("graph_engine.config.os.path.samefile", return_value=True):
+                self.initialize_task(task)
+                self.impact("fast_path")
+                self.graphctl("status", "--run-id", "RUN-1")
+
+            def immutable_rows():
+                with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                    return ([tuple(row) for row in connection.execute(
+                        "SELECT plan_json,plan_digest,approval_digest FROM execution_plans")],
+                            [tuple(row) for row in connection.execute(
+                        "SELECT branch_id,envelope_json FROM nodes ORDER BY branch_id")],
+                            [tuple(row) for row in connection.execute("SELECT task_json FROM runs")])
+
+            before = immutable_rows()
+            with patch("graph_engine.config.os.path.samefile", return_value=False):
+                for command in (("status",), ("--ack-degraded-permissions", "--ack-degraded-durability", "resume"),
+                                ("next", "--claim", "--op-id", "case-claim")):
+                    with self.subTest(command=command), self.assertRaisesRegex(
+                        ContractError, "CAPABILITY_CASE_IDENTITY_UNPROVEN",
+                    ):
+                        self.graphctl(*command, "--run-id", "RUN-1")
+            self.assertEqual(before, immutable_rows())
+
+    def test_frozen_legacy_creation_survives_new_status_resume_without_envelope_rewrite(self):
+        # Freeze pre-containment creation, then exercise the current validator.
+        # All persisted rows still come from real CLI transitions and approvals.
+        def legacy_plan(*args, **kwargs):
+            plan = build_execution_plan(*args, **kwargs)
+            plan.pop("capability_projection_version")
+            plan.pop("plan_digest")
+            plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
+            return plan
+
+        def legacy_projection(policy, task, role, *unused):
+            approved = {(cap["effect"], cap["action"], cap["target_ref"])
+                        for cap in task["authority"]["capabilities"]}
+            return sorted([dict(cap) for cap in policy["role_capabilities"].get(role, [])
+                           if role_capability_allowed(policy, role, cap)
+                           and (cap["effect"], cap["action"], cap["target_ref"]) in approved],
+                          key=lambda cap: (cap["effect"], cap["action"], cap["target_ref"]))
+
+        from tests.test_reviewer_delegation import policy_config, task_config
+        policy_path = self.repo / ".codex/engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["reviewer_delegation"] = policy_config()
+        policy_assignment = policy["reviewer_delegation"]["assignments"][0]
+        policy_assignment.update(role="security_reviewer", scope_refs=["repo:docs/technical-designs/"])
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        task = self.task(route="fast_path")
+        task["reviewer_delegation"] = task_config()
+        task["reviewer_delegation"]["assignments"][0]["scope_refs"] = ["repo:docs/technical-designs/"]
+        task["authority"]["capabilities"] += [
+            {"effect": "filesystem_write", "action": "edit", "target_ref": target}
+            for target in ("repo:docs/technical-designs/", "repo:src/")]
+        task["authority"]["capabilities"].append({
+            "effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/technical-designs/"})
+
+        def legacy_task(*args):
+            result = validate_task_brief(*args)
+            for assignment in result["reviewer_delegation"]["assignments"]:
+                assignment["effect_capabilities"] = [
+                    cap for cap in legacy_projection(args[2], result, assignment["role"])
+                    if cap["effect"] in {"filesystem_read", "external_read"}
+                    and cap["target_ref"] in assignment["scope_refs"]]
+            return result
+
+        with patch("graph_engine.cli.build_execution_plan", legacy_plan), patch(
+            "graph_engine.planner.effective_role_capabilities", legacy_projection,
+        ), patch("graph_engine.cli.validate_task_brief", legacy_task,
+        ):
+            initialized = self.initialize_task(task)
+            self.impact("fast_path")
+            writer = self.claim()
+        self.assertEqual(["repo:src/"], [cap["target_ref"] for cap in writer["effect_capabilities"]
+                                        if cap["effect"] == "filesystem_write"])
+
+        def frozen_rows():
+            with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                return ([tuple(row) for row in connection.execute(
+                    "SELECT plan_json,plan_digest,approval_digest FROM execution_plans")],
+                        [tuple(row) for row in connection.execute(
+                    "SELECT branch_id,envelope_json FROM nodes ORDER BY branch_id")],
+                        [tuple(row) for row in connection.execute("SELECT task_json FROM runs")])
+
+        before = frozen_rows()
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertNotIn("capability_projection_version", status["execution_plan"])
+        self.assertEqual([], status["execution_plan"]["conditional_review_assignments"][0]["effect_capabilities"])
+        self.assertEqual(initialized["execution_plan_digest"], status["execution_plan"]["plan_digest"])
+        self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume", "--run-id", "RUN-1")
+        self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(before, frozen_rows())
+
     def test_new_panel_binds_four_independent_scopes_and_model_selections(self):
         from graph_engine.contracts import validate_task_brief
         from tests.test_contracts import _validate_json_schema

@@ -285,6 +285,7 @@ def build_execution_plan(
     return _build_execution_plan(
         run_id, task, requested_size, host, revision, panel_version=1,
         simplification_version=1 if task["request_mode"] == "delivery" else None,
+        capability_projection_version=1,
     )
 
 
@@ -302,6 +303,11 @@ def reconstruct_execution_plan(
     if "code_review_panel_version" in stored_plan and (type(panel_version) is not int or panel_version != 1):
         raise ValueError("CODE_REVIEW_PANEL_VERSION_INVALID")
     simplification_version = stored_plan.get("simplification_review_version")
+    projection_version = stored_plan.get("capability_projection_version")
+    if "capability_projection_version" in stored_plan and (
+        type(projection_version) is not int or projection_version != 1
+    ):
+        raise ValueError("CAPABILITY_PROJECTION_VERSION_INVALID")
     if "simplification_review_version" in stored_plan and (
         type(simplification_version) is not int or simplification_version != 1
         or task["request_mode"] != "delivery"
@@ -309,6 +315,7 @@ def reconstruct_execution_plan(
         raise ValueError("SIMPLIFICATION_REVIEW_VERSION_INVALID")
     return _build_execution_plan(
         run_id, task, requested_size, host, revision, panel_version, simplification_version,
+        projection_version,
     )
 
 
@@ -317,6 +324,7 @@ def _build_execution_plan(
     host: str, catalog_revision: Optional[int],
     panel_version: Optional[int] = None,
     simplification_version: Optional[int] = None,
+    capability_projection_version: Optional[int] = None,
 ) -> Dict[str, Any]:
     task_schema_version = task["schema_version"]
     if task_schema_version == 1:
@@ -469,6 +477,8 @@ def _build_execution_plan(
         }
         if catalog_revision == 9 and model == MUSE_MODEL:
             plan["simplification_assignment"]["dispatch_runtime"] = "opencode-cli"
+    if capability_projection_version is not None:
+        plan["capability_projection_version"] = capability_projection_version
     plan["plan_digest"] = sha256_bytes(canonical_bytes(plan))
     return plan
 

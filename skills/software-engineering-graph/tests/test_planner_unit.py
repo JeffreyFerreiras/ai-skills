@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from graph_engine.execution import (
     CLASS_ASSIGNMENTS, SIZE_ASSIGNMENTS, assignment_for, build_execution_plan,
@@ -9,7 +10,7 @@ from graph_engine.hosts import (
     resolve_assignment, supported_dispatch_weights, selected_dispatch_model, MUSE_MODEL,
 )
 from graph_engine.ids import stable_id
-from graph_engine.planner import validate_fanout_ordering
+from graph_engine.planner import validate_fanout_ordering, effective_role_capabilities
 
 from tests.test_support import TaskCase
 
@@ -61,6 +62,28 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerUnitTests(TaskCase):
+    def test_projection_version_is_approval_bound_and_unknown_versions_fail_closed(self):
+        task = self.task()
+        plan = build_execution_plan("RUN-1", task)
+        self.assertEqual(1, plan["capability_projection_version"])
+        self.assertEqual(plan, reconstruct_execution_plan("RUN-1", task, plan))
+        for version in (None, 0, 2, True, "1"):
+            with self.subTest(version=version), self.assertRaisesRegex(ValueError, "CAPABILITY_PROJECTION_VERSION_INVALID"):
+                reconstruct_execution_plan("RUN-1", task, {**plan, "capability_projection_version": version})
+
+    def test_role_projection_retains_exact_approved_files_under_directory_ceilings(self):
+        policy = json.loads(self.policy_bytes)
+        grants = [{"effect": "filesystem_write", "action": "edit", "target_ref": target}
+                  for target in ("repo:src/slots.py", "repo:src/test_slots.py")]
+        task = self.task()
+        task["authority"]["capabilities"] += grants
+        engineer = effective_role_capabilities(policy, task, "senior_engineer")
+        self.assertEqual(grants, [item for item in engineer if item["effect"] == "filesystem_write"])
+        self.assertFalse(any(item["target_ref"] == "repo:src/" for item in engineer))
+        for role in ("code_reviewer", "security_reviewer", "tech_lead"):
+            self.assertFalse(any(item["effect"] == "filesystem_write"
+                                 for item in effective_role_capabilities(policy, task, role)))
+
     def test_simplification_assignment_is_bound_separately_from_delivery_panel(self):
         for host in known_hosts():
             for task in (self.task(), self.task_v2(route="fast_path"), self.task_delivery_only()):
@@ -575,7 +598,8 @@ class PlannerUnitTests(TaskCase):
             revised = reconstruct_execution_plan("RUN-1", self.task(),
                                                  {"host": host, "catalog_revision": revision,
                                                   "code_review_panel_version": 1,
-                                                  "simplification_review_version": 1})
+                                                  "simplification_review_version": 1,
+                                                  "capability_projection_version": 1})
             self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):

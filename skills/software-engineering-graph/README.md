@@ -454,6 +454,10 @@ cannot be isolated.
   checks when the delegation contract changes.
 - Helper registers, check execution, and evidence handling: affected cases in
   `tests.test_graph_hardening` and `tests.test_contracts`.
+- Daily repair rehearsal and merge evidence decisions: `python -m unittest -v
+  tests.test_daily_workflow`. This entry uses disposable repositories, real graph transitions,
+  local check receipts, and synthetic worker reports. It does not launch models, publish,
+  merge, deploy, or schedule anything. See [daily workflow](references/daily-workflow.md).
 
 Follow the changed code into its callers when selecting cases. The planner unit module
 alone does not verify ledger behavior. Reuse passing results while the relevant code,

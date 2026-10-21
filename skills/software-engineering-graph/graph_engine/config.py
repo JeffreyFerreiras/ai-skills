@@ -10,7 +10,8 @@ from typing import Any, Dict, Mapping, Optional, Set, Tuple
 from . import ENGINE_VERSION
 from .contracts import (
     ContractError, EFFECTS, RISK_TAGS, Snapshot, ensure_safe_components, lexical_relative,
-    opaque, require_keys, safe_json_snapshot, validate_ref,
+    opaque, require_keys, safe_json_snapshot, validate_ref, filesystem_capability_target,
+    projected_capability_within,
 )
 from .reviewer_delegation import validate_policy_config
 from .ids import canonical_bytes, sha256_bytes
@@ -246,6 +247,55 @@ def _repository_target(repo: Path, target: str, denied_patterns: Any) -> str:
     except ValueError:
         raise ContractError("capability.target_ref", "OUTSIDE_REPOSITORY")
     return "repo:" + relative
+
+
+def validate_task_capability_paths(
+    repo: Path, task: Mapping[str, Any], policy: Mapping[str, Any], runtime_root: Optional[Path] = None,
+    capability_projection_version: Optional[int] = 1,
+) -> None:
+    """Recheck actual repository paths at planning and resume boundaries."""
+    for capability in task["authority"]["capabilities"]:
+        if capability["effect"].startswith("filesystem"):
+            target = filesystem_capability_target(capability["target_ref"], policy["denied_patterns"])
+            if target.startswith("repo:"):
+                _repository_target(repo, target, policy["denied_patterns"])
+            elif target.startswith("runtime:") and runtime_root is not None:
+                candidate = runtime_root / target[len("runtime:"):].rstrip("/")
+                ensure_safe_components(candidate, runtime_root)
+                try:
+                    candidate.resolve(strict=False).relative_to(runtime_root.resolve(strict=False))
+                except ValueError:
+                    raise ContractError("capability.target_ref", "OUTSIDE_ALLOWED_ROOT")
+            # Every projected role pair needs proof. A match in another role's
+            # policy union must not authorize a distinct case-sensitive sibling.
+            for ceilings in policy["role_capabilities"].values():
+                for ceiling in ceilings:
+                    if projected_capability_within(capability, ceiling, capability_projection_version):
+                        _prove_capability_case_identity(repo, runtime_root, target, ceiling["target_ref"])
+
+
+def _prove_capability_case_identity(
+    repo: Path, runtime_root: Optional[Path], target: str, outer: str,
+) -> None:
+    """OS-wide case folding is only a filter, not filesystem identity proof."""
+    if target == outer or (outer.endswith("/") and target.startswith(outer)):
+        return
+    scheme, relative = target.split(":", 1)
+    outer_scheme, outer_relative = outer.split(":", 1)
+    root = {"repo": repo, "runtime": runtime_root}.get(scheme)
+    if root is None or scheme != outer_scheme:
+        raise ContractError("capability.target_ref", "CAPABILITY_CASE_IDENTITY_UNPROVEN")
+    outer_parts = outer_relative.rstrip("/").split("/")
+    candidate_prefix = root.joinpath(*relative.rstrip("/").split("/")[:len(outer_parts)])
+    ceiling_path = root.joinpath(*outer_parts)
+    try:
+        ensure_safe_components(candidate_prefix, root)
+        ensure_safe_components(ceiling_path, root)
+        equivalent = os.path.samefile(candidate_prefix, ceiling_path)
+    except (OSError, ValueError):
+        equivalent = False
+    if not equivalent:
+        raise ContractError("capability.target_ref", "CAPABILITY_CASE_IDENTITY_UNPROVEN")
 
 
 def _runtime_target(target: str, roots: Any) -> str:
