@@ -11,8 +11,12 @@ script approval before resynthesis.
 
 ## Preferred engine and voice identity
 
-Prefer MOSS-TTS Local Transformer v1.5 for new narration when the brief leaves the
-engine open. Keep Qwen3-TTS as a fallback; record that decision and review its
+For the Core Ultra 9 / RTX 5070 laptop, use the
+[hardware-aware Kokoro/OpenVINO path](laptop-narration.md) to evaluate local
+narration with validated NPU execution or bounded CPU fallback. It does not
+inherit the GPU measurements below or establish a new accepted voice. Retain
+MOSS-TTS Local Transformer v1.5 for the established GPU workflow when the brief
+leaves the engine open. Keep Qwen3-TTS as its fallback; record that decision and review its
 representative sample before full production. Do not silently switch engines
 within an approved performance or rerender completed videos.
 
