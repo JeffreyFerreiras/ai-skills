@@ -1,11 +1,13 @@
 """Strict, bounded graph input contracts."""
 
 import json
+import fnmatch
 import os
 import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .ids import sha256_bytes
@@ -279,6 +281,56 @@ def validate_ref(value: Any, field: str, content_required: bool = False) -> str:
     return text
 
 
+def filesystem_capability_target(target: str, denied_patterns: Sequence[str] = ()) -> str:
+    """Validate a literal capability path, rather than a content-addressed reference."""
+    validate_ref(target, "capability.target_ref")
+    if target.startswith(("repo:", "runtime:")):
+        prefix, relative = target.split(":", 1)
+    elif target.startswith("profile:software-engineering-graph/"):
+        prefix, relative = "profile", target[len("profile:"):]
+    else:
+        raise ContractError("capability.target_ref", "FILESYSTEM_REF_REQUIRED")
+    if (lexical_relative(relative, "capability.target_ref") != relative
+            or any(character in relative for character in "*?[]{}#:")
+            or any(part.endswith((".", " ")) for part in relative.rstrip("/").split("/"))):
+        raise ContractError("capability.target_ref", "NON_LITERAL_CAPABILITY_PATH")
+    if prefix == "repo":
+        normalized = relative.lower()
+        if normalized.startswith((".codex/", ".agents/", ".claude/", ".cursor/")):
+            raise ContractError("capability.target_ref", "PROFILE_OR_POLICY_ROOT_FORBIDDEN")
+        for pattern in denied_patterns:
+            lowered = pattern.lower()
+            if (fnmatch.fnmatchcase(normalized, lowered)
+                    or fnmatch.fnmatchcase("/" + normalized, lowered)
+                    or PurePosixPath(normalized).match(lowered)):
+                raise ContractError("capability.target_ref", "SENSITIVE_PATH")
+    return target
+
+
+def capability_within(candidate: Mapping[str, str], ceiling: Mapping[str, str]) -> bool:
+    """Filter lexical containment; config proves case-only filesystem matches."""
+    if (candidate["effect"], candidate["action"]) != (ceiling["effect"], ceiling["action"]):
+        return False
+    target, outer = candidate["target_ref"], ceiling["target_ref"]
+    if not candidate["effect"].startswith("filesystem"):
+        return target == outer
+    filesystem_capability_target(target)
+    filesystem_capability_target(outer)
+    target_path, outer_path = os.path.normcase(target), os.path.normcase(outer)
+    return target_path == outer_path or (outer.startswith(("repo:", "runtime:"))
+                                         and outer.endswith("/") and target_path.startswith(outer_path))
+
+
+def projected_capability_within(candidate: Mapping[str, str], ceiling: Mapping[str, str],
+                                version: Optional[int]) -> bool:
+    """Keep unversioned approvals on their original exact intersection."""
+    if version is None:
+        return dict(candidate) == dict(ceiling)
+    if type(version) is not int or version != 1:
+        raise ValueError("CAPABILITY_PROJECTION_VERSION_INVALID")
+    return capability_within(candidate, ceiling)
+
+
 def _unique_strings(values: Any, field: str, allowed: Optional[Set[str]] = None) -> List[str]:
     if not isinstance(values, list):
         raise ContractError(field, "INVALID_LIST")
@@ -404,7 +456,8 @@ def validate_fanout_assessment(
     }
 
 
-def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any]) -> Dict[str, Any]:
+def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any],
+                        capability_projection_version: Optional[int] = 1) -> Dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("task_brief", "INVALID_OBJECT")
     required = {
@@ -566,11 +619,11 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
         raise ContractError("authority.capabilities", "INVALID_LIST")
     canonical_capabilities = []
     command_ids = {check["command_id"] for check in policy["required_checks"].values()}
-    policy_capabilities = {
-        (cap["effect"], cap["action"], cap["target_ref"])
+    policy_capabilities = [
+        cap
         for capabilities_for_role in policy["role_capabilities"].values()
         for cap in capabilities_for_role
-    }
+    ]
     for cap in capabilities:
         if not isinstance(cap, dict):
             raise ContractError("authority.capabilities", "INVALID_OBJECT")
@@ -578,11 +631,11 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
         if cap["effect"] not in EFFECTS:
             raise ContractError("capability.effect", "UNKNOWN_VALUE")
         action = opaque(cap["action"], "capability.action")
-        target = validate_ref(cap["target_ref"], "capability.target_ref") if cap["effect"].startswith("filesystem") else opaque(cap["target_ref"], "capability.target_ref")
+        target = (filesystem_capability_target(cap["target_ref"], policy["denied_patterns"])
+                  if cap["effect"].startswith("filesystem") else opaque(cap["target_ref"], "capability.target_ref"))
         if cap["effect"] == "command" and target not in command_ids:
             raise ContractError("capability.target_ref", "UNKNOWN_COMMAND_TARGET")
-        capability_tuple = (cap["effect"], action, target)
-        if capability_tuple not in policy_capabilities:
+        if not any(capability_within(cap, ceiling) for ceiling in policy_capabilities):
             raise ContractError("authority.capabilities", "POLICY_AUTHORITY_EXCEEDED")
         if mode == "advisory" and cap["effect"] not in {"filesystem_read", "external_read"}:
             raise ContractError("authority.capabilities", "ADVISORY_MUST_BE_READ_ONLY")
@@ -625,15 +678,12 @@ def validate_task_brief(value: Any, policy_digest: str, policy: Mapping[str, Any
         result["helper_allowance"] = dict(value["helper_allowance"])
     if reviewer_delegation is not None:
         for assignment in reviewer_delegation["assignments"]:
-            role_caps = {
-                (cap["effect"], cap["action"], cap["target_ref"])
-                for cap in policy["role_capabilities"].get(assignment["role"], [])
-                if cap["effect"] in {"filesystem_read", "external_read"}
-                and cap["target_ref"] in assignment["scope_refs"]
-            }
             assignment["effect_capabilities"] = [
                 cap for cap in result["authority"]["capabilities"]
-                if (cap["effect"], cap["action"], cap["target_ref"]) in role_caps
+                if cap["effect"] in {"filesystem_read", "external_read"}
+                and cap["target_ref"] in assignment["scope_refs"]
+                and any(projected_capability_within(cap, ceiling, capability_projection_version)
+                        for ceiling in policy["role_capabilities"].get(assignment["role"], []))
             ]
         result["reviewer_delegation"] = reviewer_delegation
     return result

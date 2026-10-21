@@ -16,7 +16,7 @@ from .checks import (configured_check, run_check, validate_check_receipt, valida
                      capture_evidence_source, source_roots, source_path_contains, evidence_activation,
                      reservation_states, verify_check_fence, current_review_binding, verify_review_source,
                      receipt_eligibility, prepare_generated_outputs, verify_generated_outputs)
-from .config import branch_lease_seconds, load_policy
+from .config import branch_lease_seconds, load_policy, validate_task_capability_paths
 from .contracts import (
     ContractError, Snapshot, authoritative_task_subset, bounded_string, digest, is_actionable_finding,
     lexical_relative, opaque, require_keys, safe_json_snapshot, validate_fanout_assessment, validate_impact_map,
@@ -666,6 +666,7 @@ def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mappin
         Path(args.task_brief), _task_roots(repo, policy, runtime_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]
     )
     full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy)
+    validate_task_capability_paths(repo, full_task, policy, runtime_root)
     if full_task["schema_version"] == 3:
         allowance = full_task["helper_allowance"]
         allowance_snapshot = safe_json_snapshot(
@@ -2542,6 +2543,42 @@ def _repair_packet(connection, run, branch, judgment=None):
     return packet
 
 
+def _blocked_recovery_guidance(connection, run):
+    """Explain terminal decisions without granting a retry or changing authority."""
+    if run["status"] != "blocked":
+        return None
+    origins = []
+    for branch in connection.execute(
+        "SELECT * FROM nodes WHERE run_id=? AND depth=0 ORDER BY branch_id", (run["run_id"],)
+    ):
+        result = json.loads(branch["result_json"] or "{}")
+        if result.get("decision") != "BLOCK" and result.get("outcome") != "BLOCK":
+            continue
+        origins.append({
+            "branch_id": branch["branch_id"], "gate": branch["node_key"],
+            "generation": branch["generation"], "result_ref": _ledger_input(connection, branch),
+            "findings": result.get("findings", []),
+        })
+    equivalent_review = (
+        run["state_schema_version"] == 6
+        and run["blocked_reason"] == "MISSING_REQUIRED_REVIEW_SKILL"
+    )
+    return {
+        "blocked_reason": run["blocked_reason"],
+        "next_step": "inspect_equivalent_review_authorization" if equivalent_review else "new_plan_required",
+        "origins": origins,
+        "requirements": [
+            "Preserve this blocked run and its evidence.",
+            "Resolve the reported gate findings before proposing a successor task.",
+            "Keep successor capabilities within the approved repository policy; scope text grants no access.",
+            "Obtain approval for the successor execution plan and rerun its required independent gates.",
+        ] if not equivalent_review else [
+            "Inspect recover authorization requirements; recovery is limited to the equivalent review skill.",
+            "Preserve the original capabilities and mandatory architecture review.",
+        ],
+    }
+
+
 def command_recovery(connection, run, branch_id=None):
     branches = connection.execute("SELECT * FROM nodes WHERE run_id=? AND depth=0 ORDER BY branch_id", (run["run_id"],)).fetchall()
     packets = [_repair_packet(connection, run, branch) for branch in branches
@@ -2550,7 +2587,8 @@ def command_recovery(connection, run, branch_id=None):
                        and any(item["kind"] == "failure" for item in json.loads(branch["envelope_json"])["inputs"])))]
     if branch_id and not packets:
         raise StateError("BRANCH_NOT_FOUND")
-    return _json_result(True, "RECOVERY", run["run_id"], run["state_revision"], packets=packets)
+    return _json_result(True, "RECOVERY", run["run_id"], run["state_revision"], packets=packets,
+                        blocked_recovery=_blocked_recovery_guidance(connection, run))
 
 
 def command_recover(
@@ -2707,7 +2745,10 @@ def _evidence_status(connection, run):
 
 def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict[str, Any]:
     if run["status"] in {"blocked", "complete", "aborted"}:
-        return {"kind": run["status"]}
+        action = {"kind": run["status"]}
+        if run["status"] == "blocked":
+            action["recovery"] = _blocked_recovery_guidance(connection, run)
+        return action
     plan = connection.execute(
         "SELECT size,plan_digest,status FROM execution_plans WHERE run_id=?", (run["run_id"],)
     ).fetchone()

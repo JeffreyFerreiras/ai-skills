@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 
 from .ids import stable_id
 from .config import ENGINE_RESEARCH_NODES, role_capability_allowed
+from .contracts import projected_capability_within
 from .execution import CODE_REVIEW_PANEL, assignment_for, build_execution_plan
 
 
@@ -250,17 +251,19 @@ def _as_spec(row: Mapping[str, Any]) -> NodeSpec:
 
 def effective_role_capabilities(
     policy: Mapping[str, Any], task: Mapping[str, Any], role: str,
+    capability_projection_version: Optional[int] = 1,
 ) -> List[Dict[str, str]]:
     """Return the approved task/policy/role capability intersection for a role."""
     authority = task["authority"]["capabilities"]
-    configured = {
-        (cap["effect"], cap["action"], cap["target_ref"])
+    configured = [
+        cap
         for cap in policy["role_capabilities"].get(role, [])
         if role_capability_allowed(policy, role, cap)
-    }
+    ]
     capabilities = [
         dict(cap) for cap in authority
-        if (cap["effect"], cap["action"], cap["target_ref"]) in configured
+        if any(projected_capability_within(cap, ceiling, capability_projection_version)
+               for ceiling in configured)
     ]
     return sorted(
         capabilities,
@@ -282,7 +285,9 @@ def envelope(
     template = node_template(policy, spec.key)
     plan = execution_plan or build_execution_plan(run_id, task)
     assignment = assignment_for(plan, spec.key)
-    effective_capabilities = effective_role_capabilities(policy, task, spec.role)
+    effective_capabilities = effective_role_capabilities(
+        policy, task, spec.role, plan.get("capability_projection_version"),
+    )
     capabilities = [
         cap for cap in effective_capabilities
         if (spec.stage not in {"advisory", "research"}

@@ -1,5 +1,7 @@
 import copy
 import json
+import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +20,28 @@ from tests.test_support import GraphCase
 
 
 class ValidatorTests(GraphCase):
+    def test_narrow_task_path_link_escape_is_rechecked_on_plan_and_resume(self):
+        (self.repo / "src").mkdir()
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "file.py").write_text("outside", encoding="utf-8")
+        task = self.task()
+        task["authority"]["capabilities"].append({
+            "effect": "filesystem_read", "action": "read", "target_ref": "repo:src/linked/file.py"})
+        self.initialize_task(task)
+        link = self.repo / "src/linked"
+        if os.name == "nt":
+            subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(outside)],
+                           check=True, capture_output=True)
+        else:
+            link.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ContractError, "LINK_OR_REPARSE_POINT"):
+            self.graphctl("status", "--run-id", "RUN-1")
+        with self.assertRaisesRegex(ContractError, "LINK_OR_REPARSE_POINT"):
+            self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        with self.assertRaisesRegex(ContractError, "LINK_OR_REPARSE_POINT"):
+            self.graphctl("plan", "--run-id", "RUN-NEW", "--task-brief", str(self.repo / "docs/task.json"))
+
     def test_codex_and_cursor_legacy_writer_approval_survives_resume_and_claim(self):
         for index, host in enumerate(("codex", "cursor")):
             if index:
@@ -85,6 +109,13 @@ class ValidatorTests(GraphCase):
         initialized = self.initialize(host="codex-astra", size="small")
         original = initialized["execution_plan"]
         mutations = []
+        for marker in (None, True, 0, 2, "1"):
+            changed = copy.deepcopy(original)
+            changed["capability_projection_version"] = marker
+            mutations.append((changed, "EXECUTION_PLAN_STATE_INVALID"))
+        changed = copy.deepcopy(original)
+        changed.pop("capability_projection_version")
+        mutations.append((changed, "EXECUTION_PLAN_APPROVAL_INVALID"))
         for field, value in (("model", "gpt-5.6-luna"), ("reasoning_effort", "high"),
                              ("intelligence_class", "economy"), ("dispatch_model", "gpt-5.6-luna")):
             changed = copy.deepcopy(original)
