@@ -21,6 +21,223 @@ from tests.test_contracts import _validate_json_schema
 
 
 class GraphHardeningTests(GraphCase):
+    def test_format7_equivalent_review_recovery_across_delivery_repair(self):
+        policy_path = self.repo / ".codex/engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["required_checks"]["repo-check"]["argv"] = [sys.executable, "-c",
+            "from pathlib import Path; a=Path('docs/source-a.txt').read_text(); "
+            "b=Path('docs/source-b.txt').read_text(); assert a == b and a in {'initial', 'repaired'}"]
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        paths = ["docs/source-a.txt", "docs/source-b.txt"]
+        for path in paths:
+            (self.repo / path).write_text("initial", encoding="utf-8")
+        task = self.task(route="fast_path")
+        task["scope"] = {"included": ["repo:" + path for path in paths], "excluded": []}
+        writes = [{"effect": "filesystem_write", "action": "edit", "target_ref": "repo:" + path} for path in paths]
+        task["authority"]["capabilities"] = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:" + path} for path in paths] + writes + [
+            {"effect": "command", "action": "run", "target_ref": "npm-run-check"}]
+        self.initialize_task(task)
+        self.impact("fast_path")
+        # Synthetic role reports exercise the protocol; the local check reads both real files.
+        failure_evidence = self.repo_artifact("failure", "synthetic-missing-review-skill")
+        authorization_evidence = self.repo_artifact("delivery_review", "synthetic-equivalence-approval")
+        block = self.control_manifest("block", "MISSING_REQUIRED_REVIEW_SKILL")
+        for arguments in [("init",), ("add", "."),
+                          ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": paths, "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(coverage), "--op-id", "enable")
+        selected = None
+        preserved = {}
+        authorizations = []
+        writers = []
+
+        def artifact_bytes(ref):
+            with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                return connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (ref,)).fetchone()[0]
+
+        def ledger_snapshot():
+            with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                return tuple(connection.iterdump())
+
+        def checks(executor, writer, operation, predecessor=None):
+            args = ["check", "run", "--run-id", "RUN-1", "--check-id", "repo-check",
+                "--executor-branch-id", executor["branch_id"], "--executor-attempt-id", executor["attempt_id"],
+                "--executor-claim-token", executor["claim_token"], "--source-branch-id", writer["branch_id"],
+                "--source-attempt-id", writer["attempt_id"], "--source-claim-digest", writer["claim_digest"], "--op-id", operation]
+            if predecessor:
+                args += ["--replace-ref", predecessor]
+            return self.graphctl(*args)
+
+        for generation in range(2):
+            writer = self.claim_raw()
+            writers.append(writer)
+            self.assertEqual(("senior_engineer", generation), (writer["node_key"], writer["generation"]))
+            self.assertEqual(writes, [item for item in writer["effect_capabilities"] if item["effect"] == "filesystem_write"])
+            if generation:
+                for path in paths:
+                    (self.repo / path).write_text("repaired", encoding="utf-8")
+                before = ledger_snapshot()
+                with self.assertRaisesRegex(StateError, "ATTEMPT_FENCE_MISMATCH"):
+                    checks(writers[0], writers[0], "stale-writer", selected)
+                self.assertEqual(before, ledger_snapshot())
+            checked = checks(writer, writer, "writer-check-" + str(generation), selected)
+            self.assertEqual("PASS", checked["outcome"])
+            selected = checked["artifact_ref"]
+            preserved[selected] = artifact_bytes(selected)
+            self.success(writer, "IMPLEMENTED")
+            self.advance("implementation", generation)
+            fanout = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["fanouts"]
+                if item["stage"] == "delivery" and item["generation"] == generation)
+            assessment = self.inbox_manifest({"schema_version": 1, "kind": "fanout_assessment", "run_id": "RUN-1",
+                "fanout_id": fanout["fanout_id"], "members": [{"branch_id": member, "resources": {
+                    "writable_paths": [], "mutable_state_refs": [], "exclusive_device_refs": [], "services": []}}
+                    for member in fanout["member_branch_ids"]], "dependencies": [], "evidence": [authorization_evidence]})
+            self.graphctl("record", "fanout-assessment", "--run-id", "RUN-1", "--fanout-id", fanout["fanout_id"],
+                "--assessment-manifest", str(assessment), "--authority-ref", "authority:test", "--op-id", "assess-" + str(generation))
+            reviewers = [self.claim_raw() for _ in range(5)]
+            failed = next(item for item in reviewers if item["node_key"] == "code_reviewer_bug_hunter")
+            self.assertEqual("review-agent", failed["code_review_assignment"]["required_skill"])
+            self.assertNotIn("skill_override", failed["code_review_assignment"])
+            self.record(failed, {"schema_version": 1, "run_id": "RUN-1", "branch_id": failed["branch_id"],
+                "status": "failed", "output_kind": "delivery_review", "failure_code": "MISSING_REQUIRED_SKILL",
+                "evidence": [failure_evidence]})
+            self.graphctl("block", "--run-id", "RUN-1", "--reason-code", "MISSING_REQUIRED_REVIEW_SKILL",
+                "--evidence-manifest", str(block), "--op-id", "block-" + str(generation))
+            manifest = self._equivalent_review_authorization(failed, authorization_evidence)
+            preserved[manifest["failure_result_ref"]] = artifact_bytes(manifest["failure_result_ref"])
+            blocked = self.graphctl("status", "--run-id", "RUN-1")
+            self.assertEqual("inspect_equivalent_review_authorization", blocked["next_action"]["recovery"]["next_step"])
+            self.assertEqual("inspect_equivalent_review_authorization",
+                self.graphctl("recovery", "show", "--run-id", "RUN-1")["blocked_recovery"]["next_step"])
+
+            def recover(value, operation):
+                path = self.inbox_manifest(value)
+                return self.graphctl("recover", "--run-id", "RUN-1", "--branch-id", failed["branch_id"],
+                    "--reason-code", manifest["reason_code"], "--authority-ref", manifest["authority_ref"],
+                    "--recovery-manifest", str(path), "--op-id", operation)
+
+            if generation:
+                before = ledger_snapshot()
+                with self.assertRaisesRegex(ContractError, "AUTHORIZATION_MISMATCH"):
+                    recover(authorizations[0], "old-authorization")
+                self.assertEqual(before, ledger_snapshot())
+            else:
+                invalid = {
+                    "run_id": "WRONG-RUN", "task_digest": "a" * 64, "plan_digest": "b" * 64, "authority_ref": "authority:other",
+                    "branch_id": writer["branch_id"], "failure_result_ref": "ledger:wrong#sha256=" + "a" * 64,
+                    "prior_input_refs": [], "effect_capabilities_digest": "c" * 64,
+                    "failure_evidence": [], "evidence": [], "replacement_skill": "other-review",
+                    "required_skill": "other-review", "decision": "REJECT", "equivalence_basis": "automatic-fallback",
+                }
+                for field, value in invalid.items():
+                    before = ledger_snapshot()
+                    with self.subTest(field=field), self.assertRaises((StateError, ContractError)):
+                        recover({**manifest, field: value}, "invalid-" + field)
+                    self.assertEqual(before, ledger_snapshot())
+                    self.assertEqual(blocked["state_revision"], self.graphctl("status", "--run-id", "RUN-1")["state_revision"])
+                original = (self.repo / paths[0]).read_bytes()
+                (self.repo / paths[0]).write_text("stale", encoding="utf-8")
+                before = ledger_snapshot()
+                with self.assertRaisesRegex(StateError, "REVIEW_SOURCE_CHANGED"):
+                    recover(manifest, "stale-source")
+                self.assertEqual(before, ledger_snapshot())
+                self.assertEqual(blocked["state_revision"], self.graphctl("status", "--run-id", "RUN-1")["state_revision"])
+                (self.repo / paths[0]).write_bytes(original)
+            operation = "recover-" + str(generation)
+            recovered = recover(manifest, operation)
+            self.assertEqual("GRAPH_RECOVERED", recovered["code"])
+            before = ledger_snapshot()
+            self.assertEqual("REPLAYED", recover(manifest, operation)["code"])
+            with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+                recover({**manifest, "decision": "REJECT"}, operation)
+            self.assertEqual(before, ledger_snapshot())
+            authorizations.append(manifest)
+            self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+            architecture = next(item for item in self.graphctl("status", "--run-id", "RUN-1")["branches"]
+                if item["node_key"] == "code_reviewer_architecture" and item["generation"] == generation)
+            self.assertNotEqual("succeeded", architecture["status"])
+            retried = self.claim_raw()
+            self.assertEqual(failed["branch_id"], retried["branch_id"])
+            self.assertNotEqual(failed["attempt_id"], retried["attempt_id"])
+            self.assertEqual("bug-hunter-review", retried["code_review_assignment"]["required_skill"])
+            self.assertEqual(failed["effect_capabilities"], retried["effect_capabilities"])
+            before = ledger_snapshot()
+            with self.assertRaisesRegex(StateError, "ATTEMPT_FENCE_MISMATCH"):
+                self.record(failed, {"schema_version": 1, "run_id": "RUN-1", "branch_id": failed["branch_id"],
+                    "status": "failed", "output_kind": "delivery_review", "failure_code": "MISSING_REQUIRED_SKILL", "evidence": [failure_evidence]})
+            self.assertEqual(before, ledger_snapshot())
+            reviewers = [item for item in reviewers if item["branch_id"] != failed["branch_id"]] + [retried]
+            for reviewer in reviewers:
+                artifact = self.repo_artifact("delivery_review", reviewer["node_key"] + "-" + str(generation))
+                repair = generation == 0 and reviewer["node_key"] == "code_reviewer"
+                if reviewer["node_key"] == "test_engineer":
+                    before = ledger_snapshot()
+                    with self.assertRaisesRegex(StateError, "CHECK_PREDECESSOR_CONFLICT"):
+                        checks(reviewer, writer, "missing-predecessor-" + str(generation))
+                    first_receipt = next(iter(preserved))
+                    if selected != first_receipt:
+                        with self.assertRaises(StateError):
+                            checks(reviewer, writer, "stale-predecessor", first_receipt)
+                    self.assertEqual(before, ledger_snapshot())
+                    checked = checks(reviewer, writer, "tester-check-" + str(generation), selected)
+                    self.assertEqual("PASS", checked["outcome"])
+                    selected = checked["artifact_ref"]
+                    preserved[selected] = artifact_bytes(selected)
+                self.record(reviewer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": reviewer["branch_id"],
+                    "status": "succeeded", "output_kind": "delivery_review", "artifact_ref": artifact, "evidence": [],
+                    "decision": "REVISE" if repair else "APPROVE",
+                    "findings": [{"finding_id": "FIX-001", "disposition": "repair", "scope": "in_scope"}] if repair else []})
+            self.advance("delivery_collection", generation)
+            self.consolidation("delivery", "REPAIR" if generation == 0 else "ACCEPT", generation,
+                dispositions=[{"finding_id": "FIX-001", "disposition": "repair"}] if generation == 0 else [])
+            self.advance("delivery_consolidation", generation)
+        acceptance = self.repo_artifact("acceptance_evidence", "acceptance-1")
+        self.graphctl("record", "acceptance-evidence", "--run-id", "RUN-1", "--criterion-id", "AC-001",
+            "--artifact-ref", acceptance["ref"], "--artifact-sha256", acceptance["sha256"], "--op-id", "acceptance")
+        self.assertEqual("complete", self.graphctl("complete", "--run-id", "RUN-1", "--op-id", "complete")["status"])
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        before = ledger_snapshot()
+        with self.assertRaisesRegex(StateError, "TERMINAL_RUN"):
+            recover(manifest, "forbidden-complete-recovery")
+        self.assertEqual(before, ledger_snapshot())
+        self.assertEqual(status, self.graphctl("status", "--run-id", "RUN-1"))
+        self.assertEqual(1, next(item["used"] for item in status["budgets"] if item["budget_id"] == "delivery_repairs"))
+        self.assertEqual([1, 1], [item["retry_count"] for item in status["branches"] if item["node_key"] == "code_reviewer_bug_hunter"])
+        for ref, original in preserved.items():
+            self.assertEqual(original, artifact_bytes(ref))
+        self.assertEqual(["repaired", "repaired"], [(self.repo / path).read_text(encoding="utf-8") for path in paths])
+        changes = subprocess.run(["git", "diff", "--name-only"], cwd=self.repo, check=True, capture_output=True, text=True).stdout.splitlines()
+        self.assertEqual(paths, changes)
+        print("FORMAT7_RECOVERY_TRACE " + json.dumps({"synthetic_role_reports": True,
+            "status": status["status"], "generations": 2, "delivery_repairs_used": 1,
+            "review_retry_counts": [1, 1], "exact_source_paths": changes,
+            "source_sha256": {path: sha256_bytes((self.repo / path).read_bytes()) for path in paths},
+            "preserved_artifacts": {ref: sha256_bytes(value.encode("utf-8")) for ref, value in preserved.items()},
+            "check_outcomes": [item["outcome"] for item in status["check_evidence"]]}, sort_keys=True))
+
+    def _equivalent_review_authorization(self, failed, authorization_evidence):
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            run = connection.execute("SELECT * FROM runs").fetchone()
+            branch = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (failed["branch_id"],)).fetchone()
+            plan = connection.execute("SELECT * FROM execution_plans").fetchone()
+            env = json.loads(branch["envelope_json"])
+        manifest = {"schema_version": 1, "kind": "recovery_authorization", "run_id": "RUN-1",
+            "branch_id": failed["branch_id"], "blocked_reason": "MISSING_REQUIRED_REVIEW_SKILL",
+            "reason_code": "REVIEW_EQUIVALENT_SKILL_AUTHORIZED", "authority_ref": plan["authority_ref"],
+            "task_digest": run["task_digest"], "plan_digest": plan["plan_digest"],
+            "failure_result_ref": "ledger:" + failed["branch_id"] + "#sha256=" + branch["result_digest"],
+            "required_skill": "review-agent", "replacement_skill": "bug-hunter-review", "decision": "APPROVE",
+            "equivalence_basis": "user-authorized-equivalent-review",
+            "prior_input_refs": sorted(item["ref"] for item in env["inputs"]),
+            "effect_capabilities_digest": sha256_bytes(canonical_bytes(env["effect_capabilities"])),
+            "failure_evidence": env["evidence"], "evidence": [authorization_evidence]}
+        return manifest
+
     def test_selected_model_options_remain_recognizable_in_usage_context(self):
         from graph_engine.usage import _context
 

@@ -548,7 +548,7 @@ def _validate_recovery_manifest(
         or value["plan_digest"] != plan["plan_digest"]
     ):
         raise ContractError("recovery_manifest", "AUTHORIZATION_MISMATCH")
-    if run["state_schema_version"] != 6 or run["blocked_reason"] != "MISSING_REQUIRED_REVIEW_SKILL":
+    if run["state_schema_version"] not in {6, 7} or run["blocked_reason"] != "MISSING_REQUIRED_REVIEW_SKILL":
         raise StateError("RECOVERY_NOT_PERMITTED")
     if plan["status"] != "approved" or plan["authority_ref"] != authority_ref:
         raise StateError("RECOVERY_AUTHORITY_MISMATCH")
@@ -2560,7 +2560,7 @@ def _blocked_recovery_guidance(connection, run):
             "findings": result.get("findings", []),
         })
     equivalent_review = (
-        run["state_schema_version"] == 6
+        run["state_schema_version"] in {6, 7}
         and run["blocked_reason"] == "MISSING_REQUIRED_REVIEW_SKILL"
     )
     return {
@@ -2612,6 +2612,10 @@ def command_recover(
         manifest = _validate_recovery_manifest(
             snapshot.parsed, current, branch, plan, request["reason_code"], request["authority_ref"],
         )
+        if current["state_schema_version"] == 7:
+            binding, _ = verify_review_source(conn, current, policy)
+            if binding["ref"] not in {item["ref"] for item in json.loads(branch["envelope_json"])["inputs"]}:
+                raise StateError("REVIEW_BINDING_MISMATCH")
         verified_items = []
         for item in manifest["evidence"]:
             verified = resolve_reference(
