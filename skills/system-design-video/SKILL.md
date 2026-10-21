@@ -107,9 +107,15 @@ descriptions, or handoff copy; use periods, commas, or a clear sentence rewrite.
 Write narration before animation. For a narrated video, generate or record the
 voice only after the current script has passed the independent script gate. Then
 measure each audio clip and obtain word or phrase timestamps when precise
-reveals need them. For new local narration without an explicit engine choice,
-prefer MOSS-TTS Local Transformer v1.5, with Qwen3-TTS as fallback. Preserve an
-existing approved performance. Read [local narration](references/local-narration.md)
+reveals need them. For the Core Ultra 9 / RTX 5070 laptop, evaluate Kokoro-82M
+with OpenVINO as the local narration candidate. Prefer explicit NPU execution only
+after exact device/driver/model verification and a roughly 10-second responsiveness
+and stability test. Otherwise use a separately bounded CPU attempt and record the
+fallback. Reserve the NVIDIA GPU for video where practical. Follow the
+[laptop narration path](references/laptop-narration.md); the laptop is unverified
+until tested there. On the established GPU workflow, retain MOSS-TTS Local
+Transformer v1.5 and Qwen3-TTS fallback. Explicit engine choices and approved
+performances take precedence. Read [local narration](references/local-narration.md)
 for synthetic-reference provenance, tested limits, configurable model storage,
 and matched listening. Fix acronym pronunciation before the final timeline.
 For short samples, prefer one continuous narration take, then segment visuals

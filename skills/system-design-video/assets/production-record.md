@@ -16,6 +16,14 @@ checks pending; remove branches outside the requested deliverable.
 - Capability preflight: renderer/media tools, selected voice/alignment, reviewer
   dispatch, playback/listening, GPU/RAM/storage evidence and unresolved items:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
+- Laptop identity: exact CPU SKU/NPU generation, OS build, NPU driver, detected
+  OpenVINO devices/full names, NVIDIA GPU/VRAM, probe report and unresolved fields:
+- Kokoro runtime/model/voice/dictionary revisions and hashes, licenses/notices,
+  requested versus evidenced execution device, CPU preprocessing/G2P, fallback
+  reason and attempt count, thread/stream limits and worker deadline:
+- Roughly 10-second laptop test: measured WAV duration, cold/warm times,
+  responsiveness and stutter observations, actual listening intervals, disposition;
+  unperformed checks remain pending and do not establish NPU success:
 - Native prosody, synthetic reference/transcript/hash and provenance, model/codec
   revisions and dtypes, staged loading, fallback reason, measured timing scope:
 - Continuous-take strategy and tested length limits; sentence/scene pause choices,
