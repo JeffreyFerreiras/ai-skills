@@ -170,9 +170,9 @@ assuming that API is authorized.
 
 ## Audio and subtitles
 
-Use [local narration](local-narration.md) for preferred MOSS, Qwen fallback,
-synthetic references, and configurable storage. Kokoro remains an alternative
-when selected; no engine is a required global installation. Record voice/version,
+Use [local narration](local-narration.md) for the Kokoro CPU default, explicit
+MOSS/Qwen alternatives, synthetic-reference limits and configurable storage.
+No engine is a required global installation. Record voice/version,
 prosody settings, pronunciation overrides, generated clip paths, and measured
 durations. Resolve
 credentials through the configured client without printing them.

@@ -1,33 +1,32 @@
 # Local narration
 
 Read when choosing or setting up local TTS. Explicit voice choices and approved
-recordings take precedence. This package supplies guidance, not model weights,
-an inference runner, or permission for downloads or migration.
+recordings take precedence. This package supplies guidance and an optional CPU
+runner, not model weights or permission for downloads or migration.
 Before generating any new narration, require independent technical and narrative
 approval of the current script/hook/storyboard through the
 [built-in loop](video-review-loop.md). Voice-engine availability or passing ASR
 does not waive that prerequisite. Material script repairs invalidate the affected
 script approval before resynthesis.
 
-## Preferred engine and voice identity
+## Default engine and voice identity
 
-For the Core Ultra 9 / RTX 5070 laptop, use the
-[hardware-aware Kokoro/OpenVINO path](laptop-narration.md) to evaluate local
-narration with validated NPU execution or bounded CPU fallback. It does not
-inherit the GPU measurements below or establish a new accepted voice. Retain
-MOSS-TTS Local Transformer v1.5 for the established GPU workflow when the brief
-leaves the engine open. Keep Qwen3-TTS as its fallback; record that decision and review its
-representative sample before full production. Do not silently switch engines
+Default new local narration to [Kokoro-82M through OpenVINO on CPU](kokoro-narration.md).
+Use a configured catalog embedding; Kokoro cannot reproduce the approved MOSS
+conditioning reference. The default engine choice does not approve a particular
+voice or allow replacement of accepted audio. Keep MOSS-TTS Local Transformer
+v1.5 and Qwen3-TTS available as explicit alternatives, subject to installed
+capabilities and a representative sample. Do not silently switch engine or voice
 within an approved performance or rerender completed videos.
 
-The preference comes from listening to three volume-matched paired samples on
+The earlier MOSS preference came from listening to three volume-matched paired samples on
 2026-10-12. The listener preferred MOSS's conversational delivery and natural
 pauses; Qwen sounded monotone and abrupt in that comparison. This is a listening
 preference, not a universal ranking. ASR content checks passed, but no agent
 perceptual listening was claimed. ASR and signal checks cannot prove naturalness,
 phrasing, or perceived pause quality.
 
-When that voice is selected, condition on the approved original synthetic female
+When the MOSS reference voice is explicitly selected, condition on the approved original synthetic female
 reference. Retain raw audio, exact transcript, hash, generation provenance, model
 revisions, and inference settings. This is original synthetic voice conditioning,
 not actor cloning. A seed alone does not preserve voice identity. Another brief
