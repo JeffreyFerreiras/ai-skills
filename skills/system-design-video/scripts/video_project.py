@@ -9,6 +9,7 @@ import json
 import math
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -39,13 +40,14 @@ def file_hash(path):
     return hasher.hexdigest()
 
 
-def atomic_json(path, value):
+def atomic_json(path, value, temporary_path=None):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                         delete=False) as stream:
+        stream = (Path(temporary_path).open("x", encoding="utf-8") if temporary_path is not None else
+                  tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False))
+        with stream:
             temporary = Path(stream.name)
             json.dump(value, stream, indent=2, ensure_ascii=False, allow_nan=False)
             stream.write("\n")
@@ -57,6 +59,15 @@ def atomic_json(path, value):
             temporary.unlink(missing_ok=True)
 
 
+def is_linked_path(path):
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    # Windows exposes reparse attributes on Python 3.10+, before Path.is_junction.
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
+
+
 def local_path(project, name):
     relative = Path(name)
     if relative.is_absolute() or ".." in relative.parts:
@@ -65,7 +76,7 @@ def local_path(project, name):
     for part in (path, *path.parents):
         if part == project:
             break
-        if part.is_symlink() or (hasattr(part, "is_junction") and part.is_junction()):
+        if is_linked_path(part):
             raise ValueError(f"Linked paths are unsupported: {name}")
     if not path.resolve().is_relative_to(project):
         raise ValueError(f"Path escapes the project: {name}")
@@ -129,8 +140,9 @@ def snapshot(project, paths, plan, baseline=None):
             if baseline is None:
                 raise ValueError(f"Missing scope path: {name}")
             continue
-        candidates = [root, *root.rglob("*")] if root.is_dir() else [root]
-        for path in candidates:
+        pending = [root]
+        while pending:
+            path = pending.pop()
             relative = path.relative_to(project).as_posix()
             local_path(project, relative)
             if path.name == ".git":
@@ -140,6 +152,8 @@ def snapshot(project, paths, plan, baseline=None):
                                      "mode": path.stat().st_mode, "kind": "file"}
             elif path.is_dir():
                 entries[relative] = {"path": relative, "kind": "directory"}
+                # Validate each child before descending into it, including junctions.
+                pending.extend(path.iterdir())
             else:
                 raise ValueError(f"Unsupported file kind: {relative}")
     if baseline is not None:
@@ -171,14 +185,25 @@ def record(state_path, manifest, entry):
     if not entry.get("stage") or not entry.get("identity"):
         raise ValueError("Entry requires stage and identity")
     state_path = Path(state_path).resolve()
+    backup = state_path.with_suffix(state_path.suffix + ".previous")
+    lock = state_path.with_suffix(state_path.suffix + ".lock")
+    state_temporary = state_path.with_suffix(state_path.suffix + ".tmp")
+    backup_temporary = backup.with_suffix(backup.suffix + ".tmp")
+    write_paths = (state_path, backup, lock, state_temporary, backup_temporary)
     project = Path(manifest["project"])
     for scope in manifest["scope"]:
-        path = project / scope
-        if state_path == path or state_path.is_relative_to(path):
-            raise ValueError("Recovery state must be outside candidate scope")
+        path = local_path(project, scope).resolve()
+        for destination in write_paths:
+            if destination == path or destination.is_relative_to(path):
+                raise ValueError("Recovery state and sidecars must be outside candidate scope")
+    for destination in write_paths:
+        if is_linked_path(destination):
+            raise ValueError(f"Linked recovery files are unsupported: {destination}")
+    for temporary in (state_temporary, backup_temporary):
+        if temporary.exists():
+            raise ValueError(f"Recovery temporary file already exists; reconcile it first: {temporary}")
     verify_manifest(manifest)
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    lock = state_path.with_suffix(state_path.suffix + ".lock")
     with lock.open("x", encoding="utf-8"):
         pass
     try:
@@ -194,8 +219,8 @@ def record(state_path, manifest, entry):
         value["integrity"] = digest(value)
         verify_manifest(manifest)
         if previous:
-            atomic_json(state_path.with_suffix(state_path.suffix + ".previous"), previous)
-        atomic_json(state_path, value)
+            atomic_json(backup, previous, backup_temporary)
+        atomic_json(state_path, value, state_temporary)
         return value
     finally:
         lock.unlink(missing_ok=True)

@@ -99,8 +99,10 @@ input and output required for the gate, including source, audio/cues, assets,
 dependency locks and the exact rendered candidate. The frozen plan records stage,
 criteria, workspace/base revision, exclusions, assignments and checks. The helper
 hashes actual file bytes and a canonical JSON manifest, includes file modes and
-empty directories, and rejects linked paths and embedded Git metadata. It does
-not infer scope, follow symlinks, or implement submodule snapshots. For a later
+empty directories, and rejects linked paths and embedded Git metadata before
+descending into each directory. Windows reparse-point detection uses
+filesystem attributes available on Python 3.10+, including directory junctions.
+It does not infer scope, follow symlinks, or implement submodule snapshots. For a later
 candidate, `--baseline candidate.json` represents removed files with their prior
 identity. Treat renames as explicit old-path deletion plus new-path addition and
 record the relationship in the plan.
@@ -111,8 +113,11 @@ command/exit, findings, decision and actual inspection coverage as applicable.
 It checks the manifest against live artifacts, binds the entry to that digest,
 then writes an integrity-checked sequence through atomic file replacement while
 retaining `.previous`. A `.lock` rejects concurrent writers. After interruption,
-reconcile the writer before removing a stale lock. Keep all state and entry files
-outside candidate scope. The previous checkpoint is recovery data, not permission
+reconcile the writer before removing a stale lock or `.tmp` file. State, backup,
+lock and temporary destinations are all checked against candidate scope before
+any write; a collision or stale temporary file leaves existing files unchanged.
+Keep all state and entry files outside candidate scope. The previous checkpoint
+is recovery data, not permission
 to rerun an uncertain worker.
 
 These helpers automate artifact identity and receipt persistence. The Supervisor
