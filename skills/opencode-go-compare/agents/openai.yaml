@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compare OpenCode Go Models"
+  short_description: "Compare OpenCode Go models on speed, cost, and benchmarks"
+  default_prompt: "Use $opencode-go-compare to compare the listed OpenCode Go models on price, speed, and benchmarks."
