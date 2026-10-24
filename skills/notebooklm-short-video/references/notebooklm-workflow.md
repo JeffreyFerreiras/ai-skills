@@ -108,6 +108,14 @@ after verified ingestion; it does not authorize generation.
 
 ## Verify and deliver
 
+Use a dedicated visual reviewer separate from the creator and technical/editorial
+reviewers, and a fresh-context logical reviewer distinct from the creator and
+visual reviewer. Use a dedicated independent voice-consistency reviewer for
+actual narration. Technical and narrative/beginner-comprehension scopes may
+share a reviewer with separate explicit verdicts. The director cannot approve
+its own handoff. Keep these identities and their inspected scopes in the record;
+distinct verdict labels alone do not establish reviewer independence.
+
 Review the actual output independently for technical accuracy, plain-language
 teaching, voice consistency, every scene's visual quality and fresh-context
 logical continuity, including the director's SD3/SD4 checks. For logical review,

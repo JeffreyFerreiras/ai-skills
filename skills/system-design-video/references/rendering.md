@@ -93,7 +93,8 @@ Inspect travel corridors, departure/docking, occlusion, glows, and transition
 states, not just endpoint bounding boxes. Keep captions in screen space outside
 camera transforms and platform overlays. Measure text with the selected font;
 inspect wrapping and contrast at actual delivery size. For the default narrated
-chalk lesson, use high, screen-space word-highlighted subtitles clear of platform
+chalk lesson, use bottom, screen-space word-highlighted subtitles with safe
+margins above platform
 overlays. Honor explicit caption overrides. Derive highlighting from checked cues,
 not guessed reading speed; leave pauses and end holds without a falsely active
 word. Keep stable
