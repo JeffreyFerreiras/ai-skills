@@ -105,3 +105,9 @@ Your actual job: make sure **this specific person walks away holding what matter
 
 - On Windows, use `cmd.exe` with CMD syntax. Set `shell` to `cmd.exe` and `login = false` when supported.
 - Use PowerShell only when CMD lacks required functionality or the task requires a PowerShell script or cmdlet. Follow Windows file-operation safety rules.
+
+## Backup rotation
+
+- Before creating a replacement disposable backup for the same file or operation, remove older disposable backups using a recoverable deletion mechanism (such as the Recycle Bin) where available. Retain at most one current backup; do not accumulate timestamped copies.
+- Limit this cleanup to disposable backups. Preserve immutable graph evidence, audit receipts, active rollback assets, original user files, and unrelated archives.
+- If recoverable deletion is unavailable, report the cleanup need and obtain required confirmation before permanently deleting existing data.
