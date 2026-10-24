@@ -8,14 +8,14 @@ still apply. Installation smoke tests are fixtures, not approved episode takes.
 
 ## Select a voice without inventing approval
 
-Kokoro uses a fixed catalog of embeddings and cannot condition on the approved
-MOSS synthetic reference. Model-level praise does not establish which embedding
-was auditioned. Resolve the actual voice/sample from authorized records or ask for
-that single choice while continuing independent setup. Keep `voice: null` until
-chosen; the runner then requires `--voice`. An `af_heart` installation test does
-not make it the user's approved narrator. `af_bella` is another female audition
-candidate in the [official voice inventory](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
-Listen to matched text/loudness before locking a voice for new production.
+Kokoro uses a fixed catalog of embeddings and cannot condition on the earlier
+MOSS synthetic reference. Current accepted learning-video defaults are `af_heart`
+or `af_bella` at native speed 1.0; record the actual selected embedding and honor
+an existing episode choice. These names occur in the
+[official voice inventory](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
+Model-level praise alone does not approve other voices. Keep an unresolved
+nondefault choice configurable while continuing independent setup. Installation
+smoke tests are not new episode approvals. Record actual listening coverage.
 
 ## Isolate runtime and assets
 
@@ -129,13 +129,12 @@ Start at speed 1.0. `--speed` changes an audition before audio approval; preserv
 approved speech and retime visuals afterward. No fixed WPM rule or automatic
 time stretching applies. Prefer one connected take for short samples.
 
-For controlled sentence/paragraph pauses, put each complete reviewed passage in a
-separate blank-line-delimited block and pass `--sentence-gap-ms 550`, or the chosen
-gap. No automatic sentence splitter assumes punctuation around abbreviations.
-The runner synthesizes intact passages, retains their original PCM, and inserts
-the specified digital silence between them. This is added silence, not a promise
-that the total audible gap equals that value: native leading/trailing silence
-can remain. Review voice continuity and both joins, then align the final waveform.
+Do not insert artificial 550 ms passage gaps or duration padding by default.
+Prefer one continuous take with natural phrasing and native pauses. The runner's
+optional `--sentence-gap-ms` explicitly adds digital silence between complete
+passages; use it only for a requested or specifically justified audio edit, not
+to meet a target runtime. Preserve the original PCM, review both joins and voice
+continuity, and align to the actual resulting waveform rather than guessed gaps.
 See [pause guidance](local-narration.md#continuous-takes-and-sentence-pauses).
 
 ## Integrate the actual audio contract

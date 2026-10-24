@@ -35,10 +35,16 @@ one discipline:
 
 | Deliverable | Required evidence and approval before advancing |
 | --- | --- |
-| Script, spoken hook, sources and storyboard | Independent technical and narrative `APPROVE` before any TTS or rendering. Check truth, scope, sequence, payoff, and planned causal visuals. |
+| Script, spoken hook, sources and storyboard | Independent technical and narrative/beginner-comprehension `APPROVE` before any TTS or rendering. Check truth, scope, sequence, payoff, planned causal visuals and the non-author scene-director handoff with SD1/SD2 acceptance. |
 | Narration and cues | Dedicated voice-consistency review before final visual timing; compare phrasing, identity, pauses and joins. Listening gaps remain explicit. |
 | Every scene and representative sample | Dedicated visual-diva and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. |
 | Full timeline and encoded deliveries | Technical/media, narrative, voice, visual and logical evidence covering the actual revision before final delivery. Preserve the continuous HQ master and any separately reviewed preview. |
+
+Use [scene direction](scene-direction.md) for required per-episode evaluation,
+fresh transition directions and SD3/SD4 acceptance in scene/sample and encoded
+reviews. Director acceptance and beginner comprehension use the existing stage
+reservation; neither adds rounds or replaces another role. Honor explicit
+episode review overrides without treating them as global policy.
 
 An explicitly silent brief skips voice/TTS checks, not script or scene review.
 A plan-only request ends at its reviewed plan. Sharing a clearly labelled sample

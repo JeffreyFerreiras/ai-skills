@@ -1,0 +1,4 @@
+interface:
+  display_name: "NotebookLM Short Video"
+  short_description: "Prepare and activate digestible NotebookLM shorts"
+  default_prompt: "Use $notebooklm-short-video to prepare a digestible sourced short-video production document and separate activation prompt, then carry out the requested NotebookLM handoff."

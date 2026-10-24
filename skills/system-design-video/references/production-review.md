@@ -4,6 +4,11 @@ Use the project's current production record. The
 [template](../assets/production-record.md) supplies evidence fields when none
 exist. Keep technical truth, teaching quality, and visual quality separate.
 The spec checker certifies none of them.
+Apply the [scene director acceptance criteria](scene-direction.md) at the
+script/storyboard, scene/sample and full/encoded gates. The non-author director
+proposes choices; the bound Writer integrates them; independent reviewers verify
+the actual result. Its evaluation and fresh transition are required for each new
+episode and do not create a separate user approval checkpoint or review counter.
 Run the [built-in review loop](video-review-loop.md) for each gate. Its state,
 candidate binding, same-Writer repair, fresh-Reviewer, and decision rules are
 required workflow here, not an optional external loop invocation.
@@ -45,6 +50,10 @@ materially changed later revision.
 - Visual: cover every scene and boundary transition, including the actual encoded
   final at delivery size. Inspect composition, hierarchy, asset sharpness, labels,
   causal motion, and reference matches. A geometry pass is not an aesthetic pass.
+- Beginner comprehension: give an explicit verdict on plain-language meaning
+  before jargon, one idea at a time, a concrete example, and enough time for each
+  causal step. This may share the narrative reviewer with a distinct verdict;
+  technical correctness and variety alone cannot establish understanding.
 
 Give any authorized independent reviewer the brief, sources, accepted choices,
 exact revision and artifact hashes, stable scene IDs, and actual artifacts.
@@ -109,7 +118,7 @@ Use at most three review rounds per identified deliverable stage. Stop at the
 first clear round; the initial review counts as round one, with at most two
 repair/review cycles. Run the loop's validation and current-digest checks before
 each independent review. A missing or malformed decision blocks the pass.
-Technical, editorial, logical, visual, and voice scopes share that stage's
+Technical, editorial, beginner-comprehension, director-acceptance, logical, visual, and voice scopes share that stage's
 counter; reviewer changes, revised files, and renamed exports do not reset it.
 Scene findings remain within that asset/stage budget; the dedicated visual role
 does not add three extra rounds. Use focused frames/excerpts and targeted renders,

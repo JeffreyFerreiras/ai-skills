@@ -90,6 +90,14 @@ The design lookup in `clean-code` and `clean-code-review` has one canonical sour
 
 Each installed skill owns its bundled runtime script and manifest; neither needs a sibling skill or this repository. The shared source directory and generator are authoring tools only. The existing `review` filenames, schema, and Python names remain for compatibility with the review CLI. See [shared source ownership](../shared/design-graph/README.md). Deterministic tests establish packaging and search contracts, not live-model choices about when a pattern applies.
 
+Video guidance has one canonical source under `shared/video-production/`.
+Edit shared scene direction, NotebookLM workflow or reference history there, then
+run `python scripts/bundle-video-guidance.py` and its `--check` mode. The generator
+bundles scene direction into `system-design-video` and all three references into
+each NotebookLM skill; standalone installs need no sibling skill. Run
+`python -m unittest discover -s tests -p test_video_guidance_bundle.py` for drift,
+read-only checking, missing-source handling and standalone reference coverage.
+
 For graph changes, use the scoped commands and runtime requirements in the [graph validation section](../skills/software-engineering-graph/README.md#contributor-validation). Its standard-library engine supports Python 3.9+, while repository tooling requires 3.12+ for filesystem APIs. Graph documentation-only changes do not require its engine suite. Keep the graph's separate hygiene check last when its contributor instructions require it.
 
 Run `git diff --check` before handing off. Do not commit or publish merely because checks pass.

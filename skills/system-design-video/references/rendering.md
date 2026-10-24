@@ -15,7 +15,9 @@ review before dependent delivery approval.
 Honor the chosen style and supplied references. Inspect actual reference pixels;
 record identity, material, lighting, texture, palette, and composition matches
 and mismatches. Do not infer an aesthetic match from a filename or prompt.
-When no style is selected, prefer an authentic matte charcoal chalkboard with
+Apply the [scene director handoff](scene-direction.md) to each new episode.
+When no style is selected, prefer an authentic matte charcoal chalkboard for
+technical teaching views with
 soft overlapping eraser marks and restrained grain, plus crisp drawn technical
 diagrams and semantic colors. Compare supplied board references as actual pixels;
 uniform speckles, scratch masks, or a flat green gradient are not substitutes.
@@ -37,7 +39,13 @@ transitions complement internal causal actions; camera motion alone is insuffici
 
 ## Cinematic motion experiments
 
-Prefer richly hand-drawn, layered-depth transitions alongside readable chalkboard
+Evaluate contextual scenes, metaphors, spatial changes, before/after comparisons
+and illustrative cutaways for their teaching value. Require the director's
+purposeful fresh transition scene, without a quota of scene types. Retain useful
+brand elements and technical continuity; a static diagram with decorative camera
+motion is not a new explanation. Inspect the references actually supplied.
+
+Consider richly hand-drawn, layered-depth transitions alongside readable chalkboard
 explanations when the brief leaves transition style open. An original illustrated
 prototype earned style approval through user feedback. That selects a treatment,
 not acceptance of a future voiced integration. Earlier material-only polished
@@ -56,15 +64,16 @@ choosing a method; observed movement does not reveal its original production too
 
 Require scene-internal motion: status lights change, screens show activity,
 request particles travel, or layered objects transform with the narrated event.
-Combine that activity with purposeful camera motion. Panning or zooming a static
+Add camera motion only where it helps direct understanding. Panning or zooming a static
 image alone does not establish internally animated cinematic motion. Inspect
 actual-paced temporal evidence spanning the scene and cutback, plus the decoded
 result, not only attractive stills. Record whether inspection sampled frames or
 used continuous playback. A silent style sample cannot certify caption placement,
 narration sync, or the logical flow of a new voiced edit.
 
-Create standalone motion samples and obtain feedback before integrating the new
-direction into the main cut. Record each sample's requested scope, authorization,
+Use a focused motion sample when useful within the authorized production and
+existing internal review gates. Obtain external feedback before integration only
+when the user has reserved that decision. Record each sample's requested scope, authorization,
 render/review status, temporal evidence, feedback, and integration decision.
 Authorized or in-progress samples remain unapproved until feedback exists; do
 not treat generation as validation. Preserve accepted audio, explanations, and

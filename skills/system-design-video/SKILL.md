@@ -1,6 +1,6 @@
 ---
 name: system-design-video
-description: Create code-rendered vertical system design explainer videos with sourced architecture, narrated event timelines, and visual and media checks. Use for animated technical lessons, not static diagrams or footage editing alone.
+description: Create local code-rendered vertical system design explainer videos with sourced architecture, narrated timelines and media checks. Use for animated technical lessons, not NotebookLM production packets, static diagrams or footage editing alone.
 ---
 
 # System design video
@@ -19,6 +19,11 @@ state defaults: a roughly 90-second, 1080x1920, 9:16 vertical, 30 fps concept le
 with narration and a separate subtitle track. Treat 90 seconds as a planning
 estimate. Fit an explicit duration by editing the lesson, not by cutting or accelerating approved
 speech. Honor explicit format overrides and silent-video requests.
+
+For learning shorts, use the current 40-120-second range and let content determine
+length. Teach one idea at a time in ordinary language with one concrete example
+and enough time to understand each causal step. Reduce jargon and secondary
+concepts before rushing narration or padding duration.
 
 Reuse an existing renderer. For a new project, prefer Remotion for React/SVG
 architecture diagrams. Use HyperFrames for HTML/SVG/GSAP scenes or Manim for
@@ -50,7 +55,7 @@ reviewers to approve, request a bounded repair, or block. Keep durable round and
 finding records, bind results to actual artifact hashes, and invalidate stale
 approvals after material revisions. No separate loop skill installation is needed.
 
-Obtain independent technical and narrative approval of the script, spoken hook,
+Obtain independent technical and narrative/beginner-comprehension approval of the script, spoken hook,
 source claims, and storyboard before TTS or rendering, including sample production.
 Keep voice-consistency review before final visual retiming, dedicated visual-diva
 and fresh-context logical review for every scene, and encoded-final review before
@@ -81,6 +86,18 @@ as a source of measured audio timings or a claim about a real deployment.
 
 ## Write the lesson and timeline
 
+Before drafting a new episode, use an independent example-fit advisor to compare
+3-4 scenarios for realism, clear causal visualization, audience fit, low concept
+overhead and novelty against recent episodes. Do not default to checkout/payment.
+Feed the justified recommendation into drafting, then use a non-author
+[scene director](references/scene-direction.md) before script/storyboard lock.
+For every episode it evaluates scene types, justifies choices against the learning
+objective, and supplies a purposeful fresh transition scene plus actionable
+production directions. The Writer integrates the handoff into the existing
+document; independent reviewers accept it through the existing shared gates and
+budgets. It complements technical, visual, logical and beginner-comprehension
+review without adding an optional user approval checkpoint.
+
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
 review the spoken hook before locking a new script or generating full narration.
@@ -109,11 +126,12 @@ voice only after the current script has passed the independent script gate. Then
 measure each audio clip and obtain word or phrase timestamps when precise
 reveals need them. For new local narration, default to Kokoro-82M with OpenVINO on
 explicit CPU, using a separate environment, one bounded worker and a configured
-voice embedding. Read the [Kokoro workflow](references/kokoro-narration.md) for the
+voice embedding. Accepted learning-video defaults are af_heart or af_bella at
+native speed 1.0 unless the episode selects another voice. Read the
+[Kokoro workflow](references/kokoro-narration.md) for the
 runner, provenance, pace/pauses, sample-rate conversion and separate alignment.
-Model-level praise does not identify or approve an embedding. Keep an unresolved
-voice configurable and obtain the smallest missing voice/sample choice while
-continuing independent setup. Reserve the NVIDIA GPU for video where practical;
+Keep the selected embedding and episode approval in the record; model-level
+praise alone does not approve a different embedding. Reserve the NVIDIA GPU for video where practical;
 alignment and other processes need their own device checks. Do not select NPU,
 GPU or another voice automatically. MOSS-TTS Local Transformer v1.5 and Qwen3-TTS
 remain explicit alternatives when selected and available. Existing engine choices
@@ -174,12 +192,14 @@ Continue already-authorized full production after applicable internal checks;
 honor a user-reserved sample decision. Do not require an external upload for a
 local-only request or regenerate an unchanged, reviewed sample on resumption.
 
-For a new cinematic direction, make standalone motion samples and obtain feedback
-before integrating it into the main video. Brief dimensional openings or section
-bridges may complement readable chalkboard explanations when they clarify the
-story. For these cinematic samples, internal scene activity and purposeful camera
-motion must both be visible; a pan over a still is insufficient. Sample authorization does not establish an
-approved style, completed motion, or permission for full integration.
+Include the director's fresh transition in the representative sample when
+possible. Use internal review within the existing stage budget for authorized
+scene development, including a focused motion sample when useful. Honor an
+explicit user-reserved style decision; a new scene choice alone creates no new
+approval pause. Contextual scenes, metaphors, spatial changes, before/after
+demonstrations and cutaways may complement the chalk/neon brand when they teach
+better. Show meaningful internal action; camera movement is optional when useful
+and never substitutes for a causal change.
 
 Before expensive rendering, review a rough full timeline at native pace. Check
 each explanation and transition, including the most crowded scene. Still samples
