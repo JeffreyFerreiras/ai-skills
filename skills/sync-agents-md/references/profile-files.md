@@ -34,10 +34,17 @@ Use these locations as search hints, not as a license to overwrite. Confirm actu
 - Repository-local `CLAUDE.md` is often used for project guidance.
 - Claude configuration formats vary by installed product surface; inspect existing files before choosing a target.
 
+## OpenCode
+
+- Default global instructions: `~/.config/opencode/AGENTS.md`. Confirm the active config directory with `opencode debug paths`; honor `OPENCODE_CONFIG_DIR` when set.
+- OpenCode V2 loads global and project `AGENTS.md` files. It does not use `CLAUDE.md` as a fallback. Do not depend on a synced Claude profile to cover OpenCode.
+- Configured `instructions` entries load alongside discovered `AGENTS.md` files. Preserve these additions, such as subagent routing, without replacing the full shared guidance or changing model profiles.
+- Discovery reference: [OpenCode V2 instructions](https://dev.opencode.ai/v2/docs/instructions/).
+
 ## Profile Synchronization
 
 - When synchronizing profile-level agent instructions, choose the priority `AGENTS.md` source, then put its full shared content in each requested tool's active profile target. Preserve tool-specific additions and any required wrapper or frontmatter; do not substitute symlinks or pointer-only files.
-- Default Codex and Claude targets are `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md`; verify the active Cursor User Rule or profile rule. Honor `CODEX_HOME` and limit writes to requested tools.
+- Default Codex, Claude, and OpenCode targets are `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`, and `~/.config/opencode/AGENTS.md`; verify the active Cursor User Rule or profile rule. Honor `CODEX_HOME` and OpenCode's active config directory, and limit writes to requested tools.
 - Back up existing target files before overwriting them.
 
 ## Repository

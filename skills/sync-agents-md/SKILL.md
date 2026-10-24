@@ -37,6 +37,7 @@ Use these as default profile-level targets after confirming what exists locally:
 
 - Codex: `$CODEX_HOME/AGENTS.md`, defaulting to `~/.codex/AGENTS.md`. Inspect `AGENTS.override.md` for precedence and preserve explicitly configured alternatives.
 - Claude: `~/.claude/CLAUDE.md`
+- OpenCode: `~/.config/opencode/AGENTS.md`. Confirm the active config directory with `opencode debug paths` and honor configured alternatives. OpenCode V2 does not fall back to `CLAUDE.md`; keep configured `instructions` files as additions to the full shared guidance.
 - Cursor: the verified active User Rule or profile rule under `~/.cursor/rules/`. This machine has `~/.cursor/rules/ai-skills.mdc` as a candidate; verify that Cursor loads it. Keep required rule frontmatter. Do not assume `~/.cursor/AGENTS.md` loads globally merely because it exists.
 
 Codex's shared skills may live under `~/.agents/skills`; this does not change where Codex loads its global `AGENTS.md`.
@@ -50,7 +51,7 @@ Create missing parent directories when the target path is clear. Back up existin
 3. Identify the source from the user's request. If none is named, treat `ai-skills/AGENTS.md` as the authoritative master copy.
 4. Identify targets:
    - Repository-local targets in target projects: `AGENTS.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, `CLAUDE.md`.
-   - Profile-level targets for requested tools: `$CODEX_HOME/AGENTS.md` (default `~/.codex/AGENTS.md`), `~/.claude/CLAUDE.md`, and the verified Cursor instruction location. Prefer configured active files over assumed defaults.
+   - Profile-level targets for requested tools: `$CODEX_HOME/AGENTS.md` (default `~/.codex/AGENTS.md`), `~/.claude/CLAUDE.md`, OpenCode's active config directory `AGENTS.md` (default `~/.config/opencode/AGENTS.md`), and the verified Cursor instruction location. Prefer configured active files over assumed defaults.
 5. Compare overlapping guidance by topic, not only by filename.
 6. Decide whether to copy verbatim, merge, or transform:
    - Copy the full shared body when the target supports `AGENTS.md` semantics.
@@ -62,7 +63,7 @@ Create missing parent directories when the target path is clear. Back up existin
 
 ## File Discovery
 
-Read `references/profile-files.md` when choosing target paths or when the user's request mentions VS Code, Cursor, Claude, Codex, Copilot, profile instructions, or cross-tool sync.
+Read `references/profile-files.md` when choosing target paths or when the user's request mentions VS Code, Cursor, Claude, Codex, Copilot, OpenCode, profile instructions, or cross-tool sync.
 
 For repository-local work, check likely paths:
 
