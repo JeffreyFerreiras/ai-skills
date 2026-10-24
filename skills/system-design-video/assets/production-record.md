@@ -41,7 +41,24 @@ checks pending; remove branches outside the requested deliverable.
 - Render entrypoint, exact commands, output paths, unit/frame ranges and hashes:
 - Resume method, completed units, invalidated inputs, next action:
 
-## Review ledger
+## Scene director handoff
+
+- Independent example-fit advisor, 3-4 scenarios, justified selection and recent
+  episode comparison before drafting:
+- Non-author director identity, learning objective, inspected reference identities,
+  timecodes, observed features and access/inspection limits:
+- Compared scene approaches, chosen types and learning benefit; continuity versus
+  fresh treatment without arbitrary variety:
+- Scene map: stable IDs, plain-language idea, narration beat, composition, focal
+  object, assets/provenance, causal actions, holds and bottom-caption safe area:
+- Fresh transition ID, incoming/outgoing scenes, initial/change/result states,
+  learning purpose, object/path continuity and cutback instructions:
+- Writer integration artifact/hash; independent SD1/SD2 plan verdicts, SD3
+  scene/sample and SD4 actual full/encoded evidence; beginner-comprehension verdict:
+- Stable findings, affected hashes, scope, shared consumed rounds and acceptance
+  status; no additional director budget or optional user checkpoint:
+
+## Review ledger entries
 
 Repeat per deliverable stage, retaining previous rounds and finding IDs.
 

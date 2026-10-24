@@ -1,0 +1,4 @@
+interface:
+  display_name: "NotebookLM Cinematic Video"
+  short_description: "Prepare and activate longer NotebookLM lessons"
+  default_prompt: "Use $notebooklm-cinematic-video to prepare a sourced cinematic learning-video production document and separate activation prompt, then carry out the requested NotebookLM handoff."

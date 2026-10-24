@@ -61,13 +61,13 @@ These describe a bounded case, not a required script length or hold template,
 universal engine capacity, or a listening pass for every future sample. Keep
 native audio, pause edits, and the final visual hold as separate measured values.
 
-Use clean audible pauses between sentences while keeping within-sentence speech
-connected and naturally emphasized. Trial minimum gaps of 550 ms between
-sentences and 650 ms at scene boundaries are configurable examples, not a locked
-pace, fixed-WPM policy, or permission for global time stretching. A scene boundary
-inside a sentence does not justify interrupting that sentence; move the visual
-boundary or keep its narration connected. At coincident boundaries, choose one
-intended pause rather than stacking both minimum gaps.
+Use natural audible pauses between sentences while keeping within-sentence speech
+connected and emphasized. Do not impose minimum sentence/scene gaps, artificial
+550 ms passage gaps or duration padding by default. Preserve native speed 1.0
+for accepted local Kokoro performances. A scene boundary inside a sentence does
+not justify interrupting that sentence; move the visual boundary or keep its
+narration connected. A requested or specifically justified pause edit remains
+separate from the original recording and must pass the review below.
 
 For authorized pause-only edits, identify actual waveform/sentence boundaries;
 never cut inside a phoneme. Preserve the original PCM speech spans exactly and
