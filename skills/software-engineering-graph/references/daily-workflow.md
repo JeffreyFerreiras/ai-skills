@@ -10,9 +10,17 @@ These diagnostics are read-only and grant no recovery authority.
 `DESIGN_GATE_BLOCKED`, `CONSOLIDATION_BLOCK`, security blocks, policy denials, and exhausted
 budgets remain terminal. Preserve that run, resolve the finding, and propose a separately
 approved successor plan with its required independent review and security gates. The existing
-format-6 missing-review-skill equivalence recovery remains narrowly scoped; it does not
+format-6 and format-7 missing-review-skill equivalence recovery remains narrowly scoped; it does not
 reopen a rejected design. Format-7 repairable evidence and bounded design revisions retain
 their existing transitions and budgets.
+
+For an audited format-7 equivalent review, retain the failed result, original source binding, prior
+inputs, capabilities, and check receipts. The source must still match the review boundary. Recovery
+creates a fresh fenced attempt for only that failed review and leaves architecture independently
+required. If delivery then needs an in-scope repair, the next writer and all reviewers use the new
+generation. Replace checks with their exact selected predecessors. A new missing-skill failure needs
+new branch-specific authorization; earlier equivalent-skill approval does not transfer or reset an
+allowance. Status, resume, and replay retain these bindings.
 
 Task scope text describes intended work; it grants no filesystem capability. A task can narrow
 a policy directory ceiling such as `repo:src/` to exact approved files. Workers receive those
@@ -94,3 +102,11 @@ acceptance evidence, and graph completion. An unchanged tree at a new disposable
 then fails the real review-source freshness gate. Pure merge scenarios exercise missing,
 failed, pending and stale-head evidence. Fixtures and worker reports are synthetic; no live
 models, Out2Nite repository, remote CI, merge, deployment, or automation is touched.
+
+`tests.test_graph_hardening.GraphHardeningTests.test_format7_equivalent_review_recovery_across_delivery_repair`
+adds one continuous disposable trace: exact two-file grants, a real local consistency check, audited
+missing-skill recovery, all mandatory reviews, an in-scope delivery repair, replacement checks, fresh
+generation-specific recovery, independent test execution, bound acceptance, and `complete` on the
+repaired source. It checks stale source/fences/predecessors and mismatched authorizations fail closed,
+and retains old failure and receipt bytes. `FORMAT7_RECOVERY_TRACE` labels its role reports synthetic
+and records final source hashes, retry counts, repair usage, and preserved-artifact hashes.

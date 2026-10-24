@@ -238,7 +238,8 @@ Retry retains the failed result reference and claim refreshes the packet without
 For a `blocked`, `complete`, or `aborted` run, the packet reports `supervisor_assessment`
 instead of `retry`; terminal state is not reopened implicitly by recovery inspection.
 
-The only supported format-6 recovery transition is the audited equivalent-review repair:
+The only supported recovery transition for blocked format-6 and format-7 runs is the audited
+equivalent-review repair:
 
 ```text
 recover --run-id RUN --branch-id ID --reason-code CODE --authority-ref authority:ID \
@@ -258,6 +259,15 @@ independent `code_reviewer_architecture` gate remains mandatory and is never mar
 transition. Security/policy denials, retry exhaustion, changed task or plan digests, scope/evidence
 mismatches, and `complete`/`aborted` runs remain closed. Do not edit SQLite state or use `resume` as a
 substitute for this command.
+
+For format 7, recovery verifies the existing review-source binding and current source before any
+mutation. It preserves that binding and every old check receipt; recovery does not refresh checks or
+reviews. After a delivery `REPAIR`, the next writer must stay within the same approved capabilities,
+use predecessor-bound replacement checks, and return to every mandatory review and test gate.
+A missing `review-agent` in that new generation requires a fresh authorization bound to its new
+branch ID, failure result, inputs, and capabilities. The earlier generation's equivalent-skill override
+grants nothing to the new branch. Each recovery consumes the target branch's remaining retry;
+delivery repair and repeated-check costs keep their existing budgets.
 
 `consolidation draft --run-id RUN --join-id COLLECTION_ID` uses the same source/finding reducers as
 validation. It returns a manifest bound to the sealed collection digest. Delegated issues requiring
