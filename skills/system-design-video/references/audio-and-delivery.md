@@ -100,7 +100,7 @@ For a chat handoff covered by the brief, provide a compact full-length 1080p
 review copy alongside the continuous HQ master. About 17-18 MB worked for tested
 full-length 1080p chat deliveries; this is an observed working budget, not a
 universal upload limit or visual-quality guarantee. Resolve the current route's
-limit and inspect actual encoded diagrams, high word-highlighted subtitles,
+limit and inspect actual encoded diagrams, bottom word-highlighted subtitles,
 motion, and audio. Keep the HQ master unchanged and final delivery distinct from
 the preview receipt. If quality cannot fit, report the tradeoff and use an
 authorized whole-file route rather than degrading the final or splitting it.
