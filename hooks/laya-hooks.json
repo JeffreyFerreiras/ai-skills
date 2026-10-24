@@ -1,0 +1,18 @@
+{
+  "description": "Local Laya task advice. Keeps the current Codex model and fails open.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import runpy,subprocess;from pathlib import Path;runpy.run_path(str(Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts/laya-hook.py'),run_name='__main__')\"",
+            "commandWindows": "python -c \"import runpy,subprocess;from pathlib import Path;runpy.run_path(str(Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts/laya-hook.py'),run_name='__main__')\"",
+            "timeout": 5,
+            "statusMessage": "Checking local Laya task advice"
+          }
+        ]
+      }
+    ]
+  }
+}
