@@ -1,0 +1,4 @@
+interface:
+  display_name: "TikTok Copy Cover"
+  short_description: "Write TikTok captions and matching covers"
+  default_prompt: "Use $tiktok-copy-cover to write the caption and cover for the current video or topic."

@@ -132,6 +132,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
 | [system-design-video](skills/system-design-video/SKILL.md) | Create narrated vertical system design videos |
 | [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
+| [tiktok-copy-cover](skills/tiktok-copy-cover/SKILL.md) | Write TikTok captions and matching covers |
 | [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
