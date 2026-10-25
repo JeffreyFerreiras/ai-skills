@@ -44,6 +44,12 @@ copy. Avoid em dashes in audience-facing copy.
 
 Make a separate activation TXT file that names the exact active production
 source, exact selected style source, factual source set and requested output.
+Carry the reviewed runtime target and any explicit longer-runtime approval in
+both artifacts. Apply the selected format's runtime rules before upload for
+production or generation: shorts use 90-180 seconds and need a warning and user
+choice of longer-runtime approval or narrower/split scope when clear teaching
+needs more than 180 seconds. Wait for that choice before production; planning
+may continue. This shorts rule does not cap cinematic longer-form videos.
 Keep it short and operational; do not paste the full storyboard or ask NotebookLM
 to invent a second plan. A useful shape is:
 

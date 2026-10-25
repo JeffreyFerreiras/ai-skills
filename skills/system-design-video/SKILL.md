@@ -20,10 +20,21 @@ with narration and a separate subtitle track. Treat 90 seconds as a planning
 estimate. Fit an explicit duration by editing the lesson, not by cutting or accelerating approved
 speech. Honor explicit format overrides and silent-video requests.
 
-For learning shorts, use the current 40-120-second range and let content determine
+For learning shorts, use the current 90-180-second range and let content determine
 length. Teach one idea at a time in ordinary language with one concrete example
 and enough time to understand each causal step. Reduce jargon and secondary
 concepts before rushing narration or padding duration.
+
+Estimate the runtime at natural teaching pace before shorts production. If the
+topic needs more than 180 seconds to teach clearly, warn with the estimated
+runtime and reason, and ask the user to approve a longer runtime or choose a
+narrower/split scope. Wait for that choice before TTS or rendering; planning may
+continue. An existing explicit approval covering the runtime satisfies this
+choice; do not ask again. Do not cram or pad content to fit the range. Record the chosen scope
+and any explicit runtime approval in the production document. An unexpected
+measured overrun does not authorize longer delivery: pause further production
+and delivery, report it, and obtain the same choice before proceeding. Retain
+consumed review rounds and invalidate affected approvals after scope/timing edits.
 
 Reuse an existing renderer. For a new project, prefer Remotion for React/SVG
 architecture diagrams. Use HyperFrames for HTML/SVG/GSAP scenes or Manim for
