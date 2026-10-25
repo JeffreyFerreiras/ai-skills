@@ -16,6 +16,11 @@ The [inspected history](references/reference-history.md) distinguishes the older
 90-120-second template from the current 90-180-second brief. These references
 ship with this skill; no sibling skill or local voice/rendering engine is needed.
 
+For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
+Read its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
+when selecting useful scene and narrative techniques; adapt them to the short's
+scope rather than copying the longer episode's scene mix or timing.
+
 Teach one core idea through one concrete example, a visible causal sequence and
 one useful consequence or limit. Target 90-180 seconds according to content and
 the episode brief, subject to actual NotebookLM capabilities. Start with an honest

@@ -29,7 +29,8 @@ class VideoGuidanceBundleTests(unittest.TestCase):
             for name in {name for resources in bundler.BUNDLES.values() for name in resources}:
                 (canonical / name).parent.mkdir(parents=True, exist_ok=True)
                 (canonical / name).write_text(f"# {name}\n", encoding="utf-8")
-            self.assertEqual(28, len(bundler.bundle(root, check=True)))
+            expected_resources = sum(len(resources) for resources in bundler.BUNDLES.values())
+            self.assertEqual(expected_resources, len(bundler.bundle(root, check=True)))
             self.assertFalse((root / "skills").exists())
             bundler.bundle(root)
             target = root / "skills/notebooklm-short-video/references/scene-direction.md"
