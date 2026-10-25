@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrator Mode"
+  short_description: "Choose a helper model and orchestrate while the primary only thinks"
+  default_prompt: "Use $orchestrator-mode model=<provider/model> to run this task with the primary only orchestrating helpers."
