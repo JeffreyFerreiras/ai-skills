@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import runpy,subprocess;from pathlib import Path;runpy.run_path(str(Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts/laya-hook.py'),run_name='__main__')\"",
-            "commandWindows": "python -c \"import runpy,subprocess;from pathlib import Path;runpy.run_path(str(Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts/laya-hook.py'),run_name='__main__')\"",
+            "command": "python3 -c \"import runpy,subprocess,sys;from pathlib import Path;p=Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts';sys.path.insert(0,str(p));runpy.run_path(str(p/'laya-hook.py'),run_name='__main__')\"",
+            "commandWindows": "python -c \"import runpy,subprocess,sys;from pathlib import Path;p=Path(subprocess.check_output(['git','rev-parse','--show-toplevel'],text=True).strip())/'scripts';sys.path.insert(0,str(p));runpy.run_path(str(p/'laya-hook.py'),run_name='__main__')\"",
             "timeout": 5,
             "statusMessage": "Checking local Laya task advice"
           }

@@ -1,148 +1,203 @@
-# Resident Laya service and Codex hook
+# Laya routing: one resident service
 
-The [hook template](../hooks/laya-hooks.json) runs
-[`scripts/laya-hook.py`](../scripts/laya-hook.py) on `UserPromptSubmit`. This small
-standard-library client sends the current prompt to a resident offline CUDA model.
-It never loads weights, downloads packages, or starts a server during a prompt.
-The recommendation is advisory. It cannot change the active Codex model or
-guarantee that a coordinator will delegate.
+Laya uses one **LayaCodex** Windows service, one routing policy, and two lightweight
+clients: an explicit subagent selector and an optional advisory prompt hook.
+This consolidates PR #43's active subagent routing with PR #44's resident service.
+Neither path changes the main chat's model or reasoning effort.
 
-## Windows service installation
+## Routing policy
+
+The shared [policy](../scripts/laya_routing.py) uses fixed work-packet questions:
+
+| Work | Model | Effort |
+| --- | --- | --- |
+| File finding | `gpt-6-luna` | low |
+| Bounded reading | `gpt-6-luna` | medium |
+| Routine coding | `gpt-6.1-sol` | high |
+| Architecture, difficult diagnosis, security, concurrency | `gpt-6-astra` | high |
+
+The selected probability must be at least **0.60** and exceed every other score
+by at least **0.15**. Missing scores, invalid scores, truncation, and uncertain
+results return a fallback without spawn settings. The thresholds are heuristics;
+there is no calibrated accuracy or cost-saving claim. This replaces the merged
+service's separate task/difficulty policy.
+
+The parent classifies the actual bounded work packet, including relevant
+conversation context, complexity, risk, and read/write intent. It checks the
+selection, launches the subagent with the returned settings, waits, and validates
+the result. Code writes must never go to Luna, and complex work must not be
+downgraded. Explicit user choices, fixed-role plans, and higher-priority rules
+take precedence. Children must not route again.
+
+This remains instruction-driven delegation. A `selected` response and decision
+ID do not prove execution. The selector returns `executed: false`; only an
+actual subsequent subagent launch establishes execution.
+
+## Install the resident Windows service
 
 Requires Windows, Python 3.12+, an existing CUDA-enabled Laya environment at
 `C:\models\laya\runtime`, and English weights at `C:\models\laya\weights`.
-The tested interactive runtime uses Laya 0.4.12 and Torch 2.9.1+cu128. Package and
-weight installation is separate; the installer does not download either.
+The tested earlier runtime used Laya 0.4.12 and Torch 2.9.1+cu128. The installer
+does not download packages or weights.
 
-Run this from **PowerShell opened as Administrator**, from this repository:
+From an elevated PowerShell in this repository:
 
 ```powershell
 & .\scripts\install-laya-service.ps1
 ```
 
-The [installer](../scripts/install-laya-service.ps1) copies the service and client
-to durable `C:\models\laya` paths. It registers the real Windows service
-**LayaCodex**, running as **LocalService**, with delayed automatic startup. Recovery
-restarts it after 5, 15, then 60 seconds, with the failure count reset after 24
+The [installer](../scripts/install-laya-service.ps1) copies `laya-service.py`,
+`laya-hook.py`, and `laya_routing.py` into durable `C:\models\laya` paths.
+It registers **LayaCodex** under **LocalService** with delayed automatic startup
+and recovery after 5, 15, then 60 seconds, resetting the failure count after 24
 hours. It grants LocalService read/execute access to the runtime, weights, and
-the virtual environment's base Python installation. It grants modify access only
-to `C:\models\laya\service-data` for offline cache files and startup diagnostics.
-It does not install a logon task. `-Root` and `-Port` override the defaults.
+base Python, and modify access to `service-data` for offline caches and startup
+diagnostics. `-Root` and `-Port` override defaults.
 
-The service launches the real base Python executable directly, avoiding the
-Windows virtual-environment redirector's child process. It loads packages from
-`runtime\Lib\site-packages`. The native entry point uses Python's standard library and the Windows
-Service Control Manager API, so no service wrapper package is required. The
-service loads one model, performs warmup, then binds **127.0.0.1:8766**. Requests
-run serially, with a queue of at most four waiting connections. `/health` returns
-ready only after load, warmup, and binding succeed; its PID and completed-request
-count help confirm reuse. No prompt or decision logs are written.
+The real base interpreter runs directly, avoiding the Windows venv redirector's
+child process. The service loads packages from `runtime\Lib\site-packages`,
+warms one offline CUDA model, then binds **127.0.0.1:8766**. Requests are serialized
+with at most four waiting connections. `/health` reports readiness, PID,
+`protocol: laya-routing-v1`, and completed-request count. It writes no prompts
+or decision logs.
 
-The installer rejects an occupied port and waits up to **120 seconds** for the
-actual service's readiness, matching the health PID to the running SCM service.
-Interactive CUDA success does **not** prove CUDA works under LocalService in
-Windows Session 0. If startup fails, inspect `Get-Service LayaCodex` and the
-Windows System event log and `service-data\startup-error.txt` (exception type and
-OS error code only). Run the diagnostic command below interactively to
-separate runtime/weights errors from service-account access errors:
+The installer rejects existing services and occupied ports. It waits up to
+**120 seconds**, matching the health PID with the running SCM service.
+Tests with fake inference do not establish CUDA access under LocalService in
+Windows Session 0. Inspect `service-data\startup-error.txt` and the Windows
+System event log on startup failure. The diagnostic contains only exception
+class and OS code.
+
+## Install the Codex clients
+
+The [profile installer](../hooks/laya/install.py) needs no model packages,
+new environment, administrator rights, or running service:
 
 ```powershell
-C:\models\laya\runtime\Scripts\python.exe -B C:\models\laya\laya-service.py
+python hooks/laya/install.py --dry-run
+python hooks/laya/install.py
 ```
 
-Stop the service first before running that command on the same port. The older
-`serve.cmd` is a foreground standard Laya API, not a Windows service and not this
-Codex routing API. The separate OpenCode router on port 8767 is unchanged.
+The default `--integration subagents` installs clients in
+`$CODEX_HOME/laya-hook` (or `~/.codex/laya-hook`) and updates only the
+`laya-subagents` managed section in the active global `AGENTS.md` or nonempty
+`AGENTS.override.md`. New chats load it. Existing chats must read the updated
+instructions explicitly.
 
-Service management, from elevated PowerShell:
+Use `--integration both` for explicit routing plus one optional prompt hook,
+or `--integration hooks` for prompt advice alone. `--codex-home`, `--python`,
+`--service-root`, and `--service-port` override installation defaults.
+The Python executable runs only standard-library clients.
+
+Example explicit selection after installation:
 
 ```powershell
-Get-Service LayaCodex
+@{ task = 'Find the Laya installer test files; return paths only. Read-only.' } |
+    ConvertTo-Json -Compress |
+    & python "$HOME/.codex/laya-hook/route_subagent.py"
+```
+
+A successful response contains `spawn.model`, `reasoning_effort`,
+`agent_type`, and `fork_turns: none`. Use those fields in the actual spawn
+tool call, with a complete packet and workspace path. Unsupported selections
+fall back to the parent. The client never starts a service or loads a model.
+
+The optional prompt hook uses the same policy but sees only the latest prompt.
+Its output is advice, grants no delegation authority, and asks the parent to
+classify the actual packet before any authorized delegation. There is no second
+model/effort selection policy. Review changed definitions through **/hooks**;
+the installers never change trust hashes.
+
+The [repository template](../hooks/laya-hooks.json) supports nested paths but
+must be merged manually. Use one profile or project registration; the profile
+installer cannot remove a separate project-local registration. Local command
+hooks need local orchestration, not cloud orchestration.
+
+## Migrate the two previous installations
+
+Update the resident service before switching clients. From elevated PowerShell,
+using your actual service root:
+
+```powershell
+Stop-Service LayaCodex
+Copy-Item -LiteralPath .\scripts\laya-service.py -Destination C:\models\laya\laya-service.py -Force
+Copy-Item -LiteralPath .\scripts\laya-hook.py -Destination C:\models\laya\laya-hook.py -Force
+Copy-Item -LiteralPath .\scripts\laya_routing.py -Destination C:\models\laya\laya_routing.py -Force
+Start-Service LayaCodex
 Invoke-RestMethod http://127.0.0.1:8766/health
-Stop-Service LayaCodex
-Restart-Service LayaCodex
 ```
 
-To update an existing installation, stop the service, copy the two current Python
-scripts into `C:\models\laya`, and start it again. The installer refuses to replace
-an existing service silently. To uninstall:
+For the earlier on-demand installation, stop its old server **before** migrating
+the profile, using its existing `manage.ps1 Stop`. That manager belongs to the
+legacy implementation and must not manage the resident Windows service.
 
-```powershell
-Stop-Service LayaCodex
-sc.exe delete LayaCodex
-```
+Then run `python hooks/laya/install.py` (or choose `--integration both`).
+The installer removes recognized legacy `SessionStart` handlers and both older
+profile prompt handlers, then installs at most one new prompt handler. It
+preserves unrelated handlers and group metadata, profile instructions outside
+the managed section, custom configuration keys, model weights, tokens, logs,
+old scripts, and existing environments. It does not stop processes or delete
+runtime assets. No replacement backups are created.
 
-Disable or remove the Laya hook in `/hooks` as well. Runtime and weight files stay
-on disk, and the installer-added LocalService read permission stays in place.
+The resident endpoint defaults to **8766**, stored as `service_port`. The
+legacy `port: 18147` key is retained but no longer controls the clients.
+Use `--service-port` for a nondefault resident port. Existing clients must be
+updated together with the service; mixed protocol versions fail open.
 
-## Codex hook setup
+The old `--model-path`, `--skip-dependencies`, and `--device` installer
+options are retired. Model/runtime installation belongs to the resident service;
+the profile installer only installs clients. No `SessionStart` hook or
+on-demand server is installed. Other routers, including OpenCode on port 8767,
+are outside this migration.
 
-Merge the template's `UserPromptSubmit` handler into the existing hook config;
-preserve other handlers. Do not install duplicate project and profile copies.
-The template resolves the Git root and supports repository subdirectories. For a
-user profile installation on this machine, use this handler instead:
+## Limits, privacy, and fallback
 
-```json
-{
-  "type": "command",
-  "command": "C:/models/laya/runtime/Scripts/python.exe -B \"C:/models/laya/laya-hook.py\"",
-  "timeout": 5,
-  "statusMessage": "Checking local Laya task advice"
-}
-```
+The English classifier receives only the supplied prompt or task string, never
+files or transcripts. Include needed context in a concise task description.
+Prompt advice skips inputs over **1,200 characters**; explicit packets allow
+**4,000 characters** and at most **32 KiB** of stdin. Model-window truncation
+still abstains even within those limits.
 
-Use `/hooks` to review and trust changed hook definitions. The installer does not
-change trust hashes or disable trust. Local command hooks require local
-orchestration; cloud-orchestrated ChatGPT Work threads do not run them. Open a new
-local session if a running session does not discover the configuration.
+The service accepts at most **32 KiB** per HTTP body and uses a **1-second**
+incoming socket timeout. Clients bound response reads to **8 KiB** and prompt
+events to **1 MiB**, with a **0.75-second** socket timeout. Socket timeouts apply
+per operation. Codex caps the prompt hook at **5 seconds**.
+Malformed inputs, incompatible service output, service failures, and timeouts
+return `{}` for prompt advice or `status: fallback` for explicit selection,
+with a successful process exit and no spawn settings.
 
-## Routing policy and fallback
+HTTP uses fixed loopback, ignores proxies, and does not follow redirects.
+Callers cannot supply arbitrary model questions or model names. The resident
+endpoint retains PR #44's unauthenticated loopback boundary; other local
+processes can call it. PR #43's separate bearer-authenticated server is not
+started by these clients. No raw prompts, tokens, or exception messages are
+written to routing logs.
 
-Laya answers fixed task-type and difficulty questions. Routine recommends
-**gpt-6-luna**, standard recommends **gpt-6.1-sol**, and demanding recommends
-**gpt-6-astra**. Debugging and architecture receive at least Sol. The hook asks the
-coordinator to delegate substantive tasks once with `fork_turns=none`, provide the
-worker full context, and keep verification responsibility. Workers must not route
-again. Status questions and short followups stay with the coordinator. Explicit
-user model choices, instructions against delegation, and higher-priority rules
-take precedence.
+`LAYA_CODEX_PORT` overrides `service_port`. `LAYA_CODEX_DISABLED=1` disables
+both clients. In client `config.json`, `subagent_routing_enabled: false`
+disables selection; `enabled: false` or `mode: observe` suppresses prompt
+advice. Observation mode does not write decision logs in this consolidated client.
 
-This preserves the installed trial's task/difficulty policy. It replaces the
-earlier repository prototype's six-category, 0.8-probability filter; neither has
-calibrated accuracy evidence. This is experimental English-only advice. The
-classifier sees the current prompt, not conversation history.
-
-Prompts over **1,200 characters** are skipped rather than shortened. Truncated or
-malformed model output abstains. The hook reads at most **1 MiB** of event input
-and **8 KiB** of response data. The service accepts bodies up to **8 KiB** and
-uses a **1-second socket timeout** for incoming requests. The client uses a
-**0.75-second socket timeout** and Codex caps the full hook at **5 seconds**.
-Socket timeouts are per operation, not a total wall-clock deadline. Server
-errors, unavailable service, malformed input, and timeouts return `{}` and exit
-successfully, leaving the current model in place.
-
-Connections use fixed loopback HTTP, ignore proxy variables, and do not follow
-redirects. The service accepts only a prompt at `/classify`; callers cannot
-provide arbitrary model questions. The loopback endpoint has no authentication,
-so other local processes can call it. Only prompt text is sent, never transcripts
-or files. Set `LAYA_CODEX_PORT` in Codex's environment if the service uses another
-port. Set `LAYA_CODEX_DISABLED=1` or disable the hook in `/hooks` to skip inference.
-
-## Verification
+## Verify and remove
 
 ```text
-python -B -m unittest discover -s tests -p test_laya_hook.py -v
+python -B -m unittest discover -s tests -p test_laya*.py -v
 python scripts/build-docs.py --check
 git diff --check
 ```
 
-Tests use an actual loopback server with a fake classifier to check client/server
-contracts, repeated requests, routing floors, malformed and oversized input,
-truncation, disabled mode, timeouts, and fail-open behavior. They do not establish
-model accuracy, Windows-service startup, Session 0 GPU access, or deterministic
-delegation. Validate the installed service separately with `/health` and repeated
-`POST /classify` calls.
+Tests use fake inference with a real loopback server. They cover both clients
+sharing a process, model/effort mapping, probability validation, malformed
+responses, input limits, timeouts, and migration that preserves unrelated data.
+They do not establish real-model accuracy, live service upgrades, or Session 0
+CUDA access. Verify the installed `/health` protocol and repeated requests
+separately.
 
-- [Codex hooks](https://developers.openai.com/codex/hooks/)
+To uninstall, disable the clients, remove only the Laya prompt handler and
+managed instruction section, then stop/delete the service from elevated
+PowerShell. Runtime files, weights, and installer-added LocalService permissions
+remain unless removed separately.
+
+- [Codex hooks](https://learn.chatgpt.com/docs/hooks)
 - [Laya SDK](https://github.com/NandhaKishorM/laya)
 - [Windows service entry points](https://learn.microsoft.com/windows/win32/services/service-entry-point)
