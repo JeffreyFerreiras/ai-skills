@@ -17,6 +17,9 @@ BUNDLES = {
         "scene-direction.md", "notebooklm-workflow.md", "reference-history.md", "story-bridge-contract.md", "scene_bridge.py",
     ),
 }
+COVER_RESOURCES = ("cover-style.md", "cover_style.py", "cover-references/manifest.json",
+                   "cover-references/safe-rollbacks-tiktok-cover.png", "cover-references/logical-clocks-tiktok-cover.png")
+BUNDLES = {skill: (*resources, *COVER_RESOURCES) for skill, resources in BUNDLES.items()}
 
 
 def bundle(root: Path, *, check: bool = False) -> list[str]:
@@ -26,7 +29,8 @@ def bundle(root: Path, *, check: bool = False) -> list[str]:
     problems = []
     for skill, resources in BUNDLES.items():
         for name in resources:
-            directory = "scripts" if name == "scene_bridge.py" else "references"
+            directory = "assets" if name.startswith("cover-references/") else (
+                "scripts" if name.endswith(".py") else "references")
             target = root / "skills" / skill / directory / name
             actual = target.read_bytes() if target.exists() else None
             if actual == sources[name]:

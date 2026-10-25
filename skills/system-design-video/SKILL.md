@@ -278,6 +278,11 @@ implies unavailable playback.
 
 ## Deliver and hand off
 
+When a cover is part of the requested deliverables, apply the
+[cover style and thumbnail gate](references/cover-style.md). View both bundled
+original references and obtain current independent full-cover/thumbnail approval
+before cover delivery. Keep cover-style and storytelling references distinct.
+
 Provide the requested video or preview, subtitles when narrated, editable scene
 source, script, `video-spec.json`, and a short QA report. Keep output in the chosen
 project, outside the installed skill. Record exact runtime versions, commands,

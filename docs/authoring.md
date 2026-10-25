@@ -95,7 +95,11 @@ Edit shared scene direction, NotebookLM workflow or reference history there, the
 run `python scripts/bundle-video-guidance.py` and its `--check` mode. The generator
 bundles scene direction, its story-bridge contract and checker into all three
 video skills, with workflow/history references also bundled into each NotebookLM
-skill. Standalone installs need no sibling skill. Run
+skill. Standalone installs need no sibling skill.
+Cover style, its checker and the two unchanged original PNGs with provenance
+manifest are also canonical under `shared/video-production` and bundled into
+each video skill. Edit shared files, then regenerate; do not edit generated
+copies or replace reference originals with recreated illustrations. Run
 `python -m unittest discover -s tests -p test_video_guidance_bundle.py` for drift,
 read-only checking, missing-source handling and standalone reference coverage.
 

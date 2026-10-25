@@ -27,8 +27,9 @@ class VideoGuidanceBundleTests(unittest.TestCase):
             canonical = root / "shared/video-production"
             canonical.mkdir(parents=True)
             for name in {name for resources in bundler.BUNDLES.values() for name in resources}:
+                (canonical / name).parent.mkdir(parents=True, exist_ok=True)
                 (canonical / name).write_text(f"# {name}\n", encoding="utf-8")
-            self.assertEqual(13, len(bundler.bundle(root, check=True)))
+            self.assertEqual(28, len(bundler.bundle(root, check=True)))
             self.assertFalse((root / "skills").exists())
             bundler.bundle(root)
             target = root / "skills/notebooklm-short-video/references/scene-direction.md"
@@ -61,6 +62,8 @@ class VideoGuidanceBundleTests(unittest.TestCase):
                 shutil.copytree(ROOT / "skills" / skill, standalone)
                 checker = standalone / "scripts/scene_bridge.py"
                 result = subprocess.run([sys.executable, "-B", str(checker), "--help"], capture_output=True, text=True)
+                self.assertEqual(0, result.returncode, result.stderr)
+                result = subprocess.run([sys.executable, "-B", str(standalone / "scripts/cover_style.py"), "--help"], capture_output=True, text=True)
                 self.assertEqual(0, result.returncode, result.stderr)
                 for document in standalone.rglob("*.md"):
                     for link in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
