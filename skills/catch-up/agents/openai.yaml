@@ -1,0 +1,4 @@
+interface:
+  display_name: "Catch up"
+  short_description: "Recap the current conversation and next step"
+  default_prompt: "Use $catch-up to recap the current goal, what is done, what remains, and the next step."
