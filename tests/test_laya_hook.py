@@ -202,6 +202,25 @@ class LayaTests(unittest.TestCase):
                 result = self.run_hook(raw=b'{"task":"find files"}', subagent=True)
                 self.assertEqual('disabled', result['reason'])
 
+    def test_unicode_packet_reaches_resident_inference_within_transport_limit(self):
+        task = 'Inspect this bounded reading packet: ' + '\U0001f680' * 3000
+        raw = json.dumps({'task': task}, ensure_ascii=False).encode('utf-8')
+        self.assertLessEqual(len(task), 4000)
+        self.assertLessEqual(len(raw), hook.MAX_TASK_BYTES)
+        escaped = json.dumps({'prompt': task, 'kind': 'subagent'}).encode('utf-8')
+        self.assertGreater(len(escaped), service.MAX_BODY_BYTES)
+        received = []
+        self.agent.predict = lambda request, _: received.append(request['request']) or prediction()
+        with tempfile.TemporaryDirectory(prefix='laya unicode ') as directory:
+            root = Path(directory)
+            (root / 'config.json').write_text('{"subagent_routing_enabled":true}', encoding='utf-8')
+            with patch.object(hook, 'ROOT', root):
+                result = self.run_hook(raw=raw, subagent=True)
+        self.assertEqual('selected', result['status'])
+        self.assertEqual([task], received)
+        self.assertEqual(1, self.server.requests_completed)
+        self.assertFalse(result['executed'])
+
     def test_untrusted_spawn_fields_are_rejected(self):
         for route in policy.PROFILES:
             result = {'status': 'selected', 'route': route, 'spawn': policy.spawn_settings(route)}

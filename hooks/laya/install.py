@@ -18,7 +18,7 @@ END = "<!-- laya-subagents:end -->"
 
 
 def write_text(path, value):
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="", dir=path.parent,
                                      prefix=path.name + ".", suffix=".tmp", delete=False) as output:
         output.write(value)
         temporary = Path(output.name)
@@ -35,12 +35,14 @@ def read_json(path):
     return result
 
 
-def subagent_instructions(existing, runtime, python):
-    section = (SOURCE / "subagent-instructions.md").read_text(encoding="utf-8")
-    section = section.replace("__LAYA_PYTHON__", python.as_posix().replace("'", "''"))
-    section = section.replace("__LAYA_ROUTER__", (runtime / "route_subagent.py").as_posix().replace("'", "''"))
+def subagent_instructions(existing, runtime, python, enabled):
+    section = ""
+    if enabled:
+        section = (SOURCE / "subagent-instructions.md").read_text(encoding="utf-8")
+        section = section.replace("__LAYA_PYTHON__", python.as_posix().replace("'", "''"))
+        section = section.replace("__LAYA_ROUTER__", (runtime / "route_subagent.py").as_posix().replace("'", "''"))
     if START not in existing and END not in existing:
-        return existing + ("\n\n" if existing else "") + section
+        return existing + ("\n\n" if existing else "") + section if enabled else None
     if existing.count(START) != 1 or existing.count(END) != 1 or existing.index(END) < existing.index(START):
         raise ValueError("Malformed Laya instruction markers; repair the existing file first.")
     return existing[:existing.index(START)] + section.rstrip("\n") + existing[existing.index(END) + len(END):]
@@ -127,10 +129,9 @@ def install(args):
     if not instructions_path.exists() or not instructions_path.read_text(encoding="utf-8-sig").strip():
         instructions_path = home / "AGENTS.md"
     original_instructions = instructions_path.read_bytes() if instructions_path.exists() else None
-    instructions = None
-    if config["subagent_routing_enabled"]:
-        instructions = subagent_instructions(
-            original_instructions.decode("utf-8-sig") if original_instructions else "", runtime, python)
+    instructions = subagent_instructions(
+        original_instructions.decode("utf-8") if original_instructions else "", runtime, python,
+        config["subagent_routing_enabled"])
     registration = None
     if config["enabled"]:
         registration = {"type": "command", "command": subprocess.list2cmdline([

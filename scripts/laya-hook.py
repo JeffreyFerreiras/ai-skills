@@ -21,7 +21,8 @@ MAX_TASK_BYTES = 32768
 def classify(prompt, port, kind="prompt"):
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=TIMEOUT_SECONDS)
     try:
-        connection.request("POST", "/classify", body=json.dumps({"prompt": prompt, "kind": kind}).encode(),
+        connection.request("POST", "/classify", body=json.dumps(
+            {"prompt": prompt, "kind": kind}, ensure_ascii=False).encode("utf-8"),
                            headers={"Content-Type": "application/json"})
         response = connection.getresponse()
         if response.status != 200:

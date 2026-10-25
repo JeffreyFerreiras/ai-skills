@@ -93,6 +93,79 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(override.read_text().startswith('Override guidance.\n'))
         self.assertFalse((self.home / 'AGENTS.md').exists())
 
+    def test_hooks_transition_removes_only_active_managed_instructions(self):
+        for integration in ('subagents', 'both'):
+            for filename in ('AGENTS.md', 'AGENTS.override.md'):
+                with self.subTest(integration=integration, filename=filename):
+                    self.home = self.root / (integration + filename)
+                    self.runtime = self.home / 'laya-hook'
+                    self.home.mkdir()
+                    instructions = self.home / filename
+                    before = 'Keep existing guidance.\n<!-- other:start -->Other guidance.<!-- other:end -->\n'
+                    after = '\nKeep later guidance.\n'
+                    instructions.write_text(before, encoding='utf-8')
+                    inactive = self.home / 'AGENTS.md'
+                    if filename == 'AGENTS.override.md':
+                        inactive.write_text('Inactive general guidance.\n', encoding='utf-8')
+                    self.install('--integration', integration)
+                    managed = instructions.read_text(encoding='utf-8')
+                    self.assertIn(installer.START, managed)
+                    instructions.write_text(managed + after, encoding='utf-8')
+                    expected = (managed[:managed.index(installer.START)]
+                                + managed[managed.index(installer.END) + len(installer.END):] + after)
+
+                    self.install('--integration', 'hooks')
+                    self.assertEqual(expected, instructions.read_text(encoding='utf-8'))
+                    config = json.loads((self.runtime / 'config.json').read_text())
+                    self.assertTrue(config['enabled'])
+                    self.assertFalse(config['subagent_routing_enabled'])
+                    if filename == 'AGENTS.override.md':
+                        self.assertEqual('Inactive general guidance.\n', inactive.read_text(encoding='utf-8'))
+                    first = {path.relative_to(self.home): path.read_bytes()
+                             for path in self.home.rglob('*') if path.is_file()}
+                    self.install('--integration', 'hooks')
+                    self.assertEqual(first, {path.relative_to(self.home): path.read_bytes()
+                                            for path in self.home.rglob('*') if path.is_file()})
+
+    def test_hooks_only_does_not_create_or_rewrite_unmanaged_instructions(self):
+        self.install('--integration', 'hooks')
+        self.assertFalse((self.home / 'AGENTS.md').exists())
+        self.assertFalse((self.home / 'AGENTS.override.md').exists())
+        instructions = self.home / 'AGENTS.override.md'
+        original = b'\xef\xbb\xbfKeep override guidance.\r\n'
+        instructions.write_bytes(original)
+        self.install('--integration', 'hooks')
+        self.assertEqual(original, instructions.read_bytes())
+        self.assertFalse((self.home / 'AGENTS.md').exists())
+
+    def test_hooks_only_preserves_surrounding_instruction_bytes(self):
+        self.home.mkdir()
+        instructions = self.home / 'AGENTS.md'
+        before = b'\xef\xbb\xbfKeep earlier guidance.\r\n\r\n'
+        after = b'\r\nKeep later guidance.\r\n'
+        managed = (installer.START + '\r\nOwned guidance.\r\n' + installer.END).encode('utf-8')
+        instructions.write_bytes(before + managed + after)
+        self.install('--integration', 'hooks')
+        self.assertEqual(before + after, instructions.read_bytes())
+
+    def test_hooks_only_rejects_malformed_markers_before_any_writes(self):
+        malformed = (installer.START, installer.END, installer.END + installer.START,
+                     installer.START * 2 + installer.END, installer.START + installer.END * 2)
+        for index, content in enumerate(malformed):
+            with self.subTest(content=content):
+                self.home = self.root / str(index)
+                self.runtime = self.home / 'laya-hook'
+                self.home.mkdir()
+                (self.home / 'AGENTS.override.md').write_text(content, encoding='utf-8')
+                (self.home / 'hooks.json').write_text('{"hooks":{},"custom":"keep"}', encoding='utf-8')
+                before = {path.relative_to(self.home): path.read_bytes()
+                          for path in self.home.rglob('*') if path.is_file()}
+                with self.assertRaisesRegex(ValueError, 'Malformed'):
+                    self.install('--integration', 'hooks')
+                self.assertEqual(before, {path.relative_to(self.home): path.read_bytes()
+                                          for path in self.home.rglob('*') if path.is_file()})
+                self.assertFalse(self.runtime.exists())
+
     def test_invalid_markers_or_port_reject_before_client_writes(self):
         self.home.mkdir()
         instructions = self.home / 'AGENTS.md'
