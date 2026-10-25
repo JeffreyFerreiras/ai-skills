@@ -70,10 +70,12 @@ Keep it short and operational; do not paste the full storyboard or ask NotebookL
 to invent a second plan. A useful shape is:
 
 ```text
+Use the existing "Neon Chalk Systems" style guide for the ENTIRE video.
 Create [the selected format and episode scope], at a natural teaching pace.
 Use "[EXACT PRODUCTION SOURCE TITLE]" for sequence, example and scope.
-Use "[EXACT STYLE SOURCE TITLE]" for visual language, with the episode plan's
+Use "Neon Chalk Systems" for visual language, with the episode plan's
 explicit scene-director choices governing scene variety and the fresh transition.
+Require deep matte-black chalkboard EVERY scene/timestamp after opening through normal/alternatives/human bridge/closing; never white/cream/parchment/light background, reject any light output.
 Use the selected technical sources for facts. Preserve the plan's assumptions,
 limits and exclusions. Start with a plain-language concept explanation and
 concrete learning objectives before the real-world scenario. Integrate the hook
@@ -90,6 +92,8 @@ content; do not silently rewrite a shared style file. Mark requested duration,
 aspect, voice and captions as intentions until the actual controls/output prove
 them. Do not force local Kokoro settings into NotebookLM prompts or promise exact
 word-for-word narration or frame-accurate choreography.
+
+Operator check: explicitly select Custom topic WHEN such controls are offered; do not leave a generic AI topic selected. Enter and commit the complete prompt with normal input and blur; textarea value alone is not proof. After generation, inspect the actual SAVED prompt/attribution for the literal "Neon Chalk Systems" and the all-scenes black rules; missing name is not accepted. Repair inside the existing review budget with no new counter or approval gate. Verify later and ending backgrounds, not opening alone. Never invent missing controls.
 
 ## Review, upload and activate within requested scope
 

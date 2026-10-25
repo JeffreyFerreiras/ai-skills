@@ -16,7 +16,7 @@ The [inspected history](references/reference-history.md) distinguishes the older
 90-120-second template from the current 90-180-second brief. These references
 ship with this skill; no sibling skill or local voice/rendering engine is needed.
 
-For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
+For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md). The generation prompt must explicitly name "Neon Chalk Systems"; source selection alone is insufficient.
 Read its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
 when selecting useful scene and narrative techniques; adapt them to the short's
 scope rather than copying the longer episode's scene mix or timing.

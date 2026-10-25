@@ -8,7 +8,7 @@ replacement for the episode brief, factual sources or existing review process.
 
 ## Visual language
 
-Use a dark charcoal or blue-black textured field, light chalk-like contours and
+Use deep matte-black chalkboard EVERY scene/timestamp after opening through normal/alternatives/human bridge/closing for the existing "Neon Chalk Systems" style guide; never white/cream/parchment/light background, reject any light output. Use light chalk-like contours and
 restrained luminous accents where this style fits the brief. Keep texture and glow
 behind the lesson. Clear silhouettes, spatial grouping and contrast should make
 the foreground idea easy to find. Contextual illustrations can use depth and

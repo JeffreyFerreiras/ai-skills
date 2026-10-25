@@ -16,7 +16,7 @@ The [inspected history](references/reference-history.md) distinguishes recovered
 conventions from new defaults. All references ship with this skill; no sibling
 skill installation or local voice/rendering engine is required.
 
-For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
+For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md). The generation prompt must explicitly name "Neon Chalk Systems"; source selection alone is insufficient.
 Its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
 separates observed visual choices, approximate narrative structure and weaknesses
 to repair; read it when a concrete cinematic reference would help scene planning.
