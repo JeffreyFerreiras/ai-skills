@@ -15,6 +15,7 @@ from typing import Any
 ROUNDING_TOLERANCE = 1e-6
 AUDIO_TOLERANCE = 0.1
 AUDIO_CHUNK_BYTES = 64 * 1024
+FRAME_ROUNDING_TOLERANCE = 1e-8
 
 
 class SpecChecker:
@@ -173,8 +174,14 @@ class SpecChecker:
             value = profile.get(key)
             if type(value) is not int or value <= 0 or value % 2:
                 self.error(f"profile.{key}", "must be a positive even integer")
-        self.number(profile.get("fps"), "profile.fps", positive=True)
+        fps = self.number(profile.get("fps"), "profile.fps", positive=True)
         duration = self.number(profile.get("duration_seconds"), "profile.duration_seconds", positive=True)
+        frame_count = None
+        if fps is not None and duration is not None:
+            if math.isfinite(duration * fps):
+                frame_count = math.ceil(duration * fps - FRAME_ROUNDING_TOLERANCE)
+            else:
+                self.error("profile", "frame count must be finite")
         narrated = profile.get("narrated")
         if type(narrated) is not bool:
             self.error("profile.narrated", "must be a boolean")
@@ -273,6 +280,11 @@ class SpecChecker:
                     completion_times[identifier] = completion
                     if window and completion > window[1] + ROUNDING_TOLERANCE:
                         self.error(where, "event completion extends beyond its scene")
+                    if frame_count is not None and (version == 2 or "state_after" in event):
+                        completion_frames = completion * fps
+                        if (not math.isfinite(completion_frames) or
+                                math.ceil(completion_frames - FRAME_ROUNDING_TOLERANCE) >= frame_count):
+                            self.error(where, "no visible completion frame; extend the video and final scene with an end hold")
                     for dependency in dependencies:
                         if at + ROUNDING_TOLERANCE < completion_times.get(dependency, 0):
                             self.error(where, f"starts before dependency {dependency!r} completes")

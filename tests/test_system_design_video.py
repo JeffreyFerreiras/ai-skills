@@ -114,6 +114,26 @@ class SystemDesignVideoTests(unittest.TestCase):
         self.plan["events"][0]["duration_seconds"] = 2
         self.assert_issue("completion extends beyond")
 
+    def test_terminal_completion_requires_a_visible_output_frame(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        for duration in (0.9, 0.899):
+            with self.subTest(duration=duration):
+                self.plan["events"][1]["duration_seconds"] = duration
+                self.assert_issue("no visible completion frame")
+        # A completion on the last actual frame remains valid.
+        self.plan["events"][1]["duration_seconds"] = 59 / 30 - 1.1
+        self.assertEqual([], self.errors())
+        # An explicit one-frame end hold makes completion at two seconds visible.
+        self.plan["events"][1]["duration_seconds"] = 0.9
+        self.plan["profile"]["duration_seconds"] = 61 / 30
+        self.plan["scenes"][-1]["end"] = 61 / 30
+        self.assertEqual([], self.errors())
+
+    def test_intermediate_scene_completion_is_visible_in_the_next_scene(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        self.plan["events"][0]["duration_seconds"] = 0.9
+        self.assertEqual([], self.errors())
+
     def test_caption_order_and_video_fit_are_checked(self) -> None:
         self.plan["captions"] = [{"start": 1, "end": 3, "text": "First"},
                                  {"start": 2, "end": 91, "text": "Second"}]

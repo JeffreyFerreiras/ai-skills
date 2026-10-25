@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Composition, Sequence, registerRoot, staticFile, useCurrentFrame} from 'remotion';
 import spec from '../video-spec.json';
-import {frameAt, stateAt} from './timeline.mjs';
+import {compositionFrames, frameAt, stateAt} from './timeline.mjs';
 
 function Explainer({spec}) {
   const frame = useCurrentFrame();
@@ -60,6 +60,6 @@ function Root() {
   }
   return <Composition id="Explainer" component={Explainer} defaultProps={{spec}}
     width={spec.profile.width} height={spec.profile.height} fps={spec.profile.fps}
-    durationInFrames={frameAt(spec.profile.duration_seconds, spec.profile.fps)} />;
+    durationInFrames={compositionFrames(spec)} />;
 }
 registerRoot(Root);

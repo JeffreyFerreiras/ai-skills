@@ -5,7 +5,7 @@ description: Orchestrate with the primary only thinking and dispatching little h
 
 # Orchestrator Mode
 
-The primary thinks and orchestrates only. Every file read, research step, write or edit, and validation runs as a little helper through the OpenCode CLI. The primary never touches files or runs checks itself.
+The primary thinks and orchestrates. Every file read, research step, write or edit, and validation runs as a little helper through the OpenCode CLI. The primary never touches files or runs checks itself.
 
 Invoke as `$orchestrator-mode model=<provider/model> <task>`. `model=` is optional; when omitted use `opencode-go/muse-spark-1.3-contributor`. The choice selects every helper, never the primary chat; reuse it for every job and follow-up until the user changes it. Honor any exact listed model including valid non-Muse models. Verify the full `provider/model` against `opencode models`; report an unavailable or ambiguous model and ask, never silently substitute. An explicit choice takes precedence over automatic routing; resolve any fixed-role plan conflict without bypass.
 

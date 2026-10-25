@@ -27,6 +27,11 @@ duration. Events occur inside their named scene. List events chronologically;
 equal timestamps retain list order. A packet event includes both edge endpoints
 in `node_ids`. `action` describes the visible behavior and its system meaning.
 An event finishes at `at + duration_seconds`, no later than its scene end.
+For events with completion states, the first frame at or after completion must
+be inside the video. Finishing at the final cut, or between its last frame and
+the cut, is invalid. Extend the final scene and video with an explicit end hold;
+the checker and starter reject the plan rather than show the result early.
+An intermediate scene boundary is valid when the next scene supplies that frame.
 An `after` dependency must finish before or exactly when the dependent event starts.
 Apply `state_after` at completion, never on departure. Simultaneous independent
 events may overlap. For conflicting completion states, the later completion wins;
