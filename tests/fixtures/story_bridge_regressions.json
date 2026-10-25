@@ -1,0 +1,23 @@
+{
+  "scope": "Text fixtures derived from inspected encoded stills; not a copy of production media or a new production verdict",
+  "cases": [
+    {
+      "id": "webhook-server-housings",
+      "visual_form": "diagram_transform",
+      "observed_story_action": "Labeled GitHub and receiving-app server housings contain secret and calculation boxes. The presentation remains an architecture diagram.",
+      "observed_connection": "A diagram state change was treated as a fresh story scene.",
+      "story_scene_present": false,
+      "source_time_seconds": 47.5,
+      "inspected_frame_sha256": "005731439cec5cd367c168b90577640dc0e6e7ae1d80de13fd5926d8a55d7feb"
+    },
+    {
+      "id": "etag-furniture-backed-diagram",
+      "visual_form": "contextual_story",
+      "observed_story_action": "A poster/browser comparison remains a labeled panel on a desk with curtains; no staff action or audience situation is established.",
+      "observed_connection": "Contextual furniture decorated the existing diagram rather than telling the connection.",
+      "story_scene_present": false,
+      "source_time_seconds": 81.41666666666667,
+      "inspected_frame_sha256": "df37be9e65db406a2191072ff835864ca873456075c30982cc3f1cf7c957de90"
+    }
+  ]
+}

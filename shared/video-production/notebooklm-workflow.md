@@ -28,6 +28,10 @@ Use its strongest justified recommendation, then obtain the non-author
 [scene director handoff](scene-direction.md). Retain useful chalk/neon elements
 without confining every concept to the same diagram. Existing references and
 history are documented in [reference history](reference-history.md).
+Use the [story bridge contract](story-bridge-contract.md) for a dedicated
+storytelling scene, implemented-source mapping and actual encoded proof. Keep
+style references separate from storytelling references; a diagram on a desk,
+restyled boxes or generic transitions do not meet the story requirement.
 
 ## Create two distinct artifacts
 
@@ -133,6 +137,13 @@ roles within the stage's shared three-round budget; unresolved material findings
 at the cap block dependent acceptance, not an automatic fourth generation.
 If NotebookLM cannot repair a part, describe the limitation and available
 authorized remedy without discarding useful outputs or regenerating blindly.
+When the actual output can be downloaded, capture/recheck its bridge samples with
+the bundled `scripts/scene_bridge.py` and obtain blind audience interpretation
+before creator intent, followed by distinct visual/logical acceptance. For
+NotebookLM, the implementation source is the exact uploaded production document
+and storyboard with observed output scene mapping, not invented rendering code.
+Missing actual output/evidence leaves encoded acceptance pending. A document,
+activation prompt, platform thumbnail or generic scene approval cannot clear it.
 
 When a downloadable file is available, verify the actual dimensions, duration,
 streams, decode and encoded caption/label readability using available local media

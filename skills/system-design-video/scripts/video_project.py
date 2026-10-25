@@ -16,6 +16,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from check_video_spec import validate_spec
+from scene_bridge import check_record, check_spec_mapping
 
 
 SKILL = Path(__file__).resolve().parents[1]
@@ -285,6 +286,7 @@ def main():
             command.add_argument("--capabilities", type=Path)
         if name == "media-check":
             command.add_argument("video", type=Path)
+            command.add_argument("--bridge-record", type=Path, required=True)
         if name != "previews":
             command.add_argument("--ffmpeg", default="ffmpeg")
             command.add_argument("--ffprobe", default="ffprobe")
@@ -317,7 +319,15 @@ def main():
             elif args.command == "previews":
                 result = {"frames": preview_frames(spec), "scope": "sample plan, not playback evidence"}
             else:
-                result = check_media(args.video, spec, args.ffmpeg, args.ffprobe)
+                bridge = read_json(args.bridge_record)
+                gate = check_record(bridge, args.spec.parent, "encoded", args.ffmpeg,
+                                    args.ffprobe, expected_video=args.video)
+                mapping_errors = check_spec_mapping(bridge, spec) if gate["valid"] else []
+                if not gate["valid"] or mapping_errors:
+                    result = {"valid": False, "errors": gate["errors"] + mapping_errors, "bridge_gate": gate}
+                else:
+                    result = check_media(args.video, spec, args.ffmpeg, args.ffprobe)
+                    result["bridge_gate"] = gate
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 1 if result.get("valid") is False or result.get("ready_to_attempt") is False else 0
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

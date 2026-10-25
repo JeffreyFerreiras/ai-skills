@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,7 +28,7 @@ class VideoGuidanceBundleTests(unittest.TestCase):
             canonical.mkdir(parents=True)
             for name in {name for resources in bundler.BUNDLES.values() for name in resources}:
                 (canonical / name).write_text(f"# {name}\n", encoding="utf-8")
-            self.assertEqual(7, len(bundler.bundle(root, check=True)))
+            self.assertEqual(13, len(bundler.bundle(root, check=True)))
             self.assertFalse((root / "skills").exists())
             bundler.bundle(root)
             target = root / "skills/notebooklm-short-video/references/scene-direction.md"
@@ -57,6 +59,9 @@ class VideoGuidanceBundleTests(unittest.TestCase):
             for skill in ("notebooklm-cinematic-video", "notebooklm-short-video"):
                 standalone = Path(directory) / skill
                 shutil.copytree(ROOT / "skills" / skill, standalone)
+                checker = standalone / "scripts/scene_bridge.py"
+                result = subprocess.run([sys.executable, "-B", str(checker), "--help"], capture_output=True, text=True)
+                self.assertEqual(0, result.returncode, result.stderr)
                 for document in standalone.rglob("*.md"):
                     for link in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
                         if "://" not in link:

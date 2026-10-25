@@ -93,8 +93,9 @@ Each installed skill owns its bundled runtime script and manifest; neither needs
 Video guidance has one canonical source under `shared/video-production/`.
 Edit shared scene direction, NotebookLM workflow or reference history there, then
 run `python scripts/bundle-video-guidance.py` and its `--check` mode. The generator
-bundles scene direction into `system-design-video` and all three references into
-each NotebookLM skill; standalone installs need no sibling skill. Run
+bundles scene direction, its story-bridge contract and checker into all three
+video skills, with workflow/history references also bundled into each NotebookLM
+skill. Standalone installs need no sibling skill. Run
 `python -m unittest discover -s tests -p test_video_guidance_bundle.py` for drift,
 read-only checking, missing-source handling and standalone reference coverage.
 

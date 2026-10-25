@@ -68,8 +68,14 @@ production gate or prevents independent plan work.
 
 ```bash
 python scripts/video_project.py previews "$VIDEO_PROJECT/video-spec.json"
-python scripts/video_project.py media-check "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/explainer.mp4"
+python scripts/video_project.py media-check "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/explainer.mp4" --bridge-record "$VIDEO_PROJECT/scene-bridge-encoded.json"
 ```
+
+Follow the [story bridge contract](story-bridge-contract.md) before media-check.
+It requires actual implementation, encoded samples and distinct independent
+story verdicts, including blind interpretation before intent. The media-check
+CLI rejects a missing record or mismatched story/timeline/video evidence. Direct
+`check_media` calls used by technical fixtures remain technical checks only.
 
 `previews` returns deduplicated frame indexes around starts, midpoints, completions,
 and scene boundaries. Render the relevant indexes with the project's still command;
