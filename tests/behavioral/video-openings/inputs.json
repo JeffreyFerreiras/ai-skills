@@ -1,0 +1,102 @@
+{
+  "scope": "Synthetic script-gate fixtures only. No actual encoded media or listening evidence exists.",
+  "task": "Use the selected video skill's teaching reviewer to evaluate TEACH-OPEN-01 for each script. Return decision and cited script lines/wording for concept explanation, concrete objectives and scenario/body onset. State missing content honestly. Do not edit, synthesize, render or approve unseen encoded output.",
+  "cases": [
+    {
+      "id": "museum-message",
+      "mode": "narrated",
+      "script_path": "museum-message.txt",
+      "lines": [
+        "A webhook is a message one app sends another when something happens, so the other app can react.",
+        "You'll learn what triggers that message, follow its delivery and explain why a repeated message needs careful handling.",
+        "At a museum, Maya's ticket app tells the entry app when a booking is confirmed.",
+        "The entry app records that booking so the same message cannot grant entry twice."
+      ]
+    },
+    {
+      "id": "notification-question",
+      "mode": "narrated",
+      "script_path": "notification-question.txt",
+      "lines": [
+        "Can you trust the notification that just arrived?",
+        "Maya's entry app receives a booking notice from an unknown sender.",
+        "A webhook is a message one app sends another when something happens.",
+        "The app needs to check who sent the notice."
+      ]
+    },
+    {
+      "id": "message-journey",
+      "mode": "narrated",
+      "script_path": "message-journey.txt",
+      "lines": [
+        "You'll identify the trigger and trace the message from sender to receiver.",
+        "Maya's museum ticket app sends a booking notice to the entry app.",
+        "The entry app updates its booking list."
+      ]
+    },
+    {
+      "id": "ticket-notice",
+      "mode": "narrated",
+      "script_path": "ticket-notice.txt",
+      "lines": [
+        "A webhook is a message one app sends another when something happens.",
+        "Maya's museum ticket app sends a booking notice to the entry app.",
+        "The entry app records the booking."
+      ]
+    },
+    {
+      "id": "booking-arrives",
+      "mode": "narrated",
+      "script_path": "booking-arrives.txt",
+      "lines": [
+        "Maya has just booked a museum ticket, and the entry app needs to know.",
+        "A webhook is a message one app sends another when something happens.",
+        "You'll identify the trigger and trace the message from sender to receiver.",
+        "The ticket app sends the confirmed booking to the entry app."
+      ]
+    },
+    {
+      "id": "webhook-topic",
+      "mode": "narrated",
+      "script_path": "webhook-topic.txt",
+      "lines": [
+        "A webhook is a message one app sends another when something happens.",
+        "Today you'll learn all about webhooks.",
+        "Maya's museum ticket app sends a booking notice to the entry app.",
+        "The entry app records the booking."
+      ]
+    },
+    {
+      "id": "silent-copy-check",
+      "mode": "explicitly_silent",
+      "script_path": "silent-copy-check.txt",
+      "lines": [
+        "Visible text: A cache is a saved copy that lets us reuse information without fetching it again.",
+        "Visible text: You'll identify the saved copy and explain how to check whether its source has changed.",
+        "Visible text: A theatre visitor's phone still shows yesterday's poster.",
+        "Visible action: match the phone's saved poster to the theatre's current poster."
+      ]
+    },
+    {
+      "id": "callback-definition",
+      "mode": "narrated",
+      "script_path": "callback-definition.txt",
+      "lines": [
+        "A webhook is an asynchronous HTTP callback for event-driven integration.",
+        "You'll identify the trigger and trace the message from sender to receiver.",
+        "Maya's museum ticket app sends a booking notice to the entry app.",
+        "The entry app records the booking."
+      ]
+    },
+    {
+      "id": "copy-without-story",
+      "mode": "narrated",
+      "script_path": "copy-without-story.txt",
+      "lines": [
+        "A cache is a saved copy that lets us reuse information without fetching it again.",
+        "You'll identify the saved copy and explain how to check whether its source has changed.",
+        "The saved copy has a version label. Compare that label with the source before reusing the copy."
+      ]
+    }
+  ]
+}

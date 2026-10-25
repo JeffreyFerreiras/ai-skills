@@ -27,6 +27,10 @@ guarantee or fixed target. Use chapters/beats for context, a concrete causal
 journey, failure/tradeoff and synthesis. Define terms in ordinary language before
 using them. Keep one idea in focus and enough time for each causal step. A longer
 video is not permission for jargon, filler or several competing examples.
+Start with the plain-language concept explanation and concrete learning objectives
+before the real-world scenario, integrating the hook into that short baseline.
+Require the teaching reviewer's [TEACH-OPEN-01 evidence](references/teaching-opening.md);
+a cinematic cold open or a long agenda does not replace either element.
 
 Ask the director to justify contextual scenes, visual metaphors, spatial changes,
 before/after demonstrations and cutaways as useful. Require a purposeful fresh

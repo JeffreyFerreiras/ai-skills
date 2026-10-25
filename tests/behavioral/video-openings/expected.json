@@ -1,0 +1,14 @@
+{
+  "scope": "Evaluator-only answer key. Keep this file hidden from the fresh teaching reviewer. Semantic results require actual independent execution, not a schema pass.",
+  "cases": [
+    {"id": "museum-message", "decision": "APPROVE", "definition_lines": [1], "objective_lines": [2], "scenario_or_body_line": 3, "required_finding": null},
+    {"id": "notification-question", "decision": "REVISE", "definition_lines": [3], "objective_lines": [], "scenario_or_body_line": 2, "required_finding": "Definition is late; concrete objectives absent. Hook alone is insufficient."},
+    {"id": "message-journey", "decision": "REVISE", "definition_lines": [], "objective_lines": [1], "scenario_or_body_line": 2, "required_finding": "No plain-language concept explanation before scenario."},
+    {"id": "ticket-notice", "decision": "REVISE", "definition_lines": [1], "objective_lines": [], "scenario_or_body_line": 2, "required_finding": "Concrete learning objectives absent."},
+    {"id": "booking-arrives", "decision": "REVISE", "definition_lines": [2], "objective_lines": [3], "scenario_or_body_line": 1, "required_finding": "Both baseline elements follow the scenario onset."},
+    {"id": "webhook-topic", "decision": "REVISE", "definition_lines": [1], "objective_lines": [], "scenario_or_body_line": 3, "required_finding": "Line2 is a vague topic promise, not a concrete learning objective."},
+    {"id": "silent-copy-check", "decision": "APPROVE", "definition_lines": [1], "objective_lines": [2], "scenario_or_body_line": 3, "required_finding": null},
+    {"id": "callback-definition", "decision": "REVISE", "definition_lines": [], "objective_lines": [2], "scenario_or_body_line": 3, "required_finding": "Line1 relies on unexplained jargon rather than plain-language meaning."},
+    {"id": "copy-without-story", "decision": "APPROVE", "definition_lines": [1], "objective_lines": [2], "scenario_or_body_line": 3, "required_finding": null}
+  ]
+}

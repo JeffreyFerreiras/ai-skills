@@ -12,6 +12,14 @@ Run these evaluations when changing instruction scope or routing and retain trac
 
 This is a manual evaluation protocol; the repository does not include a general live-model runner. Add a positive request, a near miss, and an explicit exclusion when evaluating a changed description. Report unrun cases as unverified rather than inferring success from a structural check.
 
+For the mandatory teaching-opening criterion, use [video-openings/inputs.json](video-openings/inputs.json).
+Give a fresh reviewer the selected skill, its teaching-opening rubric and only
+those inputs. Keep [video-openings/expected.json](video-openings/expected.json)
+hidden until an independent evaluator grades the returned decisions and actual
+script-line evidence. The fixtures include missing, late, vague and jargon-only
+baselines, plus concise narrated, silent and no-scenario lessons. They contain
+no encoded media; never claim timestamp/listening or real-video QA from them.
+
 Keep reports outside skill discovery roots. Include the case ID, fixture and skill hashes, host/model/effort, trace location, artifact diff, each requirement's pass/fail/unverified result, and evidence for that result. Use a separate fresh selection session with the relevant catalog when testing routing; preloading only the expected skill cannot demonstrate correct selection.
 
 See [authoring and validation](../../docs/authoring.md#behavioral-evaluation) for how these evaluations fit the repository quality gates.

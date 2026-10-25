@@ -123,8 +123,12 @@ bridge record; a technical probe/decode result alone cannot approve production.
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
 review the spoken hook before locking a new script or generating full narration.
-For narrated videos, open with a captivating question, punchy phrase, or defensible
-claim spoken in the first seconds, making an accurate promise the lesson answers.
+For every video, first explain the concept in plain language and state concrete
+learning objectives before the real-world scenario. Apply the teaching reviewer's
+[TEACH-OPEN-01 opening check](references/teaching-opening.md), with cited script
+lines before production and actual encoded timestamps before final acceptance.
+For narrated videos, speak this baseline and integrate an interesting accurate
+promise or claim as its hook; a suspense-only or scenario-first cold open fails.
 Pair it with a phone-safe first frame, purposeful motion, and immediate payoff. On-screen text
 or an optional animated cover supports the spoken hook and cannot replace it.
 Use [hook development](references/hook-development.md) for promise/payoff review,
@@ -132,11 +136,10 @@ minimal authorized repairs to existing narration, and encoded-audio verification
 Use the sourced rubric there for relevance, specific curiosity, honest payoff,
 concise natural delivery, and picture/speech alignment. A roughly 3-6-second
 landing is a flexible editorial target, not a deadline or reason to speed the voice.
-After the hook, open with
-what the system or concept is, the problem it solves, why the viewer should care,
-and a brief solution overview before mechanics. Preview learning points in the
-order the lesson actually teaches them. Combine these naturally when they overlap;
-do not repeat the opening as five separate introductions. Establish the actors,
+Include the problem it solves, why the viewer should care and a brief solution
+overview as useful context. Preview concrete learning outcomes in teaching order
+before the scenario, combining these naturally without a long agenda or repeated
+introductions. Establish the actors,
 goal, and stakes before tracing one concrete request or item through the system.
 Show what changes, why that change matters, and what the approach costs. End with
 the answer and the scope of the conclusion. Each scene should teach one idea.
