@@ -107,7 +107,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
 | [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
 | [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
-| [muse-only-orchestrator](skills/muse-only-orchestrator/SKILL.md) | Orchestrate with little Muse helpers while the primary only thinks |
+| [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model with model=<provider/model> (defaults to Muse) while the primary only thinks |
 | [notebooklm-cinematic-video](skills/notebooklm-cinematic-video/SKILL.md) | Prepare and activate longer NotebookLM lessons |
 | [notebooklm-short-video](skills/notebooklm-short-video/SKILL.md) | Prepare and activate digestible NotebookLM shorts |
 | [opencode-go-compare](skills/opencode-go-compare/SKILL.md) | Compare OpenCode Go models on speed, cost, and benchmarks |
