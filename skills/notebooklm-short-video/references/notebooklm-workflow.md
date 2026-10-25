@@ -35,6 +35,12 @@ restyled boxes or generic transitions do not meet the story requirement.
 
 ## Create two distinct artifacts
 
+When the brief includes a cover, use the [cover style and thumbnail gate](cover-style.md)
+for that separate deliverable, including actual viewing of the bundled originals
+and current independent thumbnail approval. This does not force NotebookLM's
+generated scenes or narration into a cover layout. Keep cover assets out of the
+NotebookLM source set unless their upload is separately part of the request.
+
 Write the production document outside NotebookLM, using the user's established
 file format where one exists. A readable UTF-8 TXT or Markdown document is a
 portable fallback only if the current upload surface supports it. Start with the

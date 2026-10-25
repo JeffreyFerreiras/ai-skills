@@ -123,6 +123,9 @@ into the installed skill. Retain the previous last-good checkpoint.
 
 ## Final media and delivery
 
+- Requested cover, current full-size and 240px thumbnail hashes, bundled original
+  reference inspections, independent cover visual verdict/digest and findings:
+
 - Encoded identity/hash, dimensions, fps, codecs/channels, frame count/duration:
 - Full-decode result and command; audio/video start/end and sync tolerance:
 - Integrated LUFS/true peak dBTP, channel convention, target/rationale, exact command:

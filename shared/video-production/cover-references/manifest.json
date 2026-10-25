@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "purpose": "Original user-selected cover style references, separate from storytelling scene references",
+  "repository_inclusion": "Explicit user request on 2026-10-25 to save a couple of reference images in the skill",
+  "references": [
+    {
+      "id": "safe-rollbacks",
+      "path": "safe-rollbacks-tiktok-cover.png",
+      "original_filename": "safe-rollbacks-tiktok-cover.png",
+      "size_bytes": 3192534,
+      "width": 941,
+      "height": 1672,
+      "sha256": "c8ab3277b99e6c10caf3a25bf0b130ed18ddd8ed417960c74752435579f3bc3f",
+      "library_id": "libfile_523da275210081918eba1acc05dea233",
+      "drive_id": "1f-1GS8paymFBh50g-S56IwB21GJY2mUi",
+      "acquisition": "Official authenticated Drive download; original bytes and Library identity preserved",
+      "observed_features": "Huge rough WHAT IF ROLLBACK FAILS? lettering, small SAFE ROLLBACKS title, one coherent clock/server/database illustration group, dark textured board and magenta/cyan accents"
+    },
+    {
+      "id": "logical-clocks",
+      "path": "logical-clocks-tiktok-cover.png",
+      "original_filename": "Logical Clocks — TikTok Cover.png",
+      "size_bytes": 2714589,
+      "width": 941,
+      "height": 1672,
+      "sha256": "a6b4d08a042ffe7e3526e88b0fa9f1a128217b62e29b733588ad3e874291c2b9",
+      "library_id": "libfile_ddd8e4715a2881918eae2007d5939afd",
+      "drive_id": "1YSzX5mTM7VWvR37AhicEbSDZjDIkgybI",
+      "acquisition": "Official authenticated Drive download; original bytes and Library identity preserved",
+      "observed_features": "Giant rough LOGICAL CLOCKS lettering, compact two-server/arrow illustration, WHAT HAPPENED FIRST? hook, dark board and yellow accents"
+    }
+  ]
+}
