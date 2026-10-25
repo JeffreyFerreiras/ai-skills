@@ -14,6 +14,7 @@ if (Get-Service -Name LayaCodex -ErrorAction SilentlyContinue) { throw 'LayaCode
 if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) { throw "Port $Port is already in use. Stop the existing listener first." }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'laya-service.py') -Destination (Join-Path $Root 'laya-service.py') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'laya-hook.py') -Destination (Join-Path $Root 'laya-hook.py') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'laya_routing.py') -Destination (Join-Path $Root 'laya_routing.py') -Force
 $baseExe = & $python -B -c 'import sys;print(sys._base_executable)'
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $baseExe)) { throw 'Could not locate the real Python executable.' }
 # The venv executable spawns a child, which cannot connect to SCM as its parent.

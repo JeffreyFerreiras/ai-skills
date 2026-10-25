@@ -133,7 +133,8 @@ Looking for `loop` or `code-review`? They are now `generic-loop` and `clean-code
 
 ## How it works
 
-For optional local Codex task advice, see the [Laya hook setup](docs/laya-hook.md).
+For local Codex subagent model/effort routing and optional prompt advice through
+one resident service, see the [Laya setup and migration guide](docs/laya-hook.md).
 The hook keeps the current primary model and uses a resident Windows service to
 recommend Luna, Sol, or Astra for delegated work.
 

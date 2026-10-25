@@ -11,40 +11,19 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from laya_routing import QUESTIONS, select_prediction
+
 ROOT = Path(__file__).resolve().parent
-MAX_BODY_BYTES = 8192
+MAX_BODY_BYTES = 32768
 MAX_PROMPT_CHARS = 1200
-MODELS = {"routine": "gpt-6-luna", "standard": "gpt-6.1-sol", "demanding": "gpt-6-astra"}
-QUESTIONS = {
-    "task_type": {"type": "choice", "instructions": "What is the main deliverable requested in request?",
-                  "criteria": {"editing": "rename, format, or mechanically transform existing content",
-                               "implementation": "implement features or tests with specified behavior",
-                               "debugging": "investigate a failure, find its cause, and repair it",
-                               "architecture": "design systems, assess technical tradeoffs or invariants",
-                               "explanation": "explain, summarize, or document existing information",
-                               "writing": "compose new nontechnical prose or messages"}},
-    "difficulty": {"type": "choice", "instructions": "How much reasoning does request require? Judge ambiguity and interacting constraints, not prompt length or tool use.",
-                   "criteria": {"routine": "clear mechanical change, basic fact, short text, obvious solution",
-                                "standard": "bounded implementation or analysis, several steps, familiar solution",
-                                "demanding": "subtle root cause, competing constraints, deep reasoning, uncertain solution"}},
-}
+MAX_TASK_CHARS = 4000
 
 
 def recommend(agent, prompt):
     started = time.perf_counter()
-    prediction = agent.predict({"request": prompt}, QUESTIONS)
-    if prediction.get("usage", {}).get("truncated") is not False:
-        return {"status": "abstain_truncated"}
-    answers = prediction["answers"]
-    task = answers["task_type"]["choice"]
-    difficulty = answers["difficulty"]["choice"]
-    if task not in QUESTIONS["task_type"]["criteria"] or difficulty not in MODELS:
-        raise ValueError("Invalid model response")
-    model = MODELS[difficulty]
-    if difficulty == "routine" and task in ("debugging", "architecture"):
-        model = MODELS["standard"]
-    return {"status": "experimental_suggestion", "model": model, "task_type": task,
-            "difficulty": difficulty, "inference_ms": round((time.perf_counter() - started) * 1000, 2)}
+    result = select_prediction(agent.predict({"request": prompt}, QUESTIONS))
+    result["inference_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    return result
 
 
 class ClassifierServer(HTTPServer):
@@ -81,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path != "/health":
             return self.reply(404, {})
-        self.reply(200, {"ready": True, "device": "cuda", "pid": os.getpid(),
+        self.reply(200, {"ready": True, "protocol": "laya-routing-v1", "device": "cuda", "pid": os.getpid(),
                          "startup_ms": getattr(self.server, "startup_ms", None),
                          "requests_completed": self.server.requests_completed})
 
@@ -97,7 +76,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(400, {})
             body = json.loads(raw)
             prompt = body.get("prompt") if isinstance(body, dict) else None
-            if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > MAX_PROMPT_CHARS:
+            kind = body.get("kind", "prompt") if isinstance(body, dict) else None
+            if kind not in ("prompt", "subagent"):
+                return self.reply(400, {})
+            limit = MAX_TASK_CHARS if kind == "subagent" else MAX_PROMPT_CHARS
+            if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > limit:
                 return self.reply(400, {})
         except (ValueError, OSError, RecursionError):
             return self.reply(400, {})

@@ -16,6 +16,8 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
+import laya_routing as policy
 
 
 def load(name):
@@ -29,9 +31,10 @@ hook = load('laya-hook')
 service = load('laya-service')
 
 
-def prediction(task='editing', difficulty='routine', truncated=False):
-    return {'answers': {'task_type': {'choice': task}, 'difficulty': {'choice': difficulty}},
-            'usage': {'truncated': truncated}}
+def prediction(route='file_finding', probability=0.94, truncated=False):
+    return {'answers': {'route': {'choice': route, 'probabilities': {
+        name: probability if name == route else (1 - probability) / 3 for name in policy.PROFILES}}},
+        'usage': {'truncated': truncated}}
 
 
 class LayaTests(unittest.TestCase):
@@ -53,20 +56,21 @@ class LayaTests(unittest.TestCase):
         finally:
             connection.close()
 
-    def run_hook(self, event=None, raw=None, **env):
+    def run_hook(self, event=None, raw=None, subagent=False, **env):
         if raw is None:
             raw = json.dumps(event or {'hook_event_name': 'UserPromptSubmit', 'prompt': 'Rename café.'}).encode()
         output = io.StringIO()
         with patch.dict(os.environ, {'LAYA_CODEX_PORT': str(self.port), 'LAYA_CODEX_DISABLED': '0', **env}), \
              patch.object(sys, 'stdin', SimpleNamespace(buffer=io.BytesIO(raw))), patch.object(sys, 'stdout', output):
-            self.assertEqual(0, hook.main())
+            self.assertEqual(0, hook.main(subagent=subagent))
         return json.loads(output.getvalue())
 
     def test_live_client_contract_and_resident_requests(self):
         for _ in range(2):
             result = self.run_hook()
             context = result['hookSpecificOutput']['additionalContext']
-            self.assertIn('gpt-6-luna and fork_turns=none', context)
+            self.assertIn('gpt-6-luna at low effort', context)
+            self.assertIn('route_subagent.py', context)
             self.assertIn('review-only limits', context)
             self.assertIn('do not route again', context)
         status, health = self.request('GET', '/health')
@@ -75,15 +79,31 @@ class LayaTests(unittest.TestCase):
         self.assertEqual(2, health['requests_completed'])
         self.assertEqual('127.0.0.1', self.server.server_address[0])
 
-    def test_model_tiers_and_debugging_architecture_floor(self):
-        for task, difficulty, model in [('editing', 'routine', 'gpt-6-luna'),
-                                      ('debugging', 'routine', 'gpt-6.1-sol'),
-                                      ('architecture', 'routine', 'gpt-6.1-sol'),
-                                      ('implementation', 'standard', 'gpt-6.1-sol'),
-                                      ('architecture', 'demanding', 'gpt-6-astra')]:
-            with self.subTest(task=task, difficulty=difficulty):
-                self.agent.predict = lambda *_, t=task, d=difficulty: prediction(t, d)
-                self.assertEqual(model, service.recommend(self.agent, 'task')['model'])
+    def test_each_profile_uses_the_shared_model_and_effort(self):
+        expected = {
+            'file_finding': ('gpt-6-luna', 'low', 'explorer'),
+            'bounded_reading': ('gpt-6-luna', 'medium', 'explorer'),
+            'coding': ('gpt-6.1-sol', 'high', 'worker'),
+            'complex': ('gpt-6-astra', 'high', 'default'),
+        }
+        for route, settings in expected.items():
+            with self.subTest(route=route):
+                self.agent.predict = lambda *_, r=route: prediction(r)
+                result = service.recommend(self.agent, 'task')
+                self.assertEqual('selected', result['status'])
+                self.assertEqual(policy.spawn_settings(route), result['spawn'])
+                self.assertEqual(settings, tuple(result['spawn'][key] for key in ('model', 'reasoning_effort', 'agent_type')))
+                self.assertEqual('none', result['spawn']['fork_turns'])
+
+    def test_confidence_and_margin_boundaries(self):
+        item = prediction(probability=0.60)
+        scores = item['answers']['route']['probabilities']
+        scores.update(complex=0.45)
+        self.assertEqual('selected', policy.select_prediction(item)['status'])
+        scores['complex'] = 0.451
+        self.assertEqual('fallback', policy.select_prediction(item)['status'])
+        item = prediction(probability=0.599)
+        self.assertEqual('fallback', policy.select_prediction(item)['status'])
 
     def test_abstains_on_truncated_and_missing_metadata(self):
         for value in (True, None, 0):
@@ -107,7 +127,7 @@ class LayaTests(unittest.TestCase):
             self.assertEqual({}, hook.context_from(result))
 
     def test_bounded_server_payload_and_inference_failure(self):
-        for body, headers, expected in [(b'x' * 8193, {}, 413), (b'bad', {}, 400),
+        for body, headers, expected in [(b'x' * (service.MAX_BODY_BYTES + 1), {}, 413), (b'bad', {}, 400),
                                         (b'{"prompt":""}', {}, 400), (b'{}', {'Transfer-Encoding': 'chunked'}, 413)]:
             try:
                 self.assertEqual(expected, self.request('POST', '/classify', body, headers)[0])
@@ -133,6 +153,90 @@ class LayaTests(unittest.TestCase):
                 self.assertEqual({}, self.run_hook())
             self.assertEqual(7, connection.close.call_count)
             factory.assert_called_with('127.0.0.1', self.port, timeout=0.75)
+
+    def test_uncertain_and_invalid_probabilities_fail_open(self):
+        invalid = [prediction(probability=0.40), prediction(truncated=None),
+                   {'answers': {}}, {'usage': {'truncated': False}, 'answers': []}]
+        for score in (True, float('nan'), float('inf'), -1, 2):
+            item = prediction()
+            item['answers']['route']['probabilities']['file_finding'] = score
+            invalid.append(item)
+        conflict = prediction()
+        conflict['answers']['route']['probabilities']['complex'] = 0.99
+        invalid.append(conflict)
+        for item in invalid:
+            with self.subTest(item=item):
+                self.agent.predict = lambda *_, p=item: p
+                self.assertEqual({}, self.run_hook())
+
+    def test_explicit_packet_reuses_the_same_resident_server(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'config.json').write_text(json.dumps({'subagent_routing_enabled': True}))
+            with patch.object(hook, 'ROOT', root):
+                for route in policy.PROFILES:
+                    self.agent.predict = lambda *_, r=route: prediction(r)
+                    result = self.run_hook(raw=json.dumps({'task': 'Context: inspect files. ' * 100}).encode(), subagent=True)
+                    self.assertEqual('selected', result['status'])
+                    self.assertEqual(policy.spawn_settings(route), result['spawn'])
+                    self.assertFalse(result['executed'])
+                    self.assertTrue(result['decision_id'])
+                self.assertEqual(4, self.server.requests_completed)
+                self.assertFalse(list(root.glob('*.jsonl')))
+
+    def test_subagent_failures_do_not_expose_tasks_or_start_processes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / 'config.json'
+            config.write_text('{"subagent_routing_enabled":true}')
+            with patch.object(hook, 'ROOT', root), patch.object(hook, 'classify') as classify:
+                for raw in (b'null', b'[]', b'{}', b'bad', b'x' * (hook.MAX_TASK_BYTES + 1),
+                            json.dumps({'task': 'x' * 4001}).encode()):
+                    self.assertEqual('fallback', self.run_hook(raw=raw, subagent=True)['status'])
+                classify.assert_not_called()
+                classify.side_effect = TimeoutError('private-packet')
+                result = self.run_hook(raw=b'{"task":"private-packet"}', subagent=True)
+                self.assertEqual('unavailable', result['reason'])
+                self.assertNotIn('private-packet', json.dumps(result))
+                config.write_text('{"subagent_routing_enabled":false}')
+                result = self.run_hook(raw=b'{"task":"find files"}', subagent=True)
+                self.assertEqual('disabled', result['reason'])
+
+    def test_unicode_packet_reaches_resident_inference_within_transport_limit(self):
+        task = 'Inspect this bounded reading packet: ' + '\U0001f680' * 3000
+        raw = json.dumps({'task': task}, ensure_ascii=False).encode('utf-8')
+        self.assertLessEqual(len(task), 4000)
+        self.assertLessEqual(len(raw), hook.MAX_TASK_BYTES)
+        escaped = json.dumps({'prompt': task, 'kind': 'subagent'}).encode('utf-8')
+        self.assertGreater(len(escaped), service.MAX_BODY_BYTES)
+        received = []
+        self.agent.predict = lambda request, _: received.append(request['request']) or prediction()
+        with tempfile.TemporaryDirectory(prefix='laya unicode ') as directory:
+            root = Path(directory)
+            (root / 'config.json').write_text('{"subagent_routing_enabled":true}', encoding='utf-8')
+            with patch.object(hook, 'ROOT', root):
+                result = self.run_hook(raw=raw, subagent=True)
+        self.assertEqual('selected', result['status'])
+        self.assertEqual([task], received)
+        self.assertEqual(1, self.server.requests_completed)
+        self.assertFalse(result['executed'])
+
+    def test_untrusted_spawn_fields_are_rejected(self):
+        for route in policy.PROFILES:
+            result = {'status': 'selected', 'route': route, 'spawn': policy.spawn_settings(route)}
+            result['spawn']['model'] = 'arbitrary-model'
+            self.assertEqual({}, hook.context_from(result))
+        for value in ([], {}, None):
+            self.assertEqual({}, hook.context_from({'status': 'fallback', 'reason': value}))
+
+    def test_packet_limit_is_distinct_from_prompt_limit(self):
+        body = json.dumps({'prompt': 'x' * 1201}).encode()
+        self.assertEqual(400, self.request('POST', '/classify', body)[0])
+        body = json.dumps({'prompt': 'x' * 4001, 'kind': 'subagent'}).encode()
+        self.assertEqual(400, self.request('POST', '/classify', body)[0])
+        body = json.dumps({'prompt': 'x', 'kind': 'arbitrary_questions'}).encode()
+        self.assertEqual(400, self.request('POST', '/classify', body)[0])
+        self.assertEqual(0, self.server.requests_completed)
 
     def test_template_launches_from_nested_path_with_spaces(self):
         template = json.loads((ROOT / 'hooks/laya-hooks.json').read_text(encoding='utf-8'))
