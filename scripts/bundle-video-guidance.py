@@ -19,7 +19,11 @@ BUNDLES = {
 }
 COVER_RESOURCES = ("cover-style.md", "cover_style.py", "cover-references/manifest.json",
                    "cover-references/safe-rollbacks-tiktok-cover.png", "cover-references/logical-clocks-tiktok-cover.png")
-BUNDLES = {skill: (*resources, *COVER_RESOURCES) for skill, resources in BUNDLES.items()}
+STYLE_RESOURCES = ("neon-chalk-systems.md", "cloudflare-cinematic-decomposition.md")
+BUNDLES = {
+    skill: (*resources, *COVER_RESOURCES, *STYLE_RESOURCES)
+    for skill, resources in BUNDLES.items()
+}
 
 
 def bundle(root: Path, *, check: bool = False) -> list[str]:

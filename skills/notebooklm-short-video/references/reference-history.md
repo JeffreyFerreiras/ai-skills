@@ -32,6 +32,12 @@ They are not proof of the current NotebookLM UI or a future generated result.
   chalkboard restriction is history, not a reason to omit a purposeful new
   contextual scene or fresh transition.
 
+The maintained [Neon Chalk Systems guidance](neon-chalk-systems.md) carries these
+style elements forward. The [Cloudflare cinematic decomposition](cloudflare-cinematic-decomposition.md)
+adds a 2026-10-25 inspection of an actual generated video, with separate sampled
+visual observations, approximate machine-ASR narrative analysis and known defects.
+It does not replace the original style baseline or establish a full QA pass.
+
 ## Actual NotebookLM frame reference
 
 The notebook inventory `System Design Notebook 68ce4397 - Video Inventory.csv`

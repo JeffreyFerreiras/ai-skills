@@ -9,6 +9,11 @@ Produce an editable vertical video that teaches how a system works. Keep the
 architecture, spoken explanation, and visible events consistent. Deliver the
 requested plan, preview, or rendered video, with the evidence needed to review it.
 
+For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
+Its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
+provides inspected composition and narrative examples, known weaknesses and
+scene-aware vertical adaptation guidance. Read it when those examples help the brief.
+
 ## Establish the brief
 
 Read the user's sources, existing project, and applicable instructions. Resolve
