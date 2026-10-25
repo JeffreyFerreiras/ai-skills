@@ -23,8 +23,10 @@ scope rather than copying the longer episode's scene mix or timing.
 
 Teach one core idea through one concrete example, a visible causal sequence and
 one useful consequence or limit. Target 90-180 seconds according to content and
-the episode brief, subject to actual NotebookLM capabilities. Start with an honest
-spoken hook, quickly explain what/why, then show the mechanism in understandable
+the episode brief, subject to actual NotebookLM capabilities. Start with a
+plain-language concept explanation and concrete learning objectives before the
+scenario, with an honest hook integrated into this concise baseline. Require
+[TEACH-OPEN-01 reviewer evidence](references/teaching-opening.md), then show the mechanism in understandable
 steps and finish with the answer. Cut secondary concepts before rushing speech.
 Avoid dense jargon, artificial passage gaps, duration padding or a word-count
 target that prevents the viewer understanding the result of each step.

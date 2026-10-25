@@ -6,6 +6,11 @@ checks pending; remove branches outside the requested deliverable.
 
 ## Brief and checkpoint
 
+- TEACH-OPEN-01 teaching verdict on current artifact/hash: plain-language concept
+  explanation, concrete objectives and first scenario/body onset, with exact
+  script lines/wording and actual encoded timestamps/inspection limits; missing
+  elements, focused repair and remaining shared rounds:
+
 - Learning question, audience, what/problem/why/solution opening, ordered learning
   preview, concrete example, limits, and source/claim locators:
 - Exact spoken hook, promise/payoff, first-frame phone-safe design, optional

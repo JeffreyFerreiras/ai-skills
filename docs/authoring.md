@@ -99,7 +99,11 @@ skill. Standalone installs need no sibling skill.
 Cover style, its checker and the two unchanged original PNGs with provenance
 manifest are also canonical under `shared/video-production` and bundled into
 each video skill. Edit shared files, then regenerate; do not edit generated
-copies or replace reference originals with recreated illustrations. Run
+copies or replace reference originals with recreated illustrations.
+The shared teaching-opening rubric is also bundled into all three skills; its
+behavioral fixtures and hidden-answer evaluation protocol live under
+`tests/behavioral/video-openings`. A packaging pass cannot establish that the
+reviewer rejects an inadequate opening. Run
 `python -m unittest discover -s tests -p test_video_guidance_bundle.py` for drift,
 read-only checking, missing-source handling and standalone reference coverage.
 

@@ -40,7 +40,9 @@ materially changed later revision.
   failures, and scope of the conclusion. Inspect native-paced explanations,
   transitions, holds, and narration/state agreement across the complete lesson.
   Review and lock the spoken hook's accurate promise and immediate payoff before full narration
-  lock, and verify that the contextual introduction and ordered roadmap follow.
+  lock. The plain-language concept explanation and concrete objectives must
+  precede the scenario; integrate the hook into that baseline rather than
+  approving a separate suspense-only cold open.
   Accept question, phrase, or defensible claim without requiring a question mark.
   Apply the hook rubric to specific relevance/interest, evidence, payoff, natural
   delivery, and picture alignment. The 3-6-second heuristic cannot justify rushed
@@ -59,6 +61,10 @@ materially changed later revision.
   before jargon, one idea at a time, a concrete example, and enough time for each
   causal step. This may share the narrative reviewer with a distinct verdict;
   technical correctness and variety alone cannot establish understanding.
+  Require [TEACH-OPEN-01](teaching-opening.md): explain the concept and state
+  concrete learning objectives before the real-world scenario. Reject either
+  missing, vague/jargon-only or late element; cite script lines or actual encoded
+  timestamps for both elements and scenario onset. A hook alone cannot pass.
 
 Give any authorized independent reviewer the brief, sources, accepted choices,
 exact revision and artifact hashes, stable scene IDs, and actual artifacts.

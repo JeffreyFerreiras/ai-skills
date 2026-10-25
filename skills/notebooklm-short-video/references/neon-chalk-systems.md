@@ -28,11 +28,12 @@ relationships absent from the factual model.
 
 ## Narrative and scene decisions
 
-- **Open with a goal when it clarifies the stakes.** A named person trying to do
-  something concrete can introduce the teaching question before a technology
-  headline. In the case reference, fictional Sam wants museum hours but cannot
-  load the page. A human opening is a useful option, not a required character
-  template. Identify invented scenarios as illustration.
+- **Establish the baseline before the human goal.** For new videos, explain the
+  concept in plain language and state concrete learning objectives first, using
+  [TEACH-OPEN-01](teaching-opening.md). Then a named person's goal can clarify
+  stakes. The historical case starts with fictional Sam seeking museum hours;
+  that observed sequence does not override the current opening requirement.
+  A human scenario is optional; identify invented scenarios as illustration.
 - **Say the meaning before the term.** Explain the destination server before
   calling it the origin; explain a behavioral trait before calling it a feature.
   Match each new term to one visible object or action.

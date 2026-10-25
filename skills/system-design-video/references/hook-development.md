@@ -2,7 +2,7 @@
 
 Develop, review, and lock the spoken hook early in every new narrated lesson,
 before script lock and full narration generation. Include the exact spoken
-question, punchy phrase, or defensible claim in the script and first seconds.
+question, punchy phrase, or defensible claim in the script and opening baseline.
 No question mark is required. Keep it in the production document alongside the
 source claims, storyboard, first-frame design, promised
 payoff, and review findings. This step
@@ -13,8 +13,11 @@ does not authorize publishing, extra generation, or redesigning accepted work.
 Speak a captivating question, punchy phrase, or defensible claim that presents
 a recognizable problem, consequential question, or accurate promise the lesson
 actually answers. Make the opening understandable without unexplained terms.
-Give an immediate visible example or consequence, then connect it to the
-contextual what/problem/why/solution introduction and roadmap in teaching order.
+First explain the concept in plain language and state concrete learning objectives
+before the real-world scenario, following [TEACH-OPEN-01](teaching-opening.md).
+Let that explanation carry an interesting accurate hook; an immediate scenario
+or suspense question cannot displace the baseline. Then show the concrete example
+or consequence and ordered mechanism.
 Avoid manufactured urgency, false guarantees, or a question never answered.
 
 ## Sourced hook rubric
@@ -22,8 +25,8 @@ Avoid manufactured urgency, false guarantees, or a question never answered.
 For each candidate, check:
 
 - Immediate relevance: make the topic, audience problem, stakes, or useful outcome
-  clear without a greeting, logo pause, silent title card, or a "Today we will"
-  preamble.
+  clear without a greeting, logo pause or silent title card. A concise statement
+  of concrete learning objectives is required, not a forbidden preamble.
 - Specific interest: create concrete curiosity, tension, or surprise tied to the
   mechanism, rather than a vague teaser or unrelated spectacle.
 - Honest promise and payoff: answer the question or substantiate the claim in
@@ -36,8 +39,10 @@ For each candidate, check:
   purposeful motion should communicate the same idea immediately. A cover
   supports the audible hook and must neither replace nor delay it.
 
-The context, what/problem/why/how, and ordered roadmap can overlap naturally
-after the hook. Keep their teaching purpose without five repetitive introductions.
+The definition, concrete objectives and useful context can overlap naturally in
+the opening, with the hook supporting them. Do not require a separate hook-first
+beat or five repetitive introductions. TEACH-OPEN-01 takes precedence over older
+scenario-first advice; its reviewer evidence is mandatory alongside this rubric.
 
 These criteria adapt official TikTok advertising guidance, not an organic-video
 retention guarantee. The [SMB Creative Playbook](https://ads.tiktok.com/business/library/TikTok_SMB_Creative_Playbook_2025.pdf)
@@ -89,7 +94,9 @@ Review the new opening and joins, and retime captions/anchors from the resulting
 waveform. If audio changes are prohibited, disclose the missing spoken hook as
 an unmet requirement rather than passing it from on-screen text.
 
-For a shadow-traffic lesson, any of these spoken forms can precede the explanation:
+For a shadow-traffic lesson, these spoken forms can support the opening baseline.
+A standalone question or phrase still needs the definition and concrete objectives
+before any scenario; it cannot move ahead of the required explanation:
 
 - Question: `Can you test live traffic without serving the new version's responses?`
 - Phrase: `Real traffic. Two versions. Only one answers users.`

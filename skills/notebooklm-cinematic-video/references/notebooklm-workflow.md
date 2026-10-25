@@ -35,6 +35,12 @@ restyled boxes or generic transitions do not meet the story requirement.
 
 ## Create two distinct artifacts
 
+Every new video's opening explains the concept in plain language and states
+concrete learning objectives before the real-world scenario. Use the mandatory
+teaching reviewer's [TEACH-OPEN-01 check](teaching-opening.md) on the production
+document and actual output. Integrate the hook into this concise baseline;
+neither a hook alone nor a long agenda replaces it.
+
 When the brief includes a cover, use the [cover style and thumbnail gate](cover-style.md)
 for that separate deliverable, including actual viewing of the bundled originals
 and current independent thumbnail approval. This does not force NotebookLM's
@@ -69,8 +75,10 @@ Use "[EXACT PRODUCTION SOURCE TITLE]" for sequence, example and scope.
 Use "[EXACT STYLE SOURCE TITLE]" for visual language, with the episode plan's
 explicit scene-director choices governing scene variety and the fresh transition.
 Use the selected technical sources for facts. Preserve the plan's assumptions,
-limits and exclusions. Start with its spoken hook, then context and the ordered
-explanation. Keep labels readable and captions at the bottom where supported.
+limits and exclusions. Start with a plain-language concept explanation and
+concrete learning objectives before the real-world scenario. Integrate the hook
+into that concise baseline, then follow the ordered explanation. Keep labels
+readable and captions at the bottom where supported.
 Do not narrate production notes, source names, citations or social metadata.
 ```
 
@@ -90,6 +98,10 @@ criteria. Use one bound Writer and fresh independent reviewers. Technical and
 narrative/beginner-comprehension approval of the document, hook and storyboard
 precedes upload for production and generation. Check the director's SD1/SD2
 criteria and the activation prompt's exact source references. Keep immutable
+TEACH-OPEN-01 evidence: cite the concept explanation, concrete objectives and
+scenario/body onset with actual script lines; reject missing or late elements.
+At output review, cite actual encoded timestamps and inspection limits rather
+than passing an unseen opening from the production plan. Keep immutable
 reports, findings and consumed rounds in episode working files, outside the
 installed skill. Each deliverable has at most three total shared review rounds,
 including the initial round; no counter reset after edits, renamed files,
