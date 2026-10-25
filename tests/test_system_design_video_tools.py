@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
 import wave
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +73,64 @@ class VideoProjectTests(unittest.TestCase):
                                  {"kind": "checkpoint", "stage": "sample", "identity": "supervisor"})
         with self.assertRaises(ValueError):
             project_tools.snapshot(self.project, ["../outside"], {})
+
+    def test_recovery_sidecar_collisions_preserve_candidate_and_existing_state(self):
+        entry = {"kind": "checkpoint", "stage": "sample", "identity": "supervisor"}
+        for suffix in (".previous", ".lock", ".tmp", ".previous.tmp"):
+            with self.subTest(suffix=suffix):
+                project = self.root / suffix.lstrip(".")
+                project.mkdir()
+                (project / "source.txt").write_text("source", encoding="utf-8")
+                state = project / "review-state.json"
+                original_manifest = project_tools.snapshot(project, ["source.txt"], {})
+                project_tools.record(state, original_manifest, entry)
+                candidate = project / (state.name + suffix)
+                candidate.write_bytes(b"reviewed candidate")
+                manifest = project_tools.snapshot(project, [candidate.name], {})
+                before = {path.name: path.read_bytes() for path in project.iterdir()}
+                with self.assertRaisesRegex(ValueError, "sidecars must be outside candidate"):
+                    project_tools.record(state, manifest, entry)
+                self.assertEqual(before, {path.name: path.read_bytes() for path in project.iterdir()})
+                project_tools.verify_manifest(manifest)
+
+    def test_stale_temporary_file_is_preserved_before_any_receipt_write(self):
+        self.project.mkdir()
+        (self.project / "source.txt").write_text("source", encoding="utf-8")
+        manifest = project_tools.snapshot(self.project, ["source.txt"], {})
+        temporary = self.project / "state.json.tmp"
+        temporary.write_bytes(b"interrupted state")
+        before = {path.name: path.read_bytes() for path in self.project.iterdir()}
+        with self.assertRaisesRegex(ValueError, "reconcile it first"):
+            project_tools.record(self.project / "state.json", manifest,
+                                 {"kind": "checkpoint", "stage": "sample", "identity": "supervisor"})
+        self.assertEqual(before, {path.name: path.read_bytes() for path in self.project.iterdir()})
+
+    def test_link_detection_uses_reparse_attributes_without_new_pathlib_api(self):
+        path = self.root / "junction"
+        with patch.object(Path, "lstat", return_value=SimpleNamespace(
+                st_mode=stat.S_IFDIR, st_file_attributes=0x400)):
+            with patch.object(Path, "is_junction", side_effect=AssertionError("Python 3.12-only API"), create=True):
+                self.assertTrue(project_tools.is_linked_path(path))
+        with patch.object(Path, "lstat", return_value=SimpleNamespace(st_mode=stat.S_IFDIR)):
+            self.assertFalse(project_tools.is_linked_path(path))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows directory junction test")
+    def test_snapshot_rejects_nested_junction_before_descending(self):
+        assets = self.project / "assets"
+        target = assets / "real-assets"
+        target.mkdir(parents=True)
+        (target / "image.txt").write_bytes(b"original asset")
+        junction = assets / "linked-assets"
+        result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(junction), str(target)],
+                                capture_output=True, text=True)
+        if result.returncode:
+            self.skipTest(f"Junction creation unavailable: {result.stdout}{result.stderr}")
+        self.assertTrue(junction.resolve().is_relative_to(self.root))
+        self.addCleanup(junction.rmdir)
+        with patch.object(Path, "is_junction", side_effect=AssertionError("Python 3.12-only API"), create=True):
+            with self.assertRaisesRegex(ValueError, "Linked paths are unsupported"):
+                project_tools.snapshot(self.project, ["assets"], {})
+        self.assertEqual(b"original asset", (target / "image.txt").read_bytes())
 
     def test_preflight_does_not_claim_unproven_review_or_listening(self):
         project_tools.initialize(self.project)

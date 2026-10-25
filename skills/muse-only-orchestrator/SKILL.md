@@ -5,7 +5,7 @@ description: Orchestrate with the primary only thinking and dispatching little M
 
 # Muse Only Orchestrator
 
-The primary thinks and orchestrates only. Every file read, research step, write or edit, and validation runs as a little Muse helper through the OpenCode CLI. The primary never touches files or runs checks itself.
+The primary thinks and orchestrates. Every file read, research step, write or edit, and validation runs as a little Muse helper through the OpenCode CLI. The primary never touches files or runs checks itself.
 
 ## Primary boundary
 

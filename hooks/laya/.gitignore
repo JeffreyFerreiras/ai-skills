@@ -1,0 +1,8 @@
+config.json
+token.txt
+*.jsonl
+*.pid
+*.log
+*.tmp
+protocol-schema/
+test-results.json
