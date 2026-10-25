@@ -221,21 +221,35 @@ class StoryBridgeTests(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertIn("--bridge-record", result.stderr)
 
+    def test_probe_counts_decoded_frames_when_container_metadata_is_absent(self):
+        for metadata in ({}, {"nb_frames": "N/A"}, {"nb_frames": "0"}):
+            with self.subTest(metadata=metadata):
+                stream = {"avg_frame_rate": "10/1", "width": 64, "height": 64, **metadata}
+                responses = [subprocess.CompletedProcess([], 0, json.dumps({"streams": [stream]}).encode()),
+                             subprocess.CompletedProcess([], 0, json.dumps({"streams": [{"nb_read_frames": "20"}]}).encode())]
+                with patch.object(gate.subprocess, "run", side_effect=responses) as run:
+                    self.assertEqual(20, gate.probe_video(self.project / "video.mkv", "ffprobe")["frame_count"])
+                    self.assertIn("-count_frames", run.call_args.args[0])
+
     @unittest.skipUnless(os.environ.get("VIDEO_FFMPEG") and os.environ.get("VIDEO_FFPROBE"), "Set configured media executables for synthetic decode integration")
     def test_synthetic_capture_and_redecode_with_real_ffmpeg_is_provenance_only(self):
         self.implemented()
         ffmpeg, ffprobe = os.environ["VIDEO_FFMPEG"], os.environ["VIDEO_FFPROBE"]
-        subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10",
-                        "-t", "2", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(self.project / "tiny.mp4")],
-                       check=True, capture_output=True, timeout=30)
-        gate.capture(self.record, self.project, "tiny.mp4", "real-samples", "real.json", ffmpeg, ffprobe)
-        record = json.loads((self.project / "real.json").read_text())
-        self.attach_reviews(record)  # Fictional receipts exercise plumbing, not semantic production approval.
-        result = gate.check_record(record, self.project, "encoded", ffmpeg, ffprobe)
-        self.assertTrue(result["valid"], result)
-        frame = self.project / record["encoded"]["frames"]["poster-change"]["action"]["path"]
-        frame.write_bytes(b"altered")
-        self.assertFalse(gate.check_record(record, self.project, "encoded", ffmpeg, ffprobe)["valid"])
+        for extension in ("mp4", "mkv"):
+            with self.subTest(container=extension):
+                name = "tiny." + extension
+                subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=64x64:rate=10",
+                                "-t", "2", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(self.project / name)],
+                               check=True, capture_output=True, timeout=30)
+                output = "real-" + extension + ".json"
+                gate.capture(self.record, self.project, name, "real-samples-" + extension, output, ffmpeg, ffprobe)
+                record = json.loads((self.project / output).read_text())
+                self.attach_reviews(record)  # Fictional receipts exercise plumbing, not semantic production approval.
+                result = gate.check_record(record, self.project, "encoded", ffmpeg, ffprobe)
+                self.assertTrue(result["valid"], result)
+                frame = self.project / record["encoded"]["frames"]["poster-change"]["action"]["path"]
+                frame.write_bytes(b"altered")
+                self.assertFalse(gate.check_record(record, self.project, "encoded", ffmpeg, ffprobe)["valid"])
 
 
 if __name__ == "__main__":

@@ -81,13 +81,24 @@ def artifact(project, reference):
 
 def probe_video(path, ffprobe):
     command = [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",
-               "stream=width,height,avg_frame_rate,nb_frames", "-of", "json", str(path)]
+               "stream=width,height,avg_frame_rate,nb_frames,nb_read_frames", "-of", "json", str(path)]
     result = subprocess.run(command, capture_output=True, timeout=120, check=True)
     streams = json.loads(result.stdout).get("streams", [])
     require(len(streams) == 1, "Encoded evidence needs one selected video stream")
     stream = streams[0]
+    try:
+        frame_count = int(stream.get("nb_frames", ""))
+    except (TypeError, ValueError):
+        frame_count = 0
+    if frame_count <= 0:
+        counted = subprocess.run([command[0], "-count_frames", *command[1:]],
+                                 capture_output=True, timeout=120, check=True)
+        counted_streams = json.loads(counted.stdout).get("streams", [])
+        require(len(counted_streams) == 1, "Cannot count decoded video frames")
+        frame_count = int(counted_streams[0]["nb_read_frames"])
+    require(frame_count > 0, "Encoded evidence has no decoded video frames")
     return {"fps": float(Fraction(stream["avg_frame_rate"])),
-            "frame_count": int(stream["nb_frames"]), "width": int(stream["width"]),
+            "frame_count": frame_count, "width": int(stream["width"]),
             "height": int(stream["height"])}
 
 
