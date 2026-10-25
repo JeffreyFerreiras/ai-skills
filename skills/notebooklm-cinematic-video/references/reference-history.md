@@ -62,6 +62,31 @@ establish phone readability for a new 9:16 composition.
 
 ## New defaults versus recovered history
 
+### 2026-10-25 story-bridge correction
+
+The earlier contract allowed a new causal before/after in the same visual family
+to count as freshness. Production inspection showed this was too weak: webhook's
+38.79-56.29-second interval remained labeled server housings; ETag's 73.50-88.25-
+second interval put the diagram panel on a desk with curtains. The renderer
+followed these narrow plans. Plan/sample conformity did not establish the
+original storytelling requirement. No production asset or prior receipt is
+rewritten by this correction.
+
+Current/archive Slack source records carry the same SHA-256 listed above. New
+actual sampled pixels at about 90 seconds show the routing diagram, while about
+120 seconds show a dominant illustrated stopwatch against database forms. That
+is a distinct explanatory presentation, not merely another node layout. These
+two stills do not establish intervening motion or audio. The exact pixel/time
+match between the older PR47 saved extraction and the current source was not
+reestablished; preserve that uncertainty rather than inventing identity proof.
+
+Style references and storytelling references now have separate records. The
+current [story bridge contract](story-bridge-contract.md) requires a situation,
+visible event, new understanding and return beyond diagram presentation, actual
+implementation mapping, encoded sample rechecks and a blind audience reading.
+Furniture, boxes, camera movement and generic effects alone fail. A synthetic
+checker fixture is not production quality assurance.
+
 The dedicated cinematic and short skill split, required scene-director evaluation
 and fresh transition, beginner-comprehension verdict, and fallback naming pattern
 are current workflow additions. They were not claimed as previous NotebookLM

@@ -108,6 +108,12 @@ production directions. The Writer integrates the handoff into the existing
 document; independent reviewers accept it through the existing shared gates and
 budgets. It complements technical, visual, logical and beginner-comprehension
 review without adding an optional user approval checkpoint.
+The bridge must be an actual storytelling scene beyond architecture-diagram
+presentation, with situation, event, new understanding and return. Run the
+[story bridge contract](references/story-bridge-contract.md) plan, implementation
+and actual encoded-evidence gates. Neither another diagram state nor a plan-only
+claim satisfies this requirement. The media-check command requires the current
+bridge record; a technical probe/decode result alone cannot approve production.
 
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and

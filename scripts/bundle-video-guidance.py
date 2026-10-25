@@ -9,12 +9,12 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BUNDLES = {
-    "system-design-video": ("scene-direction.md",),
+    "system-design-video": ("scene-direction.md", "story-bridge-contract.md", "scene_bridge.py"),
     "notebooklm-cinematic-video": (
-        "scene-direction.md", "notebooklm-workflow.md", "reference-history.md",
+        "scene-direction.md", "notebooklm-workflow.md", "reference-history.md", "story-bridge-contract.md", "scene_bridge.py",
     ),
     "notebooklm-short-video": (
-        "scene-direction.md", "notebooklm-workflow.md", "reference-history.md",
+        "scene-direction.md", "notebooklm-workflow.md", "reference-history.md", "story-bridge-contract.md", "scene_bridge.py",
     ),
 }
 
@@ -26,7 +26,8 @@ def bundle(root: Path, *, check: bool = False) -> list[str]:
     problems = []
     for skill, resources in BUNDLES.items():
         for name in resources:
-            target = root / "skills" / skill / "references" / name
+            directory = "scripts" if name == "scene_bridge.py" else "references"
+            target = root / "skills" / skill / directory / name
             actual = target.read_bytes() if target.exists() else None
             if actual == sources[name]:
                 continue

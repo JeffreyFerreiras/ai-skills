@@ -4,6 +4,11 @@ Use the project's current production record. The
 [template](../assets/production-record.md) supplies evidence fields when none
 exist. Keep technical truth, teaching quality, and visual quality separate.
 The spec checker certifies none of them.
+For storytelling bridges, use the [enforced evidence contract](story-bridge-contract.md).
+Require a recognizable situation, visible event, new understanding and motivated
+return beyond architecture-diagram presentation. The blind reviewer must describe
+what the actual encode shows before seeing creator intent. Relabeled servers,
+furniture around a diagram and generic effects fail even if they match the plan.
 Apply the [scene director acceptance criteria](scene-direction.md) at the
 script/storyboard, scene/sample and full/encoded gates. The non-author director
 proposes choices; the bound Writer integrates them; independent reviewers verify

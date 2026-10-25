@@ -45,6 +45,11 @@ fresh transition directions and SD3/SD4 acceptance in scene/sample and encoded
 reviews. Director acceptance and beginner comprehension use the existing stage
 reservation; neither adds rounds or replaces another role. Honor explicit
 episode review overrides without treating them as global policy.
+The [story bridge contract](story-bridge-contract.md) binds the required scene to
+implemented source, exact encoded frames and blind audience interpretation.
+Neither plan approval nor conformity to a diagram-only plan can satisfy its
+encoded gate. These checks share the current stage reservation, including on a
+correction requested after delivery; never reset consumed rounds or backdate QA.
 
 An explicitly silent brief skips voice/TTS checks, not script or scene review.
 A plan-only request ends at its reviewed plan. Sharing a clearly labelled sample

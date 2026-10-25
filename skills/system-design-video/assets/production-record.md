@@ -61,6 +61,15 @@ checks pending; remove branches outside the requested deliverable.
   scene/sample and SD4 actual full/encoded evidence; beginner-comprehension verdict:
 - Stable findings, affected hashes, scope, shared consumed rounds and acceptance
   status; no additional director budget or optional user checkpoint:
+- Separate style-reference and storytelling-reference identities, actual inspected
+  pixels/timecodes and observed narrative shift, versus unavailable evidence:
+- Story bridge record and plan/implemented/encoded check receipts; exact hashed
+  scene source/call-site, dedicated timeline scene and assets, actual movie hash:
+- Encoded before/entry/action/exit/after frame indexes and hashes rechecked against
+  the movie; blind first-reading artifact before intent, observed situation/event/
+  new understanding/return, distinct visual/logical current-candidate decisions:
+- Explicit rejection/repair of diagram-only or furniture-backed diagram claims;
+  consumed stage rounds and prior unresolved finding IDs remain unchanged:
 
 ## Review ledger entries
 
