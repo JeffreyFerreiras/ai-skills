@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('laya_install', ROOT / 'hooks/laya/install.py')
@@ -147,6 +148,118 @@ class InstallerTests(unittest.TestCase):
         instructions.write_bytes(before + managed + after)
         self.install('--integration', 'hooks')
         self.assertEqual(before + after, instructions.read_bytes())
+
+    def test_hooks_only_cleans_newly_active_fallback_in_one_pass(self):
+        for index, (bom, newline) in enumerate(((b'', b'\n'), (b'\xef\xbb\xbf', b'\r\n'))):
+            with self.subTest(bom=bom, newline=newline):
+                self.home = self.root / str(index)
+                self.runtime = self.home / 'laya-hook'
+                self.home.mkdir()
+                managed = (installer.START.encode() + newline + b'Owned routing guidance.'
+                           + newline + installer.END.encode())
+                before = bom + b'Keep user guidance.' + newline
+                after = newline + b'Keep later guidance.' + newline
+                fallback = self.home / 'AGENTS.md'
+                override = self.home / 'AGENTS.override.md'
+                fallback.write_bytes(before + managed + after)
+                override.write_bytes(bom + newline + managed + newline)
+
+                self.install('--integration', 'hooks')
+                self.assertEqual(before + after, fallback.read_bytes())
+                self.assertEqual(bom + newline * 2, override.read_bytes())
+                self.assertFalse(override.read_text(encoding='utf-8-sig').strip())
+                first = {path.relative_to(self.home): path.read_bytes()
+                         for path in self.home.rglob('*') if path.is_file()}
+                self.install('--integration', 'hooks')
+                self.assertEqual(first, {path.relative_to(self.home): path.read_bytes()
+                                        for path in self.home.rglob('*') if path.is_file()})
+
+    def test_hooks_only_retained_override_leaves_inactive_managed_file_untouched(self):
+        self.home.mkdir()
+        managed = (installer.START + '\r\nOwned routing guidance.\r\n' + installer.END).encode()
+        fallback = self.home / 'AGENTS.md'
+        override = self.home / 'AGENTS.override.md'
+        original_fallback = b'\xef\xbb\xbfKeep inactive guidance.\r\n' + managed + b'\r\n'
+        before, after = b'\xef\xbb\xbfKeep override guidance.\r\n', b'\r\nKeep later guidance.\r\n'
+        fallback.write_bytes(original_fallback)
+        override.write_bytes(before + managed + after)
+        self.install('--integration', 'hooks')
+        self.assertEqual(before + after, override.read_bytes())
+        self.assertEqual(original_fallback, fallback.read_bytes())
+        self.install('--integration', 'hooks')
+        self.assertEqual(before + after, override.read_bytes())
+        self.assertEqual(original_fallback, fallback.read_bytes())
+
+    def test_hooks_only_rejects_malformed_newly_active_fallback_before_writes(self):
+        malformed = (installer.START, installer.END, installer.END + installer.START,
+                     installer.START * 2 + installer.END, installer.START + installer.END * 2)
+        for index, content in enumerate(malformed):
+            with self.subTest(content=content):
+                self.home = self.root / str(index)
+                self.runtime = self.home / 'laya-hook'
+                self.home.mkdir()
+                override = '\ufeff\r\n' + installer.START + '\r\nOwned.\r\n' + installer.END + '\r\n'
+                (self.home / 'AGENTS.override.md').write_bytes(override.encode())
+                (self.home / 'AGENTS.md').write_text('Keep user guidance.\n' + content, encoding='utf-8')
+                (self.home / 'hooks.json').write_text('{"hooks":{},"custom":"keep"}', encoding='utf-8')
+                before = {path.relative_to(self.home): path.read_bytes()
+                          for path in self.home.rglob('*') if path.is_file()}
+                with self.assertRaisesRegex(ValueError, 'Malformed'):
+                    self.install('--integration', 'hooks')
+                self.assertEqual(before, {path.relative_to(self.home): path.read_bytes()
+                                         for path in self.home.rglob('*') if path.is_file()})
+                self.assertFalse(self.runtime.exists())
+
+    def test_hooks_only_checks_affected_instruction_snapshots_before_runtime_writes(self):
+        for filename in ('AGENTS.override.md', 'AGENTS.md'):
+            with self.subTest(filename=filename):
+                self.home = self.root / filename
+                self.runtime = self.home / 'laya-hook'
+                self.home.mkdir()
+                managed = installer.START + '\nOwned routing guidance.\n' + installer.END
+                (self.home / 'AGENTS.override.md').write_text(managed, encoding='utf-8')
+                (self.home / 'AGENTS.md').write_text('Keep user guidance.\n' + managed, encoding='utf-8')
+                changed = self.home / filename
+                merge_hooks = installer.merge_hooks
+
+                def edit_during_planning(*args):
+                    changed.write_text('Concurrent user edit.\n', encoding='utf-8')
+                    return merge_hooks(*args)
+
+                with patch.object(installer, 'merge_hooks', side_effect=edit_during_planning):
+                    with self.assertRaisesRegex(ValueError, 'Profile changed'):
+                        self.install('--integration', 'hooks')
+                self.assertEqual('Concurrent user edit.\n', changed.read_text(encoding='utf-8'))
+                self.assertFalse(self.runtime.exists())
+                self.assertFalse((self.home / 'hooks.json').exists())
+
+    def test_profile_edits_during_client_copies_stop_profile_writes(self):
+        for filename in ('hooks.json', 'AGENTS.md', 'laya-hook/config.json'):
+            with self.subTest(filename=filename):
+                self.home = self.root / filename.replace('/', '-')
+                self.runtime = self.home / 'laya-hook'
+                self.runtime.mkdir(parents=True)
+                managed = installer.START + '\nOwned routing guidance.\n' + installer.END
+                (self.home / 'AGENTS.override.md').write_text(managed, encoding='utf-8')
+                (self.home / 'AGENTS.md').write_text('Keep user guidance.\n' + managed, encoding='utf-8')
+                (self.home / 'hooks.json').write_text('{"hooks":{},"custom":"keep"}', encoding='utf-8')
+                (self.runtime / 'config.json').write_text('{"custom":"keep"}', encoding='utf-8')
+                profiles = (self.home / 'AGENTS.override.md', self.home / 'AGENTS.md',
+                            self.home / 'hooks.json', self.runtime / 'config.json')
+                expected = {path: path.read_bytes() for path in profiles}
+                changed = self.home / filename
+                expected[changed] = b'Concurrent user edit.\r\n'
+                copy_client = installer.shutil.copy2
+
+                def edit_during_copy(*args):
+                    result = copy_client(*args)
+                    changed.write_bytes(expected[changed])
+                    return result
+
+                with patch.object(installer.shutil, 'copy2', side_effect=edit_during_copy):
+                    with self.assertRaisesRegex(ValueError, 'Profile changed'):
+                        self.install('--integration', 'hooks')
+                self.assertEqual(expected, {path: path.read_bytes() for path in profiles})
 
     def test_hooks_only_rejects_malformed_markers_before_any_writes(self):
         malformed = (installer.START, installer.END, installer.END + installer.START,

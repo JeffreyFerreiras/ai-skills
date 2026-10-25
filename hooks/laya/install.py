@@ -35,6 +35,12 @@ def read_json(path):
     return result
 
 
+def check_profile_snapshots(snapshots):
+    for path, original in snapshots:
+        if (path.read_bytes() if path.exists() else None) != original:
+            raise ValueError("Profile changed during installation; rerun to merge the latest files.")
+
+
 def subagent_instructions(existing, runtime, python, enabled):
     section = ""
     if enabled:
@@ -118,6 +124,7 @@ def install(args):
     if not 1 <= args.service_port <= 65535:
         raise ValueError("Port must be between 1 and 65535.")
     config_path, hooks_path = runtime / "config.json", home / "hooks.json"
+    original_config = config_path.read_bytes() if config_path.exists() else None
     config = read_json(config_path)
     config.update(service_port=args.service_port, enabled=args.integration in ("hooks", "both"),
                   subagent_routing_enabled=args.integration in ("subagents", "both"))
@@ -132,6 +139,15 @@ def install(args):
     instructions = subagent_instructions(
         original_instructions.decode("utf-8") if original_instructions else "", runtime, python,
         config["subagent_routing_enabled"])
+    instruction_updates = [(instructions_path, original_instructions, instructions)]
+    # Removing the only override guidance exposes AGENTS.md immediately.
+    if (instructions_path.name == "AGENTS.override.md" and instructions is not None
+            and not instructions.removeprefix("\ufeff").strip()):
+        fallback_path = home / "AGENTS.md"
+        original_fallback = fallback_path.read_bytes() if fallback_path.exists() else None
+        fallback = subagent_instructions(
+            original_fallback.decode("utf-8") if original_fallback else "", runtime, python, False)
+        instruction_updates.append((fallback_path, original_fallback, fallback))
     registration = None
     if config["enabled"]:
         registration = {"type": "command", "command": subprocess.list2cmdline([
@@ -147,17 +163,19 @@ def install(args):
     if args.dry_run:
         print("Dry run: no files, packages, services, processes, or hook trust changed.")
         return
+    snapshots = [(config_path, original_config), (hooks_path, original_hooks)]
+    snapshots.extend((path, original) for path, original, _ in instruction_updates)
+    check_profile_snapshots(snapshots)
     runtime.mkdir(parents=True, exist_ok=True)
     for source, target in files.items():
         shutil.copy2(SCRIPTS / source, runtime / target)
-    for path, original in ((hooks_path, original_hooks), (instructions_path, original_instructions)):
-        if (path.read_bytes() if path.exists() else None) != original:
-            raise ValueError("Profile changed during installation; rerun to merge the latest files.")
+    check_profile_snapshots(snapshots)
     write_text(config_path, json.dumps(config, indent=2) + "\n")
     if original_hooks is not None or registration:
         write_text(hooks_path, json.dumps(hooks, indent=2) + "\n")
-    if instructions is not None:
-        write_text(instructions_path, instructions)
+    for path, _, updated in instruction_updates:
+        if updated is not None:
+            write_text(path, updated)
     print("Installed clients. Retained legacy files and data; no service was started or stopped.")
     print("Review changed hook definitions in /hooks. New chats load updated instructions.")
 
