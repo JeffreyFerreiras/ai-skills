@@ -11,7 +11,7 @@ They are not proof of the current NotebookLM UI or a future generated result.
   NotebookLM; technical/style sources separate; short activation prompt naming
   the exact production source. The Event Sourcing working example requested a
   90-120-second vertical explainer and recorded that the user said this pattern
-  worked. That historical range does not override the current 40-120-second
+  worked. That historical range does not override the current 90-180-second
   shorts brief. Its all-diagram reminder is superseded for new episodes by the
   scene-director requirement.
 - `McDonalds_Event_Driven_Architecture_Production.txt` and the separate
@@ -66,7 +66,12 @@ The dedicated cinematic and short skill split, required scene-director evaluatio
 and fresh transition, beginner-comprehension verdict, and fallback naming pattern
 are current workflow additions. They were not claimed as previous NotebookLM
 controls. Cinematic duration is content-led; the recovered 5-7 minutes is an
-example, not a mandatory length. Current shorts target 40-120 seconds. Accepted
+example, not a mandatory length. On 2026-10-25 the user changed the shorts target
+to 90-180 seconds, superseding the earlier 40-120-second default for new work.
+If clear teaching needs more than 180 seconds, warn before production and ask
+for approval of a longer runtime or a narrower/split scope; wait for that choice.
+Do not cram or pad content. This does not cap cinematic videos, rewrite actual
+historical durations, rerender completed work or reset review budgets. Accepted
 local Kokoro af_heart/af_bella at native speed 1.0 belongs to local rendering;
 NotebookLM uses only its observed voice controls. Across both: ordinary language,
 one idea at a time, a concrete example and time for each causal step take priority

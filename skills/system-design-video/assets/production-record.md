@@ -13,6 +13,10 @@ checks pending; remove branches outside the requested deliverable.
 - Hook form (question/phrase/claim), relevance and specific interest, claim sources,
   payoff, natural landing time, picture alignment, ad-evidence versus workflow scope:
 - Requested deliverable, format, duration constraint, style/reference identities:
+- For shorts, natural-pace runtime estimate within the 90-180-second target;
+  any over-180 warning/reason, user choice of approved longer runtime or
+  narrower/split scope, exact approval and production boundary; actual runtime
+  and any unexpected overrun disposition, retaining review budgets:
 - Capability preflight: renderer/media tools, selected voice/alignment, reviewer
   dispatch, playback/listening, GPU/RAM/storage evidence and unresolved items:
 - Voice engine/version, voice/rate, pronunciation choices, WAV/cue paths and hashes:
