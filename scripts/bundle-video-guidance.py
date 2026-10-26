@@ -9,7 +9,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BUNDLES = {
-    "system-design-video": ("scene-direction.md", "story-bridge-contract.md", "scene_bridge.py"),
+    "system-design-video": ("scene-direction.md", "story-bridge-contract.md", "scene_bridge.py", "caption_timing.py"),
     "notebooklm-cinematic-video": (
         "scene-direction.md", "notebooklm-workflow.md", "reference-history.md", "story-bridge-contract.md", "scene_bridge.py",
     ),

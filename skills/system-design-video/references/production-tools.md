@@ -87,6 +87,45 @@ listening and cue/content alignment pending. Destination-specific targets and
 declared end holds need the project's own checks. It does not normalize audio or
 claim that a matching duration proves synchronization.
 
+## Measured caption grouping
+
+Import [caption_timing.py](../scripts/caption_timing.py) from the installed skill's
+`scripts` directory, or vendor that file into the project and record its hash.
+It uses only the standard library. Supply the exact rendering font's width
+function and a line limit in the same measurement units:
+
+```python
+from caption_timing import group_words, merge_lexical_units, wrap_lines
+
+# Leading whitespace marks each new ASR word; fragments such as "-existing"
+# attach to the previous word. Skip merging if input is already lexical words.
+words = merge_lexical_units(asr_records)
+cues = group_words(words, measure=font.getlength, max_line_width=812, max_lines=2,
+                   target_words=8, min_words=4, max_words=10, gap_seconds=0.8)
+rows = wrap_lines(cues[0]["text"], measure=font.getlength,
+                  max_line_width=812, max_lines=2)
+overlaps = [(i - 1, i) for i in range(1, len(cues))
+            if cues[i]["start"] < cues[i - 1]["end"]]
+```
+
+Input records need nonempty `text` and finite, nonnegative `start`/`end`, each
+nondecreasing in input order, with `end >= start`. Optional `source_phrase_id`
+values become each cue's ordered `source_phrases`. Outputs are new dictionaries
+with `start`, `end`, `text`, `source_phrases` and a machine-estimate `timing` label.
+The helper normalizes whitespace, preserves lexical text and zero-width points,
+and keeps the first start and last end of each group. It never estimates word
+clocks. Sentence punctuation and gaps **greater than 0.8 seconds** split groups by
+default. Minimum/target word counts are preferences; maximum count and line fit
+are hard limits. A short tail is allowed; impossible fit, an unbreakable long
+word, or a zero-width-only sentence raises `ValueError` with the affected text.
+
+Overlapping measured spans remain unchanged, so accepted output can include
+overlapping cues. Inspect `overlaps` and deliberately choose the project's display
+policy before use. The helper does not trim clocks or resolve simultaneous cues.
+It does not draw, place captions, export SRT, judge reading speed, verify ASR
+wording/alignment or provide listening approval. Synthetic width tests prove
+grouping rules; only the caller's actual font measurement establishes line fit.
+
 ## Artifact manifests and durable receipts
 
 ```bash

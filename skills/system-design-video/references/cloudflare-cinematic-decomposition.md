@@ -145,3 +145,122 @@ For a 9:16 adaptation, follow the scene-aware guidance in
 Preserve both causal lanes, the healthy origin and the older-proxy rule condition.
 Enlarge or restate labels, identify added learning cards as editorial summaries,
 and retain native audio and duration when the task is a presentation conversion.
+
+## Native portrait sample experiment
+
+This is a separate SAMPLE experiment, not the landscape reference inspection above
+and not a completed film. The full native portrait recreation remains in
+implementation. The sample uses source time 121.5-160.8 seconds from the same
+336.619683-second master, with new artwork and diagrams and the original narration
+retained. It is 1080x1920 at 30 fps, 39.3 seconds and 1,179 frames. Sampled-frame
+visual and a fresh blind logical review passed in the sample's third shared round,
+and the encoded bridge receipt is valid for that sample. Audio listening and
+continuous playback were not assessed; full-film review remains pending. These
+results do not approve the full recreation or establish phone readability from the
+landscape reference. The sample binds source master SHA-256
+`072f9a5bb0e699043fda83b55e460d43f2ddc866d270927630f1140ab4f66264` and final
+sample SHA-256
+`ad5f69c9cc891a18a30b4865ebe8bf6c7f51b98783a16d22f4c1e7557bab1934`.
+
+The room artwork measured 941x1672 and was scaled into the 1080x1920 composition.
+The final canvas size does not establish the source artwork's native resolution.
+
+**Canvas equality is not registration.** The initial cropped torso and forearm
+assets both measured 1215x1295, yet each needed its own attachment transform. Equal dimensions,
+fixed pivot coordinates and passing joint-contact arithmetic did not prove a
+convincing join. Earlier stills showed a detached-looking sleeve where the raised
+guide occluded the shoulder-side upper arm. The repair restored bounded actual
+upper-arm pixels from the same body source over the guide where they overlap, then drew
+the moving forearm above them. It did not add a decorative joint or move the
+pivot. Inspect the joint, body/chair support and foreground occlusion together in
+actual pixels; a numeric contact test can pass while the drawn silhouette reads
+broken.
+
+**Prop registration followed the physical fold.** The repaired guide uses one
+fixed content leaf, one opening cover and one visibly shared fold. The lower
+printed Museum hours leaf stays anchored. Cover lettering is texture-mapped to
+the moving leaf plane and foreshortens with it, changing face at the edge-on
+crossing. An earlier two-card reading did not establish one hinged object. Moving
+the body, forearm target and chair together preserved their relative support, and
+the chair foreground covered the generated lower-canvas crop without fading or
+stretching the person.
+
+**Diagram motion should agree with its own direction.** Incoming configuration
+rows use a separate entry lane, then expand into their own empty slot. Entry
+motion and the top-to-bottom capacity fill travel the same way, and the lane
+avoids the capacity label and previously docked rows. The 200-feature limit is sourced;
+visible rows remain schematic. Code-drawn labels and glyphs stayed the readable
+source of meaning rather than baked artwork text. Cached charcoal grain, contact
+shadow and a soft vignette stayed stable across sampled states; hard full-width
+shading rectangles were replaced because they read as seams. These are
+implementation observations, not universal thresholds.
+
+**Reviewer evidence needs a saved first reading.** The blind reviewer recorded its
+interpretation of the actual frames before seeing creator intent. Preserve that
+record rather than reconstructing it afterward. Reviewer claims still need pixel
+checks: an earlier fallback logical review made observations that contradicted
+the frames, and those claims were not adopted merely because review had run. The
+final blind reading noted the regional Within capacity label as briefly ambiguous;
+intent comparison judged it non-material for that sample. Plan/sample conformity
+is not the same as a correct or clear scene.
+
+**Reusable caption grouping.** The
+sentence-balanced helper was vendored byte-identically and pinned in the render
+input manifest. Integration conserved all 113 full cue dictionaries and 117
+sampled caption pixel states through the arm repair, including an inherited
+238.00-238.04-second overlap between adjacent cues. The project kept measured
+clocks unchanged and declared an explicit display policy: the first active cue in
+the ordered list wins until its actual end. The helper groups measured words; it
+does not verify ASR wording, reading speed, perceptual timing or listening. Its
+vendored copy matches SHA-256
+`6736e34b94a4b2cd534a79849f510320e28cbcb058d40f0f4731d03f471ba9bb`.
+
+## Native full-timeline still preflight
+
+Inspect full-timeline stills before an expensive render. This case checked the
+built timeline, not only the earlier sample. Three findings
+were repaired before the rough review. Preflight, rough and final are separate
+states: preflight stills are author-side checks, rough review is sampled encoded
+evidence, and neither is a final render approval.
+
+**Verify the route traversed, not only arrow direction.** The S03 normal response
+visibly ran from origin toward browser without passing through the Cloudflare proxy
+node. Arrowheads alone looked plausible, but the path skipped the responsibility
+the narration assigned to Cloudflare. The repair routed origin to Cloudflare to
+browser through separate directed segments; later recovery diagrams were also
+reviewed. Check that every endpoint and intermediate node
+actually carries the traffic named in the current beat.
+
+**Separate labels from bars and keep text inside its panel.** In S04, cyan row
+outlines crossed the Pattern, Timing and Behavior labels, and the central
+preparation label crossed its panel boundary without padding. The repair placed
+each label beside its bar and wrapped the central label inside the panel. A label
+that is present but crossed by a rule or an edge still fails its reading job.
+
+**Make persistent screen state agree with the narrated event.** At S16 the laptop
+showed a successfully loaded museum page while the narration was still recapping
+the FL2 failure. Machine-estimated cues at 323.36-325.76 and 326.36-328.80 seconds
+discuss configuration changing running software. Cues at 329.24-336.56 seconds discuss validation,
+distribution and recovery care; neither passage establishes a new successful page
+load. The repair kept the laptop unavailable throughout the explicitly labeled
+illustrative failure recap. A persistent screen state is a claim about the moment
+it is shown, not a place to restore an earlier planned success beat.
+
+**Use reference frames as evidence in a native recreation.** Reference
+frames can establish composition, content and state differences. They are not
+compositor input and do not prove motion. The reviewed rough was 336.619683
+seconds at 540x960, 10 fps and 3366 frames. The visual reviewer inspected 49 actual
+encoded frames plus 16 reference JPEGs. The independent logical reviewer inspected
+49 initial frames, saved its first reading before seeing intent, then inspected
+14 supplemental frames after intent. Both passed within sampled-still limits.
+At this checkpoint, the final 1080x1920 render was
+still in progress, so this record does not approve final quality or delivery.
+Every original AAC packet, 14,497 in total, was copied unchanged, but no listening
+or playback pass occurred; audio acceptance and continuous-motion approval remain
+open. The retained prior sample still matched 38 raw frames, 113 cue dictionaries
+and 117 caption states. These are observed outcomes for this case, not generic
+guarantees.
+
+Original plan hashes and review rounds stay historical. The S16 ending was a
+reviewed implementation difference, recorded as a scoped addendum, not a silent
+rewrite of the earlier plan.

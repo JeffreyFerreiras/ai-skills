@@ -107,3 +107,36 @@ local Kokoro af_heart/af_bella at native speed 1.0 belongs to local rendering;
 NotebookLM uses only its observed voice controls. Across both: ordinary language,
 one idea at a time, a concrete example and time for each causal step take priority
 over dense jargon, rushed delivery, padding or meaningless visual variety.
+
+### 2026-10-25 native portrait sample checkpoint
+
+The [Cloudflare cinematic decomposition](cloudflare-cinematic-decomposition.md) now
+also records a native portrait SAMPLE experiment, kept separate from the earlier
+landscape reference inspection. The sample covers source time 121.5-160.8 seconds
+of the same master with new artwork and original narration. Sampled visual and
+blind logical reviews passed for that 39.3-second sample only. Equal body and arm
+canvas sizes did not prove registered joints, and a numeric contact test missed a
+detached sleeve that actual-pixel inspection caught. The reviewed caption helper
+was vendored, and integration preserved all 113 cue dictionaries and 117 caption
+pixel states with an explicit policy for the inherited 238.00-238.04-second
+overlap. Listening, continuous playback, the full film and final delivery remain
+unestablished; none of this turns historical reference evidence into proof of a
+completed recreation.
+
+### 2026-10-25 native full-timeline preflight checkpoint
+
+The [Cloudflare cinematic decomposition](cloudflare-cinematic-decomposition.md) now
+also records a full-timeline still preflight, separate from the sample. Native
+stills caught three issues before review: the S03 normal response bypassed the
+Cloudflare proxy node, S04 labels collided with row outlines and a panel edge, and
+an S16 laptop showed a successful load during an FL2 failure recap. The repair
+verified the actual traversed route, gave labels their own space, and kept the
+unavailable screen under an explicit illustration label. The rough then passed
+sampled visual and blind logical review across all 16 scenes; each inspected 49
+encoded frames, and 14 supplemental bridge frames were inspected only after the
+logical first reading. Both verdicts are limited to sampled stills. The final
+1080x1920 render was still in progress at this checkpoint. All 14,497 AAC packets
+were retained without a listening or playback pass. The prior sample matched
+38 raw frames, 113 cue dictionaries and 117 caption pixel states. Historical plan hashes and rounds
+remain unchanged; the S16 ending is recorded as a reviewed implementation
+difference, not a rewritten plan.
