@@ -214,3 +214,53 @@ the ordered list wins until its actual end. The helper groups measured words; it
 does not verify ASR wording, reading speed, perceptual timing or listening. Its
 vendored copy matches SHA-256
 `6736e34b94a4b2cd534a79849f510320e28cbcb058d40f0f4731d03f471ba9bb`.
+
+## Native full-timeline still preflight
+
+Inspect full-timeline stills before an expensive render. This case checked the
+built timeline, not only the earlier sample. Three findings
+were repaired before the rough review. Preflight, rough and final are separate
+states: preflight stills are author-side checks, rough review is sampled encoded
+evidence, and neither is a final render approval.
+
+**Verify the route traversed, not only arrow direction.** The S03 normal response
+visibly ran from origin toward browser without passing through the Cloudflare proxy
+node. Arrowheads alone looked plausible, but the path skipped the responsibility
+the narration assigned to Cloudflare. The repair routed origin to Cloudflare to
+browser through separate directed segments; later recovery diagrams were also
+reviewed. Check that every endpoint and intermediate node
+actually carries the traffic named in the current beat.
+
+**Separate labels from bars and keep text inside its panel.** In S04, cyan row
+outlines crossed the Pattern, Timing and Behavior labels, and the central
+preparation label crossed its panel boundary without padding. The repair placed
+each label beside its bar and wrapped the central label inside the panel. A label
+that is present but crossed by a rule or an edge still fails its reading job.
+
+**Make persistent screen state agree with the narrated event.** At S16 the laptop
+showed a successfully loaded museum page while the narration was still recapping
+the FL2 failure. Machine-estimated cues at 323.36-325.76 and 326.36-328.80 seconds
+discuss configuration changing running software. Cues at 329.24-336.56 seconds discuss validation,
+distribution and recovery care; neither passage establishes a new successful page
+load. The repair kept the laptop unavailable throughout the explicitly labeled
+illustrative failure recap. A persistent screen state is a claim about the moment
+it is shown, not a place to restore an earlier planned success beat.
+
+**Use reference frames as evidence in a native recreation.** Reference
+frames can establish composition, content and state differences. They are not
+compositor input and do not prove motion. The reviewed rough was 336.619683
+seconds at 540x960, 10 fps and 3366 frames. The visual reviewer inspected 49 actual
+encoded frames plus 16 reference JPEGs. The independent logical reviewer inspected
+49 initial frames, saved its first reading before seeing intent, then inspected
+14 supplemental frames after intent. Both passed within sampled-still limits.
+At this checkpoint, the final 1080x1920 render was
+still in progress, so this record does not approve final quality or delivery.
+Every original AAC packet, 14,497 in total, was copied unchanged, but no listening
+or playback pass occurred; audio acceptance and continuous-motion approval remain
+open. The retained prior sample still matched 38 raw frames, 113 cue dictionaries
+and 117 caption states. These are observed outcomes for this case, not generic
+guarantees.
+
+Original plan hashes and review rounds stay historical. The S16 ending was a
+reviewed implementation difference, recorded as a scoped addendum, not a silent
+rewrite of the earlier plan.
