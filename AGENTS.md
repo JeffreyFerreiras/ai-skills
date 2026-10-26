@@ -1,3 +1,8 @@
+## Laya disabled
+
+Laya hooks and subagent routing are disabled. Do not invoke Laya or its OpenCode
+fallback unless the user explicitly asks to re-enable it.
+
 # Shared agent guidance
 
 This file is the portable instruction source used by `sync-agents-md`. Keep it useful across projects; put repository-specific commands and architecture in the target repository's local guidance. More specific instructions and the user's explicit request take precedence.

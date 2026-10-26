@@ -1,5 +1,19 @@
 # Laya routing
 
+## Disabled
+
+Laya hooks and subagent routing are disabled in the shared agent guidance. Do not
+install, start, or invoke either integration or its OpenCode fallback unless the
+user explicitly asks to re-enable it. The setup instructions below are retained
+for that explicit request. The example config keeps both routing flags off.
+
+To disable an existing installation, set both `enabled` and
+`subagent_routing_enabled` to `false` in its runtime `config.json`. Remove the
+managed Laya routing section from the active Codex instructions and remove only
+Laya handlers from `UserPromptSubmit` and `SessionStart` in `hooks.json`, preserving
+other guidance and handlers. Run `manage.ps1 Stop` to stop the local server.
+`manage.ps1 Disable` changes only `enabled`; it does not disable subagent routing.
+
 ## Active subagent routing for normal chats
 
 Install the subagent integration to have the primary agent classify bounded work
