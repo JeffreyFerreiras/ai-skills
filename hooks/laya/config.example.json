@@ -1,5 +1,6 @@
 {
-  "enabled": true,
+  "enabled": false,
+  "subagent_routing_enabled": false,
   "port": 18147,
   "model_path": "D:/models/Laya/laya-english",
   "mode": "advisory",
