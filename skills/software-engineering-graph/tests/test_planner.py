@@ -20,6 +20,63 @@ from tests.test_support import GraphCase
 
 
 class PlannerTests(GraphCase):
+    def test_terra_approval_claim_and_resume_preserve_every_native_effort(self):
+        for host in ("codex", "codex-astra"):
+            for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
+                with self.subTest(host=host, effort=effort):
+                    case = GraphCase()
+                    case.setUp()
+                    try:
+                        task = case.task_v2(route="fast_path")
+                        task["model_overrides"] = {key: {
+                            "model": "gpt-6.1-terra", "reasoning_effort": effort,
+                        } for key in ("impact_mapper", "senior_engineer", "supervisor_recommendation",
+                                      "publication_assignment", "simplification_assignment")}
+                        path = case.repo / "docs" / "task.json"
+                        path.write_text(json.dumps(task), encoding="utf-8")
+                        preview = case.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(path),
+                                                "--host", host)["execution_plan"]
+                        self.assertFalse(case.store.db_path("albanian-live-translate", "RUN-1").exists())
+                        initialized = case.initialize_task(task, host=host)
+                        self.assertEqual(initialized["execution_plan_digest"], preview["plan_digest"])
+                        branch = case.claim_raw()
+                        self.assertEqual((branch["model"], branch["reasoning_effort"]),
+                                         ("gpt-6.1-terra", effort))
+                        approved = assignment_for(preview, branch["node_key"])
+                        self.assertEqual(approved["dispatch_model"], branch["model"])
+                        self.assertNotIn("dispatch_runtime", branch)
+
+                        def persisted_rows():
+                            with case.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                                return ([tuple(row) for row in connection.execute(
+                                    "SELECT plan_json,plan_digest,approval_digest FROM execution_plans")],
+                                        [tuple(row) for row in connection.execute(
+                                    "SELECT branch_id,envelope_json FROM nodes ORDER BY branch_id")])
+
+                        before = persisted_rows()
+                        self.assertEqual(json.loads(before[0][0][0]), preview)
+                        self.assertTrue(before[0][0][2])
+                        case.graphctl("--ack-degraded-permissions", "--ack-degraded-durability", "resume",
+                                      "--run-id", "RUN-1")
+                        resumed = case.graphctl("status", "--run-id", "RUN-1")
+                        self.assertEqual({key: resumed["execution_plan"][key] for key in preview}, preview)
+                        self.assertEqual(before, persisted_rows())
+                    finally:
+                        case.tearDown()
+                        case.doCleanups()
+
+    def test_invalid_terra_selections_fail_before_state_creation(self):
+        for host, model, effort in (("codex", "gpt-6.1-terra", "minimal"),
+                                   ("codex-astra", "gpt-6.1-terra", "ULTRA"),
+                                   ("codex", "gpt-6.1-terra-high", "high"),
+                                   ("claude", "gpt-6.1-terra", "high"),
+                                   ("cursor", "gpt-6.1-terra", "high")):
+            task = self.task_v2()
+            task["model_overrides"] = {"tech_lead": {"model": model, "reasoning_effort": effort}}
+            with self.subTest(host=host, model=model, effort=effort), self.assertRaises(ContractError):
+                self.initialize_task(task, host=host)
+            self.assertFalse(self.store.db_path("albanian-live-translate", "RUN-1").exists())
+
     def test_case_identity_is_rechecked_on_status_resume_and_dispatch(self):
         (self.repo / "src").mkdir()
         task = self.task(route="fast_path")

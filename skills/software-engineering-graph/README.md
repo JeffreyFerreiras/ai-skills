@@ -144,7 +144,7 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 9 recommends these assignments; Claude uses revision 4 and Cursor uses revision 5. They are defaults,
+revision 10 recommends these assignments; Claude uses revision 4 and Cursor uses revision 5. They are defaults,
 not required models:
 
 | Catalog | Helpers / research | Core implementation / Tech Lead | Architecture / review |
@@ -155,9 +155,15 @@ not required models:
 | `cursor` | Gemini 3.8 Flash `low` | Grok 4.7 `medium` | Grok 4.7 `high` |
 
 GPT-6.1 Sol `low` is the economy fanout and publication recommendation for Codex.
-Codex revision 9 also lists OpenCode Muse Spark 1.3 `xhigh` as an external economy option.
+Codex revision 10 also lists OpenCode Muse Spark 1.3 `xhigh` as an external economy option.
 An approved Muse assignment uses [OpenCode CLI dispatch](references/opencode-dispatch.md);
 it is not a native Codex agent. Existing recommendations remain unchanged.
+
+Both Codex catalogs offer native `gpt-6.1-terra` at `low`, `medium`, `high`, `xhigh`,
+`max`, and `ultra` in revision 10. These are observed native host settings; catalog acceptance
+does not establish account availability, API support, live worker success, quality, or savings.
+Terra dispatch uses the exact model ID and has no conditional reviewer fanout weight.
+Revision 9 and earlier plans retain their recorded options, bytes, digests, and Muse routing.
 Bind direct helper selections in the separate allowance before approval. Both Codex
 catalogs also permit GPT-6 Sol and GPT-6 Luna selections. Other supported
 alternatives appear in the preview's `model_options`. Verify actual host/account support before approval and dispatch.

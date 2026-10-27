@@ -80,7 +80,7 @@ for the default Codex catalog. Use `--host codex` to recommend Sol for core role
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 9
+Present model assignments as recommendations, not prerequisites. New Codex catalog revision 10
 suggests GPT-6.1 Sol `low` for helpers, fixed research, publication, and economy fanout.
 Core work remains GPT-6 Astra `medium` and review remains Astra `high`; the explicit `codex`
 catalog suggests GPT-6.1 Sol `medium`/`high` instead. Bind direct helper selections in their
@@ -90,6 +90,10 @@ its use requires the approved `opencode-cli` route in
 [OpenCode dispatch](references/opencode-dispatch.md). Select it with a Codex-host
 `model_overrides` entry, not a new host catalog. Read that dispatch procedure before claiming
 any Muse node.
+Both Codex catalogs also offer native `gpt-6.1-terra` at `low`, `medium`, `high`, `xhigh`,
+`max`, and `ultra` as explicit revision-10 selections. These are observed native host settings,
+not evidence of account availability, API support, live worker success, quality, or savings.
+Terra has no conditional reviewer fan-out weight; prior catalog generations remain frozen.
 Claude revision 4 suggests Sonnet 5.5 `low` for helpers,
 Opus 5.5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
 for helpers, Grok 4.7 `medium` for core work and `high` for review in revision 5, with Claude 5.5 alternatives. These are human-selected

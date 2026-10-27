@@ -15,8 +15,8 @@ DEFAULT_HOST = "codex-astra"
 LEGACY_HOST = "codex"
 MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
 MUSE_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
-CURRENT_CATALOG_REVISIONS = {"claude": 4, "codex": 9, "codex-astra": 9, "cursor": 5}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3, 4), "codex": (2, 3, 4, 5, 6, 7, 8, 9), "codex-astra": (2, 3, 4, 5, 6, 7, 8, 9), "cursor": (2, 3, 4, 5)}
+CURRENT_CATALOG_REVISIONS = {"claude": 4, "codex": 10, "codex-astra": 10, "cursor": 5}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3, 4), "codex": (2, 3, 4, 5, 6, 7, 8, 9, 10), "codex-astra": (2, 3, 4, 5, 6, 7, 8, 9, 10), "cursor": (2, 3, 4, 5)}
 REASONING_DISPATCH_WEIGHTS = {"high": 3, "xhigh": 4, "max": 5}
 MODEL_DISPATCH_WEIGHTS = {
     ("claude-opus-5-5", "high"): 3,
@@ -149,6 +149,15 @@ CURRENT_MODEL_OPTIONS = {
 MODEL_OPTIONS_V9 = dict(CURRENT_MODEL_OPTIONS)
 for _host in ("codex", "codex-astra"):
     MODEL_OPTIONS_V9[_host] = {**CURRENT_MODEL_OPTIONS[_host], MUSE_MODEL: MUSE_EFFORTS}
+MODEL_OPTIONS_V10 = dict(MODEL_OPTIONS_V9)
+for _host in ("codex", "codex-astra"):
+    MODEL_OPTIONS_V10[_host] = {
+        **MODEL_OPTIONS_V9[_host],
+        "gpt-6.1-terra": ("low", "medium", "high", "xhigh", "max", "ultra"),
+    }
+    MODEL_OPTIONS[_host] = {
+        **MODEL_OPTIONS[_host], "gpt-6.1-terra": MODEL_OPTIONS_V10[_host]["gpt-6.1-terra"],
+    }
 
 
 def selected_dispatch_model(host: str, model: str, effort: str, revision: Optional[int] = None) -> str:
@@ -169,7 +178,7 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
     if workload == "helper":
         if host == "claude" and revision == 4:
             return "claude-sonnet-5-5", "low"
-        if revision in {8, 9} and host in {"codex", "codex-astra"}:
+        if revision in {8, 9, 10} and host in {"codex", "codex-astra"}:
             return "gpt-6.1-sol", "low"
         if revision in {6, 7} and host in {"codex", "codex-astra"}:
             return recommended_assignment(host, "implementation", revision)
@@ -179,7 +188,7 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
                            "low" if revision in {3, 4} else "max"))
     if host == "claude" and revision == 4:
         model = "claude-opus-5-5"
-    elif host == "codex" and revision in {7, 8, 9}:
+    elif host == "codex" and revision in {7, 8, 9, 10}:
         model = "gpt-6.1-sol"
     else:
         model = {"claude": "claude-opus-5", "cursor": "grok-4.7",
@@ -202,6 +211,8 @@ def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[
         options = MODEL_OPTIONS_V7
     elif revision == 9:
         options = MODEL_OPTIONS_V9
+    elif revision == 10:
+        options = MODEL_OPTIONS_V10
     else:
         options = CURRENT_MODEL_OPTIONS
     return dict(options[host])
