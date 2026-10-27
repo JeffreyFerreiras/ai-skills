@@ -4,7 +4,7 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 9; Claude uses revision 4 and
+`claude`, or `cursor`. New Codex plans use catalog revision 10; Claude uses revision 4 and
 Cursor uses revision 5. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
@@ -22,6 +22,14 @@ selection is bound to `dispatch_runtime: opencode-cli`; follow the
 [OpenCode dispatch procedure](opencode-dispatch.md), not a native Codex agent launch.
 This does not add Muse to separately approved conditional reviewer fan-out.
 Direct reusable helpers use a separate register and cannot select Muse in this revision.
+
+Revision 10 adds native `gpt-6.1-terra` at `low`, `medium`, `high`, `xhigh`, `max`, and
+`ultra` on both Codex catalogs. These pairs are observed native host settings. Catalog
+acceptance does not establish account availability, API support, live worker success,
+quality, or savings. Terra dispatch uses the unsuffixed `gpt-6.1-terra` ID without an
+external runtime marker. Recommendations remain unchanged; Terra has no conditional
+reviewer fan-out weight. Direct helpers still require a separately bound allowance and
+verified host capabilities.
 
 Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, clean-code and
 clean-architecture and bug-hunter reviewers, Security Reviewer, and Release Operations Reviewer receive the review suggestion.
@@ -70,7 +78,7 @@ plans do not gain this dispatch. See [Simplification review](simplification-revi
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
-Muse is the one explicit cross-provider exception in Codex catalog revision 9. It cannot be the
+Muse is the one explicit cross-provider exception in Codex catalog revisions 9 and 10. It cannot be the
 Supervisor recommendation because the CLI cannot switch the primary thread.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
 the recommendation matrix, so GPT-6.1 Sol, GPT-6 Sol, and GPT-6 Luna are selectable without changing
@@ -127,6 +135,8 @@ removes GPT-5.6 options. Cursor revision 4 removes its GPT-5.6 Sol option withou
 recommendations; Claude revision 3 is unchanged. Revision 9 adds the optional OpenCode Muse
 pair and dispatch metadata without changing default recommendations. Revision 8 plans reconstruct
 without Muse or the new metadata. Older engines reject unsupported revisions.
+Revision 10 adds the six native Terra efforts while preserving revision 9 options, plan
+bytes, digests, approvals, and Muse routing. Revision 9 and earlier reject Terra selections.
 Claude revision 4 upgrades recommendations to Sonnet 5.5 and Opus 5.5. Cursor revision 5 adds
 both as explicit alternatives while retaining its recommendations. Earlier Claude and Cursor
 plans retain their options, assignments, and digests. Fable remains `claude-fable-5-1`.

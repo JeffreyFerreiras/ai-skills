@@ -239,7 +239,7 @@ class GraphHardeningTests(GraphCase):
         return manifest
 
     def test_selected_model_options_remain_recognizable_in_usage_context(self):
-        from graph_engine.usage import _context
+        from graph_engine.usage import _context, _empty_totals, _validate_binding
 
         for model in ("gpt-5.6-terra", "grok-4.7", "gemini-3.8-flash", "claude-fable-5-1",
                       "cursor-grok-4.6", "gpt-6-astra", "claude-sonnet-5-5", "claude-opus-5-5"):
@@ -247,6 +247,22 @@ class GraphHardeningTests(GraphCase):
                              {"model": model, "effort": "medium"})
         self.assertEqual(_context({"model": "untrusted-arbitrary-model", "effort": "medium"})["model"],
                          "unknown")
+        for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
+            context = _context({"model": "gpt-6.1-terra", "reasoning_effort": effort})
+            self.assertEqual(context, {"model": "gpt-6.1-terra", "effort": effort})
+            binding = {
+                "usage_schema_version": 1, "binding_id": "g2-" + "a" * 24,
+                "source_id": "a" * 64, "adapter": "codex_jsonl_v1", "branch_id": None,
+                "attempt_id": None, "role": "senior_engineer", "phase": "implementation",
+                "generation": 0, "start_offset": 0, "offset": 0, "prefix_sha256": "a" * 64,
+                "previous": None, "observed": False, "closed": False, "broken": False,
+                "diagnostics": [], "metric_partial": [], "boundary_kind": "baseline",
+                "segments": [{"phase": "implementation", **context, "totals": _empty_totals()}],
+            }
+            _validate_binding(binding)
+            binding["segments"][0]["model"] = "untrusted-arbitrary-model"
+            with self.assertRaises(ValueError):
+                _validate_binding(binding)
 
     def _assert_repair_packet_schema(self, packet):
         schema = json.loads((Path(__file__).parents[1] / "references/evidence-lifecycle.schema.json").read_text(encoding="utf-8"))
@@ -1993,21 +2009,63 @@ class HelperRegisterTests(GraphCase):
 
     def test_helper_allowances_accept_selected_models_from_each_harness(self):
         _registry, _initialized, _command, _plan, allowance = self._materials()
-        for host, model, effort in (("codex-astra", "gpt-6-sol", "medium"),
+        selections = [("codex-astra", "gpt-6-sol", "medium"),
                                     ("codex-astra", "gpt-6.1-sol", "low"),
                                     ("claude", "claude-opus-5", "medium"),
                                     ("claude", "claude-sonnet-5", "low"),
                                     ("claude", "claude-opus-5-5", "high"),
                                     ("claude", "claude-sonnet-5-5", "low"),
                                     ("cursor", "grok-4.7", "medium"),
-                                    ("cursor", "gemini-3.8-flash", "low")):
+                                    ("cursor", "gemini-3.8-flash", "low")]
+        selections.extend((host, "gpt-6.1-terra", effort)
+                          for host in ("codex", "codex-astra")
+                          for effort in ("low", "medium", "high", "xhigh", "max", "ultra"))
+        for host, model, effort in selections:
             selected = json.loads(json.dumps(allowance))
             for assignment in selected["assignments"]:
                 assignment.update(model=model, reasoning_effort=effort)
             with self.subTest(host=host, model=model):
                 normalized = validate_allowance(selected, "RUN-HELPERS", host)
                 self.assertTrue(all(row["model"] == model for row in normalized["assignments"]))
+                self.assertTrue(all(row["reasoning_effort"] == effort for row in normalized["assignments"]))
                 self.assertEqual(validate_allowance(selected, "RUN-HELPERS", host, historical=True), normalized)
+
+    def test_terra_helper_preflight_retains_capability_and_assignment_checks(self):
+        registry, initialized, _command, _plan, _allowance = self._materials(
+            model="gpt-6.1-terra", reasoning_effort="ultra",
+        )
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        request = self._request("terra-helper")
+        request.update(model="gpt-6.1-terra", reasoning_effort="ultra")
+        self.assertEqual(registry.preflight(path, context, request)["code"], "PREFLIGHT_READY")
+        request["reasoning_effort"] = "high"
+        with self.assertRaisesRegex(ContractError, "HELPER_ASSIGNMENT_MISMATCH"):
+            registry.preflight(path, context, request)
+        self.assertEqual(registry.status(path, context)["reservations"], {})
+
+    def test_revision_nine_helper_allowance_cannot_acquire_terra_authority(self):
+        from graph_engine.execution import reconstruct_execution_plan
+
+        def revision_nine_plan(run_id, task, host):
+            return reconstruct_execution_plan(run_id, task, {
+                "host": host, "catalog_revision": 9, "code_review_panel_version": 1,
+                "simplification_review_version": 1, "capability_projection_version": 1,
+            })
+
+        with patch("tests.test_graph_hardening.build_execution_plan", side_effect=revision_nine_plan):
+            registry, initialized, _command, plan, allowance = self._materials()
+        self.assertEqual(plan["catalog_revision"], 9)
+        path, context = Path(initialized["register_path"]), initialized["context"]
+        request = self._request("new-terra-authority")
+        request.update(model="gpt-6.1-terra", reasoning_effort="ultra")
+        with self.assertRaisesRegex(ContractError, "HELPER_ASSIGNMENT_MISMATCH"):
+            registry.preflight(path, context, request)
+        self.assertEqual(registry.status(path, context)["reservations"], {})
+        for assignment in allowance["assignments"]:
+            assignment.update(model="gpt-6.1-terra", reasoning_effort="ultra")
+        (self.repo / "docs" / "helper-allowance.json").write_bytes(canonical_bytes(allowance))
+        with self.assertRaisesRegex(HelperRegisterError, "REGISTER_BINDING_MISMATCH"):
+            registry.preflight(path, context, request)
 
     def test_muse_graph_option_does_not_create_helper_runtime_authority(self):
         _registry, _initialized, _command, _plan, allowance = self._materials()

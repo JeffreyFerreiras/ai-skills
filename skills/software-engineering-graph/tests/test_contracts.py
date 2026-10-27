@@ -217,6 +217,13 @@ class ContractTests(GraphCase):
         }
         validate_task_brief(task, self.snapshot.digest, self.policy)
         _validate_json_schema(task, schema, schema)
+        for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
+            terra = copy.deepcopy(task)
+            terra["model_overrides"]["senior_engineer"] = {
+                "model": "gpt-6.1-terra", "reasoning_effort": effort,
+            }
+            validate_task_brief(terra, self.snapshot.digest, self.policy)
+            _validate_json_schema(terra, schema, schema)
         invalid_tasks = []
         for overrides in ([], {"unknown": {}}, {"senior_engineer": {"model": "gpt-5.6-sol"}},
                           {"tech_lead": {"model": "primary-thread", "reasoning_effort": "medium"}},

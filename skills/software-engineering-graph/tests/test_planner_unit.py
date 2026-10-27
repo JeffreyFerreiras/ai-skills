@@ -8,6 +8,7 @@ from graph_engine.execution import (
 from graph_engine.hosts import (
     CURRENT_CATALOG_REVISIONS, DEFAULT_HOST, dispatch_weight_for, known_hosts,
     resolve_assignment, supported_dispatch_weights, selected_dispatch_model, MUSE_MODEL,
+    SUPPORTED_CATALOG_REVISIONS,
 )
 from graph_engine.ids import stable_id
 from graph_engine.planner import validate_fanout_ordering, effective_role_capabilities
@@ -62,6 +63,92 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerUnitTests(TaskCase):
+    def test_terra_selections_cover_native_assignments_without_delegation_weights(self):
+        for host in ("codex", "codex-astra"):
+            for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
+                with self.subTest(host=host, effort=effort):
+                    pair = {"model": "gpt-6.1-terra", "reasoning_effort": effort}
+                    task = self.task_v2()
+                    task["model_overrides"] = {key: dict(pair) for key in (
+                        "tech_lead", "senior_engineer", "impact_mapper", "supervisor_recommendation",
+                        "publication_assignment", "simplification_assignment",
+                    )}
+                    plan = build_execution_plan("RUN-1", task, host=host)
+                    self.assertEqual(plan["catalog_revision"], 10)
+                    self.assertEqual(plan["model_options"]["gpt-6.1-terra"],
+                                     ["low", "medium", "high", "xhigh", "max", "ultra"])
+                    selections = [assignment_for(plan, node) for node in (
+                        "tech_lead", "senior_engineer", "impact_mapper")]
+                    selections += [plan[key] for key in ("supervisor_recommendation",
+                                   "publication_assignment", "simplification_assignment")]
+                    for selection in selections:
+                        self.assertEqual({key: selection[key] for key in pair}, pair)
+                        self.assertEqual(selection["dispatch_model"], "gpt-6.1-terra")
+                        self.assertNotIn("dispatch_runtime", selection)
+                    self.assertEqual(plan, reconstruct_execution_plan("RUN-1", task, plan))
+                    self.assertIsNone(dispatch_weight_for("gpt-6.1-terra", effort))
+                    self.assertNotIn(("gpt-6.1-terra", effort), supported_dispatch_weights())
+                    for revision in SUPPORTED_CATALOG_REVISIONS[host]:
+                        if revision == 10:
+                            continue
+                        with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                            selected_dispatch_model(host, "gpt-6.1-terra", effort, revision)
+                    with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                        reconstruct_execution_plan("RUN-1", task, {
+                            "host": host, "catalog_revision": 9, "simplification_review_version": 1,
+                        })
+
+    def test_terra_rejects_invalid_efforts_names_and_hosts(self):
+        for host in ("codex", "codex-astra"):
+            for effort in ("none", "minimal", "inherited", "HIGH", "unknown"):
+                task = self.task_v2()
+                task["model_overrides"] = {"tech_lead": {
+                    "model": "gpt-6.1-terra", "reasoning_effort": effort,
+                }}
+                error = "MODEL_OVERRIDES_INVALID" if effort == "inherited" else "MODEL_ASSIGNMENT_INVALID"
+                with self.subTest(host=host, effort=effort), self.assertRaisesRegex(ValueError, error):
+                    build_execution_plan("RUN-1", task, host=host)
+            for model in ("gpt-6.1-terra-high", "gpt-6.1-Terra", "gpt-6.1-tera"):
+                with self.subTest(host=host, model=model), self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                    selected_dispatch_model(host, model, "high")
+        for host in ("claude", "cursor", "unsupported"):
+            error = "HOST_UNSUPPORTED" if host == "unsupported" else "MODEL_ASSIGNMENT_INVALID"
+            with self.subTest(host=host), self.assertRaisesRegex(ValueError, error):
+                selected_dispatch_model(host, "gpt-6.1-terra", "high")
+
+    def test_revision_nine_baseline_digests_and_muse_routes_remain_exact(self):
+        # Captured from unchanged base 8cf26c72 with the existing TaskCase fixtures.
+        digests = {
+            "codex": ("01861410ea766747abe4ed3f6482ba236280ab39b4ce298c1c4d2dc250394134",
+                      "c9be2561436c234e219f117b0d4ec4857520dbcf456ccc8d38b3fdad11074f5a",
+                      "c394fb86108039004fe3ac68cbd4fa077dc3d9a47cb4d054814a3edf7227f336"),
+            "codex-astra": ("ccd4742a29a7d0bc8c96da28d33efb0205335347ec3b5483412222b65c62571d",
+                            "4190f3ce6a69cdfaaed7a2ecd5bc3da6af343054d366144cabb285e8637ec8ab",
+                            "7b2752700b4d398604a8610bef10b0e37bd390e2f6f01b9c37afa676ce4813a4"),
+        }
+        for host, expected in digests.items():
+            for fixture, digest in zip(("task", "task_v2", "muse"), expected):
+                with self.subTest(host=host, fixture=fixture):
+                    task = self.task() if fixture == "task" else self.task_v2()
+                    if fixture == "muse":
+                        task["model_overrides"] = {key: {"model": MUSE_MODEL, "reasoning_effort": "low"}
+                            for key in ("tech_lead", "publication_assignment", "simplification_assignment")}
+                    old = reconstruct_execution_plan("RUN-1", task, {
+                        "host": host, "catalog_revision": 9, "code_review_panel_version": 1,
+                        "simplification_review_version": 1, "capability_projection_version": 1,
+                    })
+                    self.assertEqual(old["plan_digest"], digest)
+                    self.assertNotIn("gpt-6.1-terra", old["model_options"])
+                    self.assertEqual(old, reconstruct_execution_plan("RUN-1", task, old))
+                    current = build_execution_plan("RUN-1", task, host=host)
+                    for key in old.keys() - {"catalog_revision", "model_options", "plan_digest"}:
+                        self.assertEqual(old[key], current[key], key)
+                    if fixture == "muse":
+                        for plan in (old, current):
+                            for selection in (assignment_for(plan, "tech_lead"), plan["publication_assignment"],
+                                              plan["simplification_assignment"]):
+                                self.assertEqual(selection["dispatch_runtime"], "opencode-cli")
+
     def test_projection_version_is_approval_bound_and_unknown_versions_fail_closed(self):
         task = self.task()
         plan = build_execution_plan("RUN-1", task)
@@ -482,7 +569,7 @@ class PlannerUnitTests(TaskCase):
         self.assertEqual(plan, explicit)
         self.assertEqual(plan["host"], DEFAULT_HOST)
         by_key = {item["node_key"]: item for item in plan["assignments"]}
-        self.assertEqual(plan["catalog_revision"], 9)
+        self.assertEqual(plan["catalog_revision"], 10)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
         self.assertEqual(by_key["tech_lead"]["reasoning_effort"], "medium")
         self.assertEqual(by_key["tech_lead"]["dispatch_model"], "gpt-6-astra")
