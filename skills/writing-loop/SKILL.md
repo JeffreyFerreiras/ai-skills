@@ -1,6 +1,6 @@
 ---
 name: writing-loop
-description: Draft or revise prose through a bounded Unslop, reduction, and independent clarity review loop. Use when the user requests iterative writing with a reducer and editor, not ordinary single-pass cleanup or code review.
+description: Draft or revise prose through a bounded Unslop, reduction, and independent clarity review loop. Use for all prose writing or editing requests; not for code review or code implementation.
 ---
 
 # Writing loop
@@ -9,6 +9,13 @@ Produce clear prose with one Writer, a read-only Reducer, and a fresh independen
 Editor for each version. The Supervisor coordinates the work and delivers the
 exact text the Editor accepts. Allow at most three repair attempts by default.
 The initial draft does not count as a repair. Stop when the Editor accepts a version.
+
+Use this loop for all prose-writing and prose-editing requests, including
+ordinary cleanup, without waiting for the user to ask for iteration. It does not
+apply to code review, to writing or editing executable code, or to recursive use
+inside its own run: do not start new loops for internal role packets, source
+quotations used as evidence, or routine status messages. The requested writing
+deliverable runs through the loop; the machinery around it does not.
 
 ## Set up
 
