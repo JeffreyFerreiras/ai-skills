@@ -113,13 +113,13 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [grilling](skills/grilling/SKILL.md) | Stress-test decisions through a focused interview |
 | [independent-reviewer](skills/independent-reviewer/SKILL.md) | Request a fresh, read-only subagent review |
 | [leetcode](skills/leetcode/SKILL.md) | Solve and review coding interview problems |
-| [little-helper](skills/little-helper/SKILL.md) | Delegate one tightly scoped job to a subagent |
+| [little-helper](skills/little-helper/SKILL.md) | Fast free OpenCode helper with Muse Spark fallback |
 | [mcp-builder](skills/mcp-builder/SKILL.md) | Build MCP servers for APIs and services |
 | [notebooklm-cinematic-video](skills/notebooklm-cinematic-video/SKILL.md) | Prepare and activate longer NotebookLM lessons |
 | [notebooklm-short-video](skills/notebooklm-short-video/SKILL.md) | Prepare and activate digestible NotebookLM shorts |
 | [opencode-go-compare](skills/opencode-go-compare/SKILL.md) | Compare OpenCode Go models on speed, cost, and benchmarks |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
-| [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model with model=<provider/model> (defaults to Muse) while the primary only thinks |
+| [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model and orchestrate while the primary only thinks |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |
