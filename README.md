@@ -119,7 +119,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [notebooklm-short-video](skills/notebooklm-short-video/SKILL.md) | Prepare and activate digestible NotebookLM shorts |
 | [opencode-go-compare](skills/opencode-go-compare/SKILL.md) | Compare OpenCode Go models on speed, cost, and benchmarks |
 | [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
-| [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model with model=<provider/model> (defaults to Muse) while the primary only thinks |
+| [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model and orchestrate while the primary only thinks |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |
@@ -136,6 +136,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
+| [writing-loop](skills/writing-loop/SKILL.md) | Refine prose with a reducer and independent editor |
 <!-- skill-catalog:end -->
 
 Looking for `loop` or `code-review`? They are now `generic-loop` and `clean-code-review` to avoid built-in command collisions. See the [migration record](docs/migrations/skill-name-collisions-20260926.md).
