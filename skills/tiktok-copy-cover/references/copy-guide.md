@@ -13,7 +13,7 @@ never counts as an inspected video.
 
 1. One strong hook/title line.
 2. One ready-to-post caption, plain language, no em dashes.
-3. Three to five relevant hashtags (editorial preference, not platform law).
+3. Three to five relevant lowercase hashtags (editorial preference, not platform law).
 4. One optional pinned comment only when it adds something useful.
 5. One real `cover.png` (default PNG 1080x1920) plus an editable SVG when
    the composition is code-native, with clear paths.
@@ -21,6 +21,9 @@ never counts as an inspected video.
 
 ## Constraints
 
+- Present the title as a plain line and the caption as a separate plain
+  paragraph, without labels such as "Title:" or "Description:". Keep
+  hashtags with the caption so the copy is ready to paste.
 - Ground every claim in inspected facts; never invent timing, coverage,
   engagement, or style-match guarantees.
 - Keep internal facts, file paths, and review notes out of posting copy.
