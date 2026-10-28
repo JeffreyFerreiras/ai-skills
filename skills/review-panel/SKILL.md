@@ -18,6 +18,7 @@ Run all seven unless the user explicitly narrows the scope. Do not merge roles s
 
 - For role contracts and finding bars, read [reviewer-contracts.md](references/reviewer-contracts.md).
 - When any reviewer may run outside the current session, read [opencode-dispatch.md](references/opencode-dispatch.md) before dispatch.
+- For the per-run findings record, read [persistence.md](references/persistence.md). The Supervisor owns and writes that record with `scripts/review_state.py`.
 
 ## 1. Freeze the review target
 
@@ -29,7 +30,7 @@ Completion: every reviewer receives the same frozen identity, scope, hashes, and
 
 ## 2. Dispatch fresh reviewers
 
-Start each reviewer in a fresh context with the user intent and raw evidence only. Do not share author reasoning, a preferred verdict, a prior conclusion, or another reviewer's output. Instruct each reviewer to inspect surrounding code as needed, make no edits, and spawn no further agents unless the user authorized delegation.
+Start each reviewer in a fresh context with the user intent and raw evidence only. Do not share author reasoning, a preferred verdict, a prior conclusion, or another reviewer's output. Build each first-pass packet with only the frozen identity and scope, never another reviewer's report or finding, even when a record already holds some. Instruct each reviewer to inspect surrounding code as needed, make no edits, and spawn no further agents unless the user authorized delegation.
 
 Prompt limits on paths and effects are cooperative instructions. Do not call them sandbox enforcement.
 
@@ -51,11 +52,13 @@ Wait for the same worker to finish and retain its exit status and output. On tim
 
 A review-only run authorizes no extra approval gate. Edits, fixes, publication, or profile changes require separate user intent. Only an explicitly authorized verifier may run focused commands or disposable reproductions in disposable paths. Keep panel reports outside the installed skill and unrelated source.
 
+The Supervisor is the only writer of the per-run record. Store each initial report once and never rewrite it. An unknown role never flips silently to covered; before the lock the host may reopen it with a reason only after settling the old execution. Lock the initial phase only when every role has reported or is explicitly marked unknown with a reason. No dispositions, replies, fix verification, or follow-up requests exist before the lock. After the lock, record each follow-up request before emitting its packet: send a reviewer the request's finding ids with their evidence, disposition, and reason, plus explicitly selected related findings. Record each reply with its stance; a dispute reopens its finding to unresolved. Silence or an unknown outcome never counts as agreement. A requested follow-up stays open until a linked reply arrives or the Supervisor records it unresolved with a reason. Pending requests block verified fixes and closing; close only with a fresh source and no pending requests.
+
 Completion: every reviewer has a terminal known outcome, or is reported as unknown with its evidence gap.
 
 ## 5. Merge and report
 
-Group concordant findings by verified cause, not by vote count. Label each candidate as accepted, rejected, unresolved, or out of scope. Preserve dissent, incomplete gates, exact checks run, exact code state, and limitations. State what each role actually inspected. End with a clear recommendation and residual risks.
+Group concordant findings by verified cause, not by vote count. Label each candidate as accepted, rejected, unresolved, or out of scope. Preserve dissent, incomplete gates, exact checks run, exact code state, and limitations. State what each role actually inspected. Recompute the declared mutable-input hashes and compare the current source, including scope, with the frozen identity before accepting or reusing results. A changed revision, input, or scope marks every finding stale, resets fixed or verified states to open, and refuses further live decisions on the old target; preserve the original evidence, stable ids, and history, start a new verified run, and re-review the new target. End with a clear recommendation and residual risks.
 
 An unavailable or silent review never counts as approval. A review is not a repair loop or a delivery run.
 

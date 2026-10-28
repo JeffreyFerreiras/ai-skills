@@ -17,7 +17,7 @@ If any check fails, do not dispatch. Propose a supported replacement and keep th
 
 Translate the frozen packet into a concrete goal, allowed paths, exclusions, output contract, read-only condition, and stop condition. State that other agents may work in the checkout and that unrelated changes must stay intact. Give no commit, push, publish, broad-delete, or profile authority unless the user authorized it. Apply the user's approval preference (for example `--auto` only under their standing request). Approval preference never widens scope.
 
-Give each worker an imperative prompt with compact labeled blocks:
+Give each worker an imperative prompt with compact labeled blocks. First-pass prompts carry the frozen target only, never another reviewer's report, finding, disposition, or verdict, even when the record already holds some. Follow-up prompts go out only after the initial phase is locked, only for a persisted follow-up request, and carry only that request's finding ids with their evidence, disposition, and reason, plus explicitly selected related findings. Use this shape:
 
 ```text
 ROLE: You are an independent <role> reviewer. Make no edits and spawn no further agents.
@@ -50,4 +50,4 @@ Announce each concrete task, role, workspace, selected model, and selected effor
 
 Assess shared mutable resources before parallel starts. On a known terminal database-lock failure, stagger starts. Preserve each worker's reports and logs.
 
-Wait for the same process to finish and retain its exit status and output. On timeout or interruption, treat the outcome as unknown. Inspect process, session, and workspace state before any retry. Never launch a duplicate while the first outcome is unknown. After return, inspect status and the scoped diff, flag out-of-scope changes, and treat worker claims as evidence to check. For read-only roles, the workspace must show no unexpected change.
+Wait for the same process to finish and retain its exit status and output. On timeout or interruption, treat the outcome as unknown. Inspect process, session, and workspace state before any retry. Never launch a duplicate while the first outcome is unknown. Reopening an unknown role for a late report needs that settlement first: confirm the old worker stopped, then record the reopen reason before redispatching. After return, inspect status and the scoped diff, flag out-of-scope changes, and treat worker claims as evidence to check. For read-only roles, the workspace must show no unexpected change.

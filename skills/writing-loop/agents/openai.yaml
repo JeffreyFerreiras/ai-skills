@@ -1,0 +1,4 @@
+interface:
+  display_name: "Writing Loop"
+  short_description: "Refine prose with a reducer and independent editor"
+  default_prompt: "Use $writing-loop to draft and refine this text with Unslop, a reducer, and an independent clarity editor."
