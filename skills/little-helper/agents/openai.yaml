@@ -1,4 +1,4 @@
 interface:
   display_name: "Little Helper"
-  short_description: "Delegate one tightly scoped job to a subagent"
-  default_prompt: "Use $little-helper to delegate this one narrow task with an exact expected result."
+  short_description: "Fast free OpenCode helper with Muse Spark fallback"
+  default_prompt: "Use $little-helper for this narrow task with DeepSeek Flash Free at a minimum of high effort, choosing max when warranted, and Muse Spark at a minimum of xhigh as the availability fallback."
