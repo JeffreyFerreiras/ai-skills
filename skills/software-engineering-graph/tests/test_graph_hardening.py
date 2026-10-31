@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -14,7 +15,9 @@ from graph_engine.helper_register import (
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
-from graph_engine.checks import capture_source
+from graph_engine.checks import capture_source, receipt_eligibility
+from graph_engine import checks as checks_module
+from graph_engine import cli as cli_module
 
 from tests.test_support import GraphCase
 from tests.test_contracts import _validate_json_schema
@@ -2310,6 +2313,216 @@ class TimingMetricTests(unittest.TestCase):
         self.assertIsNone(incomplete["overall"]["overlap_time_ms"])
         self.assertIsNone(incomplete["overall"]["slowest_branch"])
         self.assertIsNone(incomplete["overall"]["critical_path"])
+
+
+class _StubCursor:
+    def __init__(self, rows=None, one=None):
+        self._rows = rows or []
+        self._one = one
+
+    def fetchone(self):
+        return self._one
+
+    def fetchall(self):
+        return list(self._rows)
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
+class _StatusConnection:
+    """Minimal read-only stand-in exposing only the queries _evidence_status issues."""
+
+    def __init__(self, receipts):
+        self._receipts = receipts
+
+    def execute(self, sql, params=()):
+        if sql.startswith("SELECT * FROM check_evidence"):
+            return _StubCursor(rows=[
+                {"check_id": check_id, "artifact_ref": ref}
+                for check_id, ref, _ in self._receipts
+            ])
+        if "FROM artifacts" in sql:
+            ref = params[0]
+            receipt = next(item for _, item_ref, item in self._receipts if item_ref == ref)
+            return _StubCursor(one=(json.dumps(receipt),))
+        if "FROM nodes" in sql:
+            return _StubCursor(rows=[])
+        raise AssertionError("unexpected status query: " + sql)
+
+
+class SourceCaptureScopeTests(unittest.TestCase):
+    ROOTS = ["docs/"]
+    OUTPUTS = [{
+        "path": "docs/artifacts/report.json", "purpose": "review_report",
+        "producer_node_key": "code_reviewer", "artifact_kind": "delivery_review",
+    }]
+
+    def _receipt(self, digest, roots=None, outputs=None, branch="B1", validity="valid"):
+        fence = {"branch_id": branch, "attempt_id": "A1", "claim_digest": "c" * 64}
+        return {
+            "schema_version": 2, "outcome": "PASS", "validity": validity,
+            "source": dict(fence), "executor": dict(fence),
+            "coverage": {
+                "roots": list(self.ROOTS if roots is None else roots),
+                "outputs": [dict(item) for item in (self.OUTPUTS if outputs is None else outputs)],
+                "activation_ref": "ledger:ACT#sha256=" + "d" * 64,
+            },
+            "before_source_digest": digest, "after_source_digest": digest,
+        }
+
+    def _policy(self, *check_ids):
+        return {
+            "denied_patterns": [],
+            "required_checks": {
+                check_id: {"argv": ["true"], "command_id": "cmd-" + check_id}
+                for check_id in check_ids
+            },
+        }
+
+    def _status(self, receipts, capture):
+        connection = _StatusConnection(receipts)
+        run = {
+            "state_schema_version": 7, "run_id": "RUN-1",
+            "policy_json": json.dumps(self._policy(*[check_id for check_id, _, _ in receipts])),
+        }
+        with patch.object(cli_module, "reservation_states", return_value={}), \
+                patch.object(checks_module, "verify_check_fence") as fence, \
+                patch.object(checks_module, "verify_generated_outputs"), \
+                patch.object(checks_module, "current_review_binding", return_value=None), \
+                patch.object(cli_module, "capture_evidence_source", side_effect=capture) as capture_mock:
+            return cli_module._evidence_status(connection, run), fence, capture_mock
+
+    def _snapshot(self, digest):
+        return {"sha256": digest, "roots": list(self.ROOTS), "path_count": 1}
+
+    def test_same_coverage_receipts_share_one_capture(self):
+        digest = "a" * 64
+        receipts = [
+            ("check-a", "ref-a", self._receipt(digest)),
+            ("check-b", "ref-b", self._receipt(digest)),
+        ]
+        status, _, capture_mock = self._status(receipts, lambda *args: self._snapshot(digest))
+        self.assertEqual(["eligible", "eligible"],
+                         [item["eligibility"] for item in status["checks"]])
+        self.assertEqual(1, capture_mock.call_count)
+
+    def test_different_coverage_never_aliases(self):
+        digest = "a" * 64
+        receipts = [
+            ("check-a", "ref-a", self._receipt(digest)),
+            ("check-b", "ref-b", self._receipt(digest, roots=["other/"])),
+        ]
+        status, _, capture_mock = self._status(receipts, lambda *args: self._snapshot(digest))
+        self.assertEqual(["eligible", "eligible"],
+                         [item["eligibility"] for item in status["checks"]])
+        self.assertEqual(2, capture_mock.call_count)
+        seen_roots = [call.args[3] for call in capture_mock.call_args_list]
+        self.assertIn(self.ROOTS, seen_roots)
+        self.assertIn(["other/"], seen_roots)
+
+    def test_fence_and_validity_checks_rerun_per_receipt_despite_shared_capture(self):
+        digest = "a" * 64
+        receipts = [
+            ("check-a", "ref-a", self._receipt(digest)),
+            ("check-b", "ref-b", self._receipt(digest, branch="B2")),
+            ("check-c", "ref-c", self._receipt(digest, validity="source_changed")),
+        ]
+
+        def fence(connection, run, value, **kwargs):
+            if value["branch_id"] == "B2":
+                raise StateError("ATTEMPT_FENCE_MISMATCH")
+
+        connection = _StatusConnection(receipts)
+        run = {
+            "state_schema_version": 7, "run_id": "RUN-1",
+            "policy_json": json.dumps(self._policy("check-a", "check-b", "check-c")),
+        }
+        with patch.object(cli_module, "reservation_states", return_value={}), \
+                patch.object(checks_module, "verify_check_fence", side_effect=fence), \
+                patch.object(checks_module, "verify_generated_outputs"), \
+                patch.object(checks_module, "current_review_binding", return_value=None), \
+                patch.object(cli_module, "capture_evidence_source",
+                             return_value=self._snapshot(digest)) as capture_mock:
+            status = cli_module._evidence_status(connection, run)
+        self.assertEqual(["eligible", "ATTEMPT_FENCE_MISMATCH", "source_changed"],
+                         [item["eligibility"] for item in status["checks"]])
+        self.assertEqual(1, capture_mock.call_count)
+
+    def test_default_eligibility_captures_fresh_without_scope(self):
+        digest = "a" * 64
+        receipt = self._receipt(digest)
+        with patch.object(checks_module, "verify_check_fence"), \
+                patch.object(checks_module, "verify_generated_outputs"), \
+                patch.object(checks_module, "current_review_binding", return_value=None), \
+                patch.object(checks_module, "capture_evidence_source",
+                             return_value=self._snapshot(digest)) as capture_mock:
+            first = receipt_eligibility(None, {}, {}, receipt)
+            second = receipt_eligibility(None, {}, {}, receipt)
+        self.assertEqual(("eligible", "eligible"), (first, second))
+        self.assertEqual(2, capture_mock.call_count)
+
+    def test_repeated_status_stays_fresh_after_real_source_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            (repo / "docs").mkdir()
+            target = repo / "docs" / "file.txt"
+            target.write_text("first", encoding="utf-8")
+            for arguments in [("init",), ("add", "."),
+                              ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                               "commit", "-m", "fixture")]:
+                subprocess.run(["git", *arguments], cwd=repo, check=True, capture_output=True)
+            policy = {"denied_patterns": []}
+            before = capture_source(repo, policy, ["docs/"])
+            target.write_text("second", encoding="utf-8")
+            after = capture_source(repo, policy, ["docs/"])
+            self.assertNotEqual(before["sha256"], after["sha256"])
+        receipts = [("check-a", "ref-a", self._receipt(before["sha256"]))]
+        connection = _StatusConnection(receipts)
+        run = {
+            "state_schema_version": 7, "run_id": "RUN-1",
+            "policy_json": json.dumps(self._policy("check-a")),
+        }
+        with patch.object(cli_module, "reservation_states", return_value={}), \
+                patch.object(checks_module, "verify_check_fence"), \
+                patch.object(checks_module, "verify_generated_outputs"), \
+                patch.object(checks_module, "current_review_binding", return_value=None), \
+                patch.object(cli_module, "capture_evidence_source",
+                             side_effect=[self._snapshot(before["sha256"]),
+                                          self._snapshot(after["sha256"])]) as capture_mock:
+            first = cli_module._evidence_status(connection, run)
+            second = cli_module._evidence_status(connection, run)
+        self.assertEqual("eligible", first["checks"][0]["eligibility"])
+        self.assertEqual("source_changed", second["checks"][0]["eligibility"])
+        self.assertEqual(2, capture_mock.call_count)
+
+
+class EvidenceStatusSharingTests(GraphCase):
+    def test_command_status_shares_single_evidence_report_with_next_action(self):
+        self.initialize()
+        manifest = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/"], "complete": True}]})
+        self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                      "--coverage-manifest", str(manifest), "--op-id", "enable")
+        calls = []
+        original = cli_module._evidence_status
+
+        def spy(connection, run):
+            result = original(connection, run)
+            calls.append(result)
+            return result
+
+        with patch.object(cli_module, "_evidence_status", side_effect=spy):
+            first = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(1, len(calls))
+        self.assertIs(calls[0], first["evidence_lifecycle"])
+        self.claim_raw()
+        with patch.object(cli_module, "_evidence_status", side_effect=spy):
+            second = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(2, len(calls))
+        self.assertIs(calls[1], second["evidence_lifecycle"])
+        self.assertIsNot(calls[0], calls[1])
+        self.assertNotEqual(first["next_action"], second["next_action"])
 
 
 if __name__ == "__main__":

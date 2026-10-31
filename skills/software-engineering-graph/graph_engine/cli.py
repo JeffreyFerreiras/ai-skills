@@ -2721,6 +2721,19 @@ def _evidence_status(connection, run):
         return None
     policy = json.loads(run["policy_json"])
     reservations = list(reservation_states(connection, run["run_id"]).values())
+    # Read-only scope: run, repo, policy, and known inputs are fixed here, so reuse
+    # only successful captures whose roots and full output descriptors match exactly.
+    snapshots: Dict[str, Any] = {}
+
+    def _scoped_source_capture(roots, outputs):
+        key = sha256_bytes(canonical_bytes({"roots": list(roots), "outputs": list(outputs)}))
+        cached = snapshots.get(key)
+        if cached is not None:
+            return cached
+        snapshot = capture_evidence_source(connection, run, policy, roots, outputs)
+        snapshots[key] = snapshot
+        return snapshot
+
     checks = []
     for selected in connection.execute("SELECT * FROM check_evidence WHERE run_id=? ORDER BY check_id", (run["run_id"],)):
         receipt = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (selected["artifact_ref"],)).fetchone()[0])
@@ -2739,7 +2752,8 @@ def _evidence_status(connection, run):
                            and item["check_id"] == selected["check_id"] for item in reservations))
             options.append({"branch_id": branch["branch_id"], "attempt_id": env["attempt_id"], "repeat_cost": cost})
         checks.append({"check_id": selected["check_id"], "artifact_ref": selected["artifact_ref"],
-                       "eligibility": receipt_eligibility(connection, run, policy, receipt),
+                        "eligibility": receipt_eligibility(connection, run, policy, receipt,
+                                                           source_capture=_scoped_source_capture),
                        "source": receipt.get("source"), "executor": receipt.get("executor"),
                        "predecessor_ref": receipt.get("predecessor_ref"), "coverage": receipt.get("coverage"),
                        "review_source_binding_ref": receipt.get("review_source_binding_ref"), "executor_options": options})
@@ -2747,7 +2761,11 @@ def _evidence_status(connection, run):
                                                for item in reservations]}
 
 
-def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict[str, Any]:
+_EVIDENCE_UNSET: Any = object()
+
+
+def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any],
+                 evidence_lifecycle: Any = _EVIDENCE_UNSET) -> Dict[str, Any]:
     if run["status"] in {"blocked", "complete", "aborted"}:
         action = {"kind": run["status"]}
         if run["status"] == "blocked":
@@ -2787,7 +2805,7 @@ def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict
     ready = connection.execute("SELECT branch_id FROM nodes WHERE run_id=? AND status='ready' ORDER BY branch_id LIMIT 1", (run["run_id"],)).fetchone()
     if ready:
         return {"kind": "claim", "branch_id": ready["branch_id"]}
-    lifecycle = _evidence_status(connection, run)
+    lifecycle = _evidence_status(connection, run) if evidence_lifecycle is _EVIDENCE_UNSET else evidence_lifecycle
     if lifecycle:
         unknown = [item["reservation_id"] for item in lifecycle["reservations"] if item["state"] == "open"]
         if unknown:
@@ -2861,6 +2879,8 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
             "authority_ref": plan["authority_ref"], "approved_at": plan["approved_at"],
             "approved_by": plan["approved_by"],
         })
+    # One read-only evidence computation serves both the report and next-action routing.
+    evidence_lifecycle = _evidence_status(connection, run) if run["state_schema_version"] == 7 else None
     return _json_result(
         True, "STATUS", run["run_id"], run["state_revision"], sensitive=True, status=run["status"],
         route=run["selected_route"], impact_tags=json.loads(run["selected_tags_json"] or "[]"),
@@ -2869,7 +2889,7 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
         durability=run["durability"], durability_detail=run["durability_detail"],
         permission_verification=run["permission_verification"],
         execution_plan=execution_plan, usage=usage.report(connection, run),
-        **({"evidence_lifecycle": _evidence_status(connection, run)} if run["state_schema_version"] == 7 else {}),
+        **({"evidence_lifecycle": evidence_lifecycle} if run["state_schema_version"] == 7 else {}),
         acknowledgments={
             "host_identity": run["host_identity"],
             "degraded_permissions": bool(run["degraded_permissions_ack"]),
@@ -2900,7 +2920,7 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
             "child_members": json.loads(row["child_member_tuples_json"]),
         } for row in review_requests],
         timing={key: value for key, value in timing.items() if key != "branches"},
-        next_action=_next_action(connection, run), blocked_reason=run["blocked_reason"],
+        next_action=_next_action(connection, run, evidence_lifecycle), blocked_reason=run["blocked_reason"],
     )
 
 

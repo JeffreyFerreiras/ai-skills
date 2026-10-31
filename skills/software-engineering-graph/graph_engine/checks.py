@@ -8,7 +8,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 from .contracts import (
     ContractError, bounded_string, digest, is_actionable_finding, opaque, require_keys, safe_file_snapshot,
@@ -499,7 +499,9 @@ def validate_repair_and_acceptance_history(connection, run, task, activation):
             raise StateError("ACCEPTANCE_PREDECESSOR_CONFLICT")
 
 
-def receipt_eligibility(connection, run, policy, receipt, registering=None):
+def receipt_eligibility(connection, run, policy, receipt, registering=None,
+                        source_capture: Optional[Callable[..., Dict[str, Any]]] = None):
+    """Report present-source eligibility. An optional scoped capture hook replaces only the fresh snapshot."""
     if receipt.get("schema_version") != 2:
         return "legacy_unbound"
     try:
@@ -508,7 +510,10 @@ def receipt_eligibility(connection, run, policy, receipt, registering=None):
         if receipt["validity"] != "valid":
             return receipt["validity"]
         verify_generated_outputs(connection, run, policy, receipt["coverage"]["outputs"], registering)
-        current = capture_evidence_source(connection, run, policy, receipt["coverage"]["roots"], receipt["coverage"]["outputs"])
+        if source_capture is None:
+            current = capture_evidence_source(connection, run, policy, receipt["coverage"]["roots"], receipt["coverage"]["outputs"])
+        else:
+            current = source_capture(receipt["coverage"]["roots"], receipt["coverage"]["outputs"])
         if current["sha256"] != receipt["after_source_digest"]:
             return "source_changed"
         binding = current_review_binding(connection, run)
