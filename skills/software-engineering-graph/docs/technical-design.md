@@ -97,9 +97,12 @@ presents the execution sequence, roles, options, and capability gaps. The human 
 before initialization; afterward even a pending brief is immutable. New choices require a new run
 and approval. The command does not bypass missing policy or create a model API executor.
 
-New recommendations: both Codex catalogs use GPT-6.1 Sol low for helpers, fixed research,
-publication, and economy fanout. Default Codex retains GPT-6 Astra medium core/high review;
-explicit Codex retains GPT-6.1 Sol medium core/high review. GPT-6 Sol and Luna remain supported
+Codex revision 11 is the default catalog. It assigns Muse Spark 1.3 xhigh to impact mapping,
+both fixed research roles, naming review, and independent testing. Design, implementation,
+simplification, other reviews, specialists, and the Supervisor recommendation use GPT-6.1 Sol
+xhigh. Publication, direct helpers, and economy fanout retain Sol low. Approved Muse assignments
+carry `dispatch_runtime: opencode-cli`; native role pins cannot substitute for that route.
+The explicit Astra catalog retains revision 10. GPT-6 Sol and Luna remain supported
 alternatives. Every GPT-5.6 variant is retired for new selections and native launches. Claude uses Sonnet
 5.5 low helpers and Opus 5.5 medium core/high review.
 Cursor uses Gemini 3.8 Flash low helpers and Grok 4.7
@@ -109,7 +112,7 @@ options, exact sources, native role configuration, and runtime verification limi
 Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
 defaults, bytes, digests and approvals. Codex revisions 3 through 7 and Cursor revision 3 retain their prior recommendations
 and options. The engine accepts each known revision explicitly; unknown or malformed revisions fail
-closed. New Codex revision 9, Claude revision 4, and Cursor revision 5 plans require a supporting engine. Catalog
+closed. New Codex revision 11, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require a supporting engine. Catalog
 changes must not silently alter reconstruction of prior plans.
 Historical core envelopes are reconstructed for audit, not execution authority. The engine has no
 model executor; the Supervisor refuses another GPT-5.6 launch and obtains a separately approved
@@ -134,7 +137,7 @@ make no live benchmark or cross-harness compatibility claim.
 
 Every initial `design_only` or `full_delivery` route, design revision, and delivery redesign inserts
 the fixed `design_research_architecture` and `design_research_validation` nodes for the target
-generation. Both nodes use the `impact_mapper` role with the approved host economy assignment and
+generation. Both nodes use the `impact_mapper` role with each node's approved model and effort and
 are held in an assessed-pending `research` fan-out. Their envelopes carry deterministic focus and
 split `inspection_budget` values whose combined totals never exceed the task budget. Research
 capabilities are projected to `filesystem_read` and `external_read` effects only.

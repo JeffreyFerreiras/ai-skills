@@ -1,5 +1,6 @@
 name = "impact_mapper"
 description = "Read-only classifier for deterministic software engineering graph routing."
+# Native installation default. Codex graph revision 11 uses Muse through OpenCode CLI.
 model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 sandbox_mode = "read-only"

@@ -1,7 +1,8 @@
 name = "test_engineer"
 description = "Independent verification engineer for acceptance, regression, integration, and build evidence."
-model = "gpt-6-astra"
-model_reasoning_effort = "medium"
+# Native installation default. Codex graph revision 11 uses Muse through OpenCode CLI.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Default to delegating useful independent work to the approved helpers below when an allowance is

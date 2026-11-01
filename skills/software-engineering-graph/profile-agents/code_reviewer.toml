@@ -1,7 +1,7 @@
 name = "code_reviewer"
 description = "Independent read-only reviewer for clean code, clean architecture, naming only, bug hunting, or a separate simplification pass."
-model = "gpt-6-astra"
-model_reasoning_effort = "high"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 developer_instructions = """
 For bug_hunting and simplification, do not delegate. For other focuses, default to delegating useful independent

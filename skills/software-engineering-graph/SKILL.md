@@ -72,26 +72,31 @@ The task brief records the selected worktree and branch as scope context. Reuse 
 or worktree when the user explicitly directs it; still inspect its status before delegating.
 
 Name the host catalog in the execution plan as `claude`, `codex`, `codex-astra`, or `cursor`.
-`codex-astra` is the default model catalog for the Codex runtime. Do not infer the host from a
+`codex` is the default model catalog for the Codex runtime. Do not infer the host from a
 task, prompt, environment variable, or agent self-report. Use a trusted host runtime assertion, or
 ask the human. Pass `--host claude` to `init` when running in Claude Code and `--host cursor` when
-running in Cursor; omit it or pass `--host codex-astra`
-for the default Codex catalog. Use `--host codex` to recommend Sol for core roles instead of Astra.
+running in Cursor; omit it or pass `--host codex` for the default Codex catalog.
+Use `--host codex-astra` only when the human selects the Astra recommendations.
 Verify that the host supports every planned model and effort. Changing catalog is a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. New Codex catalog revision 10
-suggests GPT-6.1 Sol `low` for helpers, fixed research, publication, and economy fanout.
-Core work remains GPT-6 Astra `medium` and review remains Astra `high`; the explicit `codex`
-catalog suggests GPT-6.1 Sol `medium`/`high` instead. Bind direct helper selections in their
-separate allowance. GPT-6 Sol and GPT-6 Luna remain supported alternatives on Codex. Both
-Codex catalogs also offer OpenCode Muse Spark 1.3 as a deliberate external economy option;
-its use requires the approved `opencode-cli` route in
-[OpenCode dispatch](references/opencode-dispatch.md). Select it with a Codex-host
-`model_overrides` entry, not a new host catalog. Read that dispatch procedure before claiming
-any Muse node.
+Present model assignments as recommendations, not prerequisites. Default Codex catalog revision 11
+suggests these assignments:
+
+| Assignments | Model | Effort |
+| --- | --- | --- |
+| Impact mapping, both fixed research roles, naming review, independent testing | Muse Spark 1.3 | `xhigh` |
+| Design, implementation, simplification, other reviews and specialists | GPT-6.1 Sol | `xhigh` |
+
+The Supervisor recommendation is GPT-6.1 Sol `xhigh`; consolidation stays in the primary thread.
+Publication, direct helpers, and the economy fanout option retain GPT-6.1 Sol `low`.
+Bind direct helper selections in their separate allowance. GPT-6 Sol, GPT-6 Luna, Astra,
+and other supported pairs remain available for explicit selections. The explicit `codex-astra`
+catalog retains revision 10 recommendations. Muse assignments require the approved `opencode-cli`
+route in [OpenCode dispatch](references/opencode-dispatch.md). Read that procedure before claiming
+any Muse node. Use `model_overrides` to adjust graph assignments before approval.
 Both Codex catalogs also offer native `gpt-6.1-terra` at `low`, `medium`, `high`, `xhigh`,
-`max`, and `ultra` as explicit revision-10 selections. These are observed native host settings,
+`max`, and `ultra` as explicit selections since revision 10. These are observed native host settings,
 not evidence of account availability, API support, live worker success, quality, or savings.
 Terra has no conditional reviewer fan-out weight; prior catalog generations remain frozen.
 Claude revision 4 suggests Sonnet 5.5 `low` for helpers,
@@ -112,7 +117,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 9, Claude revision 4, and Cursor revision 5 plans require an engine supporting those revisions. Role TOML pins are Codex installation
+New Codex revision 11, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require an engine supporting those revisions. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
@@ -224,8 +229,8 @@ The bug hunter applies the assigned skill in place, with no helper or nested-rev
 the Supervisor supplies the skill's Bugbot prompt shape with the approved Full Repository Path,
 Diff, and Base Branch when applicable, selecting its already-reviewer path. Preserve the exact
 comparison, checkpoint, scope, and graph report contract; do not switch branches or stash files.
-Recommend the catalog's economy helper model and effort for naming; it remains a
-mandatory reviewer with its own assignment, not a helper session. Honor an approved model override.
+Use the catalog's naming-review recommendation and honor an approved model override.
+Naming remains a mandatory reviewer with its own assignment, not a helper session.
 Read the assigned required SKILL.md fully before acting and apply its workflow,
 including delegated and follow-up reviews. Do not require both review skills for a focused agent.
 The naming reviewer uses the naming-only contract in the profile, activates neither broad review
@@ -338,9 +343,11 @@ its lifecycle. This does not require a separate Supervisor dispatch roundtrip.
 
 Resolve model and effort from the approved execution plan. The plan names the host catalog, then uses
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
-Codex role profiles match revision 8 recommendations: impact mapping and optional helpers use
-GPT-6.1 Sol `low`; core and review pins retain Astra. A different approved selection may require
-a supported fresh agent with the same role contract.
+Native Codex role profiles use GPT-6.1 Sol `xhigh` for core and review roles, including the
+standalone Test Engineer. The native Impact Mapper and optional helpers retain Sol `low`.
+Revision 11 graph assignments for impact mapping, research, naming, and testing use Muse through
+OpenCode CLI. Native pins are not fallbacks for those assignments. A different approved native
+selection may require a supported fresh agent with the same role contract.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
 as unavailable and propose a supported alternative for approval before dispatching that role.
 Use the plan's `dispatch_model` and exact approved effort with the host's native dispatch interface;

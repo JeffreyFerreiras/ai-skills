@@ -74,7 +74,7 @@ class PlannerUnitTests(TaskCase):
                         "publication_assignment", "simplification_assignment",
                     )}
                     plan = build_execution_plan("RUN-1", task, host=host)
-                    self.assertEqual(plan["catalog_revision"], 10)
+                    self.assertEqual(plan["catalog_revision"], CURRENT_CATALOG_REVISIONS[host])
                     self.assertEqual(plan["model_options"]["gpt-6.1-terra"],
                                      ["low", "medium", "high", "xhigh", "max", "ultra"])
                     selections = [assignment_for(plan, node) for node in (
@@ -89,7 +89,7 @@ class PlannerUnitTests(TaskCase):
                     self.assertIsNone(dispatch_weight_for("gpt-6.1-terra", effort))
                     self.assertNotIn(("gpt-6.1-terra", effort), supported_dispatch_weights())
                     for revision in SUPPORTED_CATALOG_REVISIONS[host]:
-                        if revision == 10:
+                        if revision in {10, 11}:
                             continue
                         with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
                             selected_dispatch_model(host, "gpt-6.1-terra", effort, revision)
@@ -140,7 +140,9 @@ class PlannerUnitTests(TaskCase):
                     self.assertEqual(old["plan_digest"], digest)
                     self.assertNotIn("gpt-6.1-terra", old["model_options"])
                     self.assertEqual(old, reconstruct_execution_plan("RUN-1", task, old))
-                    current = build_execution_plan("RUN-1", task, host=host)
+                    current = reconstruct_execution_plan("RUN-1", task, {
+                        **old, "catalog_revision": 10,
+                    })
                     for key in old.keys() - {"catalog_revision", "model_options", "plan_digest"}:
                         self.assertEqual(old[key], current[key], key)
                     if fixture == "muse":
@@ -247,7 +249,8 @@ class PlannerUnitTests(TaskCase):
                 self.assertEqual(hunter["role"], "code_reviewer")
                 self.assertEqual(hunter["code_review_assignment"], {"focus": "bug_hunting", "required_skill": required_skill})
                 self.assertEqual((hunter["model"], hunter["reasoning_effort"]),
-                                 (assignment_for(plan, "code_reviewer")["model"], "high"))
+                                 (assignment_for(plan, "code_reviewer")["model"],
+                                  "xhigh" if host == "codex" else "high"))
                 self.assertEqual(reconstruct_execution_plan("RUN-1", self.task_v2(), plan), plan)
 
     def test_invalid_panel_version_fails_closed(self):
@@ -309,12 +312,15 @@ class PlannerUnitTests(TaskCase):
             self.assertEqual(plan["catalog_revision"], CURRENT_CATALOG_REVISIONS[host])
             for node in ("tech_lead", "senior_engineer", "test_engineer"):
                 row = assignment_for(plan, node)
-                self.assertEqual((row["model"], row["reasoning_effort"]), (core, "medium"))
+                expected_pair = (MUSE_MODEL, "xhigh") if host == "codex" and node == "test_engineer" else (
+                    core, "xhigh" if host == "codex" else "medium")
+                self.assertEqual((row["model"], row["reasoning_effort"]), expected_pair)
             helper_effort = "low"
             self.assertEqual(plan["helper_recommendation"], {"model": scout, "reasoning_effort": helper_effort})
             for node in ("impact_mapper", "design_research_architecture", "design_research_validation"):
                 row = assignment_for(plan, node)
-                self.assertEqual((row["model"], row["reasoning_effort"]), (scout, helper_effort))
+                expected_pair = (MUSE_MODEL, "xhigh") if host == "codex" else (scout, helper_effort)
+                self.assertEqual((row["model"], row["reasoning_effort"]), expected_pair)
             self.assertEqual(plan["publication_assignment"]["reasoning_effort"], helper_effort)
             if host in {"codex", "codex-astra"}:
                 self.assertEqual(plan["economy_fanout_option"], {
@@ -563,11 +569,78 @@ class PlannerUnitTests(TaskCase):
             self.assertEqual(assignments["tech_lead"][0], "gpt-5.6-sol")
             self.assertEqual(assignments["architect"][0], "gpt-5.6-sol")
 
-    def test_astra_is_the_default_host(self):
-        plan = build_execution_plan("RUN-1", self.task(), "medium")
-        explicit = build_execution_plan("RUN-1", self.task(), "medium", host="codex-astra")
-        self.assertEqual(plan, explicit)
-        self.assertEqual(plan["host"], DEFAULT_HOST)
+    def test_sol_and_muse_are_the_default_for_every_size(self):
+        muse_nodes = {"impact_mapper", "design_research_architecture", "design_research_validation",
+                      "code_reviewer_naming", "test_engineer"}
+        for size in ("small", "medium", "large"):
+            plan = build_execution_plan("RUN-1", self.task(), size)
+            self.assertEqual(plan, build_execution_plan("RUN-1", self.task(), size, host="codex"))
+            self.assertEqual(plan["host"], "codex")
+            self.assertEqual(plan["catalog_revision"], 11)
+            for row in plan["assignments"]:
+                if row["role"] == "supervisor":
+                    self.assertEqual((row["model"], row["reasoning_effort"]), ("primary-thread", "inherited"))
+                    continue
+                expected = MUSE_MODEL if row["node_key"] in muse_nodes else "gpt-6.1-sol"
+                self.assertEqual((row["model"], row["reasoning_effort"], row["dispatch_model"]),
+                                 (expected, "xhigh", expected), row["node_key"])
+                if expected == MUSE_MODEL:
+                    self.assertEqual(row["dispatch_runtime"], "opencode-cli")
+                else:
+                    self.assertNotIn("dispatch_runtime", row)
+            self.assertEqual(plan["supervisor_recommendation"], {
+                "model": "gpt-6.1-sol", "reasoning_effort": "xhigh", "dispatch_model": "gpt-6.1-sol",
+            })
+            self.assertEqual(plan["simplification_assignment"]["reasoning_effort"], "xhigh")
+            self.assertEqual(plan["publication_assignment"]["reasoning_effort"], "low")
+            self.assertEqual(plan["helper_recommendation"], {"model": "gpt-6.1-sol", "reasoning_effort": "low"})
+            self.assertEqual(plan, reconstruct_execution_plan("RUN-1", self.task(), plan, size))
+
+    def test_revision_ten_digests_and_muse_routes_remain_exact(self):
+        digests = {
+            "codex": ("c063367b4e25d447e9765ab38d2f7617958a699e0ac294477ad98e94f080e850",
+                      "4b412e8e2fca633552981a4bc611197622bc46013a068e45a7ece579f2fb5b7c",
+                      "d5db33f276b7526accecb3a2b017f96f7b8130ff2f37dda6d96c259f06d2c6b2"),
+            "codex-astra": ("f452eb6cb83fb1c212c04266475da557f0f9411984ef32475db5f8bf9cb732f0",
+                            "781923412237c46bd3984be3cc3393ce6c85d562bdc265c0f876091d4664bf4c",
+                            "8e51c886a598eacbf8550e0d689b9eded5f3e729ec0824d85e58b0fd0e5281e9"),
+        }
+        for host, expected in digests.items():
+            for fixture, digest in zip(("task", "task_v2", "muse"), expected):
+                with self.subTest(host=host, fixture=fixture):
+                    task = self.task() if fixture == "task" else self.task_v2()
+                    if fixture == "muse":
+                        task["model_overrides"] = {key: {"model": MUSE_MODEL, "reasoning_effort": "low"}
+                            for key in ("tech_lead", "publication_assignment", "simplification_assignment")}
+                    old = reconstruct_execution_plan("RUN-1", task, {
+                        "host": host, "catalog_revision": 10, "code_review_panel_version": 1,
+                        "simplification_review_version": 1, "capability_projection_version": 1,
+                    })
+                    self.assertEqual(old["plan_digest"], digest)
+                    self.assertEqual(old, reconstruct_execution_plan("RUN-1", task, old))
+                    if fixture == "muse":
+                        for selection in (assignment_for(old, "tech_lead"), old["publication_assignment"],
+                                          old["simplification_assignment"]):
+                            self.assertEqual(selection["dispatch_runtime"], "opencode-cli")
+
+    def test_default_muse_nodes_allow_explicit_native_overrides(self):
+        task = self.task_v2()
+        default = build_execution_plan("RUN-1", task)
+        nodes = ("impact_mapper", "design_research_architecture", "design_research_validation",
+                 "code_reviewer_naming", "test_engineer")
+        task["model_overrides"] = {node: {"model": "gpt-6.1-sol", "reasoning_effort": "high"}
+                                   for node in nodes}
+        plan = build_execution_plan("RUN-1", task)
+        self.assertNotEqual(plan["plan_digest"], default["plan_digest"])
+        for node in nodes:
+            row = assignment_for(plan, node)
+            self.assertEqual((row["model"], row["reasoning_effort"]), ("gpt-6.1-sol", "high"))
+            self.assertNotIn("dispatch_runtime", row)
+        self.assertEqual(plan, reconstruct_execution_plan("RUN-1", task, plan))
+
+    def test_astra_remains_an_explicit_catalog(self):
+        plan = build_execution_plan("RUN-1", self.task(), "medium", host="codex-astra")
+        self.assertEqual(plan["host"], "codex-astra")
         by_key = {item["node_key"]: item for item in plan["assignments"]}
         self.assertEqual(plan["catalog_revision"], 10)
         self.assertEqual(by_key["tech_lead"]["model"], "gpt-6-astra")
@@ -773,7 +846,7 @@ class PlannerUnitTests(TaskCase):
             self.assertEqual(assignments["supervisor_design_consolidation"], SIZE_ASSIGNMENTS[size]["supervisor"])
             self.assertEqual(assignments["supervisor_delivery_consolidation"], SIZE_ASSIGNMENTS[size]["supervisor"])
 
-    def test_profile_defaults_match_medium_runtime_assignments(self):
+    def test_native_profile_defaults_match_or_require_external_dispatch(self):
         profile_roles = {
             "impact_mapper": "impact_mapper",
             "tech_lead": "tech_lead",
@@ -793,6 +866,11 @@ class PlannerUnitTests(TaskCase):
             effort_line = next(line for line in lines if line.startswith("model_reasoning_effort = "))
             effort = effort_line.split('"', 2)[1]
             model_line = next(line for line in lines if line.startswith("model = "))
+            if assignments[assignment_role].get("dispatch_runtime") == "opencode-cli":
+                # Native TOMLs cannot launch an external model. Their pins are not fallbacks.
+                self.assertIn("Codex graph revision 11 uses Muse through OpenCode CLI.", "\n".join(lines))
+                self.assertEqual(model_line.split('"', 2)[1], "gpt-6.1-sol")
+                continue
             self.assertEqual(model_line.split('"', 2)[1], assignments[assignment_role]["model"], profile_name)
             self.assertEqual(effort, assignments[assignment_role]["reasoning_effort"], profile_name)
 

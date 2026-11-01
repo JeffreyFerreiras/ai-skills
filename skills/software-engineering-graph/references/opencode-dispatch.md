@@ -1,6 +1,6 @@
 # OpenCode Muse dispatch
 
-Catalog revision 9 permits an approved Codex graph node or publication assignment to select
+Codex catalogs since revision 9 permit an approved graph node or publication assignment to select
 `opencode-go/muse-spark-1.3-contributor`. Its `dispatch_runtime: opencode-cli` is part of the
 immutable plan. The ledger still coordinates attempts; it does not execute model calls.
 The Supervisor is the only ledger operator and must launch and verify this external process.
