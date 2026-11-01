@@ -3134,7 +3134,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--size", choices=["small", "medium", "large"])
     init.add_argument(
         "--host", choices=known_hosts(), default=DEFAULT_HOST,
-        help="model catalog: codex-astra (default), codex (explicit Luna/Sol option), cursor, or claude",
+        help="model catalog: codex (default Sol/Muse recommendations), codex-astra, cursor, or claude",
     )
     init.add_argument("--ack-degraded-permissions", action="store_true", default=argparse.SUPPRESS)
     init.add_argument("--ack-degraded-durability", action="store_true", default=argparse.SUPPRESS)

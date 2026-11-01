@@ -6,7 +6,7 @@ from .hosts import (
     CURRENT_CATALOG_REVISIONS, SUPPORTED_CATALOG_REVISIONS, DEFAULT_HOST, LEGACY_HOST,
     classify, dispatch_model, economy_effort, publication_assignment, model_options,
     resolve_assignment, supervisor_recommendation, recommended_assignment, selected_dispatch_model,
-    require_active_model, MUSE_MODEL,
+    require_active_model, MUSE_MODEL, MUSE_DEFAULT_NODES,
 )
 from .ids import canonical_bytes, sha256_bytes
 from .reviewer_delegation import plan_fragment
@@ -214,6 +214,8 @@ def _selected_pair(
     if key in overrides:
         pair = overrides[key]
         model, effort = pair["model"], pair["reasoning_effort"]
+    elif host == "codex" and revision == 11 and key in MUSE_DEFAULT_NODES:
+        model, effort = MUSE_MODEL, "xhigh"
     else:
         model, effort = recommended_assignment(host, workload, revision)
     if key == "supervisor_recommendation" and model == MUSE_MODEL:
@@ -342,7 +344,7 @@ def _build_execution_plan(
     if task_schema_version in {2, 3} and TSHIRT_SIZES.index(size) < TSHIRT_SIZES.index(recommended):
         raise ValueError("EXECUTION_SIZE_BELOW_SAFETY_FLOOR")
     overrides = validate_model_overrides(task.get("model_overrides", {}))
-    if simplification_version is not None and catalog_revision not in {3, 4, 5, 6, 7, 8, 9, 10}:
+    if simplification_version is not None and catalog_revision not in {3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError("SIMPLIFICATION_REVIEW_REQUIRES_CATALOG_3")
     if "simplification_assignment" in overrides and simplification_version is None:
         raise ValueError("SIMPLIFICATION_REVIEW_NOT_ENABLED")
@@ -351,7 +353,7 @@ def _build_execution_plan(
         for item in (task.get("reviewer_delegation") or {}).get("assignments", [])
     ):
         raise ValueError("CODE_REVIEW_PANEL_EXTRA_REVIEWER_FORBIDDEN")
-    if overrides and catalog_revision not in {3, 4, 5, 6, 7, 8, 9, 10}:
+    if overrides and catalog_revision not in {3, 4, 5, 6, 7, 8, 9, 10, 11}:
         raise ValueError("MODEL_OVERRIDES_REQUIRE_CATALOG_3")
     assignments = []
     for node_key in sorted(NODE_ROLES):
@@ -365,7 +367,7 @@ def _build_execution_plan(
             # Keep the baseline frozen for historical approvals; new small writers
             # use the existing medium writer class at the selected host.
             intelligence_class, requested_effort = CLASS_ASSIGNMENTS["medium"][node_key]
-        if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10} and role != "supervisor":
+        if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10, 11} and role != "supervisor":
             if role == "impact_mapper" or node_key == "code_reviewer_naming":
                 workload = "helper"
             elif node_key in {
@@ -394,7 +396,7 @@ def _build_execution_plan(
             "dispatch_model": dispatch,
             "dispatch_when": _dispatch_when(node_key, task),
         }
-        if catalog_revision in {9, 10} and model == MUSE_MODEL:
+        if catalog_revision in {9, 10, 11} and model == MUSE_MODEL:
             assignment["dispatch_runtime"] = "opencode-cli"
         if panel_version is not None and node_key in {*CODE_REVIEW_PANEL, "advisory_reviewer"}:
             focus_key = "code_reviewer" if node_key == "advisory_reviewer" else node_key
@@ -405,7 +407,7 @@ def _build_execution_plan(
     delegation = task.get("reviewer_delegation")
     supervisor_model, supervisor_effort, supervisor_dispatch = supervisor_recommendation(host)
     publication_model, publication_effort, publication_dispatch = publication_assignment(host)
-    if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10}:
+    if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10, 11}:
         supervisor_model, supervisor_effort = _selected_pair(host, catalog_revision, overrides, "supervisor_recommendation", "review")
         supervisor_dispatch = selected_dispatch_model(host, supervisor_model, supervisor_effort, catalog_revision)
         publication_model, publication_effort = _selected_pair(host, catalog_revision, overrides, "publication_assignment", "helper")
@@ -435,7 +437,7 @@ def _build_execution_plan(
         "approval_id": "execution_plan",
         "approval_required": True,
     }
-    if catalog_revision in {9, 10} and publication_model == MUSE_MODEL:
+    if catalog_revision in {9, 10, 11} and publication_model == MUSE_MODEL:
         plan["publication_assignment"]["dispatch_runtime"] = "opencode-cli"
     if delegation is not None:
         plan["conditional_review_assignments"] = plan_fragment(delegation)
@@ -448,16 +450,16 @@ def _build_execution_plan(
         plan["helper_allowance"] = dict(task["helper_allowance"])
     if catalog_revision is not None:
         plan["catalog_revision"] = catalog_revision
-    if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10}:
+    if catalog_revision in {3, 4, 5, 6, 7, 8, 9, 10, 11}:
         plan["model_overrides"] = overrides
         plan["model_options"] = {model: list(efforts) for model, efforts in sorted(model_options(host, catalog_revision).items())}
         helper_model, helper_effort = recommended_assignment(host, "helper", catalog_revision)
         plan["helper_recommendation"] = {"model": helper_model, "reasoning_effort": helper_effort}
     if catalog_revision in {6, 7} and host in {"codex", "codex-astra"}:
         plan["economy_fanout_option"] = {"model": "gpt-6-luna", "reasoning_effort": "max"}
-    if catalog_revision in {8, 9, 10} and host in {"codex", "codex-astra"}:
+    if catalog_revision in {8, 9, 10, 11} and host in {"codex", "codex-astra"}:
         plan["economy_fanout_option"] = {"model": "gpt-6.1-sol", "reasoning_effort": "low"}
-    if catalog_revision in {9, 10} and host in {"codex", "codex-astra"}:
+    if catalog_revision in {9, 10, 11} and host in {"codex", "codex-astra"}:
         plan["external_economy_option"] = {
             "model": MUSE_MODEL, "reasoning_effort": "xhigh", "dispatch_runtime": "opencode-cli",
         }
@@ -475,7 +477,7 @@ def _build_execution_plan(
             "dispatch_when": "before recording each Senior Engineer implementation result",
             "max_passes_per_generation": 1,
         }
-        if catalog_revision in {9, 10} and model == MUSE_MODEL:
+        if catalog_revision in {9, 10, 11} and model == MUSE_MODEL:
             plan["simplification_assignment"]["dispatch_runtime"] = "opencode-cli"
     if capability_projection_version is not None:
         plan["capability_projection_version"] = capability_projection_version
@@ -488,7 +490,7 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     host = plan.get("host", LEGACY_HOST)
     for assignment in plan["assignments"]:
         if assignment["node_key"] == node_key:
-            if plan.get("catalog_revision") in {3, 4, 5, 6, 7, 8, 9, 10}:
+            if plan.get("catalog_revision") in {3, 4, 5, 6, 7, 8, 9, 10, 11}:
                 if NODE_ROLES[node_key] == "supervisor":
                     if (assignment["model"], assignment["reasoning_effort"]) != ("primary-thread", "inherited"):
                         raise ValueError("SUPERVISOR_EFFORT_INVALID")

@@ -3,21 +3,24 @@
 ## Present, adjust, approve
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
-harness catalog: `codex-astra` (default Codex preference), `codex` (Sol preference on Codex),
-`claude`, or `cursor`. New Codex plans use catalog revision 10; Claude uses revision 4 and
+harness catalog: `codex` (default Sol/Muse preference), `codex-astra` (explicit Astra preference),
+`claude`, or `cursor`. New Codex plans use catalog revision 11; Astra uses revision 10, Claude uses revision 4 and
 Cursor uses revision 5. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
-| Catalog | Helpers and fixed research | Core roles | Architecture and review | External economy option |
+| Catalog | Impact, both research roles, naming, testing | Design, implementation, other reviews | Direct helpers and publication | External economy option |
 | --- | --- | --- | --- | --- |
-| codex-astra | gpt-6.1-sol / low | gpt-6-astra / medium | gpt-6-astra / high | Muse Spark 1.3 / xhigh |
-| codex | gpt-6.1-sol / low | gpt-6.1-sol / medium | gpt-6.1-sol / high | Muse Spark 1.3 / xhigh |
-| claude | claude-sonnet-5-5 / low | claude-opus-5-5 / medium | claude-opus-5-5 / high | none |
-| cursor | gemini-3.8-flash / low | grok-4.7 / medium | grok-4.7 / high | none |
+| codex | Muse Spark 1.3 / xhigh | gpt-6.1-sol / xhigh | gpt-6.1-sol / low | Muse Spark 1.3 / xhigh |
+
+The explicit `codex-astra` catalog retains Sol `low` for impact mapping, research, naming,
+helpers and publication, Astra `medium` for core roles and testing, and Astra `high` for review.
+Claude retains Sonnet 5.5 `low` for impact mapping, research, naming, helpers and publication,
+Opus 5.5 `medium` for core roles and testing, and Opus 5.5 `high` for review. Cursor retains
+Gemini 3.8 Flash `low` and Grok 4.7 `medium`/`high` for the same respective groups.
 
 For either Codex catalog, the preview also offers `opencode-go/muse-spark-1.3-contributor`
-at `xhigh` as an external economy alternative. It is selectable at `minimal`, `low`, `medium`,
-`high`, or `xhigh` for graph nodes. The recommendation table above stays unchanged. A Muse
+at `xhigh` as an external economy option. It is selectable at `minimal`, `low`, `medium`,
+`high`, or `xhigh` for graph nodes. A Muse
 selection is bound to `dispatch_runtime: opencode-cli`; follow the
 [OpenCode dispatch procedure](opencode-dispatch.md), not a native Codex agent launch.
 This does not add Muse to separately approved conditional reviewer fan-out.
@@ -31,14 +34,17 @@ external runtime marker. Recommendations remain unchanged; Terra has no conditio
 reviewer fan-out weight. Direct helpers still require a separately bound allowance and
 verified host capabilities.
 
-Core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, clean-code and
+In catalogs before Codex revision 11 and on other hosts, core roles include Tech Lead, Senior Engineer, and Test Engineer. Architect, clean-code and
 clean-architecture and bug-hunter reviewers, Security Reviewer, and Release Operations Reviewer receive the review suggestion.
 The naming-only reviewer receives the economy helper suggestion while remaining a mandatory review gate. Other advisory
 and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
 suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
 thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
-For Codex, the preview's `economy_fanout_option` names GPT-6.1 Sol / low. It is recommended for
-the impact mapper, both fixed research nodes, publication, and bounded helpers. The helper
+Codex revision 11 instead assigns Muse `xhigh` to impact mapping, both fixed research nodes,
+naming review, and the independent Test Engineer. All other worker nodes, simplification,
+and the Supervisor recommendation use GPT-6.1 Sol `xhigh`. Publication and direct helpers
+retain Sol `low`.
+For both Codex catalogs, the preview's `economy_fanout_option` names GPT-6.1 Sol / low. The helper
 allowance must bind the economy pair separately; graph-node overrides do not change it.
 
 Before initialization, present the actual execution sequence and relevant/conditional roles,
@@ -51,8 +57,9 @@ New delivery plans list `code_reviewer`, `code_reviewer_architecture`, `code_rev
 Each can have its own override. Bug hunting requires `review-bugbot` on Cursor, `review-agent`
 on Codex, or the repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude.
 Verify the selected skill source; skill selection does not change the approved model or effort.
-The naming default is GPT-6.1 Sol / low on either Codex catalog, Sonnet 5.5 / low on Claude,
-and Gemini 3.8 Flash / low on Cursor. The other three retain the review recommendation.
+The naming default is Muse Spark 1.3 / xhigh on Codex revision 11, GPT-6.1 Sol / low on
+the explicit Astra catalog, Sonnet 5.5 / low on Claude, and Gemini 3.8 Flash / low on Cursor.
+The other three retain the review recommendation.
 Present all four focuses, models, and efforts
 before approval. The panel version and assignments enter the plan digest. Historical plans without
 `code_review_panel_version` retain their recorded single-reviewer assignment.
@@ -66,23 +73,25 @@ plans do not gain this dispatch. See [Simplification review](simplification-revi
 
 ```json
 "model_overrides": {
-  "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": "medium"},
-  "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
-  "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "high"},
-  "impact_mapper": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
-  "design_research_architecture": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
-  "design_research_validation": {"model": "gpt-6.1-sol", "reasoning_effort": "low"},
+  "tech_lead": {"model": "gpt-6.1-sol", "reasoning_effort": "xhigh"},
+  "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "xhigh"},
+  "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "xhigh"},
+  "impact_mapper": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
+  "design_research_architecture": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
+  "design_research_validation": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
+  "code_reviewer_naming": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
+  "test_engineer": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
   "publication_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "low"}
 }
 ```
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
-Muse is the one explicit cross-provider exception in Codex catalog revisions 9 and 10. It cannot be the
+Muse is the one explicit cross-provider exception in Codex catalog revisions 9 through 11. It cannot be the
 Supervisor recommendation because the CLI cannot switch the primary thread.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
-the recommendation matrix, so GPT-6.1 Sol, GPT-6 Sol, and GPT-6 Luna are selectable without changing
-the Astra core recommendation. Cursor also offers Gemini, Composer, Sonnet, Opus, and Fable
+the recommendation matrix, so Astra, GPT-6 Sol, and GPT-6 Luna remain selectable without changing
+the default Sol/Muse recommendations. Cursor also offers Gemini, Composer, Sonnet, Opus, and Fable
 alternatives. Claude offers Sonnet, Opus, and Fable. Every GPT-5.6 variant is retired for new
 selections, allowances, conditional review requests, and native launches, even when a runtime exposes it.
 The frozen legacy matrix is not a fallback around retirement. Do not map an effort the
@@ -119,6 +128,8 @@ Codex TOMLs are installation defaults, not requirements on every harness. Claude
 their native subagent configuration or a supported fresh-agent mechanism with the same role
 contract and the approved model/effort. A pinned native role must not override the approved
 selection. Do not claim that catalog support installs native roles or proves live delegation.
+The native Impact Mapper and Test Engineer TOMLs cannot select the external Muse model.
+Their standalone Sol pins are not fallbacks for approved Muse graph assignments.
 
 ## Historical compatibility
 
@@ -137,6 +148,10 @@ pair and dispatch metadata without changing default recommendations. Revision 8 
 without Muse or the new metadata. Older engines reject unsupported revisions.
 Revision 10 adds the six native Terra efforts while preserving revision 9 options, plan
 bytes, digests, approvals, and Muse routing. Revision 9 and earlier reject Terra selections.
+Codex revision 11 makes `codex` the default catalog, assigns Muse `xhigh` to impact mapping,
+both fixed research roles, naming review, and testing, and uses Sol `xhigh` for design,
+implementation and other reviews. It preserves revision 10 options and earlier plan bytes,
+digests, approvals, and dispatch routes. The explicit Astra catalog stays at revision 10.
 Claude revision 4 upgrades recommendations to Sonnet 5.5 and Opus 5.5. Cursor revision 5 adds
 both as explicit alternatives while retaining its recommendations. Earlier Claude and Cursor
 plans retain their options, assignments, and digests. Fable remains `claude-fable-5-1`.

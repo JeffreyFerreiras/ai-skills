@@ -82,7 +82,7 @@ class ValidatorTests(GraphCase):
             self.impact("fast_path")
             writer = self.claim()
             self.assertEqual(writer["node_key"], "senior_engineer")
-            self.assertEqual(writer["reasoning_effort"], "medium")
+            self.assertEqual(writer["reasoning_effort"], "xhigh" if host == "codex" else "medium")
             self.assertEqual(writer["simplification_review_version"], 1)
             self.assertIn(writer["model"], {"gpt-6.1-sol", "grok-4.7"})
             plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]

@@ -207,7 +207,8 @@ class PlannerTests(GraphCase):
             _validate_json_schema(item, schema, schema)
             self.assertEqual(item["code_review_assignment"], CODE_REVIEW_PANEL[item["node_key"]])
         naming = next(item for item in envelopes if item["node_key"] == "code_reviewer_naming")
-        self.assertEqual((naming["model"], naming["reasoning_effort"]), ("gpt-6.1-sol", "low"))
+        self.assertEqual((naming["model"], naming["reasoning_effort"]), (MUSE_MODEL, "xhigh"))
+        self.assertEqual(naming["dispatch_runtime"], "opencode-cli")
         self.assertEqual(assignment_for(plan, "code_reviewer_naming")["intelligence_class"], "economy")
         self.assertTrue(all(cap["effect"] in {"filesystem_read", "external_read"} for cap in naming["effect_capabilities"]))
         normalized["model_overrides"]["code_reviewer_naming"] = {"model": "gpt-6-astra", "reasoning_effort": "high"}
@@ -547,11 +548,11 @@ class PlannerTests(GraphCase):
         initialized = self.initialize(size="medium")
         self.impact("full_delivery")
         lead = self.claim()
-        self.assertEqual((lead["model"], lead["reasoning_effort"]), ("gpt-6-astra", "medium"))
+        self.assertEqual((lead["model"], lead["reasoning_effort"]), ("gpt-6.1-sol", "xhigh"))
         self.graphctl("--ack-degraded-permissions", "--ack-degraded-durability",
                       "resume", "--run-id", "RUN-1")
         plan = self.graphctl("status", "--run-id", "RUN-1")["execution_plan"]
-        self.assertEqual(plan["host"], "codex-astra")
+        self.assertEqual(plan["host"], "codex")
         self.assertEqual(plan["plan_digest"], initialized["execution_plan_digest"])
         self.assertEqual(plan["status"], "approved")
 
@@ -617,7 +618,7 @@ class PlannerTests(GraphCase):
         for node in design_research_nodes(policy, 0):
             self.assertEqual(
                 (node.role, by_key[node.key]["model"], by_key[node.key]["reasoning_effort"]),
-                ("impact_mapper", "gpt-6.1-sol", "low"),
+                ("impact_mapper", MUSE_MODEL, "xhigh"),
             )
 
     def test_multiple_specialists_are_canonical_and_mandatory(self):

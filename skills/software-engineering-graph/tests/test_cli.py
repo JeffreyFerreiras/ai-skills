@@ -9,6 +9,7 @@ from graph_engine.cli import _validate_recovery_manifest, build_parser, main
 from graph_engine.contracts import ContractError
 from graph_engine.evidence import canonical_ledger_artifact
 from graph_engine.ids import canonical_bytes, sha256_bytes
+from graph_engine.hosts import MUSE_MODEL
 from graph_engine.validator import canonical_collection_members, join_members
 from graph_engine.state import StateError, StateStore
 
@@ -531,17 +532,17 @@ class UsageTests(GraphCase):
 
 
 class CliGoldenTraceTests(GraphCase):
-    def test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip(self):
+    def test_help_exposes_portable_state_root_and_default_sol_muse_catalog(self):
         help_text = build_parser().format_help()
         self.assertIn("--state-root", help_text)
         init_help = build_parser()._subparsers._group_actions[0].choices["init"].format_help()
-        self.assertIn("codex-astra (default)", init_help)
-        self.assertIn("Luna/Sol option", init_help)
+        self.assertIn("codex (default Sol/Muse recommendations)", " ".join(init_help.split()))
+        self.assertIn("codex-astra", init_help)
         self.assertIn("claude", init_help)
         self.assertEqual(build_parser().parse_args([
             "--repo", str(self.repo), "init", "--run-id", "R", "--task-brief", "T",
             "--op-id", "O",
-        ]).host, "codex-astra")
+        ]).host, "codex")
 
     def test_helper_enabled_task_initializes_and_persists_plan_v3(self):
         allowance = {
@@ -754,13 +755,15 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(
             {(branch["node_key"], branch["role"], branch["generation"], branch["status"], branch["model"], branch["reasoning_effort"]) for branch in research},
             {
-                ("design_research_architecture", "impact_mapper", 0, "ready", "gpt-6.1-sol", "low"),
-                ("design_research_validation", "impact_mapper", 0, "ready", "gpt-6.1-sol", "low"),
+                ("design_research_architecture", "impact_mapper", 0, "ready", MUSE_MODEL, "xhigh"),
+                ("design_research_validation", "impact_mapper", 0, "ready", MUSE_MODEL, "xhigh"),
             },
         )
         self.assertFalse(any(branch["node_key"] == "tech_lead" for branch in status["branches"]))
         first = self.claim_raw()
         second = self.claim_raw()
+        self.assertEqual(first["dispatch_runtime"], "opencode-cli")
+        self.assertEqual(second["dispatch_runtime"], "opencode-cli")
         self.assertEqual(
             {first["node_key"], second["node_key"]},
             {"design_research_architecture", "design_research_validation"},
