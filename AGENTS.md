@@ -19,6 +19,21 @@ specific instructions take precedence.
   and external messages require corresponding user intent.
 - Keep secrets, credentials, and unrelated personal data out of output and artifacts.
 
+## Git worktrees and merged branches
+
+- Do repository work in a dedicated task worktree. Create or reuse it before edits
+  or task checks. Keep the primary checkout for repository and worktree management.
+- Treat cleanup as part of an authorized merge. After confirming the task branch
+  merged, through a pull request or directly, remove its task worktree and delete
+  its local and remote task branches. Do not ask for separate cleanup approval.
+- Before cleanup, verify the resolved path is the intended task worktree, the
+  worktree is clean, and each remaining task branch still points to the task
+  branch's recorded head commit for that merge. Preserve uncommitted or newer work
+  and report a blocked cleanup. Never force-remove a dirty worktree or delete
+  unmerged work.
+- Run removal from outside the target worktree. Verify its directory, Git worktree
+  registration, and local and remote branch refs are gone. Report any failed step.
+
 ## Memory
 
 - Use `$vault-memory-access` when prior decisions, preferences, project history, or
