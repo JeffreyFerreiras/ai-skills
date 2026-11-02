@@ -1,13 +1,13 @@
 ---
 name: review-panel
-description: Run a seven-role independent read-only review panel with merged evidence. Use for an explicit panel request or the code-review stage selected by an invoked full-send/full-stop workflow. Do not use for ordinary solo reviews or as an implementation workflow.
+description: Run a seven-role independent read-only review panel with merged evidence. Use for an explicit panel request or a panel stage delegated by an authorized workflow. Do not use for ordinary solo reviews or as an implementation workflow.
 ---
 
 # Review Panel
 
 Run a requested seven-role read-only panel and merge its evidence. This skill never authorizes edits, fixes, commits, publication, or profile changes.
 
-Start when the user explicitly asks for a panel, multi-role review, parallel reviewers, or names this skill. An intentionally invoked full-send or full-stop workflow may also select this panel as its code-review stage. That selection authorizes the review agents only; the delivery owner retains implementation, repairs, and publication authority. Ordinary solo review, implementation, or repair requests do not activate a panel. Auditing this skill does not start one.
+Start when the user explicitly asks for a panel, multi-role review, parallel reviewers, or names this skill. A user-authorized workflow may also delegate this panel as an explicit review stage. Carry its review scope and permission limits; that selection authorizes review agents only. The workflow owner retains implementation, repairs, and publication authority. Ordinary solo review, implementation, or repair requests do not activate a panel. Auditing this skill does not start one.
 
 The full panel is seven independent reviewers plus one merging Supervisor:
 

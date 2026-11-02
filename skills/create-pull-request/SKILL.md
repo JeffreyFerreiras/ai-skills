@@ -1,6 +1,6 @@
 ---
 name: create-pull-request
-description: Draft accurate GitHub pull request text or create a review-ready pull request. Use for PR drafting, explicit creation or update requests, or scoped PR publication delegated by an invoked full-send/full-stop workflow.
+description: Draft accurate GitHub pull request text or create a review-ready pull request. Use for PR drafting, explicit creation or update requests, or scoped PR publication delegated by an authorized workflow.
 ---
 
 # Create Pull Request
@@ -28,11 +28,11 @@ Write an accurate pull request from the selected changes. When creation is reque
 - `$create-pull-request --draft` creates one draft PR instead. The option overrides the default; never also create a normal PR.
 - A plain-language request for a draft PR has the same draft state when it does not conflict with an option.
 
-An intentionally invoked `full-send` or `full-stop` workflow can delegate creation
-or update of its scoped task PR. Carry its repository, base, head, selected paths,
-and publication limits into this stage. This does not authorize merge or external
-comments. When the graph owns publication, its approved Pull Request Engineer is
-the mutator. A drafting-only request remains text-only.
+An authorized workflow may delegate creation or update of its scoped task PR.
+Carry its explicit publication authority, repository, base, head, selected paths,
+and permission limits into this stage. Honor its designated publication owner.
+Delegation does not grant merge or external comment permissions. A drafting-only
+request remains text-only.
 
 Use `writing-loop` for the title and body. Preserve its exact accepted text through
 publication; changes need new acceptance. Do not start recursive loops from its
