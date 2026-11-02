@@ -1,0 +1,4 @@
+interface:
+  display_name: "Full Send"
+  short_description: "Review and complete authorized delivery"
+  default_prompt: "Use $full-send to complete this work with the applicable code and prose reviews."

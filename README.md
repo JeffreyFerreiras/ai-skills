@@ -37,6 +37,10 @@ python -m unittest discover -s tests -v
 
 The [authoring guide](docs/authoring.md) includes a minimal complete example. Discovery checking is read-only: a canonical-only checkout needs no repository copy, and the command says so. It checks parity if an optional Cursor copy exists.
 
+## Delivery workflows
+
+Full-send completes authorized delivery; full-stop leaves the reviewed result ready for your final action. Both route code through the review panel and requested prose through the writing loop. The [integration guide](docs/full-send-stop-integration.md) covers dependencies, graph ownership, permissions, and their upstream source.
+
 ## Hooks
 
 [`hooks/laya`](hooks/laya/README.md) provides local English Laya model selection
@@ -94,6 +98,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
+| [babysit-pr](skills/babysit-pr/SKILL.md) | Watch PR checks, reviews, and readiness |
 | [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
 | [catch-up](skills/catch-up/SKILL.md) | Recap the current conversation and next step |
 | [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
@@ -107,6 +112,8 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [domain-modeling](skills/domain-modeling/SKILL.md) | Sharpen domain terms, glossaries, and decisions |
 | [explain](skills/explain/SKILL.md) | Explain code changes with a sequence diagram |
 | [frontend-design](skills/frontend-design/SKILL.md) | Design distinctive, responsive web interfaces |
+| [full-send](skills/full-send/SKILL.md) | Review and complete authorized delivery |
+| [full-stop](skills/full-stop/SKILL.md) | Prepare reviewed work for the final user action |
 | [generate-unit-tests](skills/generate-unit-tests/SKILL.md) | Add focused, maintainable unit tests |
 | [generic-loop](skills/generic-loop/SKILL.md) | Run bounded write and independent review cycles |
 | [git-push](skills/git-push/SKILL.md) | Commit and push all pending changes on request |

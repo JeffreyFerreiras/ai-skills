@@ -1,0 +1,4 @@
+interface:
+  display_name: "Full Stop"
+  short_description: "Prepare reviewed work for the final user action"
+  default_prompt: "Use $full-stop to prepare this work for my final action, leaving any PR open and unmerged."
