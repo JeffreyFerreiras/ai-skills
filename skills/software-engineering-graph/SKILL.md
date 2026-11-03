@@ -5,6 +5,44 @@ description: Orchestrate software delivery with approved role/model plans, bound
 
 # Software Engineering Graph
 
+## Task-scoped blanket workflow authority
+
+An explicit human request and approval can grant finite blanket authority over **any present or
+future graph-owned workflow restriction** for one exact task/run. This rule governs every graph
+procedure, role profile and reference below, including wording such as mandatory, never, only,
+required, exhausted or blocked. It is not limited to a catalog of gate names. An ordinary request to
+continue, an agent recommendation, an approved design alone, or an unavailable preferred model does
+not imply this opt-in. Follow the [blanket authority procedure](references/ledger-operations.md#blanket-workflow-authority)
+to bind the actual human messages, task/run/repository, initial plan/source, authorized effects and
+finite stop contract. Pending or rejected ordinary plans use its atomic format-6 bootstrap; never
+manufacture an ordinary plan approval to reach this procedure.
+
+Once approved, use the recorded authority for routine in-scope workflow choices without asking the
+human to approve each individual gate or source edit again. Record the unmet raw requirement and
+the separate effective WAIVED/SKIPPED decision through the central workflow decision contract.
+Historical plans, negative reviews, failed or unrun checks, consumed inspections/retries and original
+terminal times remain truthful. A waiver is not PASS, APPROVE, ACCEPT, measured usage or evidence
+that an instruction actually ran. Any positive result still needs its actual complete inputs,
+current source, output contract, actor and exact claim fence. A new named successor can receive a
+new binding; a stale review never becomes current by copying its old binding or running fresh checks.
+
+The Supervisor reserves finite use before launch and settles the same immutable execution identity.
+Stop new work on expiry, revocation, exhaustion, objective completion, unknown effects or actual
+external denial. Settlement of already reserved work remains possible with explicit post-stop
+labeling and factual evidence; it cannot launch work, refund use or replace a historical timeout.
+Changes to authorized task effects or objective need their own authority. Actual tool/OS/access,
+host capability, credential, provider, external CI, branch protection and production permissions
+remain binding. Never retry or route around a tool permission denial using this feature.
+
+Instruction-level helpers keep their real verified host confinement, scope, command, resource and
+private dispatch controls. A workflow ticket must reference the canonical StateStore action, not a
+second mutable authority store or a caller-authored bearer approval. An adapter that cannot verify
+the task, source, parent fence and actual effect/host capability must report that precise gap and
+leave execution unlaunched. This feature does not add a helper executor. Local attestation and
+hashes detect inconsistencies; they do not authenticate human identity against a dishonest process
+with the same local principal. Operate opted-in runs only with an engine that understands this
+contract; preserve historical evidence when rolling back or stopping.
+
 Use the local control ledger for every new graph run. Treat it as a deterministic coordination and
 recovery aid, not a security boundary or a model-agent executor. Keep the primary agent as Supervisor
 and the sole `graphctl` and ledger CLI mutator. The Supervisor alone dispatches engine-managed graph
@@ -148,12 +186,15 @@ For explicitly enabled format 7 runs, use the repairable evidence and planning-c
 in [Ledger operations](references/ledger-operations.md). Produce, check, inspect the cause, correct
 within authority, and retry within the existing allowance. Return repairs to their originating gates;
 fresh checks never refresh an older review's source binding. Keep all mandatory independent gates.
-For a blocked format-6 or format-7 run, only the documented audited equivalent-review `recover` operation may
-reopen the exact resolved missing-review-skill case; it must preserve prior scope/evidence and leave
+For a blocked format-6 or format-7 `MISSING_REQUIRED_REVIEW_SKILL` case, only the documented audited
+equivalent-review `recover` operation may reopen that exact resolved case; it must preserve prior scope/evidence and leave
 the independent architecture gate required. Format 7 also requires the original review source to remain
 current. Each delivery generation needs its own failed-branch authorization; a prior equivalent-skill
 override does not carry into a new generation. Retry and delivery-repair allowances never reset.
 Terminal security/policy denials stay closed.
+An eligible exhausted format-7 user-owned design judgment may separately use the explicit
+[version-one design-risk procedure](references/ledger-operations.md#explicit-human-acceptance-of-exhausted-design-risk).
+All other blocks remain blocked.
 
 Before any ledger operation, preserve these invariants: the Supervisor is the sole ledger mutator;
 the immutable execution plan requires explicit human approval before a claim; every attempt-scoped
@@ -423,7 +464,14 @@ Every initial design generation, design `REVISE`, and delivery `REDESIGN` runs t
 architecture/validation research pair before the next Tech Lead. The Supervisor seals that evidence,
 then the Tech Lead designs. The Architect and required specialists independently approve, revise, or
 block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
-the unresolved decision to the Supervisor or human. Begin implementation only after required design approval.
+the unresolved decision to the Supervisor or human. Begin implementation only after required design approval
+or the separately recorded, explicitly prepared version-1 human acceptance of that exact exhausted
+format-7 design judgment. The Supervisor follows the narrow
+[design-risk contract](references/ledger-operations.md#explicit-human-acceptance-of-exhausted-design-risk).
+Raw REVISE findings and consumed budgets remain unchanged; the continuation receives no new design
+attempt or implementation allowance. This local attestation cannot waive enforcement or downstream
+delivery gates and does not authenticate a malicious same-user caller. Never operate an opted-in run
+with an older engine, which may accept its state without the new validation.
 
 Each phase has its own finding dispositions. Design findings use `approve`, `revise`, or `block`.
 Delivery findings use `accept`, `repair`, `redesign`, or `block`. An out-of-scope finding uses

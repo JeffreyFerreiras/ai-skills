@@ -25,11 +25,15 @@ from .contracts import (
 from .evidence import (
     VerifiedArtifact, canonical_ledger_artifact, enforce_artifact_size, persist_artifact,
     resolve_reference, resolve_unhashed_reference,
+    workflow_source_binding as verified_workflow_source_binding,
 )
 from .execution import TSHIRT_SIZES, build_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST, known_hosts
 from .helper_register import ELIGIBLE_PARENTS, validate_allowance
 from .ids import canonical_bytes, sha256_bytes
+from . import design_risk
+from . import workflow_authority as workflow
+from .checks import capture_source
 from . import usage
 from .constraints import validate_bundle, select_constraints
 from .reviewer_delegation import (
@@ -46,12 +50,14 @@ from .planner import (
 from .state import (
     SemanticValidator, StateError, StateStore, current_actor, current_host_identity, resolve_state_root,
     utc_after, utc_now,
+    workflow_bindings, workflow_context,
 )
 from .validator import (
     canonical_collection_members, compute_timing, join_members, validate_consolidation_manifest,
     validate_join, verify_resume, verify_semantic_state, compute_design_outcome, compute_delivery_outcome,
     _source_finding_dispositions, _delegated_issue_sources, _delivery_outcome_without_delegated_echoes,
     _delegated_terminal_precedence, DELIVERY_OUTCOMES,
+    design_risk_context, validate_design_risk_history, planning_constraint_artifact, original_blocked_run,
 )
 
 
@@ -168,6 +174,7 @@ def _context_inputs(
 def _insert_spec(
     store: StateStore, connection: sqlite3.Connection, run: Mapping[str, Any], policy: Mapping[str, Any],
     task: Mapping[str, Any], spec: NodeSpec, inputs: Sequence[Mapping[str, Any]], status: str = "ready",
+    effective_assignment: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     plan_row = connection.execute(
         "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
@@ -180,6 +187,7 @@ def _insert_spec(
     graph_envelope = envelope(
         run["run_id"], run["policy_digest"], policy, task, spec, status, inputs,
         execution_plan=execution_plan,
+        effective_assignment=effective_assignment,
     )
     row = _node_row(spec, graph_envelope)
     store._insert_node(connection, run["run_id"], row)
@@ -796,7 +804,7 @@ def _record_branch_result(
             manifest = impact
             result_status, output_kind, decision, artifact, evidence, failure = "succeeded", "impact_map", None, None, [], None
             conn.execute(
-                "UPDATE runs SET status='active',selected_route=?,selected_tags_json=? WHERE run_id=?",
+                "UPDATE runs SET status=CASE WHEN status IN ('blocked','complete','aborted') THEN status ELSE 'active' END,selected_route=?,selected_tags_json=? WHERE run_id=?",
                 (impact["route_label"], json.dumps(impact["impact_tags"]), current["run_id"]),
             )
             fresh_run = conn.execute("SELECT * FROM runs WHERE run_id=?", (current["run_id"],)).fetchone()
@@ -903,9 +911,12 @@ def _record_branch_result(
         })
         if (current["state_schema_version"] == 7 and current_branch["stage"] == "delivery"
                 and result_status == "succeeded" and decision in {"APPROVE", "PASS", "ACCEPT"}):
-            binding, _ = verify_review_source(conn, current, policy, (current_branch["node_key"], artifact))
-            if binding["ref"] not in {item["ref"] for item in env["inputs"]}:
-                raise StateError("REVIEW_BINDING_MISMATCH")
+            named_binding = _workflow_binding(conn, current, current_branch, policy, current_source=True,
+                                             registering=(current_branch["node_key"], artifact))
+            if named_binding is None:
+                binding, _ = verify_review_source(conn, current, policy, (current_branch["node_key"], artifact))
+                if binding["ref"] not in {item["ref"] for item in env["inputs"]}:
+                    raise StateError("REVIEW_BINDING_MISMATCH")
         conn.execute(
             """UPDATE nodes SET status=?,envelope_json=?,result_json=?,result_digest=?,failure_code=?,finished_at=?
             WHERE branch_id=?""",
@@ -922,6 +933,13 @@ def _record_branch_result(
             "UPDATE branch_attempts SET finished_at=?,outcome=? WHERE branch_id=? AND attempt_number=?",
             (env["finished_at"], result_status, args.branch_id, attempt["attempt_number"]),
         )
+        context = workflow.current_context()
+        if context and context.continuation_id:
+            if getattr(args, "workflow_kind", None) == "settle" and args.outcome != result_status:
+                raise StateError("WORKFLOW_OUTCOME_MISMATCH")
+            context.pending_record = {"state": result_status, "outcome": result_status,
+                "facts": {"result_ref": ledger_artifact.ref, "result_digest": ledger_artifact.sha256,
+                          "attempt_id": env["attempt_id"], "claim_digest": env["claim_digest"]}}
         if result_status == "succeeded" and current_branch["node_key"] != "impact_mapper":
             updated = conn.execute("SELECT * FROM nodes WHERE branch_id=?", (args.branch_id,)).fetchone()
             route = current["selected_route"]
@@ -1057,6 +1075,7 @@ def _record_control(
             if sealed:
                 raise StateError("JOIN_ALREADY_SEALED")
             env = json.loads(branch["envelope_json"])
+            repair_packet_refs = []
             if kind in {"timeout", "heartbeat"}:
                 _check_attempt(branch, env, args.attempt_id, args.claim_token)
                 if kind == "heartbeat" and _lease_expired(env.get("lease_expires_at")):
@@ -1089,6 +1108,17 @@ def _record_control(
                     packet["state_revision"] = revision
                     artifact = _persist_payload(conn, current, policy, "repair-" + args.op_id, "failure", packet)
                     env["inputs"] = sorted(env["inputs"] + [artifact.as_input()], key=lambda item: (item["kind"], item["ref"]))
+                    if _is_design_risk_continuation(conn, current, branch["branch_id"], env):
+                        repair_packet_refs = [artifact.ref]
+                        if args.repair_manifest:
+                            with Path(snapshot.path).open("rb") as source:
+                                raw = source.read(policy["limits"]["manifest_bytes"] + 1)
+                            if sha256_bytes(raw) != snapshot.digest:
+                                raise StateError("INPUT_DIGEST_MISMATCH")
+                            _persist_payload(conn, current, policy, "repair-judgment-" + op_id, "evidence_manifest", {
+                                "kind": "repair_judgment_witness", "schema_version": 1, "run_id": current["run_id"],
+                                "branch_id": branch["branch_id"], "generation": branch["generation"], "operation_id": op_id,
+                                "raw_text": raw.decode("utf-8")})
                 env["retry_count"] += 1
                 env["finished_at"] = None
                 env["attempt_id"] = env["claim_digest"] = env["lease_expires_at"] = None
@@ -1157,6 +1187,7 @@ def _record_control(
                 "code": kind.upper().replace("-", "_") + "_RECORDED",
                 "branch_id": args.branch_id, "branch_status": new_status,
                 "promoted_branch_ids": promoted,
+                **({"repair_packet_refs": repair_packet_refs} if repair_packet_refs else {}),
             }
         if kind == "approval":
             if request["approval_id"] not in set(task["required_human_decisions"]):
@@ -1614,32 +1645,20 @@ def _constraint_support(repo, policy, bundle, runtime_root):
     return list(artifacts.values())
 
 
+def _planning_constraint_artifact(connection, run, policy, task, spec, runtime_root):
+    artifact = planning_constraint_artifact(connection, run, policy, task, spec, runtime_root)
+    if artifact is not None:
+        enforce_artifact_size(artifact.kind, artifact.size_bytes, policy)
+    return artifact
+
+
 def _planning_constraint_inputs(connection, run, policy, task, spec, inputs, runtime_root):
-    full = safe_json_snapshot(Path(run["task_path"]), _task_roots(Path(run["repository_path"]), policy, runtime_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
-    markers = _constraint_markers(full)
-    if not markers:
+    artifact = _planning_constraint_artifact(connection, run, policy, task, spec, runtime_root)
+    if artifact is None:
         return []
-    bundle_row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND sha256=? AND kind='acceptance_evidence'", (run["run_id"], markers[0])).fetchone()
-    bundle = safe_json_snapshot(Path(bundle_row["source_path"]), _reference_roots(Path(run["repository_path"]), policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
-    scope = []
-    if spec.key in {"tech_lead", "senior_engineer"}:
-        # These owners cover the immutable task; read access is not an assignment.
-        read_roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
-        declared = full["scope"]["included"]
-        if declared and all(item.startswith("repo:") for item in declared) and not full["scope"]["excluded"]:
-            paths = [lexical_relative(item[5:], "task_scope") for item in declared]
-            if all(any(source_path_contains(root, path) for root in read_roots) for path in paths):
-                scope = paths
-    supported = {row[0] for row in connection.execute("SELECT ref FROM artifacts WHERE run_id=?", (run["run_id"],))}
-    result = select_constraints(bundle, {"repository_id": policy["repository_id"], "acceptance_ids": task["acceptance_ids"],
-                                        "role": spec.role, "scope_paths": scope}, activated=True, supported=supported,
-                                authority_refs=[task["policy_approval"]["authority_ref"]], normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
-    if not result["active"] and not any(item["reason"] == "unresolved_scope" for item in result["excluded"]):
+    persist_artifact(connection, run["run_id"], artifact)
+    if any(item["ref"] == artifact.ref for item in inputs):
         return []
-    projection = {"kind": "planning_constraint_projection", "schema_version": 1, "task_digest": run["task_digest"],
-                  "bundle_ref": bundle_row["ref"], "role": spec.role, "scope_paths": scope,
-                  "records": result["active"], "diagnostics": [item for item in result["excluded"] if item["reason"] == "unresolved_scope"]}
-    artifact = _persist_payload(connection, run, policy, "constraints-" + branch_id(run["run_id"], run["policy_digest"], spec), "evidence_manifest", projection)
     return [artifact.as_input()]
 
 
@@ -1648,6 +1667,789 @@ def _persist_payload(connection, run, policy, identifier, kind, value):
     enforce_artifact_size(kind, artifact.size_bytes, policy)
     persist_artifact(connection, run["run_id"], artifact)
     return artifact
+
+
+def _design_risk_source(connection, run, policy, task):
+    _, activation = evidence_activation(connection, run)
+    roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
+    return capture_source(Path(run["repository_path"]), policy, roots,
+        known_inputs=sorted({path for paths in activation["checks"].values() for path in paths}), include_manifest=True)
+
+
+def _is_design_risk_continuation(connection, run, branch_identifier, env):
+    for item in env["inputs"]:
+        if item["kind"] != "evidence_manifest":
+            continue
+        row = connection.execute("SELECT content_json FROM artifacts WHERE run_id=? AND ref=?",
+                                 (run["run_id"], item["ref"])).fetchone()
+        value = json.loads(row[0] or "{}") if row else {}
+        if value.get("kind") == design_risk.RESOLUTION and value.get("successor_branch_id") == branch_identifier:
+            return True
+    return False
+
+
+def _design_risk_preparations(connection, run, join_identifier):
+    from .checks import lifecycle_artifacts
+    return [(row, value) for row, value in lifecycle_artifacts(connection, run["run_id"], design_risk.PREPARATION)
+            if value["scope"]["consolidation_join_id"] == join_identifier]
+
+
+def command_design_risk(args, connection, run, policy, task, store, semantic_validator):
+    target = opaque(args.design_join_id, "design_join_id")
+    if args.design_risk_kind == "inspect":
+        preparations = _design_risk_preparations(connection, run, target)
+        failures = []
+        context = None
+        try:
+            if run["status"] != "blocked" or run["blocked_reason"] != "DESIGN_REVISION_LIMIT":
+                raise StateError("DESIGN_RISK_INELIGIBLE")
+            source = _design_risk_source(connection, run, policy, task)
+            constraint = _planning_constraint_artifact(connection, run, policy, task,
+                implementation_node(policy, run["implementation_generation"]), store.state_root)
+            context = design_risk_context(connection, run, policy, task, target, run["state_revision"], run["state_revision"] + 1,
+                                          source, [constraint.as_input()] if constraint else [])
+        except (StateError, ContractError) as error:
+            failures.append(str(error))
+        return _json_result(True, "DESIGN_RISK_INSPECTED", run["run_id"], run["state_revision"],
+            eligible=not failures, failed_preconditions=failures, assurance=design_risk.ASSURANCE,
+            current_run={key: run[key] for key in ("status", "blocked_reason", "finished_at")},
+            decision_context=context["scope"] if context else None,
+            preparations=[{"preparation_ref": row["ref"], "scope_digest": value["scope_digest"],
+                           "stale": value["prepared_revision"] != run["state_revision"], "scope": value["scope"],
+                           "original_blocked_run": value["original_blocked_run"]}
+                          for row, value in preparations])
+    op_id = opaque(args.op_id, "op_id")
+    request = {"command": "design-risk." + args.design_risk_kind, "design_join_id": target}
+    receipt_snapshot = None
+    if args.design_risk_kind == "accept":
+        # Snapshot again on every invocation, including replay; a moved inbox file is not identical content.
+        receipt_snapshot = _manifest_snapshot(store, policy, run["run_id"], args.receipt)
+        receipt = design_risk.validate_receipt(receipt_snapshot.parsed)
+        request.update({"preparation_ref": receipt["scope"]["preparation_ref"], "receipt_digest": design_risk.hashed(receipt),
+                        "authority_ref": args.authority_ref,
+                        "human_evidence_digest": receipt["human_provenance"]["human_evidence_sha256"]})
+
+    def action(conn, current, revision):
+        accepted = validate_design_risk_history(conn, current, policy, task, store.state_root)
+        if target in accepted:
+            raise StateError("DESIGN_RISK_ALREADY_ACCEPTED")
+        if current["blocked_reason"] != "DESIGN_REVISION_LIMIT":
+            raise StateError("DESIGN_RISK_INELIGIBLE")
+        source = _design_risk_source(conn, current, policy, task)
+        spec = implementation_node(policy, current["implementation_generation"])
+        constraint = _planning_constraint_artifact(conn, current, policy, task, spec, store.state_root)
+        constraint_inputs = [constraint.as_input()] if constraint else []
+        if args.design_risk_kind == "prepare":
+            context = design_risk_context(conn, current, policy, task, target, current["state_revision"], revision, source, constraint_inputs)
+            preparation = {"kind": design_risk.PREPARATION, "schema_version": 1, "scope": context["scope"],
+                "scope_digest": design_risk.scope_digest(context["scope"]), "prepared_from_revision": current["state_revision"],
+                "prepared_revision": revision, "actor": current_actor(), "host_identity": current_host_identity(),
+                "original_blocked_run": original_blocked_run(current),
+                "prepared_at": utc_now(), "source": source, "continuation": context["continuation"], "coverage": context["coverage"],
+                "budgets": context["history"]["budgets"], "constraint_artifacts": [{
+                    "identifier": "constraints-" + context["continuation"]["branch_id"], "value": json.loads(constraint.content_json)}] if constraint else []}
+            artifact = _persist_payload(conn, current, policy, "design-risk-prepare-" + op_id, "evidence_manifest", preparation)
+            if _design_risk_source(conn, current, policy, task) != source:
+                raise StateError("DESIGN_RISK_SOURCE_CHANGED")
+            return {"code": "DESIGN_RISK_PREPARED", "preparation_ref": artifact.ref, "prepared_revision": revision,
+                    "scope_digest": preparation["scope_digest"], "scope": context["scope"], "assurance": design_risk.ASSURANCE,
+                    "original_blocked_run_digest": design_risk.hashed(preparation["original_blocked_run"])}
+        preparation_ref = receipt["scope"]["preparation_ref"]
+        preparations = [(row, value) for row, value in _design_risk_preparations(conn, current, target) if row["ref"] == preparation_ref]
+        if len(preparations) != 1:
+            raise StateError("DESIGN_RISK_PREPARATION_REQUIRED")
+        _, preparation = preparations[0]
+        if current["state_revision"] != preparation["prepared_revision"]:
+            raise StateError("DESIGN_RISK_PREPARATION_STALE")
+        if original_blocked_run(current) != preparation["original_blocked_run"]:
+            raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+        if source != preparation["source"]:
+            raise StateError("DESIGN_RISK_SOURCE_CHANGED")
+        context = design_risk_context(conn, current, policy, task, target, preparation["prepared_from_revision"],
+                                      preparation["prepared_revision"], source, constraint_inputs)
+        if (context["scope"] != preparation["scope"] or context["continuation"] != preparation["continuation"]
+                or receipt["scope"] != {**context["scope"], "preparation_ref": preparation_ref}
+                or receipt["scope_digest"] != preparation["scope_digest"]):
+            raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+        plan = conn.execute("SELECT * FROM execution_plans WHERE run_id=?", (current["run_id"],)).fetchone()
+        if args.authority_ref != plan["authority_ref"]:
+            raise StateError("DESIGN_RISK_AUTHORITY_MISMATCH")
+        provenance = receipt["human_provenance"]
+        human = resolve_reference(provenance["human_evidence_ref"], provenance["human_evidence_sha256"], "evidence_manifest",
+            Path(current["repository_path"]), Path(__file__).resolve().parents[1], policy, conn, runtime_root=store.state_root)
+        if human.source_type == "ledger":
+            human_value = json.loads(human.content_json)
+        else:
+            human_snapshot = safe_json_snapshot(Path(human.source_path), _reference_roots(Path(current["repository_path"]), policy, store.state_root), policy["limits"]["manifest_bytes"])
+            if human_snapshot.digest != human.sha256:
+                raise StateError("DESIGN_RISK_AUTHORITY_MISMATCH")
+            human_value = human_snapshot.parsed
+        design_risk.validate_human_evidence(human_value, receipt, plan["authority_ref"], current_actor())
+        # Preserve the verified submitted bytes/reference, and a canonical server-owned authorization copy.
+        persist_artifact(conn, current["run_id"], human)
+        human_copy = _persist_payload(conn, current, policy, "design-risk-human-" + op_id, "evidence_manifest", human_value)
+        receipt_artifact = _persist_payload(conn, current, policy, "design-risk-receipt-" + op_id, "evidence_manifest", receipt)
+        attestation = {"kind": design_risk.ATTESTATION, "schema_version": 1, "receipt_ref": receipt_artifact.ref,
+            "receipt_digest": receipt_artifact.sha256, "scope_digest": receipt["scope_digest"], "authority_ref": plan["authority_ref"],
+            "actor": current_actor(), "host_identity": current_host_identity(), "operation_id": op_id, "attested_at": utc_now(),
+            "human_evidence_ref": human_copy.ref, "assurance": design_risk.ASSURANCE}
+        attestation_artifact = _persist_payload(conn, current, policy, "design-risk-attestation-" + op_id, "evidence_manifest", attestation)
+        resolution = {"kind": design_risk.RESOLUTION, "schema_version": 1, "run_id": current["run_id"], "design_join_id": target,
+            "preparation_ref": preparation_ref, "receipt_ref": receipt_artifact.ref, "attestation_ref": attestation_artifact.ref,
+            "original_outcome": "REVISE", "effective_action": "CONTINUE_EXISTING_DESIGN", "blocked_event": context["scope"]["blocked_event"],
+            "successor_branch_id": context["continuation"]["branch_id"], "original_blocked_run": preparation["original_blocked_run"]}
+        resolution_artifact = _persist_payload(conn, current, policy, "design-risk-resolution-" + op_id, "evidence_manifest", resolution)
+        inputs = [item for item in context["continuation"]["inputs"] if item not in constraint_inputs]
+        inputs += [artifact.as_input() for artifact in (receipt_artifact, attestation_artifact, resolution_artifact)]
+        successor = _insert_spec(store, conn, current, policy, task, spec, inputs)
+        actual = json.loads(successor["envelope_json"])
+        expected = {**context["continuation"], "inputs": sorted(context["continuation"]["inputs"] + [
+            artifact.as_input() for artifact in (receipt_artifact, attestation_artifact, resolution_artifact)], key=lambda item: (item["kind"], item["ref"]))}
+        if actual != expected or _design_risk_source(conn, current, policy, task) != source:
+            raise StateError("DESIGN_RISK_SOURCE_CHANGED")
+        conn.execute("UPDATE runs SET status='active',blocked_reason=NULL,finished_at=NULL WHERE run_id=?", (current["run_id"],))
+        return {"code": "DESIGN_RISK_ACCEPTED", "receipt_ref": receipt_artifact.ref, "attestation_ref": attestation_artifact.ref,
+            "effective_resolution_ref": resolution_artifact.ref, "design_join_id": target, "successor_branch_ids": [successor["branch_id"]],
+            "created_join_ids": [], "created_fanout_ids": [], "assurance": design_risk.ASSURANCE}
+
+    # A duplicate target needs its precise failure even though the first acceptance activated the run.
+    def validator(conn, current):
+        semantic_validator(conn, current)
+    if args.design_risk_kind == "accept" and run["status"] != "blocked":
+        semantic_validator(connection, run)
+        exists = connection.execute("SELECT 1 FROM operations WHERE run_id=? AND operation_id=?", (run["run_id"], op_id)).fetchone()
+        if not exists and target in validate_design_risk_history(connection, run, policy, task, store.state_root):
+            raise StateError("DESIGN_RISK_ALREADY_ACCEPTED")
+    def verify_input():
+        if receipt_snapshot is not None:
+            current_snapshot = _manifest_snapshot(store, policy, run["run_id"], args.receipt)
+            if current_snapshot.digest != receipt_snapshot.digest:
+                raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+    return store.mutate(connection, run["run_id"], op_id, request, action, semantic_validator=validator, input_verifier=verify_input)
+
+
+def _workflow_capture(connection, run, policy, task):
+    _, activation = evidence_activation(connection, run)
+    return capture_source(Path(run["repository_path"]), policy, activation["roots"],
+        known_inputs=sorted({path for paths in activation["checks"].values() for path in paths}), include_manifest=True)
+
+
+def _workflow_capture_roots(connection, run, policy, roots, outputs=(), registering=None):
+    _, activation = evidence_activation(connection, run)
+    known = sorted({path for paths in activation["checks"].values() for path in paths
+                    if any(source_path_contains(root, path) for root in roots)})
+    verify_generated_outputs(connection, run, policy, outputs, registering)
+    return capture_source(Path(run["repository_path"]), policy, roots, outputs=outputs, known_inputs=known, include_manifest=True)
+
+
+def _workflow_capture_for_envelope(connection, run, policy, value, outputs=()):
+    _, activation = evidence_activation(connection, run)
+    permitted = source_roots(Path(run["repository_path"]), policy, value["effect_capabilities"])
+    roots = sorted({root for root in activation["roots"] if any(source_path_contains(cap, root) for cap in permitted)}
+                   | {cap for cap in permitted if any(source_path_contains(root, cap) for root in activation["roots"])})
+    if not roots:
+        raise StateError("WORKFLOW_SOURCE_AUTHORITY_REQUIRED")
+    return _workflow_capture_roots(connection, run, policy, roots, outputs)
+
+
+def _workflow_intent(connection, run, policy, task, contract, coverage):
+    workflow.validate_contract(contract, utc_now())
+    roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
+    if run["state_schema_version"] == 7:
+        activation_row, activation = evidence_activation(connection, run)
+        checks = activation["checks"]
+        coverage_digest = activation["coverage_manifest_digest"]
+        activation_ref = activation_row["ref"]
+        if coverage is not None:
+            raise StateError("WORKFLOW_ACTIVATION_REPLACEMENT_FORBIDDEN")
+    else:
+        if coverage is None:
+            raise StateError("WORKFLOW_FORMAT7_OPT_IN_REQUIRED")
+        checks = _coverage_checks(coverage.parsed, roots, task)
+        coverage_digest, activation_ref = coverage.digest, None
+    source = capture_source(Path(run["repository_path"]), policy, roots,
+        known_inputs=sorted({path for paths in checks.values() for path in paths}), include_manifest=True)
+    plan = connection.execute("SELECT * FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    return {"schema_version": 1, "kind": "workflow_intent", "bindings": workflow_bindings(run),
+        "blanket_intent": workflow.BLANKET_INTENT, "contract": dict(contract),
+        "initial_revision": run["state_revision"], "initial_plan_digest": plan["plan_digest"],
+        "initial_plan_status": plan["status"], "initial_source": source,
+        "initial_run": {key: run[key] for key in ("status", "blocked_reason", "finished_at")},
+        "scope_effects_digest": workflow.hashed(task["authority"]),
+        "source_evolution": "same_authorized_task", "format7_opt_in": run["state_schema_version"] == 6,
+        "coverage": {"roots": roots, "checks": checks, "coverage_manifest_digest": coverage_digest},
+        "activation_ref": activation_ref}
+
+
+def _workflow_record(conn, run, policy, operation_id, revision, request, kind, **fields):
+    context = workflow.current_context()
+    if context and context.operation_id == operation_id:
+        request = context.normalized_request
+    value = {"schema_version": 1, "kind": kind, "bindings": workflow_bindings(run),
+        "operation_id": operation_id, "revision": revision,
+        "request_digest": workflow.hashed(request), "created_at": utc_now(), **fields}
+    return _persist_payload(conn, run, policy, "workflow-" + kind + "-" + operation_id, "evidence_manifest", value)
+
+
+def _workflow_envelope_identity(value):
+    """Only runtime settlement fields and the separately verified inputs may vary."""
+    return workflow.envelope_identity(value)
+
+
+def _workflow_named_target(connection, run, policy, task, target):
+    if not isinstance(target, dict):
+        raise ContractError("workflow_action.target", "INVALID_OBJECT")
+    require_keys(target, {"node_key", "stage"}, {"node_key", "stage", "generation", "branch_id", "node_instance_id", "assignment"}, "workflow_action.target")
+    key, stage = opaque(target["node_key"], "node_key"), opaque(target["stage"], "stage")
+    plan_row = connection.execute("SELECT * FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    if plan_row is None:
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    plan = json.loads(plan_row["plan_json"])
+    if not any(item["node_key"] == key for item in plan["assignments"]) and "assignment" not in target:
+        raise StateError("WORKFLOW_ASSIGNMENT_NOT_AUTHORIZED")
+    template = node_template(policy, key)
+    if stage not in template["stages"]:
+        raise StateError("WORKFLOW_EXECUTABLE_TARGET_REQUIRED")
+    maximum = connection.execute("SELECT MAX(generation) FROM nodes WHERE run_id=? AND node_key=? AND stage=?",
+                                 (run["run_id"], key, stage)).fetchone()[0]
+    generation = (run["design_generation"] if stage in {"design", "research"} else run["implementation_generation"])
+    generation = max(generation, maximum + 1) if maximum is not None else generation
+    tag = next((name for name, item in policy["specialists"].items() if item["node_key"] == key), None)
+    spec = NodeSpec(key, template["role"], stage, generation, True, tag)
+    value = envelope(run["run_id"], run["policy_digest"], policy, task, spec, "ready", [], execution_plan=plan,
+                     effective_assignment=target.get("assignment"))
+    # The target is executable only under the already verified task/policy/role envelope.
+    if not value["effect_capabilities"]:
+        raise StateError("WORKFLOW_EFFECT_AUTHORITY_REQUIRED")
+    named = {"node_key": key, "stage": stage, "generation": generation,
+             "branch_id": value["branch_id"], "node_instance_id": value["node_instance_id"]}
+    if "assignment" in target:
+        named["assignment"] = target["assignment"]
+    if set(target) - {"node_key", "stage", "assignment"} and target != named:
+        raise StateError("WORKFLOW_TARGET_MISMATCH")
+    return spec, value, named
+
+
+def _workflow_action_preview(connection, run, policy, task, value):
+    if not isinstance(value, dict):
+        raise ContractError("workflow_action", "INVALID_OBJECT")
+    required = {"schema_version", "kind", "transition", "target", "requirements"}
+    allowed = required | {"source_digest", "task_digest", "plan_digest", "expected_revision", "outputs"}
+    require_keys(value, required, allowed, "workflow_action")
+    if value["schema_version"] != 1 or value["kind"] != "workflow_action" or value["transition"] not in {
+            "advance", "repair", "redesign", "skip-to-authorized-stage", "close", "instruction"}:
+        raise StateError("WORKFLOW_ACTION_INVALID")
+    if not isinstance(value["requirements"], list) or len(value["requirements"]) > 64:
+        raise ContractError("workflow_action.requirements", "INVALID_LIST")
+    for item in value["requirements"]:
+        if not isinstance(item, dict):
+            raise ContractError("workflow_requirement", "INVALID_OBJECT")
+        require_keys(item, {"code", "subject_ref", "raw_state"}, {"code", "subject_ref", "raw_state"}, "workflow_requirement")
+        bounded_string(item["code"], "workflow_requirement.code", 256)
+        bounded_string(item["subject_ref"], "workflow_requirement.subject_ref", 1024)
+    plan_row = connection.execute("SELECT plan_digest FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    if plan_row is None:
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    target = None
+    outputs = []
+    if value["transition"] not in {"close", "instruction"}:
+        _, projected, target = _workflow_named_target(connection, run, policy, task, value["target"])
+        _, activation = evidence_activation(connection, run)
+        outputs = prepare_generated_outputs(Path(run["repository_path"]), policy,
+            {**task, "authority": {"capabilities": projected["effect_capabilities"]}},
+            {"schema_version": 1, "kind": "generated_output_plan", "outputs": value.get("outputs", [])},
+            {target["node_key"]: projected["output_contract"]["artifact_kind"]}, [run["task_ref"]],
+            [path for paths in activation["checks"].values() for path in paths])
+        source = _workflow_capture_for_envelope(connection, run, policy, projected, outputs)
+    elif value["target"] is not None:
+        raise StateError("WORKFLOW_ACTION_INVALID")
+    else:
+        source = _workflow_capture(connection, run, policy, task)
+    prepared = {key: value[key] for key in required}
+    prepared.update(target=target, outputs=outputs, source_digest=source["sha256"], task_digest=run["task_digest"],
+                    plan_digest=plan_row["plan_digest"], expected_revision=run["state_revision"])
+    return prepared, source
+
+
+def _workflow_binding(connection, run, branch, policy, *, current_source, registering=None):
+    capture = (lambda coverage: _workflow_capture_roots(connection, run, policy,
+        coverage["roots"], coverage["outputs"], registering)) if current_source else None
+    return verified_workflow_source_binding(connection, run, branch, source_capture=capture)
+
+
+def _workflow_reserve_successor(connection, run, policy, task, store, manifest, source, operation_id):
+    spec, projected, named = _workflow_named_target(connection, run, policy, task, manifest["target"])
+    if "assignment" in named:
+        plan = json.loads(connection.execute("SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()[0])
+        original = next((item for item in plan["assignments"] if item["node_key"] == spec.key), None)
+        raw = {"node_key": spec.key, "historical_assignment": original, "effective_assignment": named["assignment"]}
+        if not workflow.gate(original is not None and all(original[key] == named["assignment"][key]
+                for key in ("model", "reasoning_effort")), "MODEL_ASSIGNMENT", run["run_id"] + "/execution-plan", raw, "reserve"):
+            raise StateError("WORKFLOW_ASSIGNMENT_NOT_AUTHORIZED")
+    inputs = _context_inputs(connection, run, [], include_design=True, include_implementation=True)
+    authority = workflow.current_context().authority_ref
+    inputs.append(_artifact_input(connection, {"ref": authority, "kind": "evidence_manifest",
+        "sha256": authority.rpartition("#sha256=")[2]}))
+    if run["state_schema_version"] == 7:
+        inputs += _planning_constraint_inputs(connection, run, policy, task, spec, inputs, store.state_root)
+    inputs = sorted({item["ref"]: item for item in inputs}.values(), key=lambda item: (item["kind"], item["ref"]))
+    if spec.key.startswith("supervisor_") and not any(item["kind"] == "collection" for item in inputs):
+        raise StateError("WORKFLOW_EXECUTABLE_INPUT_MISSING")
+    # The fence is fixed now. Launch cannot select or substitute another attempt.
+    token = "claim-" + secrets.token_urlsafe(32)
+    fence = {"branch_id": named["branch_id"], "attempt_id": "attempt-" + secrets.token_hex(12),
+             "claim_digest": _claim_token_digest(token)}
+    binding = {"kind": "workflow_source_binding", "schema_version": 1, "bindings": workflow_bindings(run),
+        "reservation_id": operation_id, "authority_ref": authority, "branch_id": named["branch_id"],
+        "envelope_digest": workflow.hashed(_workflow_envelope_identity(projected)),
+        "inputs_digest": workflow.hashed(inputs), "fence": fence, "source": source, "source_digest": source["sha256"],
+        "coverage": {"roots": source["roots"], "outputs": manifest["outputs"],
+                     "activation_ref": evidence_activation(connection, run)[0]["ref"]}}
+    artifact = _persist_payload(connection, run, policy, "workflow-source-" + operation_id, "evidence_manifest", binding)
+    node = _insert_spec(store, connection, run, policy, task, spec, inputs + [artifact.as_input()],
+                        effective_assignment=named.get("assignment"))
+    actual = json.loads(node["envelope_json"])
+    actual_inputs = [item for item in actual["inputs"] if item["ref"] != artifact.ref]
+    if (_workflow_envelope_identity(actual) != _workflow_envelope_identity(projected)
+            or workflow.hashed(actual_inputs) != binding["inputs_digest"]):
+        raise StateError("WORKFLOW_ENVELOPE_CHANGED")
+    execution = {"kind": "branch", "target": _workflow_envelope_identity(projected), "fence": fence,
+                 "source_binding_ref": artifact.ref, "inputs_digest": binding["inputs_digest"]}
+    workflow.current_context().pending_record = {"execution": execution, "state": "reserved",
+        "extension_use": {"branch_reservations": 1, spec.role: 1}, "outcome": "UNRUN"}
+    column = "design_generation" if spec.stage in {"research", "design"} else "implementation_generation"
+    connection.execute("UPDATE runs SET " + column + "=MAX(" + column + ",?) WHERE run_id=?", (spec.generation, run["run_id"]))
+    return {"code": "WORKFLOW_RESERVED", "effective_action": manifest["transition"], "actual_execution": "UNRUN",
+        "named_successor": named, "source_binding_ref": artifact.ref, "source_digest": source["sha256"],
+        "successor_branch_ids": [node["branch_id"]], "created_join_ids": [], "created_fanout_ids": [],
+        "_private_launch_token": token, "sensitive": True}
+
+
+def _workflow_restrictions(connection, run, task, action):
+    """Record actual missing/negative state without inventing successful evidence."""
+    raw = [("RUN_STATE", run["run_id"], {key: run[key] for key in ("status", "blocked_reason", "finished_at")})]
+    plan = connection.execute("SELECT status,plan_digest FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    if plan is None:
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    if plan["status"] != "approved":
+        raw.append(("EXECUTION_PLAN_APPROVAL_REQUIRED", run["run_id"], dict(plan)))
+    for row in connection.execute("SELECT branch_id,node_key,status,result_json FROM nodes WHERE run_id=?", (run["run_id"],)):
+        result = json.loads(row["result_json"] or "{}")
+        if row["status"] != "succeeded" or result.get("decision") in {"REVISE", "BLOCK", "FAIL"} or result.get("outcome") in {"REVISE", "BLOCK", "REPAIR", "REDESIGN"}:
+            raw.append(("BRANCH_GATE", row["branch_id"], {"status": row["status"], "decision": result.get("decision"), "outcome": result.get("outcome")}))
+    for stage in ("design", "delivery"):
+        row = connection.execute("SELECT result_digest FROM nodes WHERE run_id=? AND node_key=? AND status='succeeded' ORDER BY generation DESC LIMIT 1", (run["run_id"], "supervisor_" + stage + "_consolidation")).fetchone()
+        if row is None:
+            raw.append(("MISSING_" + stage.upper() + "_CONSOLIDATION", run["run_id"], None))
+    checks = {row["check_id"]: row["outcome"] for row in connection.execute("SELECT * FROM check_evidence WHERE run_id=?", (run["run_id"],))}
+    for identifier in task["required_check_ids"]:
+        if checks.get(identifier) != "PASS":
+            raw.append(("LOCAL_CHECK_REQUIRED", identifier, checks.get(identifier, "UNRUN")))
+    for row in connection.execute("SELECT * FROM budgets WHERE run_id=?", (run["run_id"],)):
+        if row["used"] >= row["limit_value"]:
+            raw.append(("BUDGET_LIMIT", row["budget_id"], {"used": row["used"], "limit": row["limit_value"]}))
+    for code, subject, state in raw:
+        if not workflow.gate(False, code, subject, state, action):
+            raise StateError(code)
+
+
+def _workflow_open_attempts(connection, run):
+    context = workflow.current_context() or workflow_context(connection, run)
+    result = []
+    for attempt in connection.execute("SELECT * FROM branch_attempts WHERE run_id=? AND finished_at IS NULL", (run["run_id"],)):
+        settled = next((item for item in context.actions.values()
+            if item["state"] not in workflow.OPEN_STATES and item["execution"].get("fence") == {
+                "branch_id": attempt["branch_id"], "attempt_id": attempt["attempt_id"], "claim_digest": attempt["claim_digest"]}
+            and item.get("facts", {}).get("late_settlement") is True), None)
+        if settled:
+            row = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (run["run_id"], attempt["branch_id"])).fetchone()
+            if row is None or settled["facts"].get("raw_node_digest") != workflow.hashed(dict(row)):
+                raise StateError("WORKFLOW_LATE_FACTS_MISMATCH")
+        else:
+            result.append(attempt)
+    return result
+
+
+def _workflow_conflicting_execution(connection, run, capabilities, *, except_branch=None):
+    writes = {"filesystem_write", "external_write", "destructive", "publish", "deploy", "command"}
+    for attempt in _workflow_open_attempts(connection, run):
+        if attempt["branch_id"] == except_branch:
+            continue
+        row = connection.execute("SELECT envelope_json FROM nodes WHERE branch_id=?", (attempt["branch_id"],)).fetchone()
+        other = json.loads(row[0])["effect_capabilities"]
+        for left in capabilities:
+            for right in other:
+                if left["effect"] not in writes and right["effect"] not in writes:
+                    continue
+                if not left["effect"].startswith("filesystem") or not right["effect"].startswith("filesystem"):
+                    return True
+                if (source_path_contains(left["target_ref"], right["target_ref"])
+                        or source_path_contains(right["target_ref"], left["target_ref"])):
+                    return True
+    return False
+
+
+def _workflow_launch_successor(connection, run, policy, reservation_id):
+    context = workflow.current_context()
+    reserved = context.actions.get(reservation_id)
+    if reserved is None or reserved["state"] != "reserved" or reserved["execution"].get("kind") != "branch":
+        raise StateError("WORKFLOW_RESERVATION_NOT_FOUND")
+    if workflow.timestamp(utc_now()) >= workflow.timestamp(context.authority["intent"]["contract"]["expires_at"]):
+        raise StateError("WORKFLOW_AUTHORITY_EXPIRED")
+    execution = reserved["execution"]
+    fence = execution["fence"]
+    branch = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (run["run_id"], fence["branch_id"])).fetchone()
+    if branch is None or branch["status"] != "ready":
+        raise StateError("WORKFLOW_RESERVED_TARGET")
+    binding = _workflow_binding(connection, run, branch, policy, current_source=True)
+    if binding is None or binding[2] != execution:
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    if connection.execute("SELECT 1 FROM branch_attempts WHERE branch_id=?", (branch["branch_id"],)).fetchone():
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    env = json.loads(branch["envelope_json"])
+    if _workflow_conflicting_execution(connection, run, env["effect_capabilities"]):
+        raise StateError("WORKFLOW_CONFLICTING_LIVE_ACTION")
+    if any(item["state"] == "open" for item in reservation_states(connection, run["run_id"]).values()):
+        raise StateError("CHECK_EXECUTION_UNKNOWN")
+    origin = connection.execute("SELECT response_json FROM operations WHERE run_id=? AND operation_id=?",
+                                (run["run_id"], reservation_id)).fetchone()
+    private = json.loads(origin[0]) if origin else {}
+    token = private.get("_private_launch_token")
+    if token is None or _claim_token_digest(token) != fence["claim_digest"]:
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    started = utc_now()
+    env.update(status="running", started_at=started, attempt_id=fence["attempt_id"], claim_digest=fence["claim_digest"],
+               lease_expires_at=utc_after(branch_lease_seconds(policy)))
+    connection.execute("INSERT INTO branch_attempts(run_id,branch_id,attempt_number,attempt_id,claim_digest,started_at) VALUES(?,?,1,?,?,?)",
+        (run["run_id"], branch["branch_id"], fence["attempt_id"], fence["claim_digest"], started))
+    connection.execute("UPDATE nodes SET status='running',started_at=?,envelope_json=? WHERE branch_id=?",
+                       (started, json.dumps(env, sort_keys=True), branch["branch_id"]))
+    context.pending_record = {"state": "launched", "outcome": None, "facts": {"dispatch_state": "authorized_not_observed"}}
+    return {"code": "WORKFLOW_LAUNCHED", "branch": _review_dispatch_projection(connection, env, token),
+        "workflow_dispatch": {"authority_ref": context.authority_ref, "reservation_id": reservation_id,
+                              "source_binding_ref": execution["source_binding_ref"]}, "sensitive": True}
+
+
+def _workflow_continue_action(connection, run, policy, task, store, manifest, operation_id, revision, request):
+    prepared, source = _workflow_action_preview(connection, run, policy, task, manifest)
+    if manifest != prepared:
+        raise StateError("WORKFLOW_PREVIEW_REQUIRED")
+    context = workflow.current_context()
+    if manifest["expected_revision"] != run["state_revision"]:
+        raise StateError("WORKFLOW_REVISION_STALE")
+    for item in manifest["requirements"]:
+        if not workflow.gate(False, item["code"], item["subject_ref"], item["raw_state"], manifest["transition"]):
+            raise StateError(item["code"])
+    _workflow_restrictions(connection, run, task, manifest["transition"])
+    if manifest["transition"] == "close":
+        return _workflow_close(connection, run, policy, task, operation_id, revision, request)
+    if manifest["transition"] == "instruction":
+        context.pending_record = {"execution": {"kind": "obligation", "task_digest": run["task_digest"]},
+            "state": "settled", "outcome": "UNRUN", "facts": {"effective_decision": "WAIVED"}}
+        return {"code": "WORKFLOW_CONTINUED", "effective_action": "WAIVED", "actual_execution": "UNRUN",
+                "successor_branch_ids": [], "created_join_ids": [], "created_fanout_ids": []}
+    if any(item["state"] == "open" for item in reservation_states(connection, run["run_id"]).values()):
+        raise StateError("CHECK_EXECUTION_UNKNOWN")
+    return _workflow_reserve_successor(connection, run, policy, task, store, manifest, source, operation_id)
+
+
+def _workflow_observation(args, connection, run, policy, reserved, snapshot):
+    if snapshot is None or not args.attest_execution_observation:
+        raise StateError("WORKFLOW_EXECUTION_OBSERVATION_REQUIRED")
+    value = snapshot.parsed
+    fields = {"schema_version", "kind", "run_id", "reservation_id", "execution_digest", "outcome",
+              "known_effects", "origin_kind", "actor", "host_identity", "observed_at", "evidence"}
+    if not isinstance(value, dict):
+        raise ContractError("execution_observation", "INVALID_OBJECT")
+    require_keys(value, fields, fields, "execution_observation")
+    if (value["schema_version"] != 1 or value["kind"] != "workflow_execution_observation"
+            or value["run_id"] != run["run_id"] or value["reservation_id"] != reserved["reservation_id"]
+            or value["execution_digest"] != workflow.hashed(reserved["execution"])
+            or value["outcome"] != args.outcome or value["known_effects"] is not args.known_effects
+            or value["origin_kind"] != "trusted_host_observation" or value["actor"] != current_actor()
+            or value["host_identity"] != current_host_identity()
+            or workflow.timestamp(value["observed_at"]) > workflow.timestamp(utc_now())
+            or not isinstance(value["evidence"], list) or not 1 <= len(value["evidence"]) <= 32):
+        raise StateError("WORKFLOW_EXECUTION_OBSERVATION_INVALID")
+    for item in value["evidence"]:
+        if not isinstance(item, dict):
+            raise ContractError("execution_observation.evidence", "INVALID_OBJECT")
+        require_keys(item, {"kind", "ref", "sha256"}, {"kind", "ref", "sha256"}, "execution_observation.evidence")
+        verified = resolve_reference(item["ref"], item["sha256"], item["kind"], Path(run["repository_path"]),
+            Path(__file__).resolve().parents[1], policy, connection,
+            runtime_root=Path(args.resolved_state_root))
+        persist_artifact(connection, run["run_id"], verified)
+    return _persist_payload(connection, run, policy, "workflow-observation-" + args.op_id,
+                            "evidence_manifest", value)
+
+
+def _workflow_settle_facts(args, connection, run, policy, task, snapshot, observation, request):
+    context = workflow.current_context()
+    reserved = context.actions.get(args.reservation_id)
+    if reserved is None or reserved["authority_ref"] != context.authority_ref or reserved["execution"].get("kind") != "branch":
+        raise StateError("WORKFLOW_RESERVATION_NOT_FOUND")
+    execution = reserved["execution"]
+    fence = execution["fence"]
+    branch = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (run["run_id"], fence["branch_id"])).fetchone()
+    if branch is None:
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    binding = _workflow_binding(connection, run, branch, policy, current_source=False)
+    if binding is None or binding[2] != execution:
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    attempts = connection.execute("SELECT * FROM branch_attempts WHERE run_id=? AND branch_id=?", (run["run_id"], branch["branch_id"])).fetchall()
+    if reserved["state"] == "reserved" and args.outcome == "cancelled" and snapshot is None:
+        if attempts or branch["status"] != "ready":
+            raise StateError("WORKFLOW_EXECUTION_UNKNOWN")
+        context.pending_record = {"state": "cancelled", "outcome": "UNRUN", "facts": {"never_launched": True}}
+        return {"code": "WORKFLOW_CANCELLED", "actual_execution": "UNRUN", "reservation_id": args.reservation_id}
+    if (len(attempts) != 1 or attempts[0]["attempt_id"] != fence["attempt_id"]
+            or attempts[0]["claim_digest"] != fence["claim_digest"]
+            or _claim_token_digest(args.claim_token) != fence["claim_digest"]):
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    env = json.loads(branch["envelope_json"])
+    if env["attempt_id"] != fence["attempt_id"] or env["claim_digest"] != fence["claim_digest"]:
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    observed = _workflow_observation(args, connection, run, policy, reserved, observation)
+    facts = {"observation_ref": observed.ref, "raw_node_digest": workflow.hashed(dict(branch)),
+             "late_settlement": True, "eligibility": "NOT_ELIGIBLE", "actual_result_ref": None}
+    if args.outcome in {"unknown", "external_denied"} and snapshot is None:
+        state = args.outcome
+        if state == "external_denied" and not args.known_effects:
+            raise StateError("WORKFLOW_KNOWN_EFFECTS_REQUIRED")
+    else:
+        if not args.late_facts or not args.known_effects or snapshot is None:
+            raise StateError("WORKFLOW_KNOWN_EFFECTS_REQUIRED")
+        if not _lease_expired(env.get("lease_expires_at")):
+            raise StateError("WORKFLOW_LATE_SETTLEMENT_NOT_REQUIRED")
+        if any(item["branch_id"] != branch["branch_id"] for item in _workflow_open_attempts(connection, run)):
+            raise StateError("WORKFLOW_CONFLICTING_LIVE_ACTION")
+        if any(item["state"] == "unknown" and key != args.reservation_id for key, item in context.actions.items()):
+            raise StateError("WORKFLOW_EXECUTION_UNKNOWN")
+        if any(item["state"] == "open" for item in reservation_states(connection, run["run_id"]).values()):
+            raise StateError("CHECK_EXECUTION_UNKNOWN")
+        submitted = snapshot.parsed
+        if submitted.get("attempt_id") != fence["attempt_id"] or submitted.get("claim_digest") != fence["claim_digest"]:
+            raise StateError("ATTEMPT_FENCE_MISMATCH")
+        contract = {**dict(branch), "run_id": run["run_id"], "output_contract": env["output_contract"]}
+        result = validate_result_manifest(submitted, contract)
+        for item in result.get("evidence", []) + ([result["artifact_ref"]] if isinstance(result.get("artifact_ref"), dict) else []):
+            verified = resolve_reference(item["ref"], item["sha256"], item["kind"], Path(run["repository_path"]),
+                Path(__file__).resolve().parents[1], policy, connection, runtime_root=Path(args.resolved_state_root))
+            persist_artifact(connection, run["run_id"], verified)
+        result_artifact = _persist_payload(connection, run, policy, "workflow-late-result-" + args.op_id,
+                                            "evidence_manifest", {"kind": "workflow_late_result", "schema_version": 1,
+                                            "run_id": run["run_id"], "reservation_id": args.reservation_id,
+                                            "original_result_digest": branch["result_digest"],
+                                            "original_finished_at": branch["finished_at"], "result": result})
+        state = "succeeded" if result["status"] == "succeeded" else "failed"
+        if args.outcome != state:
+            raise StateError("WORKFLOW_OUTCOME_MISMATCH")
+        facts["actual_result_ref"] = result_artifact.ref
+    context.pending_record = {"state": state, "outcome": args.outcome, "facts": facts}
+    if state == "external_denied":
+        _workflow_record(connection, run, policy, args.op_id, run["state_revision"] + 1, request, workflow.END,
+                         authority_ref=context.authority_ref, reason="external_denial")
+    return {"code": "WORKFLOW_FACTS_RECORDED", "outcome": args.outcome, "eligibility": "NOT_ELIGIBLE",
+            "raw_status": branch["status"], "raw_finished_at": branch["finished_at"], "reservation_id": args.reservation_id}
+
+
+def _workflow_close(conn, current, policy, task, operation_id, revision, request):
+    _workflow_restrictions(conn, current, task, "close")
+    context = workflow.current_context()
+    if _workflow_open_attempts(conn, current) or context.inflight:
+        raise StateError("WORKFLOW_INFLIGHT_ACTION")
+    if any(item["state"] == "open" for item in reservation_states(conn, current["run_id"]).values()):
+        raise StateError("CHECK_EXECUTION_UNKNOWN")
+    context.pending_record = {"execution": {"kind": "closure", "task_digest": current["task_digest"]},
+        "state": "settled", "outcome": "WAIVED", "facts": {"effective_status": "complete_with_waivers"}}
+    artifact = _workflow_record(conn, current, policy, operation_id, revision, request, workflow.END,
+        authority_ref=context.authority_ref, reason="objective_complete", effective_status="complete_with_waivers")
+    return {"code": "WORKFLOW_CLOSED", "status": current["status"],
+            "effective_status": "complete_with_waivers", "workflow_end_ref": artifact.ref,
+            "successor_branch_ids": [], "created_join_ids": [], "created_fanout_ids": []}
+
+
+def command_workflow_override(args, connection, run, policy, task, store, semantic_validator):
+    kind = args.workflow_kind
+    if kind == "status":
+        semantic_validator(connection, run)
+        return _json_result(True, "WORKFLOW_STATUS", run["run_id"], run["state_revision"],
+            raw_run={key: run[key] for key in ("status", "blocked_reason", "finished_at")},
+            workflow_authority=workflow_context(connection, run).report())
+    if kind == "preview":
+        semantic_validator(connection, run)
+        if run["state_revision"] != args.expected_revision:
+            raise StateError("WORKFLOW_REVISION_STALE")
+        proposed = _manifest_snapshot(store, policy, run["run_id"], args.action_manifest)
+        prepared, source = _workflow_action_preview(connection, run, policy, task, proposed.parsed)
+        return _json_result(True, "WORKFLOW_ACTION_PREVIEW", run["run_id"], run["state_revision"],
+            action=prepared, source_digest=source["sha256"], actual_execution="UNRUN")
+    if kind == "settle" and args.result_manifest and not args.late_facts:
+        context = workflow.current_context()
+        reserved = context.actions.get(args.reservation_id)
+        if reserved is None or reserved["authority_ref"] != args.workflow_authority_ref or reserved["execution"].get("kind") != "branch":
+            raise StateError("WORKFLOW_RESERVATION_NOT_FOUND")
+        args.branch_id = reserved["execution"]["fence"]["branch_id"]
+        args.attempt_id = reserved["execution"]["fence"]["attempt_id"]
+        return _record_branch_result(args, connection, run, policy, task, store, semantic_validator)
+    if kind == "prepare":
+        semantic_validator(connection, run)
+        if run["state_revision"] != args.expected_revision:
+            raise StateError("WORKFLOW_REVISION_STALE")
+        contract = _manifest_snapshot(store, policy, run["run_id"], args.contract_manifest)
+        coverage = _manifest_snapshot(store, policy, run["run_id"], args.coverage_manifest) if args.coverage_manifest else None
+        intent = _workflow_intent(connection, run, policy, task, contract.parsed, coverage)
+        return _json_result(True, "WORKFLOW_PREPARED", run["run_id"], run["state_revision"],
+            intent=intent, intent_digest=workflow.hashed(intent), request_statement=workflow.BLANKET_INTENT,
+            approval_statement="I approve workflow intent " + workflow.hashed(intent), assurance=workflow.ASSURANCE)
+    operation_id = opaque(args.op_id, "op_id")
+    request = {"command": "workflow-override." + kind, "expected_revision": args.expected_revision}
+    snapshot = None
+    observation = None
+    if kind == "approve":
+        snapshot = _manifest_snapshot(store, policy, run["run_id"], args.intent_manifest)
+        provenance = _manifest_snapshot(store, policy, run["run_id"], args.human_provenance)
+        if not args.attest_human_origin:
+            raise StateError("WORKFLOW_HUMAN_ATTESTATION_REQUIRED")
+        intent = snapshot.parsed
+        if not isinstance(intent, dict):
+            raise ContractError("workflow_intent", "INVALID_OBJECT")
+        fields = {"schema_version", "kind", "bindings", "blanket_intent", "contract", "initial_revision",
+                  "initial_plan_digest", "initial_plan_status", "initial_source", "initial_run", "scope_effects_digest",
+                  "source_evolution", "format7_opt_in", "coverage", "activation_ref"}
+        require_keys(intent, fields, fields, "workflow_intent")
+        if intent["schema_version"] != 1 or intent["kind"] != "workflow_intent" or intent["blanket_intent"] != workflow.BLANKET_INTENT:
+            raise StateError("WORKFLOW_BINDING_MISMATCH")
+        workflow.validate_source(intent["initial_source"])
+        workflow.validate_provenance(provenance.parsed, intent, utc_now())
+        coverage = intent["coverage"]
+        request.update({"intent_digest": workflow.hashed(intent), "provenance_digest": provenance.digest,
+            "attest_human_origin": True, "opt_in_format7": args.opt_in_format7,
+            "coverage_manifest_digest": coverage["coverage_manifest_digest"], "checks": coverage["checks"], "roots": coverage["roots"]})
+    elif kind == "continue":
+        snapshot = _manifest_snapshot(store, policy, run["run_id"], args.action_manifest)
+        request["action_digest"] = snapshot.digest
+    elif kind in {"launch", "settle"}:
+        request["workflow_reservation_id"] = opaque(args.reservation_id, "reservation_id")
+        if kind == "settle":
+            snapshot = _manifest_snapshot(store, policy, run["run_id"], args.result_manifest) if args.result_manifest else None
+            observation = _manifest_snapshot(store, policy, run["run_id"], args.observation_manifest) if args.observation_manifest else None
+            request.update({"late_facts": args.late_facts, "known_effects": args.known_effects, "outcome": args.outcome,
+                            "claim_digest": _claim_token_digest(args.claim_token) if args.claim_token else None,
+                            "result_digest": snapshot.digest if snapshot else None,
+                            "observation_digest": observation.digest if observation else None,
+                            "attest_execution_observation": args.attest_execution_observation})
+    else:
+        request.update({"authority_ref": validate_ref(args.authority_ref, "authority_ref", content_required=True),
+                        "reason": bounded_string(args.reason, "reason", 1024)})
+
+    def action(conn, current, revision):
+        if current["state_revision"] != args.expected_revision:
+            raise StateError("WORKFLOW_REVISION_STALE")
+        if kind == "approve":
+            if workflow_context(conn, current).state not in {"absent", "ended", "revoked"}:
+                raise StateError("WORKFLOW_DUPLICATE_AUTHORITY")
+            if intent.get("initial_revision") != current["state_revision"]:
+                raise StateError("WORKFLOW_REVISION_STALE")
+            if current["state_schema_version"] == 6:
+                if intent.get("format7_opt_in") is not True or not args.opt_in_format7:
+                    raise StateError("WORKFLOW_FORMAT7_OPT_IN_REQUIRED")
+                coverage_value = {"schema_version": 1, "kind": "check_coverage", "checks": [
+                    {"check_id": identifier, "relevant_inputs": paths, "complete": True}
+                    for identifier, paths in sorted(intent["coverage"]["checks"].items())]}
+                checks = _coverage_checks(coverage_value, intent["coverage"]["roots"], task)
+                roots = source_roots(Path(current["repository_path"]), policy, task["authority"]["capabilities"])
+                if roots != intent["coverage"]["roots"]:
+                    raise StateError("WORKFLOW_BINDING_MISMATCH")
+                source = capture_source(Path(current["repository_path"]), policy, roots,
+                    known_inputs=sorted({path for paths in checks.values() for path in paths}), include_manifest=True)
+            else:
+                if intent.get("format7_opt_in") is not False or args.opt_in_format7:
+                    raise StateError("WORKFLOW_ACTIVATION_REPLACEMENT_FORBIDDEN")
+                activation_row, existing = evidence_activation(conn, current)
+                expected_coverage = {key: existing[key] for key in ("roots", "checks", "coverage_manifest_digest")}
+                if intent["coverage"] != expected_coverage or intent["activation_ref"] != activation_row["ref"]:
+                    raise StateError("WORKFLOW_BINDING_MISMATCH")
+                source = _workflow_capture(conn, current, policy, task)
+            plan = conn.execute("SELECT * FROM execution_plans WHERE run_id=?", (current["run_id"],)).fetchone()
+            if plan is None:
+                raise StateError("EXECUTION_PLAN_STATE_INVALID")
+            if (intent.get("bindings") != workflow_bindings(current) or intent.get("initial_source") != source
+                    or intent.get("initial_plan_digest") != plan["plan_digest"] or intent.get("initial_plan_status") != plan["status"]
+                    or intent.get("initial_run") != {key: current[key] for key in ("status", "blocked_reason", "finished_at")}
+                    or intent.get("scope_effects_digest") != workflow.hashed(task["authority"])
+                    or intent.get("source_evolution") != "same_authorized_task"):
+                raise StateError("WORKFLOW_BINDING_MISMATCH")
+            workflow.validate_contract(intent["contract"], utc_now())
+            activation_ref = intent["activation_ref"]
+            if current["state_schema_version"] == 6:
+                activation = {"kind": "evidence_activation", "schema_version": 1, "original_format": 6,
+                    "run_id": current["run_id"], "task_digest": current["task_digest"], "plan_digest": plan["plan_digest"],
+                    "policy_digest": current["policy_digest"], "actor": current_actor(), "host_identity": current_host_identity(),
+                    "checks": checks, "coverage_manifest_digest": intent["coverage"]["coverage_manifest_digest"],
+                    "complete": True, "roots": roots}
+                activation_ref = _persist_payload(conn, current, policy, "evidence-activation", "evidence_manifest", activation).ref
+                store.fault_hook("workflow_after_activation")
+            _persist_payload(conn, current, policy, "workflow-provenance-" + operation_id, "evidence_manifest",
+                {"kind": "workflow_provenance_input", "schema_version": 1, "operation_id": operation_id,
+                 "sha256": provenance.digest, "raw_text": provenance.data.decode("utf-8")})
+            authority = _workflow_record(conn, current, policy, operation_id, revision, request, workflow.AUTHORITY,
+                intent=intent, intent_digest=workflow.hashed(intent), activation_ref=activation_ref,
+                provenance=provenance.parsed, origin_kind="trusted_human_message", actor=current_actor(),
+                host_identity=current_host_identity(), assurance=workflow.ASSURANCE)
+            store.fault_hook("workflow_after_authority")
+            if current["state_schema_version"] == 6:
+                conn.execute("UPDATE runs SET state_schema_version=7 WHERE run_id=?", (current["run_id"],))
+            store.fault_hook("workflow_after_format")
+            return {"code": "WORKFLOW_APPROVED", "authority_ref": authority.ref, "activation_ref": activation_ref,
+                    "raw_plan_status": plan["status"], "intent_digest": workflow.hashed(intent), "actions_used": 0}
+        if kind in {"revoke", "end"}:
+            context = workflow_context(conn, current, request["authority_ref"])
+            if context.state in {"revoked", "ended"}:
+                raise StateError("WORKFLOW_AUTHORITY_" + context.state.upper())
+            artifact = _workflow_record(conn, current, policy, operation_id, revision, request,
+                workflow.REVOCATION if kind == "revoke" else workflow.END,
+                authority_ref=request["authority_ref"], reason=request["reason"])
+            return {"code": "WORKFLOW_" + kind.upper(), "artifact_ref": artifact.ref}
+        context = workflow.current_context()
+        if context is None or not context.operation_id:
+            raise StateError("WORKFLOW_AUTHORITY_REQUIRED")
+        if kind == "launch":
+            return _workflow_launch_successor(conn, current, policy, args.reservation_id)
+        if kind == "settle":
+            return _workflow_settle_facts(args, conn, current, policy, task, snapshot, observation, request)
+        return _workflow_continue_action(conn, current, policy, task, store, snapshot.parsed,
+                                         operation_id, revision, request)
+
+    def verify_input():
+        if snapshot and _manifest_snapshot(store, policy, run["run_id"], str(snapshot.path)).digest != snapshot.digest:
+            raise StateError("WORKFLOW_BINDING_MISMATCH")
+        if kind == "approve" and _manifest_snapshot(store, policy, run["run_id"], args.human_provenance).digest != provenance.digest:
+            raise StateError("WORKFLOW_BINDING_MISMATCH")
+        if observation and _manifest_snapshot(store, policy, run["run_id"], str(observation.path)).digest != observation.digest:
+            raise StateError("WORKFLOW_BINDING_MISMATCH")
+    return store.mutate(connection, run["run_id"], operation_id, request, action,
+        semantic_validator=semantic_validator, input_verifier=verify_input)
+
+
+def _coverage_checks(value, roots, task):
+    require_keys(value, {"schema_version", "kind", "checks"}, {"schema_version", "kind", "checks"}, "coverage")
+    if value["schema_version"] != 1 or value["kind"] != "check_coverage" or not isinstance(value["checks"], list) or not 1 <= len(value["checks"]) <= 32:
+        raise ContractError("coverage", "SCHEMA_MISMATCH")
+    checks = {}
+    for check in value["checks"]:
+        require_keys(check, {"check_id", "relevant_inputs", "complete"}, {"check_id", "relevant_inputs", "complete"}, "coverage.check")
+        if check["check_id"] not in task["required_check_ids"] or check["check_id"] in checks or check["complete"] is not True:
+            raise ContractError("coverage", "COVERAGE_ATTESTATION_REQUIRED")
+        if not isinstance(check["relevant_inputs"], list) or not 1 <= len(check["relevant_inputs"]) <= 16:
+            raise ContractError("coverage", "INVALID_LIST")
+        paths = sorted(set(lexical_relative(item, "relevant_inputs") for item in check["relevant_inputs"]))
+        if any(not any(source_path_contains(root, item) for root in roots) for item in paths):
+            raise StateError("SOURCE_UNVERIFIABLE")
+        checks[check["check_id"]] = paths
+    if set(checks) != set(task["required_check_ids"]):
+        raise ContractError("coverage", "CHECK_SET_MISMATCH")
+    return checks
 
 
 def command_evidence_enable(args, connection, run, policy, task, store, semantic_validator):
@@ -1735,7 +2537,12 @@ def command_check_v2(args, connection, run, policy, task, store, semantic_valida
                "coverage": coverage, "activation_ref": activation_row["ref"]}
     operation = opaque(args.op_id, "op_id")
     start_id = "check-start-" + sha256_bytes(operation.encode())[:40]
+    launch_id = "check-launch-" + sha256_bytes(operation.encode())[:40]
     finish_id = "check-finish-" + sha256_bytes(operation.encode())[:40]
+    dispatch = workflow.current_context()
+    authority_ref = getattr(dispatch, "dispatch_ref", None)
+    if authority_ref:
+        request.update(workflow_authority_ref=authority_ref, expected_revision=dispatch.expected_revision)
     prior = connection.execute("SELECT response_json FROM operations WHERE run_id=? AND operation_id=?",
                                (run["run_id"], finish_id)).fetchone()
     if prior:
@@ -1765,17 +2572,55 @@ def command_check_v2(args, connection, run, policy, task, store, semantic_valida
                        "executor": executor, "source": source,
                        "reservation_id": "reservation-" + sha256_bytes(canonical_bytes([current["run_id"], operation]))[:40],
                        "before_source_digest": before["sha256"], "repeat_cost": int(repeat),
-                       "budget_id": budget_id, "request_digest": sha256_bytes(canonical_bytes(request)),
+                       "budget_id": budget_id, "request_digest": sha256_bytes(canonical_bytes(workflow.current_context().normalized_request)),
                        "review_source_binding_ref": binding[0]["ref"] if binding else None}
         artifact = _persist_payload(conn, current, policy, reservation["reservation_id"], "evidence_manifest", reservation)
+        if authority_ref:
+            workflow.current_context().pending_record = {"state": "reserved", "outcome": "UNRUN",
+                "execution": {"kind": "check", "reservation_ref": artifact.ref,
+                    "reservation_id": reservation["reservation_id"], "executor": executor, "source": source,
+                    "source_digest": before["sha256"], "command_id": check["command_id"], "argv": check["argv"]},
+                "extension_use": {"check_reservations": 1, "check_repeat_cost": int(repeat)}}
         return {"code": "CHECK_RESERVED", "reservation_id": reservation["reservation_id"], "artifact_ref": artifact.ref}
 
     reserved = store.mutate(connection, run["run_id"], start_id, request, start, semantic_validator=semantic_validator)
     if reserved["code"] == "REPLAYED":
         raise StateError("CHECK_EXECUTION_UNKNOWN")
     reservation = reservation_states(connection, run["run_id"])[reserved["reservation_id"]]
+    if authority_ref:
+        dispatch.expected_revision = reserved["state_revision"]
+        launch_request = {"command": "check.launch", "reservation_id": reservation["reservation_id"],
+                          "workflow_reservation_id": start_id}
+        def launch(conn, current, revision):
+            _check_request_fences(args, conn, current)
+            context = workflow.current_context()
+            previous = context.actions.get(start_id)
+            if previous is None or previous["state"] != "reserved":
+                raise StateError("CHECK_EXECUTION_UNKNOWN")
+            execution = previous["execution"]
+            if (execution["reservation_ref"] != reserved["artifact_ref"]
+                    or execution["executor"] != executor or execution["source"] != source
+                    or execution["command_id"] != check["command_id"] or execution["argv"] != check["argv"]):
+                raise StateError("CHECK_RESERVATION_INVALID")
+            verify_generated_outputs(conn, current, policy, coverage["outputs"])
+            actual = capture_evidence_source(conn, current, policy, roots, coverage["outputs"])
+            if actual["sha256"] != execution["source_digest"]:
+                raise StateError("REVIEW_SOURCE_CHANGED")
+            if any(key != start_id and item["state"] == "unknown" for key, item in context.actions.items()):
+                raise StateError("WORKFLOW_EFFECTS_UNKNOWN")
+            if _workflow_conflicting_execution(conn, current, env["effect_capabilities"], except_branch=executor["branch_id"]):
+                raise StateError("WORKFLOW_EXECUTION_CONFLICT")
+            context.pending_record = {"state": "launched", "outcome": None}
+            return {"code": "CHECK_LAUNCHED", "reservation_id": reservation["reservation_id"]}
+        launched = store.mutate(connection, run["run_id"], launch_id, launch_request, launch,
+                                semantic_validator=semantic_validator)
+        if launched["code"] == "REPLAYED":
+            raise StateError("CHECK_EXECUTION_UNKNOWN")
+        dispatch.expected_revision = launched["state_revision"]
+    launch_errors = []
     receipt = run_check(Path(run["repository_path"]), run["run_id"], args.check_id, check["command_id"],
-                        check["argv"], int(check.get("timeout_seconds", 300)), legacy_digest=False)
+                        check["argv"], int(check.get("timeout_seconds", 300)), legacy_digest=False,
+                        on_launch_error=lambda error: launch_errors.append(type(error).__name__))
     try:
         after = capture_evidence_source(connection, run, policy, roots, coverage["outputs"])["sha256"]
         validity = "valid" if after == reservation["before_source_digest"] else "source_changed"
@@ -1791,6 +2636,8 @@ def command_check_v2(args, connection, run, policy, task, store, semantic_valida
                     "review_source_binding_ref": reservation["review_source_binding_ref"]})
     finish_request = {"command": "check.finish", "reservation_id": reservation["reservation_id"],
                       "executor": executor, "receipt_digest": sha256_bytes(canonical_bytes(receipt))}
+    if authority_ref:
+        finish_request["workflow_reservation_id"] = start_id
 
     def finish(conn, current, revision):
         _check_request_fences(args, conn, current)
@@ -1804,6 +2651,13 @@ def command_check_v2(args, connection, run, policy, task, store, semantic_valida
         artifact = _persist_payload(conn, current, policy, "receipt-" + sha256_bytes(operation.encode())[:40], "check_evidence", receipt)
         conn.execute("INSERT OR REPLACE INTO check_evidence VALUES(?,?,?,?,?)",
                      (current["run_id"], args.check_id, receipt["outcome"], artifact.ref, artifact.sha256))
+        if authority_ref:
+            workflow.current_context().pending_record = {"state": "external_denied" if launch_errors else "settled",
+                "outcome": receipt["outcome"], "facts": {"receipt_ref": artifact.ref, "receipt_digest": artifact.sha256,
+                    "validity": validity, "launch_errors": launch_errors}}
+            if launch_errors:
+                _workflow_record(conn, current, policy, finish_id, revision, finish_request, workflow.END,
+                    authority_ref=authority_ref, reason="external execution unavailable", effective_status="external_denied")
         return {"code": "CHECK_RECORDED", "artifact_ref": artifact.ref, "outcome": receipt["outcome"], "validity": validity}
     return store.mutate(connection, run["run_id"], finish_id, finish_request, finish, semantic_validator=semantic_validator)
 
@@ -2078,13 +2932,17 @@ def command_next(
         plan = conn.execute(
             "SELECT status FROM execution_plans WHERE run_id=?", (current["run_id"],)
         ).fetchone()
-        if plan is None or plan["status"] != "approved":
+        if plan is None:
+            raise StateError("EXECUTION_PLAN_STATE_INVALID")
+        if not workflow.gate(plan["status"] == "approved", "EXECUTION_PLAN_APPROVAL_REQUIRED", current["run_id"],
+                             {"status": plan["status"]}, "claim"):
             raise StateError("EXECUTION_PLAN_APPROVAL_REQUIRED")
         awaiting = conn.execute(
             "SELECT fanout_id FROM fanouts WHERE run_id=? AND status='awaiting' ORDER BY fanout_id LIMIT 1",
             (current["run_id"],),
         ).fetchone()
-        if awaiting:
+        if awaiting and not workflow.gate(False, "FANOUT_ASSESSMENT_REQUIRED", awaiting["fanout_id"],
+                                          {"status": "awaiting"}, "claim"):
             raise StateError("FANOUT_ASSESSMENT_REQUIRED")
         review_awaiting = conn.execute(
             """SELECT f.request_slot_id FROM review_delegation_fanouts f
@@ -2092,7 +2950,8 @@ def command_next(
             WHERE r.run_id=? AND f.status='awaiting' ORDER BY f.request_slot_id LIMIT 1""",
             (current["run_id"],),
         ).fetchone()
-        if review_awaiting:
+        if review_awaiting and not workflow.gate(False, "FANOUT_ASSESSMENT_REQUIRED", review_awaiting["request_slot_id"],
+                                                 {"status": "awaiting"}, "claim"):
             raise StateError("FANOUT_ASSESSMENT_REQUIRED")
         row = conn.execute(
             "SELECT * FROM nodes WHERE run_id=? AND status='ready' ORDER BY branch_id LIMIT 1",
@@ -2101,6 +2960,9 @@ def command_next(
         if not row:
             raise StateError("CLAIM_CONFLICT")
         env = json.loads(row["envelope_json"])
+        if workflow.current_context() and workflow.current_context().operation_id:
+            if _workflow_conflicting_execution(conn, current, env["effect_capabilities"]):
+                raise StateError("WORKFLOW_EXECUTION_CONFLICT")
         dependency = conn.execute(
             """SELECT 1 FROM fanout_dependencies d JOIN fanouts f ON f.fanout_id=d.fanout_id
             JOIN nodes predecessor ON predecessor.branch_id=d.before_branch_id
@@ -2118,9 +2980,11 @@ def command_next(
                 (predecessor.status IN ('failed','timed_out') AND predecessor.retry_count>=predecessor.max_retries))
             LIMIT 1""", (row["branch_id"],),
         ).fetchone()
-        if dependency or review_dependency:
+        if (dependency or review_dependency) and not workflow.gate(False, "FANOUT_DEPENDENCY_STATE_INVALID",
+                row["branch_id"], {"dependency": bool(dependency), "review_dependency": bool(review_dependency)}, "claim"):
             raise StateError("FANOUT_DEPENDENCY_STATE_INVALID")
         env["status"] = "running"
+        replaced_repair_packet_refs = []
         if current["state_schema_version"] == 7 and not row["depth"]:
             previous_packets = []
             for item in env["inputs"]:
@@ -2136,6 +3000,8 @@ def command_next(
                 refreshed = _persist_payload(conn, current, policy, "repair-claim-" + op_id, "failure", packet)
                 env["inputs"] = sorted([item for item in env["inputs"] if item["ref"] not in previous_packets] + [refreshed.as_input()],
                                        key=lambda item: (item["kind"], item["ref"]))
+                if _is_design_risk_continuation(conn, current, row["branch_id"], env):
+                    replaced_repair_packet_refs = previous_packets
         full_task = safe_json_snapshot(Path(current["task_path"]), _task_roots(repo, policy, store.state_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
         if _constraint_markers(full_task) and current["state_schema_version"] != 7:
             raise StateError("EVIDENCE_ENABLE_REQUIRED")
@@ -2163,7 +3029,8 @@ def command_next(
             (attempt_started, json.dumps(env, sort_keys=True), row["branch_id"]),
         )
         dispatch = _review_dispatch_projection(conn, env, claim_token)
-        return {"code": "CLAIMED", "branch": dispatch}
+        return {"code": "CLAIMED", "branch": dispatch,
+                **({"replaced_repair_packet_refs": replaced_repair_packet_refs} if replaced_repair_packet_refs else {})}
 
     return store.mutate(
         connection, run["run_id"], op_id, request, action,
@@ -2181,7 +3048,10 @@ def command_join_validate(args: argparse.Namespace, connection: sqlite3.Connecti
 
 def _consume_loop_budget(connection: sqlite3.Connection, run_id: str, budget_id: str) -> bool:
     budget = connection.execute("SELECT * FROM budgets WHERE run_id=? AND budget_id=?", (run_id, budget_id)).fetchone()
-    if budget["used"] >= budget["limit_value"]:
+    if budget is None:
+        raise StateError("BUDGET_STATE_INVALID")
+    if not workflow.gate(budget["used"] < budget["limit_value"], "BUDGET_LIMIT", budget_id,
+                         {"used": budget["used"], "limit": budget["limit_value"]}, "consume"):
         return False
     connection.execute("UPDATE budgets SET used=used+1 WHERE run_id=? AND budget_id=?", (run_id, budget_id))
     return True
@@ -2835,7 +3705,7 @@ def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any]) -> Dict
     }
 
 
-def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str, Any]:
+def command_status(connection: sqlite3.Connection, run: sqlite3.Row, runtime_root=None) -> Dict[str, Any]:
     branches = connection.execute("SELECT * FROM nodes WHERE run_id=? ORDER BY branch_id", (run["run_id"],)).fetchall()
     joins = connection.execute("SELECT join_id,join_key,kind,generation,status,degraded FROM joins WHERE run_id=? ORDER BY join_id", (run["run_id"],)).fetchall()
     budgets = connection.execute("SELECT budget_id,limit_value,used FROM budgets WHERE run_id=? ORDER BY budget_id", (run["run_id"],)).fetchall()
@@ -2869,6 +3739,9 @@ def command_status(connection: sqlite3.Connection, run: sqlite3.Row) -> Dict[str
         durability=run["durability"], durability_detail=run["durability_detail"],
         permission_verification=run["permission_verification"],
         execution_plan=execution_plan, usage=usage.report(connection, run),
+        design_risk={"contract_version": 1, "assurance": design_risk.ASSURANCE,
+                     "current_run": {key: run[key] for key in ("status", "blocked_reason", "finished_at")},
+                     "effective_resolutions": list(validate_design_risk_history(connection, run, json.loads(run["policy_json"]), json.loads(run["task_json"]), runtime_root).values())},
         **({"evidence_lifecycle": _evidence_status(connection, run)} if run["state_schema_version"] == 7 else {}),
         acknowledgments={
             "host_identity": run["host_identity"],
@@ -3086,6 +3959,8 @@ def command_run_control(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="graphctl")
     parser.add_argument("--repo")
+    parser.add_argument("--workflow-authority-ref")
+    parser.add_argument("--expected-revision", type=int)
     parser.add_argument(
         "--state-root",
         help=("absolute runtime home for policy, ledger, lessons, and artifacts; defaults to "
@@ -3096,6 +3971,42 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ack-degraded-durability", action="store_true")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("policy", help="Load or create the runtime-home policy and show its digest")
+    override = commands.add_parser("workflow-override", help="Explicit finite human authority over graph workflow only")
+    overrides = override.add_subparsers(dest="workflow_kind", required=True)
+    for name in ("prepare", "approve", "preview", "continue", "launch", "settle", "revoke", "end", "status"):
+        sub = overrides.add_parser(name)
+        sub.add_argument("--run-id", required=True)
+        if name != "status":
+            sub.add_argument("--expected-revision", type=int, required=True)
+        if name not in {"prepare", "preview", "status"}:
+            sub.add_argument("--op-id", required=True)
+        if name == "prepare":
+            sub.add_argument("--contract-manifest", required=True)
+            sub.add_argument("--coverage-manifest")
+        elif name == "approve":
+            sub.add_argument("--intent-manifest", required=True)
+            sub.add_argument("--human-provenance", required=True)
+            sub.add_argument("--attest-human-origin", action="store_true")
+            sub.add_argument("--opt-in-format7", action="store_true")
+        elif name == "preview":
+            sub.add_argument("--action-manifest", required=True)
+        elif name == "continue":
+            sub.add_argument("--workflow-authority-ref", required=True)
+            sub.add_argument("--action-manifest", required=True)
+        elif name in {"launch", "settle"}:
+            sub.add_argument("--workflow-authority-ref", required=True)
+            sub.add_argument("--reservation-id", required=True)
+            if name == "settle":
+                sub.add_argument("--result-manifest")
+                sub.add_argument("--observation-manifest")
+                sub.add_argument("--claim-token")
+                sub.add_argument("--late-facts", action="store_true")
+                sub.add_argument("--known-effects", action="store_true")
+                sub.add_argument("--attest-execution-observation", action="store_true")
+                sub.add_argument("--outcome", choices=["succeeded", "failed", "cancelled", "unknown", "external_denied"], required=True)
+        elif name in {"revoke", "end"}:
+            sub.add_argument("--authority-ref", required=True)
+            sub.add_argument("--reason", required=True)
     usage_command = commands.add_parser("usage")
     usage_commands = usage_command.add_subparsers(dest="usage_kind", required=True)
     usage_checkpoint = usage_commands.add_parser("checkpoint")
@@ -3164,6 +4075,17 @@ def build_parser() -> argparse.ArgumentParser:
     enable.add_argument("--contract-version", type=int, required=True)
     enable.add_argument("--coverage-manifest", required=True)
     enable.add_argument("--op-id", required=True)
+    risk = commands.add_parser("design-risk", help="Explicit local human acceptance of one exhausted design judgment")
+    risks = risk.add_subparsers(dest="design_risk_kind", required=True)
+    for name in ("inspect", "prepare", "accept"):
+        sub = risks.add_parser(name)
+        sub.add_argument("--run-id", required=True)
+        sub.add_argument("--design-join-id", required=True)
+        if name != "inspect":
+            sub.add_argument("--op-id", required=True)
+        if name == "accept":
+            sub.add_argument("--receipt", required=True)
+            sub.add_argument("--authority-ref", required=True)
     recovery = commands.add_parser("recovery")
     recoveries = recovery.add_subparsers(dest="recovery_kind", required=True)
     show = recoveries.add_parser("show")
@@ -3197,7 +4119,7 @@ def _shared_parser() -> argparse.ArgumentParser:
     return build_parser()
 
 
-def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = None) -> Tuple[Dict[str, Any], int]:
+def _execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = None) -> Tuple[Dict[str, Any], int]:
     args = _shared_parser().parse_args(argv)
     if args.command == "usage":
         return usage.checkpoint(args.session_log), 0
@@ -3234,11 +4156,17 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
                                     normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
         return _json_result(True, "CONSTRAINTS_SELECTED", None, None, **result), 0
     state = store or StateStore(state_root=runtime_root)
+    args.resolved_state_root = str(state.state_root)
     if args.command == "init":
         return command_init(args, repo, policy, policy_snapshot, state), 0
     run_id = opaque(args.run_id, "run_id")
     with state.open_run(policy["repository_id"], run_id) as connection:
         run, stored_policy, task = _run_context(connection, run_id)
+        context = workflow.current_context()
+        context.__dict__.update(workflow_context(connection, run, args.workflow_authority_ref).__dict__)
+        context.dispatch_ref = args.workflow_authority_ref
+        context.expected_revision = args.expected_revision
+        context.capture_source = lambda conn, current: _workflow_capture(conn, current, stored_policy, task)
         skill_root = Path(__file__).resolve().parents[1]
         semantic_validator = lambda conn, current: verify_semantic_state(
             conn, current, repo, policy_snapshot.digest, policy, skill_root,
@@ -3248,6 +4176,8 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
         )
         is_mutation = (
             args.command in {"record", "complete", "block", "abort", "check", "evidence", "recover"}
+            or (args.command == "design-risk" and args.design_risk_kind != "inspect")
+            or (args.command == "workflow-override" and args.workflow_kind not in {"prepare", "preview", "status"})
             or (args.command in {"next", "ready"} and args.claim)
             or (args.command == "join" and args.join_kind == "advance")
         )
@@ -3256,7 +4186,11 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
                 connection, run, repo, policy_snapshot.digest, policy, skill_root,
                 case_sensitive=case_sensitive, runtime_root=state.state_root,
             )
-        if args.command == "recover":
+        if args.command == "workflow-override":
+            result = command_workflow_override(args, connection, run, stored_policy, task, state, semantic_validator)
+        elif args.command == "design-risk":
+            result = command_design_risk(args, connection, run, stored_policy, task, state, semantic_validator)
+        elif args.command == "recover":
             result = command_recover(args, connection, run, stored_policy, state, semantic_validator)
         elif args.command == "recovery":
             result = command_recovery(connection, run, args.branch_id)
@@ -3288,7 +4222,7 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
                 args, connection, run, stored_policy, task, state, semantic_validator,
             )
         elif args.command == "status":
-            result = command_status(connection, run)
+            result = command_status(connection, run, state.state_root)
         else:
             result = command_run_control(
                 args, connection, run, stored_policy, task, state, semantic_validator,
@@ -3299,6 +4233,14 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
     if result["code"] in {"GRAPH_BLOCKED", "EXECUTION_PLAN_REJECTED"}:
         return result, 3
     return result, 0
+
+
+def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = None) -> Tuple[Dict[str, Any], int]:
+    try:
+        with workflow.using_context(workflow.EffectiveContext()):
+            return _execute(argv, store)
+    except workflow.WorkflowAuthorityError as error:
+        raise StateError(str(error)) from error
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

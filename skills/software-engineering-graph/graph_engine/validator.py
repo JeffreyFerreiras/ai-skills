@@ -1,6 +1,7 @@
 """Transition, consolidation, and exhaustive persisted-state validation."""
 
 import json
+import os
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -14,19 +15,24 @@ from .contracts import (
     safe_json_snapshot, validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
 )
 from .config import engine_version_compatible, version_tuple, validate_task_capability_paths
-from .evidence import reverify_artifact
+from .evidence import reverify_artifact, workflow_source_binding
 from .execution import CODE_REVIEW_PANEL, reconstruct_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST
 from .ids import canonical_bytes, sha256_bytes, stable_id
+from . import design_risk
+from . import workflow_authority as workflow
+from .checks import capture_source, source_roots, source_path_contains, evidence_activation, lifecycle_artifacts
+from .evidence import canonical_ledger_artifact
+from .constraints import select_constraints
 from .reviewer_delegation import (
     consolidate_findings, delegated_identity, freeze_terminal_member, request_slot_id, validate_fanout_request,
     validate_preliminary,
 )
 from .planner import (
     NodeSpec, branch_id, delivery_review_nodes, design_research_nodes, design_review_nodes, envelope, fanout_id,
-    initial_route_nodes, revised_design_node, validate_fanout_ordering,
+    initial_route_nodes, revised_design_node, implementation_node, validate_fanout_ordering,
 )
-from .state import StateError, current_host_identity, repository_identity, resolve_state_root
+from .state import StateError, current_actor, current_host_identity, repository_identity, resolve_state_root, workflow_context
 
 
 TERMINAL = {"succeeded", "failed", "timed_out", "skipped"}
@@ -77,7 +83,593 @@ def _operation_responses(connection: sqlite3.Connection, run_id: str) -> List[Ma
     return responses
 
 
-def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[str, Any]) -> None:
+def _risk_artifact(connection, run, ref, kind=None):
+    row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND ref=? AND immutable=1",
+                             (run["run_id"], ref)).fetchone()
+    if row is None or row["source_type"] != "ledger" or not row["content_json"] or (kind and row["kind"] != kind):
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    value = json.loads(row["content_json"])
+    canonical = canonical_ledger_artifact(ref.split(":", 1)[1].split("#", 1)[0], row["kind"], value)
+    if (canonical.ref, canonical.sha256, canonical.size_bytes) != (row["ref"], row["sha256"], row["size_bytes"]):
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    return dict(row), value
+
+
+def _risk_input(connection, run, ref):
+    row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND ref=?", (run["run_id"], ref)).fetchone()
+    if row is None:
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    return {key: row[key] for key in ("kind", "ref", "sha256", "size_bytes")}
+
+
+def original_blocked_run(run):
+    value = {key: run[key] for key in ("status", "blocked_reason", "finished_at")}
+    validate_original_blocked_run(value)
+    return value
+
+
+def validate_original_blocked_run(value):
+    design_risk.exact_keys(value, {"status", "blocked_reason", "finished_at"}, "original_blocked_run")
+    if value["status"] != "blocked" or value["blocked_reason"] != "DESIGN_REVISION_LIMIT":
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    timestamp = value["finished_at"]
+    if timestamp is not None:
+        # Parse only to validate; the archived spelling and precision are never normalized.
+        timestamp_microseconds(timestamp)
+
+
+def planning_constraint_artifact(connection, run, policy, task, spec, runtime_root):
+    """Project the existing planning constraints without persisting a preview."""
+    runtime_root = runtime_root or resolve_state_root()
+    repo = Path(run["repository_path"])
+    roots = ([runtime_root / item for item in policy["artifact_roots"]["runtime"]] if policy["schema_version"] == 3
+             else [repo / item for item in policy["artifact_roots"]["repo"]])
+    full = safe_json_snapshot(Path(run["task_path"]), roots, policy["artifact_kinds"]["task_brief"]["max_bytes"]).parsed
+    markers = [digest(item[len("planning-constraints:v1:"):], "planning_constraints")
+               for item in full["constraints"] if item.startswith("planning-constraints:v1:")]
+    if len(markers) > 1:
+        raise ContractError("planning_constraints", "MULTIPLE_ACTIVE_BUNDLES")
+    if not markers:
+        return None
+    bundle_row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND sha256=? AND kind='acceptance_evidence'",
+                                    (run["run_id"], markers[0])).fetchone()
+    reference_roots = roots + ([repo / item for item in policy["implementation_roots"]] if policy["schema_version"] == 3 else [])
+    bundle = safe_json_snapshot(Path(bundle_row["source_path"]), reference_roots, policy["limits"]["manifest_bytes"]).parsed
+    scope = []
+    if spec.key in {"tech_lead", "senior_engineer"}:
+        read_roots = source_roots(repo, policy, task["authority"]["capabilities"])
+        declared = full["scope"]["included"]
+        if declared and all(item.startswith("repo:") for item in declared) and not full["scope"]["excluded"]:
+            from .contracts import lexical_relative
+            paths = [lexical_relative(item[5:], "task_scope") for item in declared]
+            if all(any(source_path_contains(root, path) for root in read_roots) for path in paths):
+                scope = paths
+    supported = {row[0] for row in connection.execute("SELECT ref FROM artifacts WHERE run_id=?", (run["run_id"],))}
+    result = select_constraints(bundle, {"repository_id": policy["repository_id"], "acceptance_ids": task["acceptance_ids"],
+        "role": spec.role, "scope_paths": scope}, activated=True, supported=supported,
+        authority_refs=[task["policy_approval"]["authority_ref"]], normalize=lambda path: os.path.normcase(path).replace("\\", "/"))
+    if not result["active"] and not any(item["reason"] == "unresolved_scope" for item in result["excluded"]):
+        return None
+    value = {"kind": "planning_constraint_projection", "schema_version": 1, "task_digest": run["task_digest"],
+        "bundle_ref": bundle_row["ref"], "role": spec.role, "scope_paths": scope, "records": result["active"],
+        "diagnostics": [item for item in result["excluded"] if item["reason"] == "unresolved_scope"]}
+    return canonical_ledger_artifact("constraints-" + branch_id(run["run_id"], run["policy_digest"], spec), "evidence_manifest", value)
+
+
+def design_risk_cut(connection, run, cut):
+    """Rebuild counters and settled attempts at an immutable operation cut."""
+    operations = [dict(row) for row in connection.execute(
+        "SELECT * FROM operations WHERE run_id=? AND resulting_revision<=? ORDER BY resulting_revision",
+        (run["run_id"], cut))]
+    events = [dict(row) for row in connection.execute(
+        "SELECT revision,event_type,source_id,detail_json FROM events WHERE run_id=? AND revision<=? ORDER BY revision,event_id",
+        (run["run_id"], cut))]
+    by_operation = {row["operation_id"]: row for row in operations}
+    used = {row["budget_id"]: 0 for row in connection.execute("SELECT budget_id FROM budgets WHERE run_id=?", (run["run_id"],))}
+    claims, created, settled = set(), set(), set()
+    for operation in operations:
+        response = json.loads(operation["response_json"])
+        branch = response.get("branch", {})
+        if branch.get("branch_id"):
+            created.add(branch["branch_id"])
+        if branch.get("attempt_id"):
+            claims.add(branch["attempt_id"])
+        created.update(response.get("successor_branch_ids", []))
+        created.update(response.get("child_branch_ids", []))
+    for event in events:
+        operation = by_operation.get(event["source_id"])
+        if operation is None:
+            continue
+        request, response = json.loads(event["detail_json"]), json.loads(operation["response_json"])
+        if event["event_type"] == "record.budget-use":
+            used[request["budget_id"]] += request["amount"]
+        elif event["event_type"] == "join.advance":
+            if response.get("outcome") in {"REVISE", "REDESIGN"}:
+                used["design_revisions"] += 1
+            elif response.get("outcome") == "REPAIR":
+                used["delivery_repairs"] += 1
+        elif event["event_type"] == "check.start":
+            _, reservation = _risk_artifact(connection, run, response["artifact_ref"])
+            used[reservation["budget_id"]] += reservation["repeat_cost"]
+        if event["event_type"] in {"record.branch-result", "record.timeout"} and request.get("attempt_id"):
+            settled.add(request["attempt_id"])
+    attempts = [dict(row) for row in connection.execute(
+        "SELECT * FROM branch_attempts WHERE run_id=? ORDER BY branch_id,attempt_number", (run["run_id"],))
+                if row["attempt_id"] in claims]
+    for artifact in connection.execute("SELECT content_json FROM artifacts WHERE run_id=? AND source_type='ledger'", (run["run_id"],)):
+        value = json.loads(artifact[0])
+        if isinstance(value, dict) and value.get("attempt_id") in claims and (value.get("failure_code") or value.get("status") == "failed"):
+            owner = connection.execute("SELECT node_key,stage FROM nodes WHERE run_id=? AND branch_id=?",
+                (run["run_id"], value.get("branch_id"))).fetchone()
+            # This settled design evidence-quality retry grants no enforcement authority.
+            if (owner is None or tuple(owner) != ("tech_lead", "design")
+                    or value.get("failure_code") != "INSUFFICIENT_EVIDENCE"):
+                raise StateError("DESIGN_RISK_ENFORCEMENT_BOUNDARY")
+    if (len(attempts) != len(claims) or claims - settled
+            or any(not row["finished_at"] or row["outcome"] in {None, "running"} for row in attempts)):
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    budgets = [{"budget_id": row["budget_id"], "limit_value": row["limit_value"], "used": used[row["budget_id"]]}
+               for row in connection.execute("SELECT * FROM budgets WHERE run_id=? ORDER BY budget_id", (run["run_id"],))]
+    return {"operations": operations, "events": events, "attempts": attempts, "budgets": budgets}, created
+
+
+def design_risk_context(connection, run, policy, task, join_identifier, cut, prepared_revision, source, constraint_inputs=()):
+    """Derive the sole eligible design and continuation from sealed evidence."""
+    if run["state_schema_version"] != 7 or run["selected_route"] not in {"full_delivery", "delivery_only", "fast_path"}:
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    plan = connection.execute("SELECT * FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+    if (plan["status"] != "approved" or plan["authority_ref"] != task["policy_approval"]["authority_ref"]
+            or plan["approved_by"] != current_actor() or run["host_identity"] != current_host_identity()):
+        raise StateError("DESIGN_RISK_AUTHORITY_MISMATCH")
+    for constraint in task.get("constraints", []):
+        lower = constraint.lower().replace("-", " ")
+        if ("human override" in lower or "design risk" in lower) and any(word in lower for word in ("not authorized", "no human", "excluded", "forbidden")):
+            raise StateError("DESIGN_RISK_AUTHORITY_MISMATCH")
+    history, created = design_risk_cut(connection, run, cut)
+    operations = {row["operation_id"]: row for row in history["operations"]}
+    candidates = []
+    for event in history["events"]:
+        operation = operations.get(event["source_id"])
+        if operation is None:
+            continue
+        response = json.loads(operation["response_json"])
+        if response.get("code") == "JOIN_ADVANCED" and response.get("outcome") == "BLOCK":
+            candidates.append((event, operation, response))
+        request = json.loads(event["detail_json"])
+        # A recorded enforcement action cannot be reinterpreted as reviewer judgment.
+        if event["event_type"] == "block" or request.get("failure_code") or request.get("reason_code") in {
+                "SECURITY_DENIED", "POLICY_DENIED", "ACCESS_DENIED", "PERMISSION_DENIED", "PLATFORM_DENIED",
+                "FILESYSTEM_DENIED", "CREDENTIAL_DENIED", "BRANCH_PROTECTION", "REQUIRED_CHECK_FAILED",
+                "PRODUCTION_RESTRICTION", "ADMINISTRATIVE_SAFEGUARD"}:
+            raise StateError("DESIGN_RISK_ENFORCEMENT_BOUNDARY")
+    if not candidates or candidates[-1][2].get("join_id") != join_identifier:
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    event, blocked_operation, response = candidates[-1]
+    join = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_id=?", (run["run_id"], join_identifier)).fetchone()
+    if (join is None or join["join_key"] != "design_consolidation" or join["status"] != "sealed"
+            or response.get("successor_branch_ids") != [] or response.get("created_join_ids") != []):
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    consolidation = join_members(connection, join_identifier)
+    collection = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_key='design_collection' AND generation=?",
+                                    (run["run_id"], join["generation"])).fetchone()
+    if len(consolidation) != 1 or collection is None or collection["status"] != "sealed":
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    members = join_members(connection, collection["join_id"])
+    manifest = json.loads(consolidation[0]["result_json"])
+    if (compute_design_outcome(members)[0] != "REVISE"
+            or validate_consolidation_manifest(manifest, "design", run["run_id"], collection["join_id"], join["generation"], members) != "REVISE"):
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    design = connection.execute("SELECT * FROM nodes WHERE run_id=? AND node_key='tech_lead' AND generation=? AND status='succeeded'",
+                                (run["run_id"], join["generation"])).fetchone()
+    if design is None or design["branch_id"] not in created:
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    reviewers = []
+    for member in members:
+        result = json.loads(member["result_json"])
+        reviewers.append({**dict(member), "result": result,
+                          "result_ref": "ledger:" + member["branch_id"] + "#sha256=" + member["result_digest"]})
+    results, findings = design_risk.review_projection(reviewers)
+    budget = next(item for item in history["budgets"] if item["budget_id"] == "design_revisions")
+    if budget["used"] != budget["limit_value"]:
+        raise StateError("DESIGN_RISK_INELIGIBLE")
+    # The current generation is derived from already debited redesign transitions, never incremented here.
+    reserved = [0]
+    for operation in history["operations"]:
+        value = json.loads(operation["response_json"])
+        if value.get("code") == "JOIN_ADVANCED" and value.get("outcome") in {"REDESIGN", "REPAIR"}:
+            prior = connection.execute("SELECT generation FROM joins WHERE join_id=? AND stage='delivery'", (value["join_id"],)).fetchone()
+            if prior:
+                reserved.append(prior[0] + 1)
+    generation = max(reserved)
+    if generation and not any(json.loads(item["response_json"]).get("outcome") == "REDESIGN" for item in history["operations"]):
+        raise StateError("DESIGN_RISK_IMPLEMENTATION_LIMIT")
+    if any(row["branch_id"] in created and row["generation"] == generation for row in connection.execute(
+            "SELECT branch_id,generation FROM nodes WHERE run_id=? AND node_key='senior_engineer'", (run["run_id"],))):
+        raise StateError("DESIGN_RISK_IMPLEMENTATION_LIMIT")
+    if any(row["failure_code"] is not None or row["status"] in {"pending", "ready", "running", "waiting_for_review_children", "timed_out"}
+           for row in connection.execute("SELECT * FROM nodes WHERE run_id=?", (run["run_id"],)) if row["branch_id"] in created):
+        raise StateError("DESIGN_RISK_ENFORCEMENT_BOUNDARY")
+    activation_row, activation = evidence_activation(connection, run)
+    roots = source_roots(Path(run["repository_path"]), policy, task["authority"]["capabilities"])
+    if roots != activation["roots"] or source["roots"] != roots:
+        raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+    for capability in task["authority"]["capabilities"]:
+        if capability["effect"] == "filesystem_write" and capability["target_ref"].startswith("repo:"):
+            if not any(source_path_contains(root, capability["target_ref"][5:]) for root in roots):
+                raise StateError("SOURCE_UNVERIFIABLE")
+    if (source["sha256"] != design_risk.hashed(source["manifest"])
+            or source["path_count"] != len(source["manifest"]["paths"])
+            or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", source["manifest"]["head"])):
+        raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+    known_bindings = set()
+    for member in [design, *members]:
+        for item in json.loads(member["envelope_json"])["inputs"]:
+            artifact = connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (item["ref"],)).fetchone()
+            if artifact and artifact[0] and json.loads(artifact[0]).get("kind") == "review_source_binding":
+                known_bindings.add(item["ref"])
+    if len(known_bindings) > 1:
+        raise StateError("DESIGN_RISK_BINDING_MISMATCH")
+    original_binding = next(iter(known_bindings), None)
+    if original_binding:
+        _, binding = _risk_artifact(connection, run, original_binding, "evidence_manifest")
+        if (binding.get("source_digest") != source["sha256"] or binding.get("coverage", {}).get("roots") != roots
+                or any(binding.get(key) != expected for key, expected in
+                       (("task_digest", run["task_digest"]), ("policy_digest", run["policy_digest"]), ("plan_digest", plan["plan_digest"])))):
+            raise StateError("DESIGN_RISK_SOURCE_CHANGED")
+    inputs = [_risk_input(connection, run, run["task_ref"])]
+    for node in (consolidation[0], design):
+        result = json.loads(node["result_json"])
+        inputs.append(_risk_input(connection, run, "ledger:" + node["branch_id"] + "#sha256=" + node["result_digest"]))
+        if result.get("artifact_ref"):
+            inputs.append(_risk_input(connection, run, result["artifact_ref"]["ref"]))
+    inputs = list({item["ref"]: item for item in inputs}.values()) + list(constraint_inputs)
+    projection = envelope(run["run_id"], run["policy_digest"], policy, task, implementation_node(policy, generation),
+                          "ready", inputs, execution_plan=json.loads(plan["plan_json"]))
+    collection_refs = [item for item in json.loads(consolidation[0]["envelope_json"])["inputs"] if item["kind"] == "collection"]
+    if len(collection_refs) != 1:
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    scope = {
+        "run_id": run["run_id"], "repository_identity": {"repository_id": run["repository_id"], "path": run["repository_path"],
+            "device": run["repository_device"], "inode": run["repository_inode"]},
+        "task_ref": run["task_ref"], "task_digest": run["task_digest"], "plan_digest": plan["plan_digest"],
+        "plan_approval_digest": plan["approval_digest"], "policy_digest": run["policy_digest"],
+        "prepared_revision": prepared_revision, "design_generation": join["generation"], "implementation_generation": generation,
+        "design_result_ref": "ledger:" + design["branch_id"] + "#sha256=" + design["result_digest"],
+        "design_artifact_ref": json.loads(design["result_json"])["artifact_ref"]["ref"],
+        "original_review_source_binding_ref": original_binding,
+        "source_provenance": "original_binding_verified" if original_binding else "current_context_only",
+        "review_collection_ref": collection_refs[0]["ref"], "consolidation_join_id": join_identifier,
+        "consolidation_result_ref": "ledger:" + consolidation[0]["branch_id"] + "#sha256=" + consolidation[0]["result_digest"],
+        "review_results": results, "accepted_findings": findings,
+        "blocked_event": {"revision": event["revision"], "source_id": event["source_id"], "digest": design_risk.hashed(event)},
+        "blocked_reason": "DESIGN_REVISION_LIMIT", "source_digest": source["sha256"], "head_oid": source["manifest"]["head"],
+        "continuation_envelope_digest": design_risk.hashed(projection), "budget_and_attempts_digest": design_risk.hashed(history),
+    }
+    return {"scope": scope, "continuation": projection, "history": history, "coverage": activation["checks"]}
+
+
+def _risk_allowances_at(connection, run, revision):
+    used = {row[0]: 0 for row in connection.execute("SELECT budget_id FROM budgets WHERE run_id=?", (run["run_id"],))}
+    for row in connection.execute("SELECT e.detail_json,e.event_type,o.response_json FROM events e JOIN operations o ON o.run_id=e.run_id AND o.operation_id=e.source_id WHERE e.run_id=? AND e.revision<? ORDER BY e.revision", (run["run_id"], revision)):
+        request, response = json.loads(row[0]), json.loads(row[2])
+        if row[1] == "record.budget-use":
+            used[request["budget_id"]] += request["amount"]
+        elif row[1] == "join.advance" and response.get("outcome") in {"REVISE", "REDESIGN", "REPAIR"}:
+            used["delivery_repairs" if response["outcome"] == "REPAIR" else "design_revisions"] += 1
+        elif row[1] == "check.start":
+            _, reservation = _risk_artifact(connection, run, response["artifact_ref"])
+            used[reservation["budget_id"]] += reservation["repeat_cost"]
+    return {row["budget_id"]: row["limit_value"] - used[row["budget_id"]]
+            for row in connection.execute("SELECT * FROM budgets WHERE run_id=?", (run["run_id"],))}
+
+
+def _risk_branch_result(connection, run, branch_identifier, request, outcome):
+    matches = []
+    for row in connection.execute("SELECT * FROM artifacts WHERE run_id=? AND source_type='ledger' AND ref LIKE ?",
+            (run["run_id"], "ledger:" + branch_identifier + "#sha256=%")):
+        value = json.loads(row["content_json"])
+        if value.get("attempt_id") == request["attempt_id"] and value.get("claim_digest") == request["claim_digest"]:
+            matches.append((row, value))
+    if len(matches) != 1:
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    row, value = matches[0]
+    _risk_artifact(connection, run, row["ref"])
+    if outcome == "timed_out":
+        if value.get("kind") != "timeout":
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+        control_row, control = _risk_artifact(connection, run, value["evidence_manifest_ref"], "evidence_manifest")
+        evidence = control["evidence"] + [{key: control_row[key] for key in ("kind", "ref", "sha256")}]
+    else:
+        if value.get("status") != outcome:
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+        evidence = value.get("evidence", [])
+    return {"attempt_id": request["attempt_id"], "failure_result_ref": row["ref"], "failure_evidence": evidence}
+
+
+def _risk_retry_judgment(connection, run, task, operation, request, packet):
+    if "repair_judgment_digest" not in request:
+        return
+    rows = list(connection.execute("SELECT ref FROM artifacts WHERE run_id=? AND ref LIKE ?",
+        (run["run_id"], "ledger:repair-judgment-" + operation["operation_id"] + "#sha256=%")))
+    if len(rows) != 1:
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    _, witness = _risk_artifact(connection, run, rows[0][0], "evidence_manifest")
+    expected = {"kind": "repair_judgment_witness", "schema_version": 1, "run_id": run["run_id"],
+        "branch_id": packet["branch_id"], "generation": packet["generation"], "operation_id": operation["operation_id"],
+        "raw_text": witness["raw_text"]}
+    if witness != expected or sha256_bytes(witness["raw_text"].encode("utf-8")) != request["repair_judgment_digest"]:
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    judgment = json.loads(witness["raw_text"])
+    design_risk.exact_keys(judgment, {"schema_version", "kind", "cause", "failed_criterion_ids", "authorized_scope"})
+    if (type(judgment["schema_version"]) is not int or judgment["schema_version"] != 1 or judgment["kind"] != "repair_judgment"
+            or judgment["cause"] not in {"implementation", "design", "dependency", "infrastructure", "unknown"}
+            or not isinstance(judgment["failed_criterion_ids"], list)
+            or len(set(judgment["failed_criterion_ids"])) != len(judgment["failed_criterion_ids"])
+            or not set(judgment["failed_criterion_ids"]).issubset(task["acceptance_ids"])
+            or not isinstance(judgment["authorized_scope"], list) or len(judgment["authorized_scope"]) > 32):
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    for capability in judgment["authorized_scope"]:
+        design_risk.exact_keys(capability, {"effect", "action", "target_ref"})
+        if not any(capability["effect"] == allowed["effect"] and capability["action"] == allowed["action"]
+                   and source_path_contains(allowed["target_ref"], capability["target_ref"]) for allowed in packet["authorized_scope"]):
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+    packet.update(cause=judgment["cause"], failed_criterion_ids=sorted(judgment["failed_criterion_ids"]),
+                  authorized_scope=judgment["authorized_scope"], unresolved_judgments=["source_change_summary_unavailable"])
+    if judgment["cause"] == "design":
+        packet["return_gates"] = ["tech_lead", "architect"]
+    elif judgment["cause"] in {"dependency", "infrastructure", "unknown"}:
+        packet["return_gates"] = ["supervisor"]
+
+
+def _validate_risk_input_evolution(connection, run, task, continuation, initial_inputs, accepted_revision, env):
+    """Replay only the ordinary, fenced operations that own this branch's packet inputs."""
+    branch_identifier = continuation["branch_id"]
+    inputs, state, retries, attempt, failure, prior_packet = list(initial_inputs), "ready", 0, None, None, None
+    packet_refs, witnessed = [], set()
+    plan_digest = connection.execute("SELECT plan_digest FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()[0]
+    operations = {row["operation_id"]: row for row in connection.execute("SELECT * FROM operations WHERE run_id=?", (run["run_id"],))}
+    for event in connection.execute("SELECT * FROM events WHERE run_id=? AND revision>? ORDER BY revision,event_id", (run["run_id"], accepted_revision)):
+        operation = operations.get(event["source_id"])
+        if operation is None:
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+        request, response = json.loads(event["detail_json"]), json.loads(operation["response_json"])
+        command = event["event_type"]
+        claimed = response.get("branch", {}) if command == "next.claim" else {}
+        owns = claimed.get("branch_id") == branch_identifier if command == "next.claim" else request.get("branch_id") == branch_identifier
+        if not owns or command not in {"next.claim", "record.retry", "record.branch-result", "record.timeout", "record.heartbeat"}:
+            continue
+        if (request.get("command") != command or operation["resulting_revision"] != event["revision"]
+                or operation["request_digest"] != design_risk.hashed(request)):
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+        if command in {"record.branch-result", "record.timeout", "record.heartbeat"}:
+            if state != "running" or attempt is None or request.get("attempt_id") != attempt["attempt_id"] or request.get("claim_digest") != attempt["claim_digest"]:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            if command == "record.heartbeat":
+                continue
+            state = "timed_out" if command == "record.timeout" else response["branch_status"]
+            if state not in {"failed", "timed_out", "succeeded"} or attempt["outcome"] != state or not attempt["finished_at"]:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            failure = _risk_branch_result(connection, run, branch_identifier, request, state)
+            continue
+        if command == "record.retry":
+            if state not in {"failed", "timed_out"}:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            if retries >= continuation["max_retries"]:
+                if response.get("code") != "GRAPH_BLOCKED" or response.get("repair_packet_refs"):
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                continue
+            refs = response.get("repair_packet_refs")
+            if (not isinstance(refs, list) or len(refs) != 1 or refs[0] in witnessed
+                    or response.get("code") != "RETRY_RECORDED" or response.get("branch_id") != branch_identifier
+                    or response.get("branch_status") != "ready" or response.get("promoted_branch_ids") != []):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            packet = {"kind": "repair_packet", "schema_version": 1, "run_id": run["run_id"], "task_digest": run["task_digest"],
+                "plan_digest": plan_digest, "branch_id": branch_identifier,
+                "attempt_id": failure["attempt_id"], "generation": continuation["generation"], "state_revision": event["revision"],
+                "origin_gate": "senior_engineer", "failure_evidence": failure["failure_evidence"], "failure_result_ref": failure["failure_result_ref"],
+                "failed_criterion_ids": [], "cause": "unknown", "source_changes": [],
+                "authorized_scope": [item for item in continuation["effect_capabilities"] if item["effect"].startswith("filesystem")],
+                "relevant_inputs": list(inputs), "return_gates": ["senior_engineer"], "remaining_retries": continuation["max_retries"] - retries,
+                "remaining_allowances": _risk_allowances_at(connection, run, event["revision"]), "next_permitted_action": "retry",
+                "unresolved_judgments": ["failure_cause", "failed_criteria", "repair_scope", "source_change_summary_unavailable"]}
+            _risk_retry_judgment(connection, run, task, operation, request, packet)
+            identifier = "repair-" + operation["operation_id"]
+            retries += 1
+            state, attempt = "ready", None
+        else:
+            if (state != "ready" or claimed.get("retry_count") != retries or response.get("code") != "CLAIMED"
+                    or any(claimed.get(key) != continuation[key] for key in
+                           ("model", "reasoning_effort", "effect_capabilities", "max_retries", "generation", "stopping_condition", "output_contract"))):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            if packet_refs:
+                if response.get("replaced_repair_packet_refs") != packet_refs:
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                base = [item for item in inputs if item["ref"] not in packet_refs]
+                refs = [item["ref"] for item in claimed["inputs"] if item not in base]
+                if len(refs) != 1 or refs[0] in witnessed:
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                packet = {**prior_packet, "state_revision": event["revision"], "remaining_retries": continuation["max_retries"] - retries,
+                    "remaining_allowances": _risk_allowances_at(connection, run, event["revision"]), "next_permitted_action": "supervisor_assessment"}
+                inputs = base
+                packet_refs = []
+                identifier = "repair-claim-" + operation["operation_id"]
+            else:
+                if claimed["inputs"] != inputs or response.get("replaced_repair_packet_refs"):
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                refs = []
+            attempts = connection.execute("SELECT * FROM branch_attempts WHERE run_id=? AND branch_id=? AND attempt_id=?",
+                (run["run_id"], branch_identifier, claimed["attempt_id"])).fetchall()
+            if len(attempts) != 1 or attempts[0]["claim_digest"] != claimed["claim_digest"] or attempts[0]["attempt_number"] != retries + 1:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            attempt, state = attempts[0], "running"
+        if refs:
+            artifact = canonical_ledger_artifact(identifier, "failure", packet)
+            if refs != [artifact.ref]:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            _, actual = _risk_artifact(connection, run, refs[0], "failure")
+            if actual != packet:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            inputs = sorted(inputs + [artifact.as_input()], key=lambda item: (item["kind"], item["ref"]))
+            packet_refs.append(artifact.ref)
+            witnessed.add(artifact.ref)
+            prior_packet = packet
+        if command == "next.claim" and claimed["inputs"] != inputs:
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+    own_packets = {row["ref"] for row, payload in lifecycle_artifacts(connection, run["run_id"], "repair_packet")
+                   if payload.get("branch_id") == branch_identifier}
+    if (own_packets != witnessed or env["inputs"] != inputs or env["retry_count"] != retries or env["status"] != state
+            or env["attempt_id"] != (attempt["attempt_id"] if attempt else None)
+            or env["claim_digest"] != (attempt["claim_digest"] if attempt else None)):
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+    return {"active_repair_packet_refs": packet_refs, "historical_repair_packet_refs": sorted(witnessed)}
+
+
+def validate_design_risk_history(connection, run, policy, task, runtime_root=None):
+    """Validate extension artifacts, operations and events before trusting a successor."""
+    try:
+        artifacts = {}
+        for row in connection.execute("SELECT * FROM artifacts WHERE run_id=? AND source_type='ledger'", (run["run_id"],)):
+            value = json.loads(row["content_json"])
+            if isinstance(value, dict) and value.get("kind") in design_risk.KINDS:
+                _risk_artifact(connection, run, row["ref"], "evidence_manifest")
+                if type(value.get("schema_version")) is not int or value["schema_version"] != 1:
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                artifacts[row["ref"]] = (dict(row), value)
+        events = list(connection.execute("SELECT * FROM events WHERE run_id=? AND event_type LIKE 'design-risk.%' ORDER BY revision,event_id", (run["run_id"],)))
+        operations = {row["operation_id"]: row for row in connection.execute("SELECT * FROM operations WHERE run_id=?", (run["run_id"],))}
+        witnessed, accepted, event_operations = set(), {}, set()
+        for event in events:
+            operation = operations.get(event["source_id"])
+            if operation is None or event["source_id"] in event_operations:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            event_operations.add(event["source_id"])
+            request, response = json.loads(event["detail_json"]), json.loads(operation["response_json"])
+            if (event["event_type"] not in {"design-risk.prepare", "design-risk.accept"}
+                    or request.get("command") != event["event_type"]
+                    or operation["resulting_revision"] != event["revision"]
+                    or operation["request_digest"] != design_risk.hashed(request)):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            ref = response.get("preparation_ref") if event["event_type"] == "design-risk.prepare" else request.get("preparation_ref")
+            if ref not in artifacts:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            preparation_row, preparation = artifacts[ref]
+            if preparation.get("kind") != design_risk.PREPARATION:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            design_risk.exact_keys(preparation, {"kind", "schema_version", "scope", "scope_digest", "prepared_from_revision",
+                "prepared_revision", "actor", "host_identity", "prepared_at", "source", "continuation", "constraint_artifacts", "coverage", "budgets", "original_blocked_run"})
+            validate_original_blocked_run(preparation["original_blocked_run"])
+            constraint_inputs = []
+            expected_constraint = planning_constraint_artifact(connection, run, policy, task,
+                implementation_node(policy, preparation["scope"]["implementation_generation"]), runtime_root)
+            expected_constraint_values = [{"identifier": "constraints-" + preparation["continuation"]["branch_id"],
+                                           "value": json.loads(expected_constraint.content_json)}] if expected_constraint else []
+            if preparation["constraint_artifacts"] != expected_constraint_values:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            for constraint in preparation["constraint_artifacts"]:
+                canonical = canonical_ledger_artifact(constraint["identifier"], "evidence_manifest", constraint["value"])
+                if (constraint["value"].get("kind") != "planning_constraint_projection"
+                        or constraint["value"].get("task_digest") != run["task_digest"] or constraint["value"].get("role") != "senior_engineer"
+                        or constraint["identifier"] != "constraints-" + preparation["continuation"]["branch_id"]):
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                constraint_inputs.append(canonical.as_input())
+            context = design_risk_context(connection, run, policy, task, preparation["scope"]["consolidation_join_id"],
+                preparation["prepared_from_revision"], preparation["prepared_revision"], preparation["source"], constraint_inputs)
+            if (preparation["scope"] != context["scope"] or preparation["continuation"] != context["continuation"]
+                    or preparation["scope_digest"] != design_risk.scope_digest(context["scope"])
+                    or preparation["coverage"] != context["coverage"] or preparation["budgets"] != context["history"]["budgets"]
+                    or preparation["prepared_revision"] != preparation["prepared_from_revision"] + 1
+                    or preparation["actor"] != current_actor() or preparation["host_identity"] != run["host_identity"]):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            prepared_at = timestamp_microseconds(preparation["prepared_at"])
+            if any(timestamp_microseconds(attempt["finished_at"]) > prepared_at for attempt in context["history"]["attempts"]):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            if event["event_type"] == "design-risk.prepare":
+                if (event["revision"] != preparation["prepared_revision"] or request != {
+                        "command": "design-risk.prepare", "design_join_id": context["scope"]["consolidation_join_id"]}
+                        or response.get("scope_digest") != preparation["scope_digest"]
+                        or response.get("original_blocked_run_digest") != design_risk.hashed(preparation["original_blocked_run"])
+                        or response.get("code") != "DESIGN_RISK_PREPARED"):
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                witnessed.add(ref)
+                continue
+            target = context["scope"]["consolidation_join_id"]
+            if (ref not in witnessed or target in accepted or event["revision"] != preparation["prepared_revision"] + 1
+                    or request.get("design_join_id") != target):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            refs = [response.get(key) for key in ("receipt_ref", "attestation_ref", "effective_resolution_ref")]
+            if any(item not in artifacts for item in refs):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            receipt, attestation, resolution = [artifacts[item][1] for item in refs]
+            design_risk.validate_receipt(receipt)
+            scope = {**preparation["scope"], "preparation_ref": ref}
+            plan = connection.execute("SELECT * FROM execution_plans WHERE run_id=?", (run["run_id"],)).fetchone()
+            _, human = _risk_artifact(connection, run, attestation["human_evidence_ref"], "evidence_manifest")
+            design_risk.validate_human_evidence(human, receipt, plan["authority_ref"], preparation["actor"])
+            expected_attestation = {"kind": design_risk.ATTESTATION, "schema_version": 1, "receipt_ref": refs[0],
+                "receipt_digest": artifacts[refs[0]][0]["sha256"], "scope_digest": preparation["scope_digest"],
+                "authority_ref": plan["authority_ref"], "actor": preparation["actor"], "host_identity": run["host_identity"],
+                "operation_id": event["source_id"], "attested_at": attestation["attested_at"],
+                "human_evidence_ref": attestation["human_evidence_ref"], "assurance": design_risk.ASSURANCE}
+            if timestamp_microseconds(attestation["attested_at"]) < prepared_at:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            expected_resolution = {"kind": design_risk.RESOLUTION, "schema_version": 1, "run_id": run["run_id"],
+                "design_join_id": target, "preparation_ref": ref, "receipt_ref": refs[0], "attestation_ref": refs[1],
+                "original_outcome": "REVISE", "effective_action": "CONTINUE_EXISTING_DESIGN",
+                "blocked_event": scope["blocked_event"], "successor_branch_id": context["continuation"]["branch_id"],
+                "original_blocked_run": preparation["original_blocked_run"]}
+            expected_request = {"command": "design-risk.accept", "design_join_id": target, "preparation_ref": ref,
+                "receipt_digest": design_risk.hashed(receipt), "authority_ref": plan["authority_ref"],
+                "human_evidence_digest": receipt["human_provenance"]["human_evidence_sha256"]}
+            original_human = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND ref=?",
+                (run["run_id"], receipt["human_provenance"]["human_evidence_ref"])).fetchone()
+            if original_human is None or original_human["kind"] != "evidence_manifest":
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            if original_human["source_type"] == "ledger":
+                _, original_human_value = _risk_artifact(connection, run, original_human["ref"], "evidence_manifest")
+            else:
+                path = Path(original_human["source_path"])
+                original_snapshot = safe_json_snapshot(path, [path.parent], policy["artifact_kinds"]["evidence_manifest"]["max_bytes"])
+                if (original_snapshot.digest != original_human["sha256"]
+                        or original_snapshot.identity != (original_human["device"], original_human["inode"])):
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+                original_human_value = original_snapshot.parsed
+            if (receipt["scope"] != scope or receipt["scope_digest"] != preparation["scope_digest"]
+                    or attestation != expected_attestation or resolution != expected_resolution or request != expected_request
+                    or human != original_human_value or original_human["sha256"] != request["human_evidence_digest"]
+                    or response.get("code") != "DESIGN_RISK_ACCEPTED" or response.get("design_join_id") != target
+                    or response.get("successor_branch_ids") != [context["continuation"]["branch_id"]]
+                    or response.get("created_join_ids") != [] or response.get("created_fanout_ids") != []):
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            successor = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (run["run_id"], context["continuation"]["branch_id"])).fetchone()
+            if successor is None:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+            env = json.loads(successor["envelope_json"])
+            expected_inputs = sorted(context["continuation"]["inputs"] + [_risk_input(connection, run, item) for item in refs],
+                                     key=lambda item: (item["kind"], item["ref"]))
+            packet_provenance = _validate_risk_input_evolution(connection, run, task, context["continuation"], expected_inputs, event["revision"], env)
+            for key in ("model", "reasoning_effort", "effect_capabilities", "max_retries", "stopping_condition", "output_contract", "generation"):
+                if env[key] != context["continuation"][key]:
+                    raise StateError("DESIGN_RISK_STATE_INVALID")
+            if not connection.execute("SELECT 1 FROM branch_attempts WHERE branch_id=?", (successor["branch_id"],)).fetchone():
+                fresh = capture_source(Path(run["repository_path"]), policy, preparation["source"]["roots"],
+                    known_inputs=sorted({path for paths in preparation["coverage"].values() for path in paths}), include_manifest=True)
+                if fresh != preparation["source"]:
+                    raise StateError("DESIGN_RISK_SOURCE_CHANGED")
+            witnessed.update(refs)
+            accepted[target] = {**resolution, "receipt_ref": refs[0], "attestation_ref": refs[1],
+                                "effective_resolution_ref": refs[2], "scope": scope, "budgets": preparation["budgets"],
+                                "packet_provenance": packet_provenance}
+        if set(artifacts) != witnessed:
+            raise StateError("DESIGN_RISK_STATE_INVALID")
+        for operation in operations.values():
+            if json.loads(operation["response_json"]).get("code") in {"DESIGN_RISK_PREPARED", "DESIGN_RISK_ACCEPTED"} and operation["operation_id"] not in event_operations:
+                raise StateError("DESIGN_RISK_STATE_INVALID")
+        return accepted
+    except (KeyError, TypeError, ValueError, IndexError, ContractError):
+        raise StateError("DESIGN_RISK_STATE_INVALID")
+
+
+def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[str, Any], risk_resolutions=None) -> None:
     execution_plan = json.loads(connection.execute(
         "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
     ).fetchone()[0])
@@ -109,6 +701,12 @@ def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[s
     actual_joins = {row[0] for row in connection.execute("SELECT join_id FROM joins WHERE run_id=?", (run["run_id"],))}
     actual_fanouts = {row[0] for row in connection.execute("SELECT fanout_id FROM fanouts WHERE run_id=?", (run["run_id"],))}
     policy = json.loads(run["policy_json"])
+    if risk_resolutions is None:
+        risk_resolutions = validate_design_risk_history(connection, run, policy, json.loads(run["task_json"]))
+    expected_risk_nodes = {item["successor_branch_id"] for item in risk_resolutions.values()}
+    for response in operation_responses:
+        if response.get("code") == "DESIGN_RISK_ACCEPTED" and not set(response.get("successor_branch_ids", [])).issubset(expected_risk_nodes):
+            raise StateError("DESIGN_RISK_STATE_INVALID")
     research_successors = {
         join["join_id"]: branch_id(
             run["run_id"], run["policy_digest"], revised_design_node(policy, join["generation"])
@@ -125,7 +723,9 @@ def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[s
             if expected_successor in successors and (
                 response.get("code") != "JOIN_ADVANCED" or response_join != join_identifier
             ):
-                raise StateError("TOPOLOGY_HISTORY_INVALID")
+                if not workflow.gate(False, "RESEARCH_ORDER", expected_successor,
+                        {"join_id": join_identifier, "operation": response.get("code")}, "validate"):
+                    raise StateError("TOPOLOGY_HISTORY_INVALID")
     mapper = connection.execute(
         "SELECT * FROM nodes WHERE run_id=? AND node_key='impact_mapper'", (run["run_id"],)
     ).fetchone()
@@ -245,7 +845,9 @@ def _validate_fanouts(
                 connection.execute("SELECT status FROM nodes WHERE branch_id=?", (member_id,)).fetchone()[0] != "pending"
                 for member_id in member_ids
             ):
-                raise StateError("FANOUT_ASSESSMENT_REQUIRED")
+                if not workflow.gate(False, "FANOUT_ASSESSMENT_REQUIRED", fanout["fanout_id"],
+                        {"status": "awaiting", "members": member_ids}, "validate"):
+                    raise StateError("FANOUT_ASSESSMENT_REQUIRED")
             continue
         artifact = connection.execute("SELECT * FROM artifacts WHERE ref=?", (fanout["assessment_ref"],)).fetchone()
         if artifact is None or artifact["kind"] != "evidence_manifest" or artifact["sha256"] != fanout["assessment_digest"] or not artifact["content_json"]:
@@ -534,7 +1136,8 @@ def _validate_attempts(connection: sqlite3.Connection, run: Mapping[str, Any]) -
             raise StateError("TIMESTAMP_ORDER_INVALID")
         if node_finished is not None and node_started is not None and node_finished < node_started:
             raise StateError("TIMESTAMP_ORDER_INVALID")
-        if finished is not None and node_finished is not None and node_finished > finished:
+        if finished is not None and node_finished is not None and node_finished > finished and not workflow.gate(
+                False, "POST_TERMINAL_SETTLEMENT", node["branch_id"], {"finished_at": run["finished_at"], "node_finished_at": node["finished_at"]}, "validate"):
             raise StateError("TIMESTAMP_ORDER_INVALID")
         node_envelope = json.loads(node["envelope_json"])
         if node_envelope.get("started_at") != node["started_at"] or node_envelope.get("finished_at") != node["finished_at"]:
@@ -569,7 +1172,8 @@ def _validate_attempts(connection: sqlite3.Connection, run: Mapping[str, Any]) -
                 raise StateError("ATTEMPT_STATE_INVALID")
             if attempt_finish is not None and index < len(attempts) - 1 and attempt["outcome"] not in {"failed", "timed_out", "delegated"}:
                 raise StateError("ATTEMPT_HISTORY_INVALID")
-            if finished is not None and attempt_finish is not None and attempt_finish > finished:
+            if finished is not None and attempt_finish is not None and attempt_finish > finished and not workflow.gate(
+                    False, "POST_TERMINAL_SETTLEMENT", attempt["attempt_id"], {"finished_at": run["finished_at"], "attempt_finished_at": attempt["finished_at"]}, "validate"):
                 raise StateError("ATTEMPT_TIMESTAMP_INVALID")
             previous_start = attempt_start
             previous_finish = attempt_finish
@@ -615,9 +1219,10 @@ def _attempt_intervals(connection: sqlite3.Connection, branch_id: str) -> List[T
 def _semantic_edges(connection: sqlite3.Connection, run_id: str) -> Set[Tuple[str, str]]:
     edges: Set[Tuple[str, str]] = set()
     for response in _operation_responses(connection, run_id):
-        if response.get("code") != "JOIN_ADVANCED":
+        if response.get("code") not in {"JOIN_ADVANCED", "DESIGN_RISK_ACCEPTED"}:
             continue
-        join = connection.execute("SELECT * FROM joins WHERE join_id=?", (response["join_id"],)).fetchone()
+        identifier = response["design_join_id"] if response["code"] == "DESIGN_RISK_ACCEPTED" else response["join_id"]
+        join = connection.execute("SELECT * FROM joins WHERE join_id=?", (identifier,)).fetchone()
         if join is None:
             raise StateError("TOPOLOGY_HISTORY_INVALID")
         for member in join_members(connection, join["join_id"]):
@@ -1041,7 +1646,10 @@ def _validate_budget_state(connection: sqlite3.Connection, run: Mapping[str, Any
     if len(rows) != len(expected) or {row["budget_id"] for row in rows} != set(expected):
         raise StateError("BUDGET_STATE_INVALID")
     for row in rows:
-        if row["limit_value"] != expected[row["budget_id"]] or not 0 <= row["used"] <= row["limit_value"]:
+        if row["limit_value"] != expected[row["budget_id"]] or row["used"] < 0:
+            raise StateError("BUDGET_STATE_INVALID")
+        if not workflow.gate(row["used"] <= row["limit_value"], "BUDGET_LIMIT", row["budget_id"],
+                {"used": row["used"], "limit": row["limit_value"]}, "validate"):
             raise StateError("BUDGET_STATE_INVALID")
         consumed = connection.execute(
             "SELECT COALESCE(SUM(amount),0) FROM budget_consumptions WHERE run_id=? AND budget_id=?",
@@ -1104,10 +1712,14 @@ def _validate_execution_plan(
     if plan != expected or plan_digest != sha256_bytes(canonical_bytes(unsigned_plan)) or plan.get("plan_digest") != row["plan_digest"]:
         raise StateError("EXECUTION_PLAN_STATE_INVALID")
     if row["status"] == "pending":
-        if run["status"] not in {"initialized", "blocked", "aborted"} or any(row[key] is not None for key in ("approved_at", "approved_by", "approval_digest")):
+        if any(row[key] is not None for key in ("approved_at", "approved_by", "approval_digest")):
+            raise StateError("EXECUTION_PLAN_STATE_INVALID")
+        if not workflow.gate(run["status"] in {"initialized", "blocked", "aborted"}, "PLAN_RUN_STATE",
+                run["run_id"], {"plan_status": row["status"], "run_status": run["status"]}, "validate"):
             raise StateError("EXECUTION_PLAN_STATE_INVALID")
     else:
-        if row["status"] == "rejected" and run["status"] != "blocked":
+        if row["status"] == "rejected" and not workflow.gate(run["status"] == "blocked", "PLAN_RUN_STATE",
+                run["run_id"], {"plan_status": row["status"], "run_status": run["status"]}, "validate"):
             raise StateError("EXECUTION_PLAN_STATE_INVALID")
         if row["status"] == "approved" and run["status"] == "initialized":
             raise StateError("EXECUTION_PLAN_STATE_INVALID")
@@ -1195,7 +1807,8 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
             if int(node["depth"]) != 0 or any(node[key] is not None for key in ("parent_branch_id", "request_slot_id", "assignment_id", "ordinal")):
                 raise StateError("NODE_BINDING_INVALID")
             if (node["node_key"] in CODE_REVIEW_PANEL and node["node_key"] != "code_reviewer"
-                    and execution_plan.get("code_review_panel_version") != 1):
+                    and execution_plan.get("code_review_panel_version") != 1
+                    and "workflow_assignment" not in json.loads(node["envelope_json"])):
                 raise StateError("NODE_BINDING_INVALID")
             template_key = "code_reviewer" if node["node_key"] in CODE_REVIEW_PANEL else node["node_key"]
             template = policy["node_templates"].get(template_key)
@@ -1209,7 +1822,10 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
                 raise StateError("NODE_BINDING_INVALID")
         if node["branch_id"] != expected_branch or node["node_instance_id"] != expected_node:
             raise StateError("STABLE_ID_INVALID")
-        if node["status"] not in BRANCH_STATES or not 0 <= node["retry_count"] <= node["max_retries"] or node["max_retries"] != template["max_retries"]:
+        if node["status"] not in BRANCH_STATES or node["retry_count"] < 0 or node["max_retries"] != template["max_retries"]:
+            raise StateError("BRANCH_STATE_INVALID")
+        if not workflow.gate(node["retry_count"] <= node["max_retries"], "RETRY_LIMIT", node["branch_id"],
+                {"used": node["retry_count"], "limit": node["max_retries"]}, "validate"):
             raise StateError("BRANCH_STATE_INVALID")
         try:
             stored_envelope = json.loads(node["envelope_json"])
@@ -1272,6 +1888,7 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
             expected_envelope = envelope(
                 run["run_id"], run["policy_digest"], policy, task, spec, node["status"],
                 stored_envelope.get("inputs", []), node["retry_count"], execution_plan,
+                effective_assignment=stored_envelope.get("workflow_assignment"),
             )
             for runtime_key in ("attempt_id", "claim_digest", "lease_expires_at"):
                 expected_envelope[runtime_key] = stored_envelope.get(runtime_key)
@@ -1281,7 +1898,7 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
             "schema_version", "run_id", "branch_id", "node_instance_id", "node_key", "role",
             "model", "reasoning_effort", "dispatch_runtime", "mandatory", "generation", "inputs", "effect_capabilities", "output_contract",
             "stopping_condition", "retry_count", "max_retries", "research_assignment", "code_review_assignment",
-            "simplification_review_version",
+            "simplification_review_version", "workflow_assignment",
             "attempt_id", "claim_digest", "lease_expires_at",
         }
         if set(stored_envelope) != set(expected_envelope) or any(
@@ -1326,6 +1943,16 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
                     raise StateError("INPUT_ARTIFACT_INVALID")
                 if input_item["content"] != artifact_content:
                     raise StateError("INPUT_ARTIFACT_INVALID")
+        bound = workflow_source_binding(connection, run, node)
+        if "workflow_assignment" in stored_envelope:
+            if bound is None:
+                raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+            original = next((item for item in execution_plan["assignments"] if item["node_key"] == node["node_key"]), None)
+            selection = stored_envelope["workflow_assignment"]
+            raw = {"node_key": node["node_key"], "historical_assignment": original, "effective_assignment": selection}
+            if not workflow.gate(original is not None and all(original[key] == selection[key]
+                    for key in ("model", "reasoning_effort")), "MODEL_ASSIGNMENT", run["run_id"] + "/execution-plan", raw, "reserve"):
+                raise StateError("ENVELOPE_INVALID")
         if node["status"] in TERMINAL:
             if not node["result_json"] or not node["result_digest"]:
                 raise StateError("TERMINAL_RESULT_MISSING")
@@ -1410,6 +2037,104 @@ def _validate_nodes(connection: sqlite3.Connection, run: Mapping[str, Any], task
                     raise StateError("TERMINAL_RESULT_INVALID")
             if result.get("attempt_id") != stored_envelope.get("attempt_id") or result.get("claim_digest") != stored_envelope.get("claim_digest"):
                 raise StateError("ATTEMPT_STATE_INVALID")
+
+
+def _validate_workflow_executions(connection, run):
+    context = workflow.current_context() or workflow_context(connection, run)
+    for identifier, action in context.actions.items():
+        execution = action["execution"]
+        if execution.get("kind") == "check":
+            from .checks import configured_check
+            record = connection.execute("SELECT content_json,sha256 FROM artifacts WHERE run_id=? AND ref=?",
+                (run["run_id"], execution.get("reservation_ref"))).fetchone()
+            reservation = json.loads(record["content_json"]) if record else {}
+            if (record is None or record["sha256"] != workflow.hashed(reservation)
+                    or reservation.get("kind") != "check_reservation"
+                    or reservation.get("reservation_id") != execution.get("reservation_id")
+                    or reservation.get("before_source_digest") != execution.get("source_digest")):
+                raise StateError("CHECK_RESERVATION_INVALID")
+            for key in ("executor", "source"):
+                if reservation.get(key) != execution.get(key):
+                    raise StateError("ATTEMPT_FENCE_MISMATCH")
+                fence = execution[key]
+                attempt = connection.execute("SELECT claim_digest FROM branch_attempts WHERE run_id=? AND branch_id=? AND attempt_id=?",
+                    (run["run_id"], fence["branch_id"], fence["attempt_id"])).fetchone()
+                if attempt is None or attempt[0] != fence["claim_digest"]:
+                    raise StateError("ATTEMPT_FENCE_MISMATCH")
+            configured = configured_check(json.loads(run["policy_json"]), reservation["check_id"])
+            if execution["command_id"] != configured["command_id"] or execution["argv"] != configured["argv"]:
+                raise StateError("CHECK_RESERVATION_INVALID")
+            facts = action.get("facts", {})
+            if context.continuation_id == identifier and context.pending_record:
+                facts = context.pending_record.get("facts", {})
+            if facts.get("receipt_ref"):
+                receipt = connection.execute("SELECT sha256,content_json FROM artifacts WHERE run_id=? AND ref=?",
+                    (run["run_id"], facts["receipt_ref"])).fetchone()
+                value = json.loads(receipt["content_json"]) if receipt else {}
+                if (receipt is None or receipt["sha256"] != facts.get("receipt_digest")
+                        or value.get("reservation_id") != execution["reservation_id"]
+                        or value.get("executor") != execution["executor"] or value.get("source") != execution["source"]):
+                    raise StateError("CHECK_RESERVATION_INVALID")
+            continue
+        if execution.get("kind") not in {"branch", "existing_branch"}:
+            continue
+        fence = execution.get("fence")
+        if not isinstance(fence, dict) or set(fence) != {"branch_id", "attempt_id", "claim_digest"}:
+            raise StateError("WORKFLOW_EXECUTION_BINDING_INVALID")
+        node = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?", (run["run_id"], fence["branch_id"])).fetchone()
+        if node is None:
+            raise StateError("WORKFLOW_EXECUTION_BINDING_INVALID")
+        env = json.loads(node["envelope_json"])
+        if execution.get("target") != workflow.envelope_identity(env):
+            raise StateError("WORKFLOW_EXECUTION_BINDING_INVALID")
+        state, facts = action["state"], action.get("facts", {})
+        if context.continuation_id == identifier and context.pending_record:
+            state = context.pending_record["state"]
+            facts = context.pending_record.get("facts", {})
+        if execution["kind"] == "branch":
+            bound = workflow_source_binding(connection, run, node)
+            if bound is None or bound[2] != execution:
+                raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+        else:
+            snapshot = execution.get("envelope")
+            if (not isinstance(snapshot, dict) or workflow.envelope_identity(snapshot) != execution["target"]
+                    or workflow.hashed(snapshot["inputs"]) != execution.get("inputs_digest")
+                    or snapshot.get("attempt_id") != fence["attempt_id"] or snapshot.get("claim_digest") != fence["claim_digest"]):
+                raise StateError("WORKFLOW_EXECUTION_BINDING_INVALID")
+            for item in snapshot["inputs"]:
+                stored = connection.execute("SELECT kind,sha256,size_bytes FROM artifacts WHERE run_id=? AND ref=?",
+                    (run["run_id"], item["ref"])).fetchone()
+                if stored is None or tuple(stored) != (item["kind"], item["sha256"], item["size_bytes"]):
+                    raise StateError("INPUT_ARTIFACT_INVALID")
+        attempt = connection.execute("SELECT * FROM branch_attempts WHERE run_id=? AND branch_id=? AND attempt_id=?",
+            (run["run_id"], fence["branch_id"], fence["attempt_id"])).fetchone()
+        if state == "reserved" or (state == "cancelled" and facts.get("never_launched") is True):
+            if attempt is not None:
+                raise StateError("WORKFLOW_RESERVED_TARGET")
+        else:
+            if attempt is None or attempt["claim_digest"] != fence["claim_digest"]:
+                raise StateError("ATTEMPT_FENCE_MISMATCH")
+            if facts.get("late_settlement") is True:
+                if facts.get("raw_node_digest") != workflow.hashed(dict(node)):
+                    raise StateError("WORKFLOW_LATE_FACTS_MISMATCH")
+            elif state == "launched" and attempt["finished_at"] is not None:
+                raise StateError("WORKFLOW_SETTLEMENT_MISMATCH")
+            elif state in workflow.SETTLED_STATES and attempt["finished_at"] is None:
+                raise StateError("WORKFLOW_SETTLEMENT_MISMATCH")
+        if facts.get("result_ref"):
+            stored = connection.execute("SELECT content_json,sha256 FROM artifacts WHERE run_id=? AND ref=?",
+                (run["run_id"], facts["result_ref"])).fetchone()
+            result = json.loads(stored["content_json"]) if stored else {}
+            if (stored is None or stored["sha256"] != facts.get("result_digest")
+                    or result.get("attempt_id") != fence["attempt_id"] or result.get("claim_digest") != fence["claim_digest"]):
+                raise StateError("WORKFLOW_SETTLEMENT_MISMATCH")
+        if facts.get("settlement_joins"):
+            from .state import workflow_settlement_joins
+            proofs = facts["settlement_joins"]
+            expected = workflow_settlement_joins(connection, run, execution,
+                [item["join_id"] for item in proofs], facts)
+            if proofs != expected:
+                raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
 
 
 def _expected_join_node_keys(join: Mapping[str, Any], run: Mapping[str, Any], policy: Mapping[str, Any]) -> set:
@@ -1530,8 +2255,11 @@ def _validate_route_and_topology(
         if len(nodes) != 1 or connection.execute(
             "SELECT 1 FROM joins WHERE run_id=? LIMIT 1", (run["run_id"],)
         ).fetchone() is not None:
-            raise StateError("TOPOLOGY_STATE_INVALID")
-        if run["design_generation"] != 0 or run["implementation_generation"] != 0:
+            if not workflow.gate(False, "IMPACT_ORDER", run["run_id"],
+                    {"mapper_status": mapper["status"], "branches": sorted(node["branch_id"] for node in nodes)}, "validate"):
+                raise StateError("TOPOLOGY_STATE_INVALID")
+        if not workflow.gate(run["design_generation"] == 0 and run["implementation_generation"] == 0,
+                "INITIAL_GENERATION_ORDER", run["run_id"], {"design": run["design_generation"], "implementation": run["implementation_generation"]}, "validate"):
             raise StateError("GENERATION_STATE_INVALID")
         return
     try:
@@ -1581,9 +2309,11 @@ def _validate_route_and_topology(
     for node in nodes:
         if node["depth"] == 1:
             continue
-        if (node["node_key"], node["stage"]) not in allowed_bindings:
+        if not workflow.gate((node["node_key"], node["stage"]) in allowed_bindings, "ROUTE_ROLE", node["branch_id"],
+                {"route": route, "role": node["node_key"], "stage": node["stage"]}, "validate"):
             raise StateError("TOPOLOGY_STATE_INVALID")
-        if node["specialist_tag"] is not None and node["specialist_tag"] not in tags:
+        if not workflow.gate(node["specialist_tag"] is None or node["specialist_tag"] in tags, "ROUTE_SPECIALIST", node["branch_id"],
+                {"tags": tags, "specialist_tag": node["specialist_tag"]}, "validate"):
             raise StateError("TOPOLOGY_STATE_INVALID")
 
     tech_nodes = [node for node in nodes if node["node_key"] == "tech_lead"]
@@ -1592,7 +2322,8 @@ def _validate_route_and_topology(
     tech_generations = sorted({node["generation"] for node in tech_nodes})
     research_generations = sorted({node["generation"] for node in research_nodes})
     senior_generations = sorted({node["generation"] for node in senior_nodes})
-    if route in {"design_only", "full_delivery"} and (not research_generations or research_generations[0] != 0):
+    if route in {"design_only", "full_delivery"} and not workflow.gate(bool(research_generations) and research_generations[0] == 0,
+            "RESEARCH_REQUIRED", run["run_id"], {"route": route, "generations": research_generations}, "validate"):
         raise StateError("TOPOLOGY_STATE_INVALID")
     if design_skipping_redesign and (not research_generations or research_generations[0] != 1):
         raise StateError("TOPOLOGY_STATE_INVALID")
@@ -1625,8 +2356,11 @@ def _validate_route_and_topology(
             if research_join["status"] != "sealed" and any(
                 node["generation"] == generation for node in tech_nodes
             ):
-                raise StateError("TOPOLOGY_STATE_INVALID")
-    if tech_generations and not set(tech_generations).issubset(set(research_generations)):
+                if not workflow.gate(False, "RESEARCH_ORDER", research_join["join_id"] if "join_id" in research_join.keys() else str(generation),
+                        {"status": research_join["status"], "generation": generation}, "validate"):
+                    raise StateError("TOPOLOGY_STATE_INVALID")
+    if tech_generations and not workflow.gate(set(tech_generations).issubset(set(research_generations)), "RESEARCH_REQUIRED",
+            run["run_id"], {"design": tech_generations, "research": research_generations}, "validate"):
         raise StateError("GENERATION_STATE_INVALID")
     if senior_generations and senior_generations != list(range(0, senior_generations[-1] + 1)):
         raise StateError("GENERATION_STATE_INVALID")
@@ -1725,8 +2459,10 @@ def _verify_semantic_state(
     _validate_budget_state(connection, run, task, policy)
     _validate_operation_ledger(connection, run)
     _validate_nodes(connection, run, task, policy)
+    _validate_workflow_executions(connection, run)
     _validate_joins(connection, run, policy)
-    _validate_reconstructed_graph(connection, run)
+    risk_resolutions = validate_design_risk_history(connection, run, policy, task, selected_root)
+    _validate_reconstructed_graph(connection, run, risk_resolutions)
     _validate_route_and_topology(connection, run, task, policy)
     _validate_fanouts(connection, run, case_sensitive=case_sensitive)
     _validate_review_delegation(connection, run, case_sensitive=case_sensitive)
@@ -1806,12 +2542,16 @@ def verify_semantic_state(
     runtime_root: Optional[Path] = None,
 ) -> None:
     try:
-        _verify_semantic_state(
-            connection, run, repo, current_policy_digest, policy, skill_root,
-            case_sensitive=case_sensitive,
-            evidence_enable=evidence_enable,
-            runtime_root=runtime_root,
-        )
+        reconstructed = workflow_context(connection, run)
+        context = workflow.current_context() or reconstructed
+        context.historical_decisions = reconstructed.historical_decisions
+        context.history = reconstructed.history
+        with workflow.using_context(context), workflow.validation_scope():
+            _verify_semantic_state(
+                connection, run, repo, current_policy_digest, policy, skill_root,
+                case_sensitive=case_sensitive, evidence_enable=evidence_enable,
+                runtime_root=runtime_root,
+            )
     except sqlite3.DatabaseError:
         raise StateError("DATABASE_STATE_INVALID")
 

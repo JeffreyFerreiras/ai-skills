@@ -26,6 +26,10 @@ def assess_merge_readiness(
         blockers.append("REVIEW_HEAD_CHANGED")
     if head_sha != ci_head_sha:
         blockers.append("CI_HEAD_CHANGED")
+    # This snapshot API cannot verify a canonical workflow END against a run and
+    # current source. A caller label or ambient context cannot supply that proof.
+    if graph_status == "complete_with_waivers":
+        blockers.append("WORKFLOW_COMPLETION_UNVERIFIED")
     if graph_status != "complete":
         blockers.append("GRAPH_INCOMPLETE")
     if review_decision != "APPROVED":
@@ -48,4 +52,6 @@ def assess_merge_readiness(
         "decision": "BLOCKED" if blockers else "DRY_RUN_READY",
         "head_sha": head_sha, "blockers": blockers,
         "merge_authorized": False, "deploy_authorized": False,
+        "raw_graph_status": graph_status,
+        "effective_graph_status": "complete" if graph_status == "complete" else "incomplete",
     }

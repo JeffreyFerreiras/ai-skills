@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Human design risk acceptance, contract version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "decision", "reason", "scope", "scope_digest", "human_provenance"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "human_design_risk_acceptance"},
+    "decision": {"const": "ACCEPT_EXISTING_DESIGN_RISK"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "scope_digest": {"$ref": "#/$defs/digest"},
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run_id", "repository_identity", "task_ref", "task_digest", "plan_digest", "plan_approval_digest", "policy_digest", "preparation_ref", "prepared_revision", "design_generation", "implementation_generation", "design_result_ref", "design_artifact_ref", "original_review_source_binding_ref", "source_provenance", "review_collection_ref", "consolidation_join_id", "consolidation_result_ref", "review_results", "accepted_findings", "blocked_event", "blocked_reason", "source_digest", "head_oid", "continuation_envelope_digest", "budget_and_attempts_digest"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "repository_identity": {
+          "type": "object", "additionalProperties": false, "required": ["repository_id", "path", "device", "inode"],
+          "properties": {"repository_id": {"type": "string"}, "path": {"type": "string"}, "device": {"type": "integer"}, "inode": {"type": "integer"}}
+        },
+        "task_ref": {"$ref": "#/$defs/ref"}, "task_digest": {"$ref": "#/$defs/digest"},
+        "plan_digest": {"$ref": "#/$defs/digest"}, "plan_approval_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"}, "preparation_ref": {"$ref": "#/$defs/ref"},
+        "prepared_revision": {"type": "integer", "minimum": 0},
+        "design_generation": {"type": "integer", "minimum": 0},
+        "implementation_generation": {"type": "integer", "minimum": 0},
+        "design_result_ref": {"$ref": "#/$defs/ref"}, "design_artifact_ref": {"$ref": "#/$defs/ref"},
+        "original_review_source_binding_ref": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/ref"}]},
+        "source_provenance": {"enum": ["current_context_only", "original_binding_verified"]},
+        "review_collection_ref": {"$ref": "#/$defs/ref"}, "consolidation_join_id": {"type": "string"},
+        "consolidation_result_ref": {"$ref": "#/$defs/ref"},
+        "review_results": {
+          "type": "array", "minItems": 1, "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["branch_id", "attempt_id", "result_ref", "decision", "findings_digest"],
+            "properties": {"branch_id": {"type": "string"}, "attempt_id": {"type": "string"}, "result_ref": {"$ref": "#/$defs/ref"}, "decision": {"enum": ["APPROVE", "REVISE"]}, "findings_digest": {"$ref": "#/$defs/digest"}}
+          }
+        },
+        "accepted_findings": {
+          "type": "array", "minItems": 1, "items": {
+            "type": "object", "additionalProperties": false, "required": ["branch_id", "finding_id", "finding_digest"],
+            "properties": {"branch_id": {"type": "string"}, "finding_id": {"type": "string"}, "finding_digest": {"$ref": "#/$defs/digest"}}
+          }
+        },
+        "blocked_event": {
+          "type": "object", "additionalProperties": false, "required": ["revision", "source_id", "digest"],
+          "properties": {"revision": {"type": "integer", "minimum": 0}, "source_id": {"type": "string"}, "digest": {"$ref": "#/$defs/digest"}}
+        },
+        "blocked_reason": {"const": "DESIGN_REVISION_LIMIT"},
+        "source_digest": {"$ref": "#/$defs/digest"}, "head_oid": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
+        "continuation_envelope_digest": {"$ref": "#/$defs/digest"}, "budget_and_attempts_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "human_provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authority_ref", "actor", "human_evidence_ref", "human_evidence_sha256", "accepted_scope_digest", "asserted_role"],
+      "properties": {
+        "authority_ref": {"type": "string", "minLength": 1}, "actor": {"type": "string", "minLength": 1},
+        "human_evidence_ref": {"$ref": "#/$defs/ref"}, "human_evidence_sha256": {"$ref": "#/$defs/digest"},
+        "accepted_scope_digest": {"$ref": "#/$defs/digest"}, "asserted_role": {"const": "human"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ref": {"type": "string", "pattern": "^(ledger|repo|runtime|profile):.+#sha256=[0-9a-f]{64}$"}
+  }
+}

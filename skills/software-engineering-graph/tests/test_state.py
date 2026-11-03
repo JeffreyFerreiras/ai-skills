@@ -370,15 +370,20 @@ class StateTests(GraphCase):
 
     def test_source_checkout_uses_sibling_local_default_and_keeps_strict_legacy_helper(self):
         portable_home = self.root / "portable-home"
-        with patch("graph_engine.state.Path.home", return_value=portable_home):
+        source_profile = self.root / "portable-source"
+        synthetic_module = source_profile / "skills" / "software-engineering-graph" / "graph_engine" / "state.py"
+        original_runtime_home = os.environ.get("SOFTWARE_ENGINEERING_GRAPH_HOME")
+        with patch("graph_engine.state.Path.home", return_value=portable_home), \
+                patch("graph_engine.state.__file__", str(synthetic_module)), patch.dict(os.environ):
+            # Only this synthetic default-path probe ignores the runner override.
+            os.environ.pop("SOFTWARE_ENGINEERING_GRAPH_HOME", None)
             with self.assertRaisesRegex(StateError, "CODEX_PROFILE_ROOT_NOT_FOUND"):
                 installed_codex_home()
             default = StateStore()
+        self.assertEqual(original_runtime_home, os.environ.get("SOFTWARE_ENGINEERING_GRAPH_HOME"))
         self.assertEqual(
             default.state_root,
-            Path(__file__).resolve().parents[3].with_name(
-                Path(__file__).resolve().parents[3].name + ".local"
-            ) / "software-engineering-graph",
+            source_profile.with_name(source_profile.name + ".local") / "software-engineering-graph",
         )
         explicit = StateStore(self.root / "explicit-codex-home")
         self.assertEqual(explicit.codex_home, (self.root / "explicit-codex-home").absolute())

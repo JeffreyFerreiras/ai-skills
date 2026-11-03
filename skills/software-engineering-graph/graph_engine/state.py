@@ -8,7 +8,7 @@ import platform
 import sqlite3
 import stat
 import tempfile
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optio
 from . import ENGINE_VERSION, STATE_SCHEMA_VERSION
 from .contracts import ContractError, ensure_safe_components
 from .ids import canonical_bytes, repository_digest, sha256_bytes
+from . import workflow_authority as workflow
 
 
 UNSUPPORTED_POSIX_FILESYSTEMS = {
@@ -257,6 +258,15 @@ BEGIN SELECT RAISE(ABORT,'REVIEW_FANOUT_IMMUTABLE'); END;
 """
 
 MUTATION_RUN_STATES = {
+    "workflow-override.approve": {"initialized", "active", "blocked", "complete", "aborted"},
+    "workflow-override.continue": {"initialized", "active", "blocked", "complete", "aborted"},
+    "workflow-override.revoke": {"initialized", "active", "blocked", "complete", "aborted"},
+    "workflow-override.end": {"initialized", "active", "blocked", "complete", "aborted"},
+    "workflow-override.launch": {"initialized", "active", "blocked", "complete", "aborted"},
+    "workflow-override.settle": {"initialized", "active", "blocked", "complete", "aborted"},
+    "check.launch": {"active"},
+    "design-risk.prepare": {"blocked"},
+    "design-risk.accept": {"blocked"},
     "evidence.enable": {"active"},
     "check.start": {"active"},
     "check.finish": {"active"},
@@ -293,6 +303,126 @@ class StateError(RuntimeError):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def workflow_bindings(run: Mapping[str, Any]) -> Dict[str, Any]:
+    task = json.loads(run["task_json"])
+    return {key: run[key] for key in ("repository_id", "repository_digest", "task_digest", "run_id", "policy_digest", "host_identity")} | {
+        "task_id": task["task_id"], "effects_digest": workflow.hashed(task["authority"])}
+
+
+def assess_workflow_merge_readiness(connection, run_id, *, task_digest, source_digest,
+                                    semantic_validator, capture_source, **snapshot):
+    """Assess an exact canonical closure; a caller status/context is never evidence."""
+    from .merge_readiness import assess_merge_readiness
+    if "graph_status" in snapshot:
+        raise StateError("WORKFLOW_COMPLETION_UNVERIFIED")
+    run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+    if run is None or run["task_digest"] != task_digest:
+        raise StateError("WORKFLOW_COMPLETION_BINDING_MISMATCH")
+    semantic_validator(connection, run)
+    context = workflow_context(connection, run)
+    endings = [item for item in context.history if item["kind"] == workflow.END
+               and item.get("effective_status") == "complete_with_waivers"]
+    if len(endings) != 1 or not context.objective_complete or context.inflight:
+        raise StateError("WORKFLOW_COMPLETION_UNVERIFIED")
+    ending = endings[0]
+    closures = [item for item in context.history if item["kind"] == workflow.CONTINUATION
+                and item["operation_id"] == ending["operation_id"]
+                and item["authority_ref"] == ending["authority_ref"]
+                and item["execution"] == {"kind": "closure", "task_digest": task_digest}
+                and item["state"] == "settled" and item["outcome"] == "WAIVED"]
+    if len(closures) != 1:
+        raise StateError("WORKFLOW_COMPLETION_UNVERIFIED")
+    current = capture_source(connection, run)
+    workflow.validate_source(current)
+    if current["sha256"] != source_digest or current != closures[0]["source"]:
+        raise StateError("WORKFLOW_COMPLETION_SOURCE_CHANGED")
+    result = assess_merge_readiness(graph_status="complete", **snapshot)
+    result.update(raw_graph_status=run["status"], effective_graph_status="complete_with_waivers",
+                  workflow_end_ref=ending["ref"], workflow_authority_ref=ending["authority_ref"],
+                  assessed_run_id=run_id, assessed_task_digest=task_digest, assessed_source_digest=source_digest)
+    return result
+
+
+def workflow_settlement_joins(connection, run, execution, identifiers, facts):
+    """Verify the existing planner's one ordinary result join against actual rows."""
+    from .planner import NodeSpec, collection_join, join_id, next_join_for_success
+    if (execution.get("kind") not in {"branch", "existing_branch"}
+            or not isinstance(identifiers, list) or len(identifiers) != 1):
+        raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+    fence = execution["fence"]
+    node = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?",
+        (run["run_id"], fence["branch_id"])).fetchone()
+    if (node is None or node["status"] != "succeeded" or node["depth"] != 0
+            or node["result_digest"] != facts.get("result_digest")
+            or facts.get("result_ref") != "ledger:" + node["branch_id"] + "#sha256=" + node["result_digest"]):
+        raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+    result = json.loads(node["result_json"])
+    artifact = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND ref=? AND immutable=1",
+        (run["run_id"], facts["result_ref"])).fetchone()
+    if (artifact is None or artifact["kind"] != "branch_result" or artifact["content_json"] != node["result_json"]
+            or artifact["sha256"] != node["result_digest"] or workflow.hashed(result) != node["result_digest"]
+            or result.get("attempt_id") != fence["attempt_id"] or result.get("claim_digest") != fence["claim_digest"]):
+        raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+    policy = json.loads(run["policy_json"])
+    spec = next_join_for_success(policy, run["selected_route"], json.loads(run["selected_tags_json"] or "[]"), node)
+    if node["node_key"] == "senior_engineer" and result.get("decision") == "REDESIGN_REQUIRED":
+        spec = collection_join("delivery", node["generation"], [NodeSpec(node["node_key"], node["role"],
+            node["stage"], node["generation"], bool(node["mandatory"]), node["specialist_tag"])])
+    if spec is None or identifiers != [join_id(run["run_id"], run["policy_digest"], spec)]:
+        raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+    join = connection.execute("SELECT * FROM joins WHERE run_id=? AND join_id=?",
+        (run["run_id"], identifiers[0])).fetchone()
+    members = connection.execute("SELECT branch_id,mandatory FROM join_members WHERE join_id=? ORDER BY branch_id",
+        (identifiers[0],)).fetchall()
+    if (join is None or (join["join_key"], join["kind"], join["stage"], join["generation"])
+            != (spec.key, spec.kind, spec.stage, spec.generation)
+            or [tuple(row) for row in members] != [(node["branch_id"], 1)]):
+        raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+    return [{"join_id": identifiers[0], "join_key": spec.key, "kind": spec.kind, "stage": spec.stage,
+             "generation": spec.generation, "member_branch_ids": [node["branch_id"]],
+             "source_result_ref": facts["result_ref"], "source_result_digest": facts["result_digest"]}]
+
+
+def workflow_context(connection: sqlite3.Connection, run: Mapping[str, Any], authority_ref=None):
+    records = []
+    provenance_inputs = {}
+    for artifact in connection.execute("SELECT ref,sha256,content_json FROM artifacts WHERE run_id=? AND source_type='ledger'", (run["run_id"],)):
+        value = json.loads(artifact["content_json"])
+        if isinstance(value, dict) and value.get("kind") in workflow.KINDS:
+            records.append({"ref": artifact["ref"], "sha256": artifact["sha256"], "value": value})
+        elif isinstance(value, dict) and value.get("kind") == "workflow_provenance_input":
+            if (set(value) != {"kind", "schema_version", "operation_id", "sha256", "raw_text"}
+                    or value["schema_version"] != 1 or not isinstance(value["raw_text"], str)
+                    or value["operation_id"] in provenance_inputs
+                    or sha256_bytes(value["raw_text"].encode("utf-8")) != value["sha256"]):
+                raise StateError("WORKFLOW_HUMAN_PROVENANCE_INVALID")
+            provenance_inputs[value["operation_id"]] = value
+    operations = {}
+    for row in connection.execute("SELECT * FROM operations WHERE run_id=?", (run["run_id"],)):
+        events = connection.execute("SELECT event_type,detail_json FROM events WHERE run_id=? AND source_id=? AND revision=?",
+            (run["run_id"], row["operation_id"], row["resulting_revision"])).fetchall()
+        if len(events) != 1:
+            raise StateError("OPERATION_LEDGER_INVALID")
+        operations[row["operation_id"]] = {"revision": row["resulting_revision"], "request_digest": row["request_digest"],
+            "command": events[0]["event_type"], "request": json.loads(events[0]["detail_json"]),
+            "response": json.loads(row["response_json"])}
+    for record in records:
+        authority = record["value"]
+        if authority["kind"] != workflow.AUTHORITY:
+            continue
+        witness = provenance_inputs.get(authority.get("operation_id"))
+        operation = operations.get(authority.get("operation_id"))
+        if (witness is None or operation is None
+                or witness["sha256"] != operation["request"].get("provenance_digest")
+                or json.loads(witness["raw_text"]) != authority.get("provenance")):
+            raise StateError("WORKFLOW_HUMAN_PROVENANCE_INVALID")
+    try:
+        return workflow.reconstruct_workflow_history(records, operations, workflow_bindings(run), utc_now(), authority_ref,
+            objective_complete=run["status"] == "complete")
+    except workflow.WorkflowAuthorityError as error:
+        raise StateError(str(error)) from error
 
 
 def utc_after(seconds: int) -> str:
@@ -914,40 +1044,119 @@ class StateStore:
         action: Callable[[sqlite3.Connection, sqlite3.Row, int], Dict[str, Any]],
         *,
         semantic_validator: SemanticValidator,
+        input_verifier: Optional[Callable[[], None]] = None,
     ) -> Dict[str, Any]:
+        dispatch = workflow.current_context()
+        selected_ref = getattr(dispatch, "dispatch_ref", None)
+        expected_revision = getattr(dispatch, "expected_revision", None)
+        if selected_ref:
+            request = {**request, "workflow_authority_ref": selected_ref, "expected_revision": expected_revision}
         request_digest = sha256_bytes(canonical_bytes(request))
+        contexts = ExitStack()
         try:
             connection.execute("BEGIN IMMEDIATE")
         except sqlite3.OperationalError:
             raise StateError("TRANSACTION_CONFLICT")
         try:
+            if input_verifier is not None:
+                input_verifier()
             previous = connection.execute(
                 "SELECT * FROM operations WHERE run_id=? AND operation_id=?", (run_id, op_id)
             ).fetchone()
             if previous:
-                connection.rollback()
                 if previous["request_digest"] != request_digest:
                     raise StateError("OPERATION_CONFLICT")
+                if selected_ref or request["command"].startswith("workflow-override."):
+                    replay_run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+                    replay_context = workflow_context(connection, replay_run, selected_ref)
+                    with workflow.using_context(replay_context):
+                        semantic_validator(connection, replay_run)
+                if request["command"] in {"design-risk.prepare", "design-risk.accept"}:
+                    replay_run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+                    semantic_validator(connection, replay_run)
                 result = json.loads(previous["response_json"])
                 result["code"] = "REPLAYED"
-                return result
+                if selected_ref or request["command"].startswith("workflow-override."):
+                    result["workflow_authority"] = replay_context.report()
+                if request["command"] == "design-risk.prepare":
+                    result["stale"] = replay_run["state_revision"] != previous["resulting_revision"]
+                connection.rollback()
+                return {key: value for key, value in result.items() if not key.startswith("_private_")}
             run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
             if run is None:
                 raise StateError("RUN_NOT_FOUND")
             command = request["command"]
+            context = workflow_context(connection, run, selected_ref)
+            contexts.enter_context(workflow.using_context(context))
+            context.capture_source = getattr(dispatch, "capture_source", None)
+            context.normalized_request = request
+            if selected_ref:
+                if type(expected_revision) is not int or run["state_revision"] != expected_revision:
+                    raise StateError("WORKFLOW_REVISION_STALE")
+                continuation_id = request.get("workflow_reservation_id")
+                phase = "launched" if command in {"workflow-override.launch", "check.launch"} else "settled"
+                if continuation_id is None and command in {"record.branch-result", "record.timeout"}:
+                    continuation_id = next((key for key, item in context.inflight.items()
+                        if item["execution"].get("fence") == {"branch_id": request.get("branch_id"),
+                            "attempt_id": request.get("attempt_id"), "claim_digest": request.get("claim_digest")}), None)
+                if continuation_id is None:
+                    phase = "reserved"
+                elif command == "workflow-override.settle" and request.get("late_facts"):
+                    phase = "facts"
+                try:
+                    context.begin(op_id, command, continuation_id=continuation_id, phase=phase)
+                except workflow.WorkflowAuthorityError as error:
+                    raise StateError(str(error)) from error
+            terminal_before = {key: run[key] for key in ("status", "blocked_reason", "finished_at")} if run["status"] in {"blocked", "complete", "aborted"} else None
+            budgets_before = {row["budget_id"]: row["used"] for row in connection.execute("SELECT * FROM budgets WHERE run_id=?", (run_id,))}
+            protected_nodes = {row["branch_id"]: dict(row) for row in connection.execute(
+                "SELECT * FROM nodes WHERE run_id=? AND status IN ('succeeded','failed','timed_out','skipped')", (run_id,))} if selected_ref else {}
+            protected_joins = {row["join_id"]: dict(row) for row in connection.execute(
+                "SELECT * FROM joins WHERE run_id=? AND status='sealed'", (run_id,))} if selected_ref else {}
+            joins_before = {row[0] for row in connection.execute("SELECT join_id FROM joins WHERE run_id=?", (run_id,))} if selected_ref else set()
             status = run["status"]
             allowed_states = MUTATION_RUN_STATES.get(command)
             if allowed_states is None:
                 raise StateError("UNKNOWN_MUTATION")
-            if status not in allowed_states:
+            if not workflow.gate(status in allowed_states, "RUN_ADMISSIBILITY", run_id, status, command):
+                if command == "design-risk.accept":
+                    semantic_validator(connection, run)
+                    for prior in connection.execute("SELECT response_json FROM operations WHERE run_id=?", (run_id,)):
+                        response = json.loads(prior[0])
+                        if response.get("code") == "DESIGN_RISK_ACCEPTED" and response.get("design_join_id") == request["design_join_id"]:
+                            raise StateError("DESIGN_RISK_ALREADY_ACCEPTED")
                 if status in {"complete", "aborted"}:
                     raise StateError("TERMINAL_RUN")
                 if status == "blocked":
                     raise StateError("GRAPH_BLOCKED")
                 raise StateError("INVALID_RUN_TRANSITION")
             semantic_validator(connection, run)
+            source_before = None
+            if selected_ref:
+                if context.capture_source is None:
+                    raise StateError("SOURCE_UNVERIFIABLE")
+                source_before = context.capture_source(connection, run)
+                workflow.validate_source(source_before)
             revision = int(run["state_revision"]) + 1
             result = action(connection, run, revision)
+            if selected_ref and context.continuation_id and context.pending_record is None:
+                prior = context.actions[context.continuation_id]
+                fence = prior["execution"].get("fence")
+                node = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?",
+                    (run_id, fence["branch_id"])).fetchone() if fence else None
+                if node is not None and node["status"] in {"succeeded", "failed", "timed_out"}:
+                    context.pending_record = {"state": "settled", "outcome": node["status"],
+                        "facts": {"result_ref": "ledger:" + node["branch_id"] + "#sha256=" + node["result_digest"],
+                                  "result_digest": node["result_digest"], "attempt_id": fence["attempt_id"],
+                                  "claim_digest": fence["claim_digest"]}}
+            if selected_ref and context.continuation_id and result.get("created_join_ids"):
+                if (command != "record.branch-result" or context.phase != "settled" or context.pending_record is None
+                        or any(identifier in joins_before for identifier in result["created_join_ids"])):
+                    raise StateError("WORKFLOW_SETTLEMENT_JOIN_INVALID")
+                prior = context.actions[context.continuation_id]
+                facts = context.pending_record.get("facts", {})
+                proofs = workflow_settlement_joins(connection, run, prior["execution"], result["created_join_ids"], facts)
+                context.pending_record["facts"] = {**facts, "settlement_joins": proofs}
             result.update({"schema_version": 1, "ok": True, "run_id": run_id, "state_revision": revision})
             self.fault_hook("before_commit")
             connection.execute("UPDATE runs SET state_revision=? WHERE run_id=?", (revision, run_id))
@@ -960,12 +1169,72 @@ class StateStore:
                 (run_id, revision, request["command"], op_id, json.dumps(request, sort_keys=True)),
             )
             updated_run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if selected_ref and terminal_before and any(updated_run[key] != value for key, value in terminal_before.items()):
+                raise StateError("WORKFLOW_RAW_TERMINAL_CHANGED")
+            for identifier, original in protected_nodes.items():
+                current_node = connection.execute("SELECT * FROM nodes WHERE branch_id=?", (identifier,)).fetchone()
+                if current_node is None or dict(current_node) != original:
+                    raise StateError("WORKFLOW_RAW_HISTORY_CHANGED")
+            for identifier, original in protected_joins.items():
+                current_join = connection.execute("SELECT * FROM joins WHERE join_id=?", (identifier,)).fetchone()
+                if current_join is None or dict(current_join) != original:
+                    raise StateError("WORKFLOW_RAW_HISTORY_CHANGED")
             semantic_validator(connection, updated_run)
+            if selected_ref and command == "next.claim" and context.decisions:
+                claimed = result.get("branch", {})
+                node = connection.execute("SELECT * FROM nodes WHERE run_id=? AND branch_id=?",
+                    (run_id, claimed.get("branch_id"))).fetchone()
+                if node is None:
+                    raise StateError("ATTEMPT_FENCE_MISMATCH")
+                env = json.loads(node["envelope_json"])
+                context.pending_record = {"state": "launched", "outcome": None,
+                    "execution": {"kind": "existing_branch", "target": workflow.envelope_identity(env),
+                        "envelope": env, "inputs_digest": workflow.hashed(env["inputs"]),
+                        "fence": {"branch_id": node["branch_id"], "attempt_id": env["attempt_id"],
+                                  "claim_digest": env["claim_digest"]}},
+                    "extension_use": {"branch_attempts": 1, node["role"]: 1}}
+            if selected_ref and (context.decisions or context.continuation_id or context.pending_record):
+                from .evidence import canonical_ledger_artifact, enforce_artifact_size, persist_artifact
+                pending = context.pending_record or {}
+                prior_action = context.actions.get(context.continuation_id) if context.continuation_id else None
+                execution = prior_action["execution"] if prior_action else pending.get("execution", {
+                    "kind": "bookkeeping", "command": command, "task_digest": run["task_digest"]})
+                deltas = {row["budget_id"]: row["used"] - budgets_before[row["budget_id"]]
+                    for row in connection.execute("SELECT * FROM budgets WHERE run_id=?", (run_id,))}
+                if any(amount < 0 for amount in deltas.values()):
+                    raise StateError("WORKFLOW_CONSUMPTION_REFUND")
+                value = {"kind": workflow.CONTINUATION, "schema_version": 1,
+                    "bindings": workflow_bindings(run), "authority_ref": selected_ref,
+                    "operation_id": op_id, "request_digest": request_digest, "revision": revision,
+                    "created_at": utc_now(), "phase": context.phase,
+                    "reservation_id": context.continuation_id or op_id,
+                    "ordinal": prior_action["ordinal"] if prior_action else context.used + 1,
+                    "state": pending.get("state", "settled"), "action": command,
+                    "decisions": context.decisions, "source": source_before,
+                    "execution": execution, "execution_digest": workflow.hashed(execution),
+                    "predecessor_ref": prior_action["latest_ref"] if prior_action else None,
+                    "created_branch_ids": result.get("successor_branch_ids", []),
+                    "created_join_ids": result.get("created_join_ids", []),
+                    "consumption_deltas": deltas, "extension_use": pending.get("extension_use", {}),
+                    "outcome": pending.get("outcome"), "facts": pending.get("facts", {})}
+                artifact = canonical_ledger_artifact("workflow-continuation-" + op_id, "evidence_manifest", value)
+                enforce_artifact_size(artifact.kind, artifact.size_bytes, json.loads(run["policy_json"]))
+                persist_artifact(connection, run_id, artifact)
+                result["workflow_continuation_ref"] = artifact.ref
+                result["workflow_reservation_id"] = value["reservation_id"]
+                if command == "next.claim":
+                    result["workflow_dispatch"] = {"authority_ref": selected_ref, "reservation_id": value["reservation_id"]}
+                result["workflow_authority"] = workflow_context(connection, updated_run, selected_ref).report()
+                connection.execute("UPDATE operations SET response_json=? WHERE run_id=? AND operation_id=?", (json.dumps(result, sort_keys=True), run_id, op_id))
+                with workflow.using_context(workflow_context(connection, updated_run, selected_ref)):
+                    semantic_validator(connection, updated_run)
             connection.commit()
-            return result
+            return {key: value for key, value in result.items() if not key.startswith("_private_")}
         except Exception:
             connection.rollback()
             raise
+        finally:
+            contexts.close()
 
     @staticmethod
     def _insert_node(connection: sqlite3.Connection, run_id: str, row: Mapping[str, Any]) -> None:

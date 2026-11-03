@@ -4,6 +4,174 @@ Read the essential invariants below, then the section for the command or route b
 denotes the installed skill root; schema paths in CLI instructions are relative to that root. The
 entry skill controls scope and authority.
 
+## Blanket workflow authority
+
+Blanket authority is a separate task/run opt-in, not an ordinary plan approval and not the narrower
+design-risk receipt below. Its central rule applies to all graph-owned workflow requirements,
+including new requirements introduced by later source. Gate codes identify diagnostics; they never
+form an allowlist of eligible waivers. The task, policy, repository, host and effect bindings remain
+fixed. Authorized source may evolve; each new action binds its actual current source and revision.
+
+Prepare without mutation:
+
+```text
+workflow-override prepare --run-id R --expected-revision N --contract-manifest CONTRACT --coverage-manifest COVERAGE
+```
+
+The finite contract contains positive integer `max_actions`, `max_inflight` no larger than that cap,
+and a future timezone-aware `expires_at`. Coverage uses the ordinary complete check-coverage shape
+and must fit actual task read authority. For an existing format-7 run its activation/coverage stays
+unchanged. Preparation returns an exact `intent`, its digest, the explicit blanket request statement
+and the exact approval statement. The Supervisor must obtain both actual human messages through the
+trusted session boundary; never solicit an agent to author them. A provenance manifest contains
+`origin_kind: trusted_human_message` and separate `request`/`approval` objects with stable message ID,
+provenance reference, exact statement, its UTF8 SHA256, timestamp and intent digest. This protocol
+records local principal attestation, not cryptographic authentication of a human.
+
+```text
+workflow-override approve --run-id R --expected-revision N --intent-manifest INTENT --human-provenance PROVENANCE --attest-human-origin --opt-in-format7 --op-id APPROVAL
+```
+
+Use `--opt-in-format7` only for the prepared format-6 bootstrap. Approval atomically appends
+activation, exact authority/provenance and format-7 opt-in under one transaction, preserving the
+pending/rejected ordinary plan, old run status/finish time, nodes, joins, raw decisions and all
+consumption. A fault rolls back the entire approval. Ordinary `evidence enable` keeps its original
+approval requirement. Approval replay returns its old result plus current authority status; it
+cannot reactivate a revoked, expired, exhausted or ended grant.
+
+For a transition, submit `workflow_action` version1 with `transition`, explicit `target` and
+`requirements`. The target names a supported executable `node_key`/`stage`; optional `assignment`
+contains an actual supported model/effort selection. The server derives capabilities and provider
+authority from the immutable task and executable envelope. Caller `owner`, role labels or effect
+claims do not grant permission. A requirement contains only `code`, `subject_ref` and factual
+`raw_state`. Transitions are advance, repair, redesign, skip-to-authorized-stage, instruction and
+close. An obligation-only instruction has null target and remains explicitly UNRUN.
+
+```text
+workflow-override preview --run-id R --expected-revision N --action-manifest PROPOSAL
+workflow-override continue --run-id R --expected-revision N --workflow-authority-ref AUTH --action-manifest PREPARED_ACTION --op-id RESERVATION
+workflow-override launch --run-id R --expected-revision N1 --workflow-authority-ref AUTH --reservation-id RESERVATION --op-id LAUNCH
+```
+
+Copy the exact action returned by preview. It binds current task, plan, source, revision, canonical
+named successor and final inputs, including planning constraints. Continue never silently refreshes
+a stale preview or chooses an arbitrary pending node. Reservation fixes a server-generated attempt
+and claim digest before launch, consumes one cumulative action and leaves execution UNRUN. Launch
+rechecks live authority, exact source/inputs/envelope/fence, absence of duplicate attempts and actual
+conflicting or unknown work. Keep the returned private token only in the established private
+operation/dispatch transport, never reports, public manifests or logs. Status/replay do not launch.
+
+```text
+workflow-override settle --run-id R --expected-revision N2 --workflow-authority-ref AUTH --reservation-id RESERVATION --claim-token TOKEN --result-manifest ACTUAL_RESULT --outcome succeeded --op-id SETTLE
+workflow-override revoke --run-id R --expected-revision N --authority-ref AUTH --reason TEXT --op-id REVOKE
+workflow-override end --run-id R --expected-revision N --authority-ref AUTH --reason TEXT --op-id END
+workflow-override status --run-id R
+```
+
+Ordinary result settlement retains actual lease, ownership, output/evidence and freshness checks.
+An unlaunched reservation may be cancelled without claiming execution. Late settlement requires an
+explicit `--late-facts`, known effects, the unique original fence, no conflicting live/unknown work,
+and trusted host observation with actual referenced evidence. It appends facts alongside the raw
+timeout/result and original terminal time. It is NOT_ELIGIBLE for positive review/check/acceptance
+and cannot dispatch a successor as a side effect. Unknown effects stop new launches; actual external
+denial stops the authority. Revocation or expiry does not prevent recording already observed facts.
+Each canonical action retains its phase captures, predecessor links, raw consumption deltas and
+extension use; replacement IDs and source edits never create free initial or repeated-check slots.
+
+The workflow gate inventory is deliberately semantic rather than a code allowlist:
+
+| Requirement owner | Effective handling | Mandatory evidence/integrity boundary |
+| --- | --- | --- |
+| Graph route, role, model preference, research/review/order, human-decision bookkeeping | Record raw requirement and separate effective waiver; bind the named supported envelope | Actual task/provider/effect authority and valid current input/output contracts |
+| Graph inspection, attempt/retry, repair, concurrency/fanout, lease/heartbeat ceilings | Preserve cumulative raw use; reserve finite extension; late facts never launch | Unique claim fence, actual resource conflicts, known effects and immutable prior result/time |
+| Graph local-check obligation, missing/negative/incomplete review or consolidation | WAIVED/SKIPPED obligation; actual evidence remains missing/failed/stale/UNRUN | No PASS/APPROVE/ACCEPT eligibility from a waiver or stale binding |
+| Graph skill/profile/helper/instruction guidance, present or future | Apply the same finite canonical authority, with explicit executable adapter or report its gap | Verified real host/capability/confinement/private channel; no new helper executor |
+| Tool/OS/access/credentials/provider protection, external CI/review/head/branch protection, production | Stop the actual denied or unauthorized operation | No workflow waiver can supply these permissions |
+
+All later absolute graph instructions in this reference are ordinary defaults subject to this
+explicit opt-in. Structural missing state, corrupted evidence, wrong run/source/fence or an unsupported
+host remain errors. Do not implement blanket handling by catching arbitrary `StateError`, resetting
+state or pretending an old report passed. Preserve inactive extension history on rollback and do not
+operate an opted-in run with an older engine that ignores its semantic validation. The feature may
+be tested on disposable fixture runs; never use it to waive the delivery of its own implementation.
+
+## Explicit human acceptance of exhausted design risk
+
+Engine 2.9.0 adds contract version 1. The Supervisor may explicitly prepare one already blocked
+format-7 `design_consolidation` with raw REVISE and exhausted `design_revisions`. Use
+`design-risk inspect --run-id R --design-join-id J`, then
+`design-risk prepare --run-id R --design-join-id J --op-id P`. Inspect is read-only; preparation
+appends a frozen decision context and grants no continuation. There is no predeclared approval-slot
+requirement, generic force flag, extra design attempt, or budget refund.
+
+Preparation also seals `original_blocked_run` with exactly `status`, `blocked_reason`, and the
+original `finished_at` string or null. The prepare response binds its canonical digest. Acceptance
+requires the still-blocked row to match exactly and copies the archive into the resolution before
+clearing the current projection. Precision and offset spelling are preserved; branch timestamps
+never substitute for the run's value. Earlier unreleased candidate preparations without this archive
+and witness reject without mutation.
+
+An accepted continuation retains its ordinary policy retry ceiling. Only committed, fenced retry
+and claim-refresh operations may evolve its inputs: the initial design/risk inputs remain exact,
+while the validator reconstructs each sealed packet append/replacement in revision order. Retry
+responses supply server-derived `repair_packet_refs`; claim refresh supplies the exact replaced
+packet refs and its existing claimed-envelope packet witness. A supplied repair judgment is sealed
+with its original request digest for independent historical validation. Foreign, stale, unwitnessed,
+orphan and arbitrary failure inputs reject. No response field or packet grants new scope or retries.
+
+Show the human the exact preparation reference, scope digest, raw results and full findings. Obtain
+direct human authorization naming that digest, preparation, accepted findings and source-provenance
+mode. The Supervisor verifies its origin through the trusted session boundary. A sanitized
+`evidence_manifest` JSON statement has exactly `schema_version: 1`,
+`kind: human_design_risk_authorization`, `origin: direct_human`, `authority_ref`, `actor`, `run_id`,
+`preparation_ref`, `scope_digest`, `accepted_findings`, `source_provenance`,
+`decision: ACCEPT_EXISTING_DESIGN_RISK`, `statement`, and a stable `provenance_ref`.
+The statement must contain the exact digest and source-provenance mode. Store no raw session text.
+
+Submit a [version-1 receipt](design-risk.schema.json) in the run inbox with
+`design-risk accept --run-id R --design-join-id J --receipt PATH --authority-ref A --op-id O`.
+Copy the prepared scope exactly and add its sealed `preparation_ref`; the scope digest excludes only
+that reference to avoid self-reference. Human provenance binds the verified statement's content
+reference/hash, the plan's exact authority, the server actor, and the same scope digest. All unknown
+fields, broader authority, changed source/HEAD/coverage, intervening mutations, unsettled attempts,
+enforcement denials, and missing implementation allowance reject. A new preparation cannot refresh
+a known stale original review-source binding. Format 6 and earlier cannot opt in through this path.
+An explicitly recorded, settled Tech Lead `INSUFFICIENT_EVIDENCE` retry is retained as an evidence
+quality failure, with its failed result, attempt and retry use intact. Denials and unknown failure
+provenance remain ineligible. Typed prior-work budget charges remain consumed even when the current
+design generation is zero; generation numbers never imply a budget refund.
+
+Historical format-7 runs can prepare without an original design-review source binding. In that case
+`source_provenance: current_context_only` explicitly means the original reviewers' source is
+unrecorded. The prepared current source/HEAD is the human's decision context; it does not prove what
+the reviewers saw. Recorded original bindings remain independently verified when present.
+
+Acceptance appends a receipt, server attestation and effective resolution, then creates exactly one
+ordinary implementation node at the existing generation with the original model, capabilities,
+retry ceiling and design context. Raw REVISE judgments, findings, exhausted BLOCK history, evidence,
+task, plan, approvals, budgets and prior attempts remain unchanged. Status reports the separate
+`CONTINUE_EXISTING_DESIGN` action and original budgets. Every later review, test, check, acceptance,
+publication and platform-enforcement gate still applies. The feature cannot authorize its own run.
+
+An identical operation replays under lock after semantic validation. Changed content conflicts;
+a different ID cannot accept the same gate twice. After an uncertain response, inspect first and
+retry only the identical operation and bytes. Before the first continuation claim the source must
+still match. Later authorized implementation changes do not invalidate historical receipt replay.
+
+The attestation is local integrity evidence, **not cryptographic human authentication or an access
+control**. A process with the same actor and write authority can coherently forge local history or
+change and restore source between observations. Missing, agent-authored, generic or detectably
+inconsistent evidence rejects; the local engine cannot independently authenticate a same-user claim.
+
+After preparation, operate that run only with an engine that understands this extension. This is an
+operational no-downgrade restriction: 2.8.0 may open, advertise or claim opted-in state without the
+new semantic checks. Preserve the actual old-engine probe evidence; never assume rejection. Before
+opt-in normal binary rollback is possible. After opt-in retain all extension evidence and restore a
+compatible engine, or leave the run inactive. To stop accepted work, settle running attempts and use
+the ordinary block/abort mechanism. Never delete receipts, rewrite old versions, reblock via SQL,
+or reset allowance. Local profile rollout/rollback and ordinary merge protections require their own
+existing authorization and platform permissions.
+
 ## Essential ledger invariants
 
 - The Supervisor is the sole ledger and `graphctl` mutator. Branches receive only claimed envelopes,

@@ -69,6 +69,7 @@ def run_check(
     timeout_seconds: int,
     *,
     legacy_digest: bool = True,
+    on_launch_error=None,
 ) -> Dict[str, Any]:
     started_at = utc_now()
     try:
@@ -90,6 +91,8 @@ def run_check(
         stdout = error.stdout or b""
         stderr = error.stderr or b""
     except OSError as error:
+        if on_launch_error is not None:
+            on_launch_error(error)
         exit_code = 127
         timed_out = False
         stdout = b""
@@ -314,10 +317,19 @@ def verify_review_source(connection, run, policy, registering=None, check_freshn
 
 def validate_lifecycle_integrity(connection, run, policy, task):
     activation_row, activation = evidence_activation(connection, run)
-    activations = connection.execute("SELECT * FROM events WHERE run_id=? AND event_type='evidence.enable'", (run["run_id"],)).fetchall()
+    activations = [event for event in connection.execute(
+        "SELECT * FROM events WHERE run_id=? AND event_type IN ('evidence.enable','workflow-override.approve')", (run["run_id"],))
+        if event["event_type"] == "evidence.enable" or json.loads(event["detail_json"]).get("opt_in_format7") is True]
     if len(activations) != 1:
         raise StateError("EVIDENCE_ACTIVATION_INVALID")
     activation_request = json.loads(activations[0]["detail_json"])
+    if activations[0]["event_type"] == "workflow-override.approve":
+        authorities = [value for _, value in lifecycle_artifacts(connection, run["run_id"], "workflow_authority")
+                       if value.get("operation_id") == activations[0]["source_id"]]
+        if (len(authorities) != 1 or authorities[0].get("activation_ref") != activation_row["ref"]
+                or authorities[0]["intent"].get("format7_opt_in") is not True
+                or authorities[0]["intent"].get("initial_plan_digest") != activation["plan_digest"]):
+            raise StateError("EVIDENCE_ACTIVATION_INVALID")
     if (activation_request.get("coverage_manifest_digest") != activation.get("coverage_manifest_digest")
             or activation_request.get("checks") != activation.get("checks") or activation_request.get("roots") != activation.get("roots")
             or activation.get("actor") != current_actor() or activation.get("host_identity") != current_host_identity()):
@@ -662,7 +674,7 @@ def capture_evidence_source(connection, run, policy, roots, outputs=()):
     return capture_source(Path(run["repository_path"]), policy, roots, outputs, known_inputs)
 
 
-def capture_source(repo: Path, policy: Mapping[str, Any], roots: Sequence[str], outputs=(), known_inputs=()) -> Dict[str, Any]:
+def capture_source(repo: Path, policy: Mapping[str, Any], roots: Sequence[str], outputs=(), known_inputs=(), *, include_manifest=False) -> Dict[str, Any]:
     """Capture only authorized source. Unverifiable coverage never yields a digest."""
     deadline = time.monotonic() + SOURCE_TIMEOUT_SECONDS
     output_budget = [SOURCE_MAX_ENUMERATION_BYTES]
@@ -737,7 +749,14 @@ def capture_source(repo: Path, policy: Mapping[str, Any], roots: Sequence[str], 
                             "mode": stat.S_IMODE(metadata.st_mode), "sha256": snapshot.digest})
         if entries != enumerate_paths() or time.monotonic() > deadline:
             raise StateError("SOURCE_UNVERIFIABLE")
-        return {"sha256": sha256_bytes(canonical_bytes({"head": head, "paths": records})),
-                "roots": normalized, "path_count": len(records)}
+        manifest = {"head": head, "paths": records}
+        result = {"sha256": sha256_bytes(canonical_bytes(manifest)),
+                  "roots": normalized, "path_count": len(records)}
+        if include_manifest:
+            after_head = _bounded_git(repo, ["rev-parse", "HEAD"], deadline, output_budget).decode("ascii").strip()
+            if head != after_head or len(head) not in {40, 64} or any(char not in "0123456789abcdef" for char in head):
+                raise StateError("SOURCE_UNVERIFIABLE")
+            result["manifest"] = manifest
+        return result
     except (OSError, ValueError, UnicodeError, ContractError):
         raise StateError("SOURCE_UNVERIFIABLE")

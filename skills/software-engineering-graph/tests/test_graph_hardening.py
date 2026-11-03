@@ -1,4 +1,7 @@
 import json
+import copy
+import os
+import sqlite3
 import subprocess
 import sys
 import unittest
@@ -12,12 +15,1276 @@ from graph_engine.helper_register import (
     HelperRegister, HelperRegisterError, HelperReservationLedger, validate_allowance,
 )
 from graph_engine.ids import canonical_bytes, sha256_bytes
+from graph_engine.evidence import canonical_ledger_artifact, persist_artifact
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
 from graph_engine.checks import capture_source
 
 from tests.test_support import GraphCase
 from tests.test_contracts import _validate_json_schema
+
+
+class WorkflowCompletionBoundaryTests(unittest.TestCase):
+    """The pure PR snapshot assessor cannot authenticate a workflow closure."""
+
+    def _assessment(self, graph_status="complete_with_waivers", **changes):
+        from graph_engine.merge_readiness import assess_merge_readiness
+        sha = "a" * 40
+        snapshot = {"head_sha": sha, "reviewed_sha": sha, "ci_head_sha": sha,
+            "required_check_ids": ["external-ci"], "checks": {"external-ci": "success"},
+            "review_decision": "APPROVED", "unresolved_review_count": 0, "graph_status": graph_status}
+        snapshot.update(changes)
+        return assess_merge_readiness(**snapshot)
+
+    def test_caller_waived_completion_label_remains_unverified(self):
+        result = self._assessment()
+        self.assertEqual("BLOCKED", result["decision"])
+        self.assertIn("WORKFLOW_COMPLETION_UNVERIFIED", result["blockers"])
+        self.assertIn("GRAPH_INCOMPLETE", result["blockers"])
+        self.assertEqual(("complete_with_waivers", "incomplete"),
+            (result["raw_graph_status"], result["effective_graph_status"]))
+        self.assertFalse(result["merge_authorized"])
+        self.assertFalse(result["deploy_authorized"])
+
+    def test_empty_and_unverified_context_cannot_supply_completion(self):
+        from graph_engine import workflow_authority as workflow
+        contexts = [workflow.EffectiveContext(), workflow.EffectiveContext(objective_complete=True),
+            workflow.EffectiveContext(objective_complete=True, history=({"kind": workflow.END,
+                "effective_status": "complete_with_waivers", "bindings": {"run_id": "WRONG-RUN"},
+                "source": {"sha256": "b" * 64}, "ref": "unverified:caller"},))]
+        for context in contexts:
+            with self.subTest(context=context), workflow.using_context(context):
+                for status in ("blocked", "active", "complete_with_waivers"):
+                    result = self._assessment(status)
+                    self.assertEqual("BLOCKED", result["decision"])
+                    self.assertEqual(status, result["raw_graph_status"])
+                    self.assertEqual("incomplete", result["effective_graph_status"])
+                    self.assertIn("GRAPH_INCOMPLETE", result["blockers"])
+
+    def test_external_head_review_ci_and_live_execution_guards_are_preserved(self):
+        cases = [(dict(reviewed_sha="b" * 40), "REVIEW_HEAD_CHANGED"),
+            (dict(ci_head_sha="b" * 40), "CI_HEAD_CHANGED"),
+            (dict(review_decision="CHANGES_REQUESTED"), "REVIEW_NOT_APPROVED"),
+            (dict(unresolved_review_count=1), "UNRESOLVED_REVIEWS"),
+            (dict(checks={"external-ci": "failure"}), "CHECK_NOT_PASSING:external-ci"),
+            (dict(checks={}), "CHECK_MISSING:external-ci"),
+            (dict(dry_run=False), "LIVE_EXECUTION_UNSUPPORTED")]
+        for changes, expected in cases:
+            with self.subTest(expected=expected):
+                result = self._assessment("complete", **changes)
+                self.assertEqual("BLOCKED", result["decision"])
+                self.assertIn(expected, result["blockers"])
+                self.assertFalse(result["merge_authorized"])
+                self.assertFalse(result["deploy_authorized"])
+
+    def test_ordinary_complete_snapshot_retains_dry_run_only_result(self):
+        result = self._assessment("complete")
+        self.assertEqual("DRY_RUN_READY", result["decision"])
+        self.assertEqual([], result["blockers"])
+        self.assertEqual(("complete", "complete"),
+            (result["raw_graph_status"], result["effective_graph_status"]))
+        self.assertFalse(result["merge_authorized"])
+        self.assertFalse(result["deploy_authorized"])
+
+
+class BlanketWorkflowAuthorityTests(GraphCase):
+    """Local fixture attestations test protocol behavior, not human authentication."""
+
+    def _bootstrap_fixture(self, rejected=False):
+        from graph_engine.state import utc_now
+        (self.repo / "docs/source.txt").write_text("initial authorized source\n", encoding="utf-8")
+        task = self.task()
+        task["scope"] = {"included": ["repo:docs/source.txt"], "excluded": []}
+        task["authority"]["capabilities"] = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/source.txt"},
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:docs/source.txt"}]
+        initialized = self.initialize_task(task, approve=False)
+        if rejected:
+            self.graphctl("record", "plan-approval", "--run-id", "RUN-1", "--plan-digest", initialized["execution_plan_digest"],
+                "--decision", "REJECT", "--authority-ref", "authority:fixture", "--op-id", "reject-plan")
+        for arguments in (("init",), ("add", "."),
+                ("-c", "user.name=Protocol Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture")):
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        self.coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+            {"check_id": "repo-check", "relevant_inputs": ["docs/source.txt"], "complete": True}]})
+        self.contract = self.inbox_manifest({"max_actions": 3, "max_inflight": 1, "expires_at": "2099-01-01T00:00:00Z"})
+        self.revision = 2 if rejected else 1
+        self.now = utc_now()
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            run = dict(connection.execute("SELECT * FROM runs").fetchone())
+            plan = dict(connection.execute("SELECT * FROM execution_plans").fetchone())
+            self.assertEqual(6, run["state_schema_version"])
+            self.assertEqual("rejected" if rejected else "pending", plan["status"])
+            self.assertEqual(0, connection.execute("SELECT COUNT(*) FROM artifacts WHERE content_json LIKE '%workflow_authority%'").fetchone()[0])
+            self.assertEqual(0, connection.execute("SELECT COUNT(*) FROM artifacts WHERE content_json LIKE '%evidence_activation%'").fetchone()[0])
+        return task
+
+    def _raw(self):
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            return {table: list(map(tuple, connection.execute("SELECT * FROM " + table))) for table in
+                ("runs", "execution_plans", "nodes", "joins", "budgets", "budget_consumptions", "branch_attempts", "artifacts", "operations", "events")}
+
+    def _prepare_blanket(self):
+        prepared = self.graphctl("workflow-override", "prepare", "--run-id", "RUN-1", "--expected-revision", str(self.revision),
+            "--contract-manifest", str(self.contract), "--coverage-manifest", str(self.coverage))
+        self.intent = prepared["intent"]
+        self.intent_path = self.inbox_manifest(self.intent)
+        provenance = {"origin_kind": "trusted_human_message"}
+        for key, statement in (("request", prepared["request_statement"]), ("approval", prepared["approval_statement"])):
+            provenance[key] = {"message_id": "fixture-" + key, "provenance_ref": "synthetic:local-fixture-" + key,
+                "statement": statement, "content_sha256": sha256_bytes(statement.encode("utf-8")),
+                "timestamp": self.now, "intent_digest": prepared["intent_digest"]}
+        self.provenance = provenance
+        self.provenance_path = self.inbox_manifest(provenance)
+        return prepared
+
+    def _approve_blanket(self, operation="approve-blanket"):
+        return self.graphctl("workflow-override", "approve", "--run-id", "RUN-1", "--expected-revision", str(self.revision),
+            "--intent-manifest", str(self.intent_path), "--human-provenance", str(self.provenance_path),
+            "--attest-human-origin", "--opt-in-format7", "--op-id", operation)
+
+    def _revision(self):
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            return connection.execute("SELECT state_revision FROM runs").fetchone()[0]
+
+    def _continue_blanket(self, authority, operation="continue-blanket", transition="skip-to-authorized-stage",
+                          requirements=None, target=None):
+        value = {"schema_version": 1, "kind": "workflow_action", "transition": transition,
+            "target": target or ({"node_key": "senior_engineer", "stage": "implementation"}
+                                 if transition not in {"instruction", "close"} else None),
+            "requirements": requirements or []}
+        preview = self.graphctl("workflow-override", "preview", "--run-id", "RUN-1",
+            "--expected-revision", str(self._revision()), "--action-manifest", str(self.inbox_manifest(value)))
+        action = self.inbox_manifest(preview["action"])
+        self.last_action_path = action
+        self.last_action_revision = self._revision()
+        return self.graphctl("workflow-override", "continue", "--run-id", "RUN-1", "--expected-revision", str(self.last_action_revision),
+            "--workflow-authority-ref", authority, "--action-manifest", str(action), "--op-id", operation)
+
+    def _launch(self, authority, reservation="continue-blanket", operation="launch-blanket"):
+        return self.graphctl("workflow-override", "launch", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+            "--workflow-authority-ref", authority, "--reservation-id", reservation, "--op-id", operation)
+
+    def _result(self, branch, status="succeeded"):
+        kind = branch["output_contract"]["artifact_kind"]
+        self.counter += 1
+        # This fixture retains schema1 policy, whose authoritative output schemes
+        # include ledger references rather than schema3-only runtime references.
+        output = canonical_ledger_artifact("fixture-output-" + str(self.counter), kind,
+            {"kind": kind, "content": "actual fixture output"})
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            with connection:
+                persist_artifact(connection, "RUN-1", output)
+        artifact = {"kind": output.kind, "ref": output.ref, "sha256": output.sha256}
+        value = {"schema_version": 1, "run_id": "RUN-1", "branch_id": branch["branch_id"], "status": status,
+            "output_kind": kind, "evidence": [], "findings": [], "artifact_ref": artifact,
+            "attempt_id": branch["attempt_id"], "claim_digest": sha256_bytes(branch["claim_token"].encode())}
+        if branch["output_contract"].get("decision_values"):
+            value["decision"] = "IMPLEMENTED" if branch["node_key"] == "senior_engineer" else "APPROVE"
+        return self.inbox_manifest(value)
+
+    def _settle(self, authority, branch, result, operation="settle-blanket", *extra):
+        return self.graphctl("workflow-override", "settle", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+            "--workflow-authority-ref", authority, "--reservation-id", "continue-blanket", "--claim-token", branch["claim_token"],
+            "--outcome", "succeeded", "--result-manifest", str(result), "--op-id", operation, *extra)
+
+    def _active(self):
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        return self._approve_blanket()["authority_ref"]
+
+    def test_settlement_join_provenance_rejects_substituted_id_and_result(self):
+        from graph_engine.state import workflow_context, workflow_settlement_joins
+        authority = self._active()
+        self._continue_blanket(authority)
+        branch = self._launch(authority)["branch"]
+        settled = self._settle(authority, branch, self._result(branch))
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            run = connection.execute("SELECT * FROM runs WHERE run_id='RUN-1'").fetchone()
+            context = workflow_context(connection, run, authority)
+            action = context.actions["continue-blanket"]
+            proofs = action["facts"]["settlement_joins"]
+            self.assertEqual(settled["created_join_ids"], [item["join_id"] for item in proofs])
+            self.assertEqual([branch["branch_id"]], proofs[0]["member_branch_ids"])
+            self.assertEqual(action["facts"]["result_ref"], proofs[0]["source_result_ref"])
+            record = next(item for item in context.history if item.get("phase") == "settled"
+                          and item.get("reservation_id") == "continue-blanket")
+            self.assertEqual(settled["created_join_ids"], record["created_join_ids"])
+            for identifiers, facts in [(["substituted-join"], action["facts"]),
+                    (settled["created_join_ids"], {**action["facts"], "result_digest": "0" * 64})]:
+                with self.subTest(identifiers=identifiers, result_digest=facts["result_digest"]):
+                    with self.assertRaisesRegex(StateError, "WORKFLOW_SETTLEMENT_JOIN_INVALID"):
+                        workflow_settlement_joins(connection, run, action["execution"], identifiers, facts)
+            self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM branch_attempts").fetchone()[0])
+
+    def test_canonical_completion_is_bound_to_real_run_task_and_current_source(self):
+        from graph_engine.cli import _run_context, _workflow_capture
+        from graph_engine.state import assess_workflow_merge_readiness
+        from graph_engine.validator import verify_semantic_state
+        authority = self._active()
+        self._continue_blanket(authority, transition="close")
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            run, policy, task = _run_context(connection, "RUN-1")
+            validate = lambda conn, current: verify_semantic_state(conn, current, self.repo,
+                current["policy_digest"], policy, Path(__file__).resolve().parents[1],
+                case_sensitive=os.path.normcase("A") != os.path.normcase("a"), runtime_root=self.runtime_root)
+            capture = lambda conn, current: _workflow_capture(conn, current, policy, task)
+            source = capture(connection, run)
+            sha = "a" * 40
+            snapshot = dict(head_sha=sha, reviewed_sha=sha, ci_head_sha=sha,
+                required_check_ids=["external-ci"], checks={"external-ci": "success"},
+                review_decision="APPROVED", unresolved_review_count=0)
+            arguments = dict(task_digest=run["task_digest"], source_digest=source["sha256"],
+                semantic_validator=validate, capture_source=capture, **snapshot)
+            result = assess_workflow_merge_readiness(connection, "RUN-1", **arguments)
+            self.assertEqual("DRY_RUN_READY", result["decision"])
+            self.assertEqual((run["status"], "complete_with_waivers"),
+                (result["raw_graph_status"], result["effective_graph_status"]))
+            self.assertFalse(result["merge_authorized"])
+            self.assertEqual(authority, result["workflow_authority_ref"])
+            failed_ci = assess_workflow_merge_readiness(connection, "RUN-1", **{**arguments, "checks": {"external-ci": "failure"}})
+            self.assertEqual("BLOCKED", failed_ci["decision"])
+            for changed in ({"task_digest": "0" * 64}, {"graph_status": "complete_with_waivers"}):
+                with self.subTest(changed=changed), self.assertRaises(StateError):
+                    assess_workflow_merge_readiness(connection, "RUN-1", **{**arguments, **changed})
+            with self.assertRaises(StateError):
+                assess_workflow_merge_readiness(connection, "WRONG-RUN", **arguments)
+            (self.repo / "docs/source.txt").write_text("changed after closure\n", encoding="utf-8")
+            for digest_value in (source["sha256"], capture(connection, run)["sha256"]):
+                with self.subTest(source_digest=digest_value), self.assertRaisesRegex(StateError, "WORKFLOW_COMPLETION_SOURCE_CHANGED"):
+                    assess_workflow_merge_readiness(connection, "RUN-1", **{**arguments, "source_digest": digest_value})
+
+    def test_pending_and_rejected_bootstrap_preserve_truth_and_create_real_successor(self):
+        # Each subcase gets genuine fresh persisted state, never helper auto-approval.
+        for rejected in (False, True):
+            if rejected:
+                self.tearDown()
+                self.setUp()
+            with self.subTest(rejected=rejected):
+                self._bootstrap_fixture(rejected)
+                before = self._raw()
+                with self.assertRaises(StateError):
+                    self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                        "--coverage-manifest", str(self.coverage), "--op-id", "ordinary-enable")
+                self.assertEqual(before, self._raw())
+                self._prepare_blanket()
+                self.assertEqual(before, self._raw(), "prepare must remain read-only")
+                approved = self._approve_blanket()
+                after = self._raw()
+                for table in ("execution_plans", "nodes", "joins", "budgets", "budget_consumptions", "branch_attempts"):
+                    self.assertEqual(before[table], after[table], table)
+                self.assertEqual(before["events"], after["events"][:len(before["events"])])
+                self.assertEqual(before["artifacts"], after["artifacts"][:len(before["artifacts"])])
+                with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                    run = dict(connection.execute("SELECT * FROM runs").fetchone())
+                    self.assertEqual(7, run["state_schema_version"])
+                    original = dict(zip([item[1] for item in connection.execute("PRAGMA table_info(runs)")], before["runs"][0]))
+                    for key in ("status", "blocked_reason", "finished_at"):
+                        self.assertEqual(original[key], run[key])
+                status = self.graphctl("workflow-override", "status", "--run-id", "RUN-1")["workflow_authority"]
+                self.assertEqual(("active", 0, 3), (status["state"], status["used_actions"], status["remaining_actions"]))
+                continued = self._continue_blanket(approved["authority_ref"], requirements=[
+                    {"code": "FUTURE_RULE_NOT_IN_ANY_CATALOG", "subject_ref": "fixture:future", "raw_state": "unmet"}])
+                self.assertEqual(1, len(continued["successor_branch_ids"]))
+                with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                    self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM nodes WHERE branch_id=? AND node_key='senior_engineer'", (continued["successor_branch_ids"][0],)).fetchone()[0])
+                    self.assertEqual(0, connection.execute("SELECT COUNT(*) FROM branch_attempts").fetchone()[0])
+                    self.assertEqual(before["execution_plans"], list(map(tuple, connection.execute("SELECT * FROM execution_plans"))))
+                self.assertEqual(1, continued["workflow_authority"]["used_actions"])
+
+    def test_bootstrap_faults_roll_back_activation_authority_format_and_revision(self):
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        before = self._raw()
+        for point in ("workflow_after_activation", "workflow_after_authority", "workflow_after_format"):
+            with self.subTest(point=point):
+                self.store.fault_hook = lambda actual, wanted=point: (_ for _ in ()).throw(RuntimeError(wanted)) if actual == wanted else None
+                with self.assertRaisesRegex(RuntimeError, point):
+                    self._approve_blanket("fault-" + point)
+                self.store.fault_hook = lambda _: None
+                self.assertEqual(before, self._raw())
+
+    def test_replay_after_source_evolution_and_revocation_never_reactivates(self):
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        approved = self._approve_blanket()
+        continued = self._continue_blanket(approved["authority_ref"], transition="instruction")
+        (self.repo / "docs/source.txt").write_text("ordinary authorized evolution\n", encoding="utf-8")
+        before = self._raw()
+        replay = self._approve_blanket()
+        self.assertEqual("REPLAYED", replay["code"])
+        self.assertEqual(before, self._raw())
+        self.graphctl("workflow-override", "revoke", "--run-id", "RUN-1", "--expected-revision", str(self.revision + 2),
+            "--authority-ref", approved["authority_ref"], "--reason", "human stopped", "--op-id", "revoke-blanket")
+        before = self._raw()
+        self.assertEqual("revoked", self._approve_blanket()["workflow_authority"]["state"])
+        self.assertEqual(before, self._raw())
+        with self.assertRaisesRegex(StateError, "WORKFLOW_AUTHORITY_REVOKED|WORKFLOW_REVISION_STALE"):
+            self._continue_blanket(approved["authority_ref"], operation="after-revoke", transition="instruction")
+
+    def test_missing_or_agent_provenance_and_changed_intent_are_atomic(self):
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        before = self._raw()
+        self.provenance["origin_kind"] = "agent_result"
+        self.provenance_path.write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(StateError, "WORKFLOW_HUMAN_PROVENANCE_REQUIRED"):
+            self._approve_blanket()
+        self.assertEqual(before, self._raw())
+        self.provenance["origin_kind"] = "trusted_human_message"
+        self.provenance_path.write_text(json.dumps(self.provenance), encoding="utf-8")
+        self.intent["contract"]["max_actions"] += 1
+        self.intent_path.write_text(json.dumps(self.intent), encoding="utf-8")
+        with self.assertRaisesRegex(StateError, "WORKFLOW_HUMAN_PROVENANCE_REQUIRED"):
+            self._approve_blanket()
+        self.assertEqual(before, self._raw())
+
+    def test_two_connections_commit_only_one_conflicting_approval(self):
+        from concurrent.futures import ThreadPoolExecutor
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        def attempt(number):
+            try:
+                return self._approve_blanket("concurrent-" + str(number))["code"]
+            except StateError as error:
+                return error.code
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(attempt, (1, 2)))
+        self.assertEqual(1, results.count("WORKFLOW_APPROVED"), results)
+        self.assertEqual(1, results.count("WORKFLOW_REVISION_STALE"), results)
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(2, connection.execute("SELECT state_revision FROM runs").fetchone()[0])
+
+    def test_external_effect_and_external_ci_remain_enforced(self):
+        from graph_engine.merge_readiness import assess_merge_readiness
+        self._bootstrap_fixture()
+        self._prepare_blanket()
+        approved = self._approve_blanket()
+        before = self._raw()
+        action = self.inbox_manifest({"schema_version": 1, "kind": "workflow_action", "transition": "instruction",
+            "target": None, "requirements": [], "effects": [
+                {"effect": "command", "action": "run", "target_ref": "administrative-merge"}]})
+        with self.assertRaises(ContractError):
+            self.graphctl("workflow-override", "preview", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+                          "--action-manifest", str(action))
+        self.assertEqual(before, self._raw())
+        sha = "a" * 40
+        result = assess_merge_readiness(head_sha=sha, reviewed_sha=sha, ci_head_sha=sha,
+            required_check_ids=["external-ci"], checks={"external-ci": "failure"},
+            review_decision="APPROVED", unresolved_review_count=0, graph_status="complete")
+        self.assertEqual("BLOCKED", result["decision"])
+        self.assertFalse(result["merge_authorized"])
+        self.assertIn("CHECK_NOT_PASSING:external-ci", result["blockers"])
+
+    def test_preview_is_required_and_does_not_refresh_stale_source(self):
+        authority = self._active()
+        self._continue_blanket(authority, transition="instruction")
+        action = json.loads(self.last_action_path.read_text())
+        action["expected_revision"] = self._revision()
+        action_path = self.inbox_manifest(action)
+        (self.repo / "docs/source.txt").write_text("changed after preparation\n", encoding="utf-8")
+        before = self._raw()
+        with self.assertRaisesRegex(StateError, "WORKFLOW_PREVIEW_REQUIRED"):
+            self.graphctl("workflow-override", "continue", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+                "--workflow-authority-ref", authority, "--action-manifest", str(action_path), "--op-id", "stale-preview")
+        self.assertEqual(before, self._raw())
+
+    def test_reserved_fence_is_fixed_and_private_until_actual_launch(self):
+        authority = self._active()
+        reserved = self._continue_blanket(authority)
+        self.assertNotIn("_private_launch_token", json.dumps(reserved))
+        self.assertNotIn("claim_token", json.dumps(reserved))
+        execution = reserved["workflow_authority"]["actions"][0]["execution"]
+        launched = self._launch(authority)
+        branch = launched["branch"]
+        self.assertEqual(execution["fence"], {"branch_id": branch["branch_id"], "attempt_id": branch["attempt_id"],
+            "claim_digest": sha256_bytes(branch["claim_token"].encode())})
+        self.assertEqual((1, ["continue-blanket"]), (launched["workflow_authority"]["used_actions"],
+            launched["workflow_authority"]["inflight_actions"]))
+        self._settle(authority, branch, self._result(branch))
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM branch_attempts").fetchone()[0])
+            self.assertEqual("succeeded", connection.execute("SELECT status FROM nodes WHERE branch_id=?", (branch["branch_id"],)).fetchone()[0])
+        self.assertEqual([], self.graphctl("workflow-override", "status", "--run-id", "RUN-1")["workflow_authority"]["inflight_actions"])
+
+    def test_launch_after_source_evolution_and_revocation_cannot_dispatch(self):
+        authority = self._active()
+        self._continue_blanket(authority)
+        (self.repo / "docs/source.txt").write_text("new source\n", encoding="utf-8")
+        before = self._raw()
+        with self.assertRaises(StateError):
+            self._launch(authority)
+        self.assertEqual(before, self._raw())
+        self.graphctl("workflow-override", "revoke", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+            "--authority-ref", authority, "--reason", "stop", "--op-id", "stop")
+        before = self._raw()
+        with self.assertRaisesRegex(StateError, "WORKFLOW_LAUNCH_STOPPED"):
+            self._launch(authority, operation="stopped-launch")
+        self.assertEqual(before, self._raw())
+        self.graphctl("workflow-override", "settle", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+            "--workflow-authority-ref", authority, "--reservation-id", "continue-blanket", "--outcome", "cancelled", "--op-id", "cancel")
+        status = self.graphctl("workflow-override", "status", "--run-id", "RUN-1")["workflow_authority"]
+        self.assertEqual(("revoked", 1, []), (status["state"], status["used_actions"], status["inflight_actions"]))
+
+    def test_settlement_after_revocation_preserves_finite_consumption(self):
+        authority = self._active()
+        self._continue_blanket(authority)
+        branch = self._launch(authority)["branch"]
+        result = self._result(branch)
+        self.graphctl("workflow-override", "revoke", "--run-id", "RUN-1", "--expected-revision", str(self._revision()),
+            "--authority-ref", authority, "--reason", "no more launches", "--op-id", "stop")
+        self._settle(authority, branch, result)
+        status = self.graphctl("workflow-override", "status", "--run-id", "RUN-1")["workflow_authority"]
+        self.assertEqual(("revoked", 1, []), (status["state"], status["used_actions"], status["inflight_actions"]))
+
+    def test_action_cap_is_cumulative_and_replay_cannot_refund_it(self):
+        authority = self._active()
+        for index in range(3):
+            self._continue_blanket(authority, operation="instruction-" + str(index), transition="instruction")
+        before = self._raw()
+        replay = self.graphctl("workflow-override", "continue", "--run-id", "RUN-1",
+            "--expected-revision", str(self.last_action_revision), "--workflow-authority-ref", authority,
+            "--action-manifest", str(self.last_action_path), "--op-id", "instruction-2")
+        self.assertEqual(("REPLAYED", 3, "exhausted"), (replay["code"], replay["workflow_authority"]["used_actions"], replay["workflow_authority"]["state"]))
+        self.assertEqual(before, self._raw())
+        with self.assertRaisesRegex(StateError, "WORKFLOW_AUTHORITY_EXHAUSTED"):
+            self._continue_blanket(authority, operation="over-cap", transition="instruction")
+        self.assertEqual(before, self._raw())
+
+    def test_inflight_limit_and_concurrent_launch_do_not_duplicate_attempt(self):
+        from concurrent.futures import ThreadPoolExecutor
+        authority = self._active()
+        self._continue_blanket(authority)
+        before = self._raw()
+        with self.assertRaisesRegex(StateError, "WORKFLOW_INFLIGHT_LIMIT"):
+            self._continue_blanket(authority, operation="second-reservation")
+        self.assertEqual(before, self._raw())
+        revision = self._revision()
+        def launch(number):
+            try:
+                return self.graphctl("workflow-override", "launch", "--run-id", "RUN-1", "--expected-revision", str(revision),
+                    "--workflow-authority-ref", authority, "--reservation-id", "continue-blanket", "--op-id", "launch-" + str(number))["code"]
+            except StateError as error:
+                return error.code
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(launch, (1, 2)))
+        self.assertEqual(1, outcomes.count("WORKFLOW_LAUNCHED"), outcomes)
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM branch_attempts").fetchone()[0])
+
+    def test_new_supported_native_model_choice_preserves_historical_plan(self):
+        authority = self._active()
+        before = self._raw()["execution_plans"]
+        self._continue_blanket(authority, target={"node_key": "senior_engineer", "stage": "implementation",
+            "assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "low"}})
+        launched = self._launch(authority)
+        self.assertEqual(("gpt-6.1-sol", "low"), (launched["branch"]["model"], launched["branch"]["reasoning_effort"]))
+        self.assertEqual(before, self._raw()["execution_plans"])
+
+    def test_unsupported_model_and_unapproved_provider_remain_errors(self):
+        authority = self._active()
+        before = self._raw()
+        for model, effort in (("invented-model", "high"), ("opencode-go/muse-spark-1.3-contributor", "xhigh")):
+            with self.subTest(model=model), self.assertRaises((ValueError, ContractError, StateError)):
+                self._continue_blanket(authority, target={"node_key": "senior_engineer", "stage": "implementation",
+                    "assignment": {"model": model, "reasoning_effort": effort}})
+            self.assertEqual(before, self._raw())
+
+
+class HumanDesignRiskTests(GraphCase):
+    """Synthetic reports and local statements exercise the protocol, not human authentication."""
+
+    def _blocked_design(self, *, enable=True, revisions=0, boundary_reason=None, check_fails=False, retry_design=False, retained_design_work=0):
+        policy_path = self.repo / ".codex/engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["limits"]["design_revisions"] = revisions
+        policy["required_checks"]["repo-check"]["argv"] = [sys.executable, "-c", "pass"]
+        if check_fails:
+            policy["required_checks"]["repo-check"]["argv"] = [sys.executable, "-c", "raise SystemExit(7)"]
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        (self.repo / "docs/source.txt").write_text("synthetic source\n", encoding="utf-8")
+        task = self.task(tags=["security_privacy"])
+        task["scope"] = {"included": ["repo:docs/source.txt"], "excluded": []}
+        task["authority"]["capabilities"] = [
+            {"effect": "filesystem_read", "action": "read", "target_ref": "repo:docs/source.txt"},
+            {"effect": "filesystem_write", "action": "edit", "target_ref": "repo:docs/source.txt"},
+            {"effect": "command", "action": "run", "target_ref": "npm-run-check"}]
+        self.initialize_task(task)
+        for arguments in [("init",), ("add", "."),
+                          ("-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "synthetic fixture")]:
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+        if enable:
+            coverage = self.inbox_manifest({"schema_version": 1, "kind": "check_coverage", "checks": [
+                {"check_id": "repo-check", "relevant_inputs": ["docs/source.txt"], "complete": True}]})
+            self.graphctl("evidence", "enable", "--run-id", "RUN-1", "--contract-version", "2",
+                          "--coverage-manifest", str(coverage), "--op-id", "synthetic-enable")
+        self.impact("full_delivery", ["security_privacy"])
+        for generation in range(revisions - retained_design_work + 1):
+            designer = self.claim()
+            if generation == 0 and retry_design:
+                evidence = self.repo_artifact("failure", "synthetic-insufficient-design-evidence")
+                self.record(designer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": designer["branch_id"],
+                    "status": "failed", "output_kind": "technical_design", "failure_code": "INSUFFICIENT_EVIDENCE", "evidence": [evidence]})
+                judgment = self.inbox_manifest({"schema_version": 1, "kind": "repair_judgment", "cause": "infrastructure",
+                    "failed_criterion_ids": ["AC-001"], "authorized_scope": []})
+                self.graphctl("record", "retry", "--run-id", "RUN-1", "--branch-id", designer["branch_id"],
+                    "--reason-code", "RETRY", "--repair-manifest", str(judgment), "--op-id", "synthetic-settled-design-retry")
+                replacement = self.claim()
+                self.assertEqual(designer["branch_id"], replacement["branch_id"])
+                self.assertNotEqual(designer["attempt_id"], replacement["attempt_id"])
+                self.assertEqual(1, replacement["retry_count"])
+                designer = replacement
+            self.success(designer)
+            if generation == 0 and retained_design_work:
+                self.graphctl("record", "budget-use", "--run-id", "RUN-1", "--budget-id", "design_revisions",
+                    "--amount", str(retained_design_work), "--source-branch-id", designer["branch_id"],
+                    "--op-id", "synthetic-retained-prior-design-work")
+            self.advance("design_inputs", generation)
+            for _ in range(2):
+                reviewer = self.claim()
+                security = reviewer["role"] == "security_reviewer"
+                self.success(reviewer, "REVISE" if security else "APPROVE",
+                             [{"finding_id": "SEC-001", "disposition": "revise", "scope": "in_scope"}] if security else [])
+            self.advance("design_collection", generation)
+            self.consolidation("design", "REVISE", generation, dispositions=[{"finding_id": "SEC-001", "disposition": "revise"}])
+            self.target = self.open_join("design_consolidation", generation)["join_id"]
+            if boundary_reason:
+                manifest = self.control_manifest("block", boundary_reason)
+                self.graphctl("block", "--run-id", "RUN-1", "--reason-code", boundary_reason,
+                              "--evidence-manifest", str(manifest), "--op-id", "synthetic-enforcement-block")
+                return task
+            self.advance("design_consolidation", generation)
+        return task
+
+    def _snapshot(self):
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            return tuple(connection.iterdump())
+
+    def _prepare(self, operation="synthetic-prepare"):
+        return self.graphctl("design-risk", "prepare", "--run-id", "RUN-1", "--design-join-id", self.target, "--op-id", operation)
+
+    def _receipt(self, preparation):
+        from graph_engine import design_risk
+        from graph_engine.state import current_actor
+        scope = {**preparation["scope"], "preparation_ref": preparation["preparation_ref"]}
+        human = {"schema_version": 1, "kind": "human_design_risk_authorization", "origin": "direct_human",
+            "authority_ref": "authority:test", "actor": current_actor(), "run_id": "RUN-1",
+            "preparation_ref": preparation["preparation_ref"], "scope_digest": preparation["scope_digest"],
+            "accepted_findings": scope["accepted_findings"], "source_provenance": scope["source_provenance"],
+            "decision": "ACCEPT_EXISTING_DESIGN_RISK", "provenance_ref": "synthetic-fixture:human-statement",
+            "statement": "Synthetic exact authorization " + preparation["scope_digest"] + " " + scope["source_provenance"]}
+        path = self.repo / "docs/artifacts/synthetic-human-authorization.json"
+        path.write_bytes(canonical_bytes(human))
+        human_digest = sha256_bytes(path.read_bytes())
+        return {"schema_version": 1, "kind": design_risk.RECEIPT, "decision": "ACCEPT_EXISTING_DESIGN_RISK",
+            "reason": "Synthetic acceptance of the exact unresolved security judgment", "scope": scope,
+            "scope_digest": preparation["scope_digest"], "human_provenance": {"authority_ref": "authority:test",
+                "actor": current_actor(), "human_evidence_ref": "repo:docs/artifacts/" + path.name + "#sha256=" + human_digest,
+                "human_evidence_sha256": human_digest, "accepted_scope_digest": preparation["scope_digest"], "asserted_role": "human"}}
+
+    def _accept(self, receipt, operation="synthetic-accept", authority="authority:test"):
+        path = self.inbox_manifest(receipt)
+        return self.graphctl("design-risk", "accept", "--run-id", "RUN-1", "--design-join-id", self.target,
+                            "--receipt", str(path), "--authority-ref", authority, "--op-id", operation)
+
+    def test_exhausted_format7_acceptance_preserves_raw_evidence_and_allowances(self):
+        self._blocked_design()
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            preserved = {table: list(map(tuple, connection.execute("SELECT * FROM " + table))) for table in
+                         ("nodes", "joins", "join_members", "budgets", "budget_consumptions", "branch_attempts", "execution_plans", "approvals")}
+            artifacts = list(map(tuple, connection.execute("SELECT * FROM artifacts")))
+            run = dict(connection.execute("SELECT * FROM runs").fetchone())
+        inspected = self.graphctl("design-risk", "inspect", "--run-id", "RUN-1", "--design-join-id", self.target)
+        self.assertTrue(inspected["eligible"], inspected)
+        prepared = self._prepare()
+        self.assertEqual("current_context_only", prepared["scope"]["source_provenance"])
+        self.assertIsNone(prepared["scope"]["original_review_source_binding_ref"])
+        receipt = self._receipt(prepared)
+        result = self._accept(receipt)
+        self.assertEqual("DESIGN_RISK_ACCEPTED", result["code"])
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual("active", status["status"])
+        self.assertEqual(1, len(result["successor_branch_ids"]))
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            for table, expected in preserved.items():
+                actual = list(map(tuple, connection.execute("SELECT * FROM " + table)))
+                if table == "nodes":
+                    actual = [row for row in actual if row[0] not in result["successor_branch_ids"]]
+                self.assertEqual(expected, actual, table)
+            for row in artifacts:
+                self.assertEqual(row, tuple(connection.execute("SELECT * FROM artifacts WHERE ref=?", (row[0],)).fetchone()))
+            current = dict(connection.execute("SELECT * FROM runs").fetchone())
+            for key in run.keys() - {"state_revision", "status", "blocked_reason", "finished_at"}:
+                self.assertEqual(run[key], current[key], key)
+        self.assertEqual(["APPROVE", "REVISE"], sorted(item["decision"] for item in receipt["scope"]["review_results"]))
+        before = self._snapshot()
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+        self.assertEqual(before, self._snapshot())
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_ALREADY_ACCEPTED"):
+            self._accept(receipt, "duplicate-accept")
+        self.assertEqual(before, self._snapshot())
+        self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        engineer = self.claim_raw()
+        self.assertEqual(("senior_engineer", 0, 0), (engineer["node_key"], engineer["generation"], engineer["retry_count"]))
+        (self.repo / "docs/source.txt").write_text("authorized synthetic implementation\n", encoding="utf-8")
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+        self.success(engineer, "IMPLEMENTED")
+        self.advance("implementation")
+        delivery = [row for row in self.graphctl("status", "--run-id", "RUN-1")["branches"] if row["stage"] == "delivery"]
+        self.assertEqual({"code_reviewer", "code_reviewer_architecture", "code_reviewer_naming", "code_reviewer_bug_hunter", "test_engineer", "security_reviewer"},
+                         {row["node_key"] for row in delivery})
+        with self.assertRaises(StateError):
+            self.graphctl("complete", "--run-id", "RUN-1", "--op-id", "premature-complete")
+
+
+    def test_exact_scope_authority_and_broad_request_rejections_are_atomic(self):
+        from graph_engine import design_risk
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        before = self._snapshot()
+        replacements = {key: "synthetic-mismatch" for key in receipt["scope"]}
+        replacements.update({"prepared_revision": prepared["prepared_revision"] + 1, "design_generation": 1,
+            "implementation_generation": 1, "original_review_source_binding_ref": "ledger:other#sha256=" + "a" * 64,
+            "accepted_findings": [], "review_results": [], "repository_identity": {"path": "*"},
+            "blocked_event": {"revision": 0, "source_id": "other", "digest": "a" * 64}})
+        for key, value in replacements.items():
+            invalid = copy.deepcopy(receipt)
+            invalid["scope"][key] = value
+            invalid["scope_digest"] = design_risk.scope_digest(invalid["scope"])
+            invalid["human_provenance"]["accepted_scope_digest"] = invalid["scope_digest"]
+            with self.subTest(binding=key), self.assertRaises((StateError, ContractError)):
+                self._accept(invalid, "reject-" + key)
+            self.assertEqual(before, self._snapshot())
+        for key in ("force", "capabilities", "models", "budget_reset", "required_checks", "branch_protection",
+                    "platform_denial", "filesystem_permissions", "credentials", "security_access", "production", "administrative_safeguards"):
+            invalid = {**receipt, key: True}
+            with self.subTest(broad_field=key), self.assertRaises((StateError, ContractError)):
+                self._accept(invalid, "broad-" + key)
+            self.assertEqual(before, self._snapshot())
+        for key, value in {"authority_ref": "authority:foreign", "actor": "agent", "asserted_role": "agent",
+                           "human_evidence_ref": "ledger:missing#sha256=" + "a" * 64,
+                           "human_evidence_sha256": "b" * 64}.items():
+            invalid = copy.deepcopy(receipt)
+            invalid["human_provenance"][key] = value
+            with self.subTest(provenance=key), self.assertRaises((StateError, ContractError)):
+                self._accept(invalid, "authority-" + key)
+            self.assertEqual(before, self._snapshot())
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_AUTHORITY_MISMATCH"):
+            self._accept(receipt, "foreign-authority", "authority:foreign")
+        self.assertEqual(before, self._snapshot())
+
+    def test_source_movement_stale_preparation_and_conflicting_replay(self):
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        source = self.repo / "docs/source.txt"
+        original = source.read_bytes()
+        source.write_text("synthetic moved source", encoding="utf-8")
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_SOURCE_CHANGED"):
+            self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+        source.write_bytes(original)
+        second = self._prepare("synthetic-reprepare")
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_PREPARATION_STALE"):
+            self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+        replay = self._prepare()
+        self.assertTrue(replay["stale"])
+        receipt = self._receipt(second)
+        self._accept(receipt)
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+            self._accept({**receipt, "reason": "Changed synthetic content"})
+        self.assertEqual(before, self._snapshot())
+        source.write_text("moved before initial claim", encoding="utf-8")
+        for command in (("status",), ("resume",), ("next",), ("next", "--claim", "--op-id", "stale-claim")):
+            with self.subTest(command=command), self.assertRaisesRegex(StateError, "DESIGN_RISK_SOURCE_CHANGED"):
+                self.graphctl(*command, "--run-id", "RUN-1")
+        self.assertEqual(before, self._snapshot())
+
+    def test_fault_and_source_race_leave_no_partial_acceptance(self):
+        import graph_engine.cli as cli
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        before = self._snapshot()
+        with patch.object(self.store, "fault_hook", side_effect=RuntimeError("synthetic before-commit fault")):
+            with self.assertRaisesRegex(RuntimeError, "before-commit"):
+                self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+        original_capture = cli._design_risk_source
+        captures = []
+
+        def moving_source(*args):
+            captures.append(1)
+            if len(captures) == 2:
+                (self.repo / "docs/source.txt").write_text("synthetic concurrent edit", encoding="utf-8")
+            return original_capture(*args)
+
+        with patch.object(cli, "_design_risk_source", side_effect=moving_source):
+            with self.assertRaisesRegex(StateError, "DESIGN_RISK_SOURCE_CHANGED"):
+                self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+
+    def test_extension_tampering_is_rejected_on_semantic_entry_points(self):
+        from graph_engine.validator import verify_semantic_state
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        self._accept(receipt)
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        mutations = [
+            ("UPDATE events SET detail_json='{}' WHERE event_type='design-risk.accept'", ()),
+            ("DELETE FROM events WHERE event_type='design-risk.prepare'", ()),
+            ("UPDATE operations SET request_digest=? WHERE operation_id='synthetic-accept'", ("a" * 64,)),
+            ("UPDATE budgets SET used=1 WHERE budget_id='design_revisions'", ()),
+            ("UPDATE artifacts SET content_json='{}' WHERE ref=?", (prepared["preparation_ref"],)),
+            ("DELETE FROM artifacts WHERE ref=?", (prepared["preparation_ref"],)),
+        ]
+        for sql, parameters in mutations:
+            with self.subTest(sql=sql), self.store.connect(database) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(sql, parameters)
+                run = connection.execute("SELECT * FROM runs").fetchone()
+                policy = json.loads(run["policy_json"])
+                with self.assertRaises((StateError, ContractError)):
+                    verify_semantic_state(connection, run, self.repo, run["policy_digest"], policy,
+                                          Path(__file__).resolve().parents[1], case_sensitive=os.name != "nt", runtime_root=self.runtime_root)
+                connection.rollback()
+        with self.store.connect(database) as connection:
+            connection.execute("UPDATE events SET detail_json='{}' WHERE event_type='design-risk.accept'")
+            connection.commit()
+        for command in (("status",), ("resume",), ("next",), ("next", "--claim", "--op-id", "tampered-claim")):
+            with self.subTest(command=command), self.assertRaises((StateError, ContractError)):
+                self.graphctl(*command, "--run-id", "RUN-1")
+        with self.assertRaises((StateError, ContractError)):
+            self._accept(receipt)
+
+    def test_format6_and_external_enforcement_blocks_are_ineligible(self):
+        self._blocked_design(enable=False)
+        before = self._snapshot()
+        with self.assertRaises(StateError):
+            self._prepare()
+        self.assertEqual(before, self._snapshot())
+        # Synthetic direct corruption probes cover externally enforced reason types.
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        for reason in ("SECURITY_DENIED", "POLICY_DENIED", "PLATFORM_DENIED", "FILESYSTEM_DENIED", "CREDENTIAL_DENIED",
+                       "ACCESS_DENIED", "REQUIRED_CHECK_FAILED", "BRANCH_PROTECTION", "PRODUCTION_RESTRICTION", "ADMINISTRATIVE_SAFEGUARD"):
+            with self.store.connect(database) as connection:
+                connection.execute("UPDATE runs SET blocked_reason=?", (reason,))
+                connection.commit()
+            with self.subTest(reason=reason), self.assertRaises(StateError):
+                self._prepare("boundary-" + reason)
+
+    def test_real_security_and_policy_block_commands_remain_closed(self):
+        for reason in ("SECURITY_DENIED", "POLICY_DENIED"):
+            fixture = HumanDesignRiskTests(methodName="runTest")
+            fixture.setUp()
+            try:
+                fixture._blocked_design(boundary_reason=reason)
+                before = fixture._snapshot()
+                with self.subTest(reason=reason), self.assertRaisesRegex(StateError, "DESIGN_RISK_INELIGIBLE"):
+                    fixture._prepare()
+                self.assertEqual(before, fixture._snapshot())
+            finally:
+                fixture.tearDown()
+                fixture.doCleanups()
+
+    def test_later_delivery_repair_reconstructs_the_original_acceptance_cut(self):
+        self._blocked_design()
+        receipt = self._receipt(self._prepare())
+        self._accept(receipt)
+        writer = self.claim_raw()
+        self.success(writer, "IMPLEMENTED")
+        self.advance("implementation")
+        for _ in range(6):
+            reviewer = self.claim_raw()
+            repair = reviewer["role"] == "security_reviewer"
+            self.success(reviewer, "REVISE" if repair else "APPROVE",
+                         [{"finding_id": "SEC-001", "disposition": "repair", "scope": "in_scope"}] if repair else [])
+        self.advance("delivery_collection")
+        self.consolidation("delivery", "REPAIR", dispositions=[{"finding_id": "SEC-001", "disposition": "repair"}])
+        advanced = self.advance("delivery_consolidation")
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(1, next(row["used"] for row in status["budgets"] if row["budget_id"] == "delivery_repairs"))
+        self.assertEqual(1, len(status["design_risk"]["effective_resolutions"]))
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+        repaired = self.claim_raw()
+        self.assertEqual(("senior_engineer", 1), (repaired["node_key"], repaired["generation"]))
+        self.assertEqual([repaired["branch_id"]], advanced["successor_branch_ids"])
+
+    def test_required_failed_check_still_prevents_completion_after_all_reviews(self):
+        self._blocked_design(check_fails=True)
+        self._accept(self._receipt(self._prepare()))
+        writer = self.claim_raw()
+        check = self.graphctl("check", "run", "--run-id", "RUN-1", "--check-id", "repo-check",
+            "--executor-branch-id", writer["branch_id"], "--executor-attempt-id", writer["attempt_id"],
+            "--executor-claim-token", writer["claim_token"], "--source-branch-id", writer["branch_id"],
+            "--source-attempt-id", writer["attempt_id"], "--source-claim-digest", writer["claim_digest"], "--op-id", "synthetic-failed-check")
+        self.assertEqual("FAIL", check["outcome"])
+        self.success(writer, "IMPLEMENTED")
+        from graph_engine.validator import design_risk_cut
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            run = connection.execute("SELECT * FROM runs").fetchone()
+            cut, _ = design_risk_cut(connection, run, run["state_revision"])
+            self.assertEqual([dict(row) for row in connection.execute("SELECT budget_id,limit_value,used FROM budgets ORDER BY budget_id")], cut["budgets"])
+        self.advance("implementation")
+        for _ in range(6):
+            self.success(self.claim_raw(), "APPROVE")
+        self.advance("delivery_collection")
+        self.consolidation("delivery", "ACCEPT")
+        self.advance("delivery_consolidation")
+        evidence = self.repo_artifact("acceptance_evidence", "synthetic-acceptance")
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "REQUIRED_CHECKS_INCOMPLETE"):
+            self.graphctl("record", "acceptance-evidence", "--run-id", "RUN-1", "--criterion-id", "AC-001",
+                          "--artifact-ref", evidence["ref"], "--artifact-sha256", evidence["sha256"], "--op-id", "synthetic-ac")
+        with self.assertRaises(StateError):
+            self.graphctl("complete", "--run-id", "RUN-1", "--op-id", "synthetic-failed-complete")
+        self.assertEqual(before, self._snapshot())
+
+    def test_two_real_cli_processes_replay_once_and_lock_conflicts_are_atomic(self):
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        path = self.inbox_manifest(receipt)
+        script = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from graph_engine.cli import execute
+from graph_engine.state import StateError
+from graph_engine.contracts import ContractError
+try:
+    result, code = execute(['--repo', sys.argv[2], '--state-root', sys.argv[3],
+        'design-risk', 'accept', '--run-id', 'RUN-1', '--design-join-id', sys.argv[4],
+        '--receipt', sys.argv[5], '--authority-ref', 'authority:test', '--op-id', sys.argv[6]])
+except (StateError, ContractError) as error:
+    result, code = {'code': str(error)}, 4
+print(json.dumps(result, sort_keys=True))
+sys.exit(code)
+"""
+        arguments = [sys.executable, "-I", "-B", "-c", script, str(Path(__file__).resolve().parents[1]),
+                     str(self.repo), str(self.runtime_root), self.target, str(path), "synthetic-race"]
+        processes = [subprocess.Popen(arguments, cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for _ in range(2)]
+        outcomes = []
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=60)
+            self.assertEqual(0, process.returncode, stderr + stdout)
+            outcomes.append(json.loads(stdout)["code"])
+        self.assertEqual(["DESIGN_RISK_ACCEPTED", "REPLAYED"], sorted(outcomes))
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+            self._accept({**receipt, "reason": "conflicting synthetic process content"}, "synthetic-race")
+        self.assertEqual(before, self._snapshot())
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM nodes WHERE node_key='senior_engineer'").fetchone()[0])
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.connect(database) as locked:
+            locked.execute("BEGIN IMMEDIATE")
+            second = sqlite3.connect(str(database), timeout=0)
+            second.row_factory = sqlite3.Row
+            try:
+                with self.assertRaisesRegex(StateError, "TRANSACTION_CONFLICT"):
+                    self.store.mutate(second, "RUN-1", "synthetic-lock-conflict", {"command": "design-risk.prepare"},
+                                      lambda *_: self.fail("locked action executed"), semantic_validator=lambda *_: None)
+            finally:
+                second.close()
+                locked.rollback()
+        self.assertEqual(before, self._snapshot())
+
+    def test_unknown_extension_versions_fail_closed(self):
+        self._blocked_design()
+        prepared = self._prepare()
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        from graph_engine import design_risk
+        from graph_engine.evidence import canonical_ledger_artifact
+        with self.store.connect(database) as connection:
+            row = connection.execute("SELECT * FROM artifacts WHERE ref=?", (prepared["preparation_ref"],)).fetchone()
+            value = json.loads(row["content_json"])
+            value["schema_version"] = 2
+            replacement = canonical_ledger_artifact("synthetic-unsupported-version", "evidence_manifest", value)
+            connection.execute("UPDATE artifacts SET content_json=?,sha256=?,size_bytes=? WHERE ref=?",
+                               (replacement.content_json, replacement.sha256, replacement.size_bytes, row["ref"]))
+            connection.commit()
+        with self.assertRaises((StateError, ContractError)):
+            self._prepare("refresh-unsupported")
+
+    def test_consumed_design_revisions_are_preserved_without_a_new_design_generation(self):
+        self._blocked_design(revisions=2, retry_design=True)
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            attempts = list(map(tuple, connection.execute("SELECT a.* FROM branch_attempts a JOIN nodes n USING(branch_id) WHERE n.node_key='tech_lead' ORDER BY n.generation,a.attempt_number")))
+            self.assertEqual(4, len(attempts))
+            self.assertEqual(["failed", "succeeded", "succeeded", "succeeded"], [row[-1] for row in attempts])
+            self.assertTrue(all(row[-2] for row in attempts))
+        prepared = self._prepare()
+        self.assertEqual(2, prepared["scope"]["design_generation"])
+        self._accept(self._receipt(prepared))
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(2, next(row["used"] for row in status["budgets"] if row["budget_id"] == "design_revisions"))
+        self.assertEqual([0, 1, 2], sorted(row["generation"] for row in status["branches"] if row["node_key"] == "tech_lead"))
+        self.assertEqual([0], [row["generation"] for row in status["branches"] if row["node_key"] == "senior_engineer"])
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(attempts, list(map(tuple, connection.execute("SELECT a.* FROM branch_attempts a JOIN nodes n USING(branch_id) WHERE n.node_key='tech_lead' ORDER BY n.generation,a.attempt_number"))))
+            self.assertEqual(1, connection.execute("SELECT retry_count FROM nodes WHERE node_key='tech_lead' AND generation=0").fetchone()[0])
+
+    def test_changed_head_and_agent_or_generic_human_statements_are_rejected(self):
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        evidence_path = self.repo / "docs/artifacts/synthetic-human-authorization.json"
+        original = evidence_path.read_bytes()
+        for changes in ({"origin": "agent"}, {"statement": "Proceed"}, {"provenance_ref": ""}, {"accepted_findings": []}):
+            human = {**json.loads(original), **changes}
+            evidence_path.write_bytes(canonical_bytes(human))
+            invalid = copy.deepcopy(receipt)
+            invalid["human_provenance"]["human_evidence_sha256"] = sha256_bytes(evidence_path.read_bytes())
+            invalid["human_provenance"]["human_evidence_ref"] = receipt["human_provenance"]["human_evidence_ref"].split("#sha256=")[0] + "#sha256=" + invalid["human_provenance"]["human_evidence_sha256"]
+            before = self._snapshot()
+            with self.subTest(changes=changes), self.assertRaises((StateError, ContractError)):
+                self._accept(invalid, "synthetic-forged-" + str(len(changes)) + next(iter(changes)))
+            self.assertEqual(before, self._snapshot())
+        evidence_path.write_bytes(original)
+        subprocess.run(["git", "-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid",
+                        "commit", "--allow-empty", "-m", "synthetic moved head"], cwd=self.repo, check=True, capture_output=True)
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_SOURCE_CHANGED"):
+            self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+
+    def test_typed_retained_budget_use_can_exhaust_generation_zero_without_refund(self):
+        self._blocked_design(revisions=2, retained_design_work=2)
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            consumptions = list(map(tuple, connection.execute("SELECT * FROM budget_consumptions")))
+            event = tuple(connection.execute("SELECT * FROM events WHERE source_id='synthetic-retained-prior-design-work'").fetchone())
+            operation = tuple(connection.execute("SELECT * FROM operations WHERE operation_id='synthetic-retained-prior-design-work'").fetchone())
+            attempts = list(map(tuple, connection.execute("SELECT * FROM branch_attempts")))
+        prepared = self._prepare()
+        self.assertEqual(0, prepared["scope"]["design_generation"])
+        self._accept(self._receipt(prepared))
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual((2, 2), next((row["used"], row["limit_value"]) for row in status["budgets"] if row["budget_id"] == "design_revisions"))
+        self.assertEqual([0], [row["generation"] for row in status["branches"] if row["node_key"] == "tech_lead"])
+        self.assertEqual([0], [row["generation"] for row in status["branches"] if row["node_key"] == "senior_engineer"])
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            self.assertEqual(consumptions, list(map(tuple, connection.execute("SELECT * FROM budget_consumptions"))))
+            self.assertEqual(event, tuple(connection.execute("SELECT * FROM events WHERE source_id='synthetic-retained-prior-design-work'").fetchone()))
+            self.assertEqual(operation, tuple(connection.execute("SELECT * FROM operations WHERE operation_id='synthetic-retained-prior-design-work'").fetchone()))
+            self.assertEqual(attempts, list(map(tuple, connection.execute("SELECT * FROM branch_attempts"))))
+
+    def test_known_stale_binding_and_uncertain_settlement_fail_independent_validation(self):
+        from graph_engine.cli import _design_risk_source
+        from graph_engine.evidence import canonical_ledger_artifact, persist_artifact
+        from graph_engine.validator import design_risk_context, design_risk_cut
+        self._blocked_design()
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        before = self._snapshot()
+        with self.store.connect(database) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = connection.execute("SELECT * FROM runs").fetchone()
+            policy, task = json.loads(run["policy_json"]), json.loads(run["task_json"])
+            source = _design_risk_source(connection, run, policy, task)
+            plan = connection.execute("SELECT * FROM execution_plans").fetchone()
+            # Synthetic legacy-binding probe, never a claim of historical reviewer provenance.
+            stale = canonical_ledger_artifact("synthetic-stale-design-binding", "evidence_manifest", {
+                "kind": "review_source_binding", "schema_version": 1, "source_digest": "b" * 64,
+                "coverage": {"roots": source["roots"]}, "task_digest": run["task_digest"],
+                "policy_digest": run["policy_digest"], "plan_digest": plan["plan_digest"]})
+            persist_artifact(connection, "RUN-1", stale)
+            design = connection.execute("SELECT * FROM nodes WHERE node_key='tech_lead'").fetchone()
+            env = json.loads(design["envelope_json"])
+            env["inputs"].append(stale.as_input())
+            connection.execute("UPDATE nodes SET envelope_json=? WHERE branch_id=?", (json.dumps(env), design["branch_id"]))
+            with self.assertRaisesRegex(StateError, "DESIGN_RISK_SOURCE_CHANGED"):
+                design_risk_context(connection, run, policy, task, self.target, run["state_revision"], run["state_revision"] + 1, source)
+            connection.rollback()
+        with self.store.connect(database) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = connection.execute("SELECT * FROM runs").fetchone()
+            event = connection.execute("SELECT event_id FROM events WHERE event_type='record.branch-result' ORDER BY revision DESC LIMIT 1").fetchone()
+            connection.execute("DELETE FROM events WHERE event_id=?", (event[0],))
+            with self.assertRaisesRegex(StateError, "DESIGN_RISK_INELIGIBLE"):
+                design_risk_cut(connection, run, run["state_revision"])
+            connection.rollback()
+        self.assertEqual(before, self._snapshot())
+
+    @unittest.skipUnless(os.environ.get("GRAPH_RISK_BASELINE"), "actual preserved baseline must be supplied explicitly")
+    def test_actual_280_engine_prepared_accepted_and_control_observations(self):
+        """An operational no-downgrade restriction does not predict an old engine's verdict."""
+        baseline = Path(os.environ["GRAPH_RISK_BASELINE"]).resolve()
+        manifest_path = Path(os.environ["GRAPH_RISK_BASELINE_MANIFEST"])
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual("2.8.0", manifest["engine_version"])
+        self.assertEqual(71, len(manifest["files"]))
+        for relative, expected in manifest["files"].items():
+            self.assertEqual(expected, sha256_bytes((baseline / relative).read_bytes()), relative)
+        script = """
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import graph_engine
+from graph_engine.cli import execute
+from graph_engine.state import StateError, StateStore
+from graph_engine.contracts import ContractError
+from graph_engine.validator import verify_semantic_state
+from graph_engine.config import load_policy
+metadata = {'module': graph_engine.__file__, 'version': graph_engine.ENGINE_VERSION, 'synthetic': True}
+try:
+    arguments = ['--repo', sys.argv[2], '--state-root', sys.argv[3]]
+    if sys.argv[4] == 'semantic':
+        policy, snapshot = load_policy(Path(sys.argv[2]), runtime_root=Path(sys.argv[3]))
+        store = StateStore(Path(sys.argv[3]))
+        with store.open_run(policy['repository_id'], 'RUN-1') as connection:
+            run = connection.execute('SELECT * FROM runs').fetchone()
+            verify_semantic_state(connection, run, Path(sys.argv[2]), snapshot.digest, policy,
+                Path(sys.argv[1]), case_sensitive=False, runtime_root=Path(sys.argv[3]))
+        result, code = {'code': 'SEMANTIC_VALID'}, 0
+    else:
+        arguments += [sys.argv[4], '--run-id', 'RUN-1']
+        if sys.argv[4] == 'resume':
+            arguments += ['--ack-degraded-permissions', '--ack-degraded-durability']
+        if len(sys.argv) > 5:
+            arguments += ['--claim', '--op-id', 'synthetic-old-engine-claim']
+        result, code = execute(arguments)
+except (StateError, ContractError) as error:
+    result, code = {'code': str(error)}, 4
+if isinstance(result.get('branch'), dict):
+    result['branch'].pop('claim_token', None)
+print(json.dumps({'provenance': metadata, 'exit_code': code, 'result': result}, sort_keys=True))
+"""
+        observations = []
+        # Each command gets a new candidate-created disposable fixture, preserving normal database identity.
+        for state in ("control", "prepared", "accepted"):
+            for command in ("status", "resume", "next", "semantic", "claim"):
+                fixture = HumanDesignRiskTests(methodName="runTest")
+                fixture.setUp()
+                try:
+                    fixture._blocked_design()
+                    if state != "control":
+                        prepared = fixture._prepare()
+                        if state == "accepted":
+                            fixture._accept(fixture._receipt(prepared))
+                    before = fixture._snapshot()
+                    with fixture.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                        original_evidence = list(map(tuple, connection.execute("SELECT * FROM artifacts ORDER BY ref")))
+                        original_nodes = list(map(tuple, connection.execute("SELECT * FROM nodes WHERE node_key<>'senior_engineer' ORDER BY branch_id")))
+                        original_budgets = list(map(tuple, connection.execute("SELECT * FROM budgets ORDER BY budget_id")))
+                        original_plan = tuple(connection.execute("SELECT * FROM execution_plans").fetchone())
+                        expected_writer = connection.execute("SELECT envelope_json FROM nodes WHERE node_key='senior_engineer'").fetchone()
+                        expected_writer = json.loads(expected_writer[0]) if expected_writer else None
+                    argv = [sys.executable, "-I", "-B", "-c", script, str(baseline), str(fixture.repo),
+                            str(fixture.runtime_root), "next" if command == "claim" else command]
+                    if command == "claim":
+                        argv.append("claim")
+                    completed = subprocess.run(argv, cwd=fixture.root, capture_output=True, text=True, timeout=60)
+                    self.assertEqual(0, completed.returncode, completed.stderr + completed.stdout)
+                    value = json.loads(completed.stdout)
+                    self.assertEqual("2.8.0", value["provenance"]["version"])
+                    self.assertTrue(Path(value["provenance"]["module"]).is_relative_to(baseline))
+                    if state == "control" and command in {"status", "resume", "semantic"}:
+                        self.assertEqual(0, value["exit_code"], value)
+                    if command != "claim":
+                        self.assertEqual(before, fixture._snapshot())
+                    with fixture.store.open_run("albanian-live-translate", "RUN-1") as connection:
+                        count = connection.execute("SELECT COUNT(*) FROM nodes WHERE node_key='senior_engineer'").fetchone()[0]
+                        self.assertEqual(original_budgets, list(map(tuple, connection.execute("SELECT * FROM budgets ORDER BY budget_id"))))
+                        self.assertEqual(original_plan, tuple(connection.execute("SELECT * FROM execution_plans").fetchone()))
+                        self.assertEqual(original_nodes, list(map(tuple, connection.execute("SELECT * FROM nodes WHERE node_key<>'senior_engineer' ORDER BY branch_id"))))
+                        for row in original_evidence:
+                            self.assertEqual(row, tuple(connection.execute("SELECT * FROM artifacts WHERE ref=?", (row[0],)).fetchone()))
+                    self.assertEqual(int(state == "accepted"), count)
+                    branch = value["result"].get("branch")
+                    if branch:
+                        for key in ("branch_id", "node_instance_id", "model", "reasoning_effort", "effect_capabilities", "generation", "max_retries"):
+                            self.assertEqual(expected_writer[key], branch[key], key)
+                    observations.append({"state": state, "command": command, "baseline_manifest_sha256": sha256_bytes(manifest_path.read_bytes()),
+                        "provenance": value["provenance"], "exit_code": value["exit_code"], "code": value["result"]["code"],
+                        "advertised_branch_ids": [row["branch_id"] for row in value["result"].get("branches", [])],
+                        "claimed_branch": {key: branch[key] for key in ("branch_id", "node_instance_id", "model", "reasoning_effort", "effect_capabilities", "generation", "max_retries")} if branch else None,
+                        "unchanged_budgets": original_budgets, "preserved_evidence_digest": sha256_bytes(canonical_bytes(original_evidence)),
+                        "successor_count": count})
+                finally:
+                    fixture.tearDown()
+                    fixture.doCleanups()
+        print("ACTUAL_280_DESIGN_RISK_OBSERVATIONS " + json.dumps(observations, sort_keys=True))
+
+
+    def _accepted_branch_retry(self, timeout=False):
+        self._blocked_design()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        self._accept(receipt)
+        writer = self.claim_raw()
+        if timeout:
+            manifest = self.control_manifest("timeout", "WORKER_TIMEOUT", writer)
+            self.graphctl("record", "timeout", "--run-id", "RUN-1", "--branch-id", writer["branch_id"],
+                "--attempt-id", writer["attempt_id"], "--claim-token", writer["claim_token"], "--reason-code", "WORKER_TIMEOUT",
+                "--evidence-manifest", str(manifest), "--op-id", "synthetic-accepted-timeout")
+        else:
+            self.record(writer, {"schema_version": 1, "run_id": "RUN-1", "branch_id": writer["branch_id"],
+                "status": "failed", "output_kind": "implementation_handoff", "failure_code": "TOOL_FAILURE",
+                "evidence": [self.repo_artifact("failure", "synthetic-accepted-failure")]})
+        judgment = self.inbox_manifest({"schema_version": 1, "kind": "repair_judgment", "cause": "infrastructure",
+            "failed_criterion_ids": ["AC-001"], "authorized_scope": []})
+        retried = self.graphctl("record", "retry", "--run-id", "RUN-1", "--branch-id", writer["branch_id"],
+            "--reason-code", "RETRY", "--repair-manifest", str(judgment), "--op-id", "synthetic-accepted-retry")
+        self.assertEqual(1, len(retried["repair_packet_refs"]))
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+        replacement = self.claim_raw()
+        self.assertEqual(writer["branch_id"], replacement["branch_id"])
+        self.assertNotEqual(writer["attempt_id"], replacement["attempt_id"])
+        self.assertEqual((0, 1, 1), (replacement["generation"], replacement["retry_count"], replacement["max_retries"]))
+        self.assertEqual(writer["inputs"], [item for item in replacement["inputs"] if item["kind"] != "failure"])
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            attempts = list(connection.execute("SELECT * FROM branch_attempts WHERE branch_id=? ORDER BY attempt_number", (writer["branch_id"],)))
+            self.assertEqual(2, len(attempts))
+            self.assertEqual("timed_out" if timeout else "failed", attempts[0]["outcome"])
+            self.assertTrue(attempts[0]["finished_at"])
+            packets = [json.loads(row[0]) for row in connection.execute("SELECT content_json FROM artifacts WHERE kind='failure' AND source_type='ledger'")]
+            self.assertEqual(2, len([item for item in packets if item.get("kind") == "repair_packet" and item["branch_id"] == writer["branch_id"]]))
+        self.success(replacement, "IMPLEMENTED")
+        for command in (("status",), ("resume",), ("next",)):
+            flags = ("--ack-degraded-permissions", "--ack-degraded-durability") if command == ("resume",) else ()
+            self.graphctl(*command, "--run-id", "RUN-1", *flags)
+        provenance = self.graphctl("status", "--run-id", "RUN-1")["design_risk"]["effective_resolutions"][0]["packet_provenance"]
+        self.assertEqual((1, 2), (len(provenance["active_repair_packet_refs"]), len(provenance["historical_repair_packet_refs"])))
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+        return replacement
+
+    def test_accepted_failed_branch_preserves_ordinary_retry_and_claim_refresh(self):
+        self._accepted_branch_retry()
+
+    def test_accepted_timed_out_branch_preserves_ordinary_retry_and_claim_refresh(self):
+        self._accepted_branch_retry(timeout=True)
+
+    def test_archived_blocked_finish_preserves_exact_timestamp_precision(self):
+        self._blocked_design()
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.connect(database) as connection:
+            original = connection.execute("SELECT finished_at FROM runs").fetchone()[0]
+            timestamp = original[:-1] + ".000000Z" if "." not in original else original
+            connection.execute("UPDATE runs SET finished_at=?", (timestamp,))
+            connection.commit()
+        prepared = self._prepare()
+        receipt = self._receipt(prepared)
+        accepted = self._accept(receipt)
+        view = self.graphctl("status", "--run-id", "RUN-1")["design_risk"]["effective_resolutions"][0]
+        self.assertEqual(timestamp, view["original_blocked_run"]["finished_at"])
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            preparation = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (prepared["preparation_ref"],)).fetchone()[0])
+            resolution = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (accepted["effective_resolution_ref"],)).fetchone()[0])
+            self.assertEqual(preparation["original_blocked_run"], resolution["original_blocked_run"])
+            self.assertIsNone(connection.execute("SELECT finished_at FROM runs").fetchone()[0])
+        self.assertEqual("REPLAYED", self._accept(receipt)["code"])
+
+    def test_changed_blocked_finish_rejects_atomically_and_nullable_shape_is_not_inferred(self):
+        self._blocked_design()
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        receipt = self._receipt(self._prepare())
+        with self.store.connect(database) as connection:
+            original = connection.execute("SELECT finished_at FROM runs").fetchone()[0]
+            from datetime import datetime, timedelta
+            changed = (datetime.fromisoformat(original.replace("Z", "+00:00")) + timedelta(microseconds=1)).isoformat(timespec="microseconds").replace("+00:00", "Z")
+            connection.execute("UPDATE runs SET finished_at=?", (changed,))
+            connection.commit()
+        before = self._snapshot()
+        with self.assertRaisesRegex(StateError, "DESIGN_RISK_BINDING_MISMATCH"):
+            self._accept(receipt)
+        self.assertEqual(before, self._snapshot())
+        with self.store.connect(database) as connection:
+            connection.execute("UPDATE runs SET finished_at=?", (original,))
+            connection.commit()
+        self._accept(receipt)
+        self.assertEqual(original, self.graphctl("status", "--run-id", "RUN-1")["design_risk"]["effective_resolutions"][0]["original_blocked_run"]["finished_at"])
+        from graph_engine.validator import validate_original_blocked_run
+        validate_original_blocked_run({"status": "blocked", "blocked_reason": "DESIGN_REVISION_LIMIT", "finished_at": None})
+        for value in ("invalid", "2026-10-27T01:02:03+00:00", 1):
+            with self.subTest(timestamp=value), self.assertRaises((StateError, ContractError)):
+                validate_original_blocked_run({"status": "blocked", "blocked_reason": "DESIGN_REVISION_LIMIT", "finished_at": value})
+
+
+    def test_archive_prepare_witness_and_resolution_tampering_are_rejected(self):
+        from graph_engine.validator import verify_semantic_state
+        from graph_engine.evidence import canonical_ledger_artifact, persist_artifact
+        self._blocked_design()
+        prepared = self._prepare()
+        accepted = self._accept(self._receipt(prepared))
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            prepare_response = json.loads(connection.execute("SELECT response_json FROM operations WHERE operation_id='synthetic-prepare'").fetchone()[0])
+            preparation = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (prepared["preparation_ref"],)).fetchone()[0])
+        response = {**prepare_response, "original_blocked_run_digest": "b" * 64}
+        mutations = [("UPDATE operations SET response_json=? WHERE operation_id='synthetic-prepare'", (json.dumps(response),)),
+            ("DELETE FROM artifacts WHERE ref=?", (accepted["effective_resolution_ref"],)),
+            ("UPDATE artifacts SET content_json='{}' WHERE ref=?", (prepared["preparation_ref"],))]
+        for sql, parameters in mutations:
+            with self.store.connect(database) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(sql, parameters)
+                run = connection.execute("SELECT * FROM runs").fetchone()
+                with self.assertRaises((StateError, ContractError)):
+                    verify_semantic_state(connection, run, self.repo, run["policy_digest"], json.loads(run["policy_json"]),
+                        Path(__file__).resolve().parents[1], case_sensitive=os.name != "nt", runtime_root=self.runtime_root)
+                connection.rollback()
+        # Valid canonical bytes alone cannot introduce an uncommitted alternate preparation.
+        altered = copy.deepcopy(preparation)
+        altered["original_blocked_run"]["finished_at"] = None
+        with self.store.connect(database) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            persist_artifact(connection, "RUN-1", canonical_ledger_artifact("synthetic-rehashed-unwitnessed-preparation", "evidence_manifest", altered))
+            run = connection.execute("SELECT * FROM runs").fetchone()
+            with self.assertRaises((StateError, ContractError)):
+                verify_semantic_state(connection, run, self.repo, run["policy_digest"], json.loads(run["policy_json"]),
+                    Path(__file__).resolve().parents[1], case_sensitive=os.name != "nt", runtime_root=self.runtime_root)
+            connection.rollback()
+        with self.store.connect(database) as connection:
+            connection.execute("UPDATE operations SET response_json=? WHERE operation_id='synthetic-prepare'", (json.dumps(response),))
+            connection.commit()
+        for command in (("status",), ("resume",), ("next",), ("next", "--claim", "--op-id", "archive-tampered-claim")):
+            with self.assertRaises((StateError, ContractError)):
+                self.graphctl(*command, "--run-id", "RUN-1")
+
+    def test_accepted_retry_rejects_stale_orphan_and_unwitnessed_packets_and_core_removal(self):
+        from graph_engine.validator import verify_semantic_state
+        from graph_engine.evidence import canonical_ledger_artifact, persist_artifact
+        replacement = self._accepted_branch_retry()
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.open_run("albanian-live-translate", "RUN-1") as connection:
+            env = json.loads(connection.execute("SELECT envelope_json FROM nodes WHERE branch_id=?", (replacement["branch_id"],)).fetchone()[0])
+            response = json.loads(connection.execute("SELECT response_json FROM operations WHERE operation_id='synthetic-accepted-retry'").fetchone()[0])
+            stale = connection.execute("SELECT * FROM artifacts WHERE ref=?", (response["repair_packet_refs"][0],)).fetchone()
+            current = next(item for item in env["inputs"] if item["kind"] == "failure")
+            packet = json.loads(connection.execute("SELECT content_json FROM artifacts WHERE ref=?", (current["ref"],)).fetchone()[0])
+        stale_env = copy.deepcopy(env)
+        stale_env["inputs"] = [item for item in env["inputs"] if item["kind"] != "failure"] + [{key: stale[key] for key in ("kind", "ref", "sha256", "size_bytes")}]
+        missing_core = {**env, "inputs": env["inputs"][1:]}
+        duplicate = {**env, "inputs": env["inputs"] + [current]}
+        missing_witness = {**response, "repair_packet_refs": []}
+        mutations = [("UPDATE nodes SET envelope_json=? WHERE branch_id=?", (json.dumps(value), replacement["branch_id"])) for value in (stale_env, missing_core, duplicate)]
+        mutations += [("UPDATE operations SET response_json=? WHERE operation_id='synthetic-accepted-retry'", (json.dumps(missing_witness),)),
+                      ("DELETE FROM events WHERE event_type='record.retry'", ()),
+                      ("DELETE FROM events WHERE event_type='record.branch-result' AND revision=(SELECT MAX(revision) FROM events WHERE event_type='record.branch-result')", ())]
+        for sql, parameters in mutations:
+            with self.store.connect(database) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(sql, parameters)
+                run = connection.execute("SELECT * FROM runs").fetchone()
+                with self.assertRaises((StateError, ContractError)):
+                    verify_semantic_state(connection, run, self.repo, run["policy_digest"], json.loads(run["policy_json"]),
+                        Path(__file__).resolve().parents[1], case_sensitive=os.name != "nt", runtime_root=self.runtime_root)
+                connection.rollback()
+        for changes in ({}, {"attempt_id": "attempt-foreign"}, {"branch_id": "branch-foreign"}, {"generation": 42}):
+            with self.store.connect(database) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                persist_artifact(connection, "RUN-1", canonical_ledger_artifact("synthetic-unwitnessed-packet", "failure", {**packet, **changes}))
+                run = connection.execute("SELECT * FROM runs").fetchone()
+                with self.assertRaises((StateError, ContractError)):
+                    verify_semantic_state(connection, run, self.repo, run["policy_digest"], json.loads(run["policy_json"]),
+                        Path(__file__).resolve().parents[1], case_sensitive=os.name != "nt", runtime_root=self.runtime_root)
+                connection.rollback()
 
 
 class GraphHardeningTests(GraphCase):

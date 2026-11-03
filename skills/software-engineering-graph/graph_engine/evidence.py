@@ -2,6 +2,7 @@
 
 import fnmatch
 import json
+import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -258,3 +259,108 @@ def reverify_artifact(
     )
     if (verified.device, verified.inode) != (artifact["device"], artifact["inode"]):
         raise ContractError("artifact_ref", "ARTIFACT_IDENTITY_MISMATCH")
+
+
+def workflow_source_binding(connection, run, branch, *, source_capture=None):
+    """Verify a distinct named continuation binding; never invent a review binding.
+
+    Omitting source_capture checks historical integrity only. A caller granting
+    positive current-source eligibility must supply the actual capture adapter.
+    """
+    from . import workflow_authority as workflow
+    from .state import StateError, workflow_bindings, workflow_context
+    env = json.loads(branch["envelope_json"])
+    matches = []
+    for item in env["inputs"]:
+        if item["kind"] != "evidence_manifest":
+            continue
+        row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND ref=? AND immutable=1",
+                                 (run["run_id"], item["ref"])).fetchone()
+        if row is None or row["source_type"] != "ledger":
+            continue
+        value = json.loads(row["content_json"])
+        if isinstance(value, dict) and value.get("kind") == "workflow_source_binding":
+            matches.append((row, value))
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    row, value = matches[0]
+    fields = {"kind", "schema_version", "bindings", "reservation_id", "authority_ref", "branch_id",
+              "envelope_digest", "inputs_digest", "fence", "source", "source_digest", "coverage"}
+    inputs = [item for item in env["inputs"] if item["ref"] != row["ref"]]
+    if (set(value) != fields or value["schema_version"] != 1
+            or workflow.hashed(value) != row["sha256"]
+            or row["ref"].rpartition("#sha256=")[2] != row["sha256"]
+            or value["bindings"] != workflow_bindings(run) or value["branch_id"] != branch["branch_id"]
+            or value["envelope_digest"] != workflow.hashed(workflow.envelope_identity(env))
+            or value["inputs_digest"] != workflow.hashed(inputs)
+            or value["source_digest"] != value["source"].get("sha256")):
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    workflow.validate_source(value["source"])
+    coverage = value["coverage"]
+    if (not isinstance(coverage, dict) or set(coverage) != {"roots", "outputs", "activation_ref"}
+            or coverage["roots"] != value["source"]["roots"] or not isinstance(coverage["outputs"], list)):
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    validate_ref(coverage["activation_ref"], "activation_ref", content_required=True)
+    fence = value["fence"]
+    if (not isinstance(fence, dict) or set(fence) != {"branch_id", "attempt_id", "claim_digest"}
+            or fence["branch_id"] != branch["branch_id"]):
+        raise StateError("ATTEMPT_FENCE_MISMATCH")
+    from .contracts import opaque
+    opaque(fence["attempt_id"], "attempt_id")
+    digest(fence["claim_digest"], "claim_digest")
+    reads = [cap["target_ref"][5:] for cap in env["effect_capabilities"]
+             if cap["effect"] == "filesystem_read" and cap["action"] == "read" and cap["target_ref"].startswith("repo:")]
+    def contains(root, candidate):
+        left = os.path.normcase(root).replace("\\", "/")
+        right = os.path.normcase(candidate).replace("\\", "/")
+        return right == left.rstrip("/") or (left.endswith("/") and right.startswith(left))
+    if any(not any(contains(root, selected) for root in reads) for selected in value["source"]["roots"]):
+        raise StateError("WORKFLOW_SOURCE_AUTHORITY_EXCEEDED")
+    context = workflow.current_context() or workflow_context(connection, run)
+    authority = next((item for item in context.history
+                      if item["kind"] == workflow.AUTHORITY and item["ref"] == value["authority_ref"]), None)
+    if authority is None or authority["activation_ref"] != coverage["activation_ref"]:
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    reserved = context.actions.get(value["reservation_id"])
+    pending = context.pending_record if context.operation_id == value["reservation_id"] else None
+    execution = reserved["execution"] if reserved else pending.get("execution") if pending else None
+    if (execution is None or execution.get("kind") != "branch"
+            or execution.get("target") != workflow.envelope_identity(env)
+            or execution.get("source_binding_ref") != row["ref"] or execution.get("fence") != fence
+            or execution.get("inputs_digest") != value["inputs_digest"]
+            or (reserved is not None and reserved["authority_ref"] != value["authority_ref"])
+            or (reserved is None and context.authority_ref != value["authority_ref"])):
+        raise StateError("WORKFLOW_SOURCE_BINDING_INVALID")
+    phase_state = reserved["state"] if reserved else pending["state"]
+    phase_facts = reserved.get("facts", {}) if reserved else {}
+    if context.continuation_id == value["reservation_id"] and context.pending_record:
+        phase_state = context.pending_record["state"]
+        phase_facts = context.pending_record.get("facts", {})
+    attempts = connection.execute("SELECT * FROM branch_attempts WHERE run_id=? AND branch_id=?",
+                                  (run["run_id"], branch["branch_id"])).fetchall()
+    never_launched = phase_state in {"reserved", "cancelled"} and not attempts
+    if never_launched:
+        if branch["status"] != "ready" or any(env.get(key) is not None for key in ("attempt_id", "claim_digest", "lease_expires_at")):
+            raise StateError("WORKFLOW_RESERVED_TARGET")
+    else:
+        if (len(attempts) != 1 or attempts[0]["attempt_id"] != fence["attempt_id"]
+                or attempts[0]["claim_digest"] != fence["claim_digest"]
+                or env.get("attempt_id") != fence["attempt_id"] or env.get("claim_digest") != fence["claim_digest"]):
+            raise StateError("ATTEMPT_FENCE_MISMATCH")
+        late = phase_facts.get("late_settlement") is True
+        if late:
+            if phase_facts.get("raw_node_digest") != workflow.hashed(dict(branch)):
+                raise StateError("WORKFLOW_LATE_FACTS_MISMATCH")
+        elif phase_state in {"settled", "succeeded", "failed"}:
+            if branch["status"] not in {"succeeded", "failed", "timed_out"} or attempts[0]["finished_at"] is None:
+                raise StateError("WORKFLOW_SETTLEMENT_MISMATCH")
+        elif branch["status"] != "running" or attempts[0]["finished_at"] is not None:
+            raise StateError("WORKFLOW_RESERVED_TARGET")
+    if source_capture is not None:
+        captured = source_capture(coverage)
+        workflow.validate_source(captured)
+        if captured["sha256"] != value["source_digest"]:
+            raise StateError("WORKFLOW_SOURCE_CHANGED")
+    return row, value, execution

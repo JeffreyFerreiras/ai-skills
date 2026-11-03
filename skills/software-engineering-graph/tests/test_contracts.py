@@ -425,6 +425,9 @@ class ContractTests(GraphCase):
     def test_policy_and_state_follow_each_install_location(self):
         source = Path(__file__).resolve().parents[1]
         environment = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        # Exercise the copied temporary installation's default, not the suite's
+        # disposable override. The parent process retains its protected home.
+        environment.pop("SOFTWARE_ENGINEERING_GRAPH_HOME", None)
         for host in (".agents", ".claude", ".cursor", ".codex"):
             with self.subTest(host=host):
                 installed = self.root / host / "skills" / "software-engineering-graph"

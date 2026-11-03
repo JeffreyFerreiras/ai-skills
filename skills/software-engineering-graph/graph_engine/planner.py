@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 from .ids import stable_id
 from .config import ENGINE_RESEARCH_NODES, role_capability_allowed
 from .contracts import projected_capability_within
-from .execution import CODE_REVIEW_PANEL, assignment_for, build_execution_plan
+from .execution import CODE_REVIEW_PANEL, assignment_for, build_execution_plan, workflow_assignment
 
 
 @dataclass(frozen=True)
@@ -281,10 +281,12 @@ def envelope(
     inputs: Sequence[Mapping[str, Any]],
     retry_count: int = 0,
     execution_plan: Optional[Mapping[str, Any]] = None,
+    effective_assignment: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     template = node_template(policy, spec.key)
     plan = execution_plan or build_execution_plan(run_id, task)
-    assignment = assignment_for(plan, spec.key)
+    assignment = (workflow_assignment(plan, task, spec.key, effective_assignment)
+                  if effective_assignment is not None else assignment_for(plan, spec.key))
     effective_capabilities = effective_role_capabilities(
         policy, task, spec.role, plan.get("capability_projection_version"),
     )
@@ -330,6 +332,8 @@ def envelope(
     }
     if "dispatch_runtime" in assignment:
         result["dispatch_runtime"] = assignment["dispatch_runtime"]
+    if effective_assignment is not None:
+        result["workflow_assignment"] = dict(effective_assignment)
     if "code_review_assignment" in assignment:
         result["code_review_assignment"] = dict(assignment["code_review_assignment"])
     if spec.key == "senior_engineer" and "simplification_review_version" in plan:

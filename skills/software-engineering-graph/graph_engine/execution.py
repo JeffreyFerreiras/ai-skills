@@ -508,6 +508,37 @@ def assignment_for(plan: Mapping[str, Any], node_key: str) -> Mapping[str, str]:
     raise ValueError("missing execution assignment")
 
 
+def workflow_assignment(plan: Mapping[str, Any], task: Mapping[str, Any], node_key: str,
+                        selection: Mapping[str, str]) -> Dict[str, Any]:
+    """Resolve a task-bound effective choice without rewriting its historical plan."""
+    if (not isinstance(selection, dict) or set(selection) != {"model", "reasoning_effort"}
+            or any(not isinstance(value, str) or not value for value in selection.values())):
+        raise ValueError("MODEL_ASSIGNMENT_INVALID")
+    if node_key not in NODE_ROLES:
+        raise ValueError("MODEL_ASSIGNMENT_INVALID")
+    model, effort = selection["model"], selection["reasoning_effort"]
+    role = NODE_ROLES[node_key]
+    if role == "supervisor":
+        if (model, effort) != ("primary-thread", "inherited"):
+            raise ValueError("SUPERVISOR_EFFORT_INVALID")
+        dispatch = model
+    else:
+        require_active_model(model)
+        dispatch = selected_dispatch_model(plan["host"], model, effort)
+    # A host catalog describes syntax, not permission to disclose task inputs to
+    # an additional provider. Only an already explicitly selected runtime may recur.
+    if model == MUSE_MODEL and not any(
+            value.get("model") == model for value in task.get("model_overrides", {}).values()):
+        raise ValueError("PROVIDER_AUTHORITY_REQUIRED")
+    original = next((dict(item) for item in plan["assignments"] if item["node_key"] == node_key), {})
+    result = {**original, "node_key": node_key, "role": role, "model": model,
+              "reasoning_effort": effort, "dispatch_model": dispatch}
+    result.pop("dispatch_runtime", None)
+    if model == MUSE_MODEL:
+        result["dispatch_runtime"] = "opencode-cli"
+    return result
+
+
 def plan_approval_digest(
     run_id: str, plan_digest: str, decision: str, authority_ref: str,
     actor: str, host_identity: str, approved_at: str,
