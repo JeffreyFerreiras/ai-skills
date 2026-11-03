@@ -1,0 +1,1661 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-01",
+  "base_commit": "23ac261f5b56163efe9e96ff3a1e9a8cdc78f65e",
+  "candidate": "adaptation-v2",
+  "source_files_sha256": [
+    {
+      "Path": "skills/full-send/SKILL.md",
+      "Hash": "246ABFDEEBB7D94E79762F188D63A0C826C7CCE0D2CE9E4F9A09087A41522881"
+    },
+    {
+      "Path": "skills/full-send/references/repository-delivery.md",
+      "Hash": "653C1E060EE50D3D710566FDD73E945B26381B77355BB256312A072F264C4EE0"
+    },
+    {
+      "Path": "skills/full-stop/SKILL.md",
+      "Hash": "0F1E45FDDA73D6C26F5BEFEDFB3C4B4EB7E0E6DF06011B930A2B2AA1D57310C1"
+    },
+    {
+      "Path": "skills/babysit-pr/SKILL.md",
+      "Hash": "D7F0CDB6EF89B1DD465E57B01E80F3B49F934CB4A38F10F498019E74509FE98B"
+    },
+    {
+      "Path": "skills/create-pull-request/SKILL.md",
+      "Hash": "BC0982E4BFD8F7417FD16B473E98FA29C15C4B95944200E90F30E5508EB06B1A"
+    },
+    {
+      "Path": "skills/review-panel/SKILL.md",
+      "Hash": "BA3247D95478B87DFA033C5923E3906EC68463D87F5E8A7B363939F4D7656008"
+    },
+    {
+      "Path": "docs/full-send-stop-integration.md",
+      "Hash": "C9F0C4D2C506958D49D4627052309BD05623313C5FCA0D5271C101FD3ACBD20B"
+    },
+    {
+      "Path": "README.md",
+      "Hash": "0B0973F600E6AD732BF63200989195849D16FB6890669FF5B5BF8A5A94D1C367"
+    },
+    {
+      "Path": "skills/full-send/agents/openai.yaml",
+      "Hash": "67FFEA639E020A160C110A0D9ABF104CDC01396F49701D45CE7CD31593C3B0C0"
+    },
+    {
+      "Path": "skills/full-stop/agents/openai.yaml",
+      "Hash": "74760F286AA5FAE6F3D41EB7AD3AE75E667D4A9814C53CAB88B7C3CF2F363D46"
+    },
+    {
+      "Path": "skills/babysit-pr/agents/openai.yaml",
+      "Hash": "63B8D89DA4F34EEE0EEE94FA74CBCEEA1879CEEF4ED8A66D0B938A2FF95D2686"
+    },
+    {
+      "Path": "tests/behavioral/delivery-workflows/README.md",
+      "Hash": "836F4F74E18B695FC2E4DF23D79BF733D948654F076FF1184AFC7B556EEF041A"
+    },
+    {
+      "Path": "tests/behavioral/delivery-workflows/inputs.json",
+      "Hash": "9CDA07CDD89ABCB2FA6B7C14E929E5998CA7AEA1F3BC2ED709BD6DDEC868DF1A"
+    },
+    {
+      "Path": "tests/behavioral/delivery-workflows/expected.json",
+      "Hash": "7E920FD0279DE7B8553E1B38641D6667E0A10BA115354ECC3378CA4BEEC491C6"
+    }
+  ],
+  "writing_review": {
+    "candidate": "v2",
+    "repairs_used": 1,
+    "decision": "ACCEPT",
+    "reviewer": "adaptation_editor_v2",
+    "exact_live_files_verified": true
+  },
+  "checks": [
+    {
+      "command": "python scripts/build-docs.py --check",
+      "exit_code": 0,
+      "result": "Catalog and documentation links pass on v2."
+    },
+    {
+      "command": "python -m unittest discover -s tests -p test_documentation.py -v",
+      "exit_code": 0,
+      "result": "6 tests pass. Run on v1; no checker code, catalog summary, or link-target changes in v2. Final v2 build-docs check passes."
+    },
+    {
+      "command": "python scripts/sync-discovery.py --check",
+      "exit_code": 0,
+      "result": "Canonical-only checkout; no Cursor discovery copy configured. No discovery configuration changed in v2."
+    },
+    {
+      "command": "python skills/skill-doctor/scripts/skill_doctor.py . --json",
+      "exit_code": 1,
+      "result": "50 skills; 15 existing errors in untouched skills; 0 warnings and no changed-skill findings."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "Tracked diff passes."
+    },
+    {
+      "command": "python -m json.tool tests/behavioral/delivery-workflows/inputs.json",
+      "exit_code": 0,
+      "result": "v2 inputs parse."
+    },
+    {
+      "command": "python -m json.tool tests/behavioral/delivery-workflows/expected.json",
+      "exit_code": 0,
+      "result": "v2 expectations parse."
+    },
+    {
+      "command": "git diff --exit-code HEAD -- skills/notebooklm-cinematic-video skills/notebooklm-short-video skills/software-engineering-graph skills/system-design-video skills/tiktok-copy-cover",
+      "exit_code": 0,
+      "result": "Folders containing the validator errors are unchanged."
+    }
+  ],
+  "existing_validator_findings": [
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-cinematic-video/references/cover-style.md",
+      "message": "Referenced resource does not exist: assets/cover-references"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-cinematic-video/references/notebooklm-workflow.md",
+      "message": "Referenced resource does not exist: scripts/scene_bridge.py"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-cinematic-video/references/story-bridge-contract.md",
+      "message": "Referenced resource does not exist: scripts/scene_bridge.py"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-short-video/references/cover-style.md",
+      "message": "Referenced resource does not exist: assets/cover-references"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-short-video/references/notebooklm-workflow.md",
+      "message": "Referenced resource does not exist: scripts/scene_bridge.py"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/notebooklm-short-video/references/story-bridge-contract.md",
+      "message": "Referenced resource does not exist: scripts/scene_bridge.py"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/README.md",
+      "message": "Bundled reference escapes skill: ../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/SKILL.md",
+      "message": "Bundled reference escapes skill: ../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/docs/technical-design.md",
+      "message": "Bundled reference escapes skill: ../../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/references/behavioral-evaluations.md",
+      "message": "Bundled reference escapes skill: ../../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/references/model-catalogs.md",
+      "message": "Bundled reference escapes skill: ../../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "resource-outside-skill",
+      "path": "skills/software-engineering-graph/references/workflow-operations.md",
+      "message": "Bundled reference escapes skill: ../../bug-hunter-review/SKILL.md"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/system-design-video/references/cover-style.md",
+      "message": "Referenced resource does not exist: assets/cover-references"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/system-design-video/references/story-bridge-contract.md",
+      "message": "Referenced resource does not exist: scripts/scene_bridge.py"
+    },
+    {
+      "severity": "error",
+      "code": "missing-resource",
+      "path": "skills/tiktok-copy-cover/references/cover-style.md",
+      "message": "Referenced resource does not exist: assets/cover-references"
+    }
+  ],
+  "forward_test": {
+    "evaluation": "delivery-workflow forward routing v2",
+    "case_count": 13,
+    "runtime": {
+      "selection": "inherited host assignment",
+      "actual_model": "unavailable",
+      "actual_effort": "unavailable"
+    },
+    "protocol": {
+      "scope": "Synthetic routing and next-action decisions only; source skill files are evaluation data, not workflow invocations.",
+      "context": "One fresh context covered all 13 cases; cases did not have isolated per-case contexts.",
+      "not_tested": [
+        "live monitoring",
+        "merge races",
+        "actual independent reviews",
+        "external-write enforcement",
+        "model behavioral generalization"
+      ],
+      "exclusions_observed": [
+        "no expected.json",
+        "no prior outputs or other agents' reports",
+        "no installed-profile reads",
+        "no network",
+        "no delegates",
+        "no Git/PR mutations",
+        "no hypothetical action execution"
+      ],
+      "actual_mutation": "Only tmp/delivery-routing-v2.json, written with apply_patch and parsed for JSON validity.",
+      "missing_facts_rule": "Do not infer repository/PR identities, runtime assignments, repair receipts, approvals, or successful actions absent from the fixture. Resolve missing identities and required evidence before affected hypothetical actions."
+    },
+    "sources": {
+      "input": "tests/behavioral/delivery-workflows/inputs.json",
+      "send": "skills/full-send/SKILL.md: Scope and authority; Select the work and review; Work, prove, and settle findings; Deliver or report a blocker",
+      "delivery": "skills/full-send/references/repository-delivery.md: Prepare the PR; Monitor and repair; Live merge gate; Complete the selected endpoint",
+      "stop": "skills/full-stop/SKILL.md: Prevent automatic merging; Handoff at the gate",
+      "watch": "skills/babysit-pr/SKILL.md: Read the current state; Wait without duplicate watchers; Handle an event; Finish",
+      "panel": "skills/review-panel/SKILL.md: invocation rules; Freeze the review target; Dispatch fresh reviewers; Merge and report",
+      "writing": "skills/writing-loop/SKILL.md: Set up; Run the loop; Deliver or stop",
+      "pr": "skills/create-pull-request/SKILL.md: Gather Evidence; Write the Pull Request; Creation Modes; Create Safely",
+      "feedback": "skills/address-pr-feedback/SKILL.md: Workflow; Write Safety",
+      "checks": "skills/run-change-checks/SKILL.md: Workflow",
+      "graph": "skills/software-engineering-graph/SKILL.md: approved-plan ownership; Execute the approved route; Publication; Closure invariants",
+      "catalog_only": [
+        "skills/generic-loop/SKILL.md: name/description",
+        "skills/git-push/SKILL.md: name/description"
+      ]
+    },
+    "shared_decisions": {
+      "code_default": "Outside an approved graph, one implementation writer, focused project-native checks, then seven independent read-only review-panel roles on stable scoped inputs; only writer repairs, at most three repairs excluding initial implementation.",
+      "prose_default": "Requested prose and PR title/body use one Writer applying available Unslop, read-only Reducer, fresh independent Editor per version, exact accepted text, separate three-repair budget. Routine explanations/status do not create a delivery writing loop.",
+      "publication_default": "Repository full-send/full-stop authorizes scoped task commits, task-branch pushes and task PR creation/update. Exclude unrelated work. git-push is not selected because it stages all pending work.",
+      "gate_default": "Read live open/non-draft identity, exact head/base, current proof/reviews, required CI, approvals and threads, up-to-date branch/conflicts and known mergeability immediately before merge/readiness. Unknown or stale required evidence is not a pass.",
+      "always_forbidden_without_separate_intent": [
+        "external messages/comments",
+        "thread resolution",
+        "production changes",
+        "profile changes",
+        "unrelated changes",
+        "protection bypass",
+        "deleting user data"
+      ],
+      "no_parallel_owner": "Do not add generic-loop to full-send/full-stop or the graph; graph approved assignments, gates and consumed budgets remain governing."
+    },
+    "cases": [
+      {
+        "id": "code-delivery",
+        "selected_workflows": [
+          "full-send",
+          "run-change-checks",
+          "review-panel",
+          "create-pull-request",
+          "writing-loop",
+          "babysit-pr"
+        ],
+        "review_route": {
+          "code": "default seven-role panel after focused validation",
+          "prose": "writing-loop for exact PR title/body"
+        },
+        "allowed_hypothetical_mutations": [
+          "scoped bug fix and relevant regression coverage by one writer",
+          "task-only commits/push and one scoped PR",
+          "allowed-method merge only after live gate",
+          "safe task cleanup after verified merge under active instructions"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "all-pending git-push",
+          "unrelated staging",
+          "merge before gate",
+          "reviewers editing",
+          "unrequested messages or thread resolution"
+        ],
+        "readiness": "unverified",
+        "next_actions": [
+          "Inspect synthetic repository instructions/status, resolve task worktree, scope/base/branch and bug reproduction",
+          "Implement smallest fix, run focused checks and independent panel; settle findings within retained budget",
+          "Accept PR prose through writing-loop; selectively commit/push and create/verify one PR",
+          "Monitor with one bounded watcher as needed; refresh exact head/base gate, merge with reviewed-head match, verify merged state/commit and safe cleanup"
+        ],
+        "missing_facts": [
+          "actual function/diff, identities and current proofs are not supplied in fixture"
+        ],
+        "evidence": [
+          "send",
+          "checks",
+          "panel",
+          "writing",
+          "pr",
+          "delivery",
+          "watch"
+        ]
+      },
+      {
+        "id": "prose-handoff",
+        "selected_workflows": [
+          "full-stop",
+          "full-send (inherited scope/review rules)",
+          "writing-loop"
+        ],
+        "review_route": {
+          "code": "none",
+          "prose": "Writer with Unslop, Reducer, fresh Editor; verify source facts and exact accepted text"
+        },
+        "allowed_hypothetical_mutations": [
+          "rewrite supplied proposal in task context within writing repair budget"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "publication or sending",
+          "Git/PR delivery",
+          "post-acceptance unreviewed prose edits"
+        ],
+        "readiness": "unverified until exact-text Editor acceptance and source-fact verification",
+        "next_actions": [
+          "Apply writing-loop to available proposal and sources for nontechnical audience",
+          "Return exact accepted text here for user review; report factual blockers if any"
+        ],
+        "missing_facts": [
+          "no accepted candidate/version is supplied"
+        ],
+        "evidence": [
+          "stop",
+          "send",
+          "writing"
+        ]
+      },
+      {
+        "id": "mixed-stop",
+        "selected_workflows": [
+          "full-stop",
+          "full-send (inherited)",
+          "run-change-checks",
+          "review-panel",
+          "writing-loop",
+          "create-pull-request",
+          "babysit-pr"
+        ],
+        "review_route": {
+          "code": "seven-role panel for parser behavior",
+          "prose": "writing-loop for migration guide and changed PR title/body; check guide claims against parser"
+        },
+        "allowed_hypothetical_mutations": [
+          "disable this PR's auto-merge and remove its queue entry, then verify both",
+          "scoped parser/guide edits and task commits/pushes after safety checks",
+          "authorized task PR metadata update"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "merge or delegate merge",
+          "enable auto-merge or queue entry",
+          "default-branch push",
+          "push while automatic merge state unverified",
+          "post-merge cleanup on an unmerged PR"
+        ],
+        "readiness": "unverified; currently unsafe for PR edits/pushes until both automatic merge mechanisms are disabled and verified",
+        "next_actions": [
+          "Inspect exact PR automatic merge and queue state before edits/pushes",
+          "Disable auto-merge, remove queue entry, verify and record both changes",
+          "Fix parser and guide through their separate routes and budgets",
+          "Recheck automatic merge state before every push and handoff; apply full live gate, stop/unregister owned monitor, report exact ready/waiting/blocked verdict with PR open and unmerged"
+        ],
+        "missing_facts": [
+          "no implementation/check/review evidence supplied yet"
+        ],
+        "evidence": [
+          "stop",
+          "send",
+          "delivery",
+          "checks",
+          "panel",
+          "writing"
+        ]
+      },
+      {
+        "id": "skill-question",
+        "selected_workflows": [],
+        "review_route": {
+          "code": "none",
+          "prose": "none; information-only answer"
+        },
+        "allowed_hypothetical_mutations": [],
+        "forbidden_hypothetical_mutations": [
+          "starting either delivery workflow",
+          "implementation",
+          "Git/PR/publication changes"
+        ],
+        "readiness": "not applicable; no delivery requested",
+        "next_actions": [
+          "Answer from local attribution: both local skills cite Theo Browne's upstream skills at pinned commit 1085050f3baed1ac724caa4a8166145fb2ac88af",
+          "Distinguish local pinned source evidence from independently verified current upstream publication status"
+        ],
+        "missing_facts": [
+          "current upstream state is not verified by this no-network evaluation"
+        ],
+        "evidence": [
+          "send: intentional invocation and Source",
+          "stop: intentional invocation and Source"
+        ]
+      },
+      {
+        "id": "incidental-stop",
+        "selected_workflows": [],
+        "review_route": {
+          "code": "none",
+          "prose": "none; explanation-only response"
+        },
+        "allowed_hypothetical_mutations": [],
+        "forbidden_hypothetical_mutations": [
+          "activating full-stop from incidental emphasis",
+          "repository changes",
+          "implementation/delivery"
+        ],
+        "readiness": "not applicable; no delivery requested",
+        "next_actions": [
+          "Provide two-sentence explanation using error evidence if available; do not invent an error diagnosis"
+        ],
+        "missing_facts": [
+          "fixture supplies no actual error details, so a substantive diagnosis cannot be established from these inputs"
+        ],
+        "evidence": [
+          "stop: incidental emphasis exclusion",
+          "send: intentional invocation"
+        ]
+      },
+      {
+        "id": "missing-prose-dependency",
+        "selected_workflows": [
+          "full-send",
+          "writing-loop (blocked preflight)"
+        ],
+        "review_route": {
+          "code": "none",
+          "prose": "required writing-loop cannot run without actual Unslop source"
+        },
+        "allowed_hypothetical_mutations": [
+          "no accepted rewrite established; preserve original or clearly label an existing draft unaccepted"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "substitute remembered Unslop rules",
+          "claim Unslop ran or Editor accepted",
+          "silently bypass missing dependency",
+          "publish/send or create a PR"
+        ],
+        "readiness": "unverified; blocked by missing required Unslop dependency",
+        "next_actions": [
+          "Report missing Unslop at host catalog and known sibling source; stop required writing loop",
+          "Identify restoring the dependency or a user-authorized change to the workflow as the needed next step; keep endpoint here"
+        ],
+        "missing_facts": [
+          "actual Unslop instructions are explicitly unavailable"
+        ],
+        "evidence": [
+          "send: dependency preflight and prose-only endpoint",
+          "writing: Set up; Deliver or stop"
+        ]
+      },
+      {
+        "id": "stale-pr-evidence",
+        "selected_workflows": [
+          "full-send",
+          "babysit-pr",
+          "address-pr-feedback",
+          "run-change-checks",
+          "review-panel",
+          "writing-loop/create-pull-request if PR prose changes"
+        ],
+        "review_route": {
+          "code": "invalidate affected A/B proof and review; inspect/review resulting stable C/D target through default route",
+          "prose": "recheck factual/contractual claims; any edited prose needs new exact-version writing-loop acceptance"
+        },
+        "allowed_hypothetical_mutations": [
+          "scoped selected-feedback repairs by existing writer after reconciliation and budget recovery",
+          "task PR publication after current checks/reviews"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "merge using green A checks",
+          "treat A/B review as C/D approval",
+          "overwrite unexpected remote C",
+          "ignore active human changes request",
+          "post/resolve feedback without permission"
+        ],
+        "readiness": "unverified; stale proof, active required changes request and unknown mergeability block merge",
+        "next_actions": [
+          "Read live PR identity and C/D state, reconcile remote changes, recover consumed repairs and monitor state",
+          "Inspect actual thread-aware actionable feedback and route in-scope repairs to existing writer",
+          "Run affected checks and required reviews against stable current target, settle findings and obtain required human approval",
+          "Refresh mergeability and all live gates before any merge"
+        ],
+        "missing_facts": [
+          "actual feedback, new commits, repair budget usage and live gate results must be recovered"
+        ],
+        "evidence": [
+          "send",
+          "delivery",
+          "watch",
+          "feedback",
+          "panel"
+        ]
+      },
+      {
+        "id": "unknown-automatic-merge",
+        "selected_workflows": [
+          "full-stop",
+          "full-send (inherited)",
+          "babysit-pr for available state inspection"
+        ],
+        "review_route": {
+          "code": "no candidate proof supplied; default panel if code preparation becomes permissible",
+          "prose": "writing-loop for any authorized preparation; cannot establish final PR handoff"
+        },
+        "allowed_hypothetical_mutations": [
+          "none to the PR while queue membership cannot be inspected; independent non-PR preparation may continue if useful"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "PR edits/pushes while queue state unknown",
+          "claim disabled auto-merge proves queue absence",
+          "merge/queue enrollment/automatic merge enablement"
+        ],
+        "readiness": "unverified; blocked because automatic merge prevention cannot be positively verified",
+        "next_actions": [
+          "Use any sufficient authorized read surface to determine queue membership; fixture currently provides none",
+          "Report unreadable queue state and stop PR mutations; do not claim ready or waiting-only-for-approval",
+          "Preserve unchanged branch and request the missing inspection capability/evidence if needed"
+        ],
+        "missing_facts": [
+          "queue membership unavailable; auto-merge only appears disabled and also needs positive verification"
+        ],
+        "evidence": [
+          "stop: Prevent automatic merging",
+          "delivery: Live merge gate"
+        ]
+      },
+      {
+        "id": "graph-owner",
+        "selected_workflows": [
+          "full-send",
+          "software-engineering-graph (existing approved plan)",
+          "writing-loop/create-pull-request via approved publication owner",
+          "babysit-pr when monitoring is needed"
+        ],
+        "review_route": {
+          "code": "existing graph's approved reviewer/test gates, assignments and consumed budgets; no extra seven-role panel",
+          "prose": "writing-loop for requested prose and exact PR title/body within graph ownership"
+        },
+        "allowed_hypothetical_mutations": [
+          "implementation/repair by approved sole writer within remaining plan budget",
+          "publication by approved Pull Request Engineer after required gates",
+          "full-send merge only after live gate and within approved graph authority"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "coordinator duplicating implementation or publication",
+          "silently adding/replacing seven-role panel",
+          "generic-loop alongside graph",
+          "resetting repairs",
+          "changing assignments without material-plan approval"
+        ],
+        "readiness": "unverified; approved plan existence is not completed gate evidence",
+        "next_actions": [
+          "Resume recorded approved plan/state, reconcile any active attempts, preserve assignments and remaining budgets",
+          "Complete approved implementation, independent reviews and tests; do not represent graph gates as full seven-role coverage",
+          "Have Pull Request Engineer perform approved scoped publication with accepted prose",
+          "Apply full-send current-head/base merge gate and verify actual merged completion; return material authority/plan gaps for resolution"
+        ],
+        "missing_facts": [
+          "actual approved assignments, remaining counts and completed evidence are not included in the fixture"
+        ],
+        "evidence": [
+          "send: graph ownership override",
+          "graph",
+          "delivery: approved publication owner",
+          "writing",
+          "pr"
+        ]
+      },
+      {
+        "id": "exhausted-and-unknown",
+        "selected_workflows": [
+          "full-send",
+          "babysit-pr (reconcile prior execution)"
+        ],
+        "review_route": {
+          "code": "required defect remains; default three-code-repair budget already exhausted",
+          "prose": "no new prose acceptance implied"
+        },
+        "allowed_hypothetical_mutations": [
+          "only reconcile and safely stop/unregister an established owned watcher; preserve candidate"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "fourth code repair without changed authorization",
+          "budget reset via retry/rebase/new invocation",
+          "duplicate unknown watcher",
+          "new 30-minute window",
+          "cancel another task's watcher",
+          "merge with remaining defect"
+        ],
+        "readiness": "unverified; blocked by exhausted repairs and unsettled watcher outcome",
+        "next_actions": [
+          "Recover recorded watcher identity/outcome before retry or cancellation; unknown handle/outcome is not proof it stopped",
+          "Retain original deadline and twelve remaining minutes; do not duplicate watch",
+          "Stop delivery on required defect with consumed count 3; report exact remaining issue and any watcher still unknown",
+          "Seek a concrete user decision on unresolved defect/budget or material change rather than continuing repairs automatically"
+        ],
+        "missing_facts": [
+          "watcher handle/outcome and defect details absent; inability to reconcile remains explicit blocker"
+        ],
+        "evidence": [
+          "send: repair limit and stop conditions",
+          "watch: Wait without duplicate watchers; Handle an event; Finish"
+        ]
+      },
+      {
+        "id": "standalone-watch",
+        "selected_workflows": [
+          "babysit-pr",
+          "address-pr-feedback for thread-aware inspection only"
+        ],
+        "review_route": {
+          "code": "no implementation or repair/review loop authorized",
+          "prose": "no prose deliverable loop"
+        },
+        "allowed_hypothetical_mutations": [],
+        "forbidden_hypothetical_mutations": [
+          "edits",
+          "pushes",
+          "merge",
+          "comments",
+          "thread resolution",
+          "treat green checks as readiness"
+        ],
+        "readiness": "unverified; required approval and material thread block readiness",
+        "next_actions": [
+          "Resolve exact PR and read live head/base, required reviews, thread state and mergeability",
+          "Report actionable material thread and missing required approval, then stop read-only watch on concrete blocker",
+          "Stop/unregister any owned watcher; report actual pending gates rather than waiting-only-for-human because thread also remains"
+        ],
+        "missing_facts": [
+          "PR identity, commits and thread details need inspection; fixture itself establishes two unmet gates"
+        ],
+        "evidence": [
+          "watch: standalone read-only authority; Handle an event",
+          "feedback: thread-aware reads and Write Safety"
+        ]
+      },
+      {
+        "id": "draft-only-pr",
+        "selected_workflows": [
+          "create-pull-request (text only)",
+          "writing-loop"
+        ],
+        "review_route": {
+          "code": "no panel/implementation required by drafting request",
+          "prose": "exact title/body through Writer, Reducer, fresh Editor using selected diff and actual validation"
+        },
+        "allowed_hypothetical_mutations": [
+          "draft title/body in task context"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "create/update GitHub PR",
+          "commit/push",
+          "infer --draft PR creation from word draft",
+          "fabricate test results"
+        ],
+        "readiness": "unverified until exact prose acceptance; repository merge readiness is outside requested scope",
+        "next_actions": [
+          "Inspect selected diff, actual validation and applicable template/title convention",
+          "Run writing-loop on factual title/body, preserving reported validation limits",
+          "Return exact accepted text here; no GitHub writes"
+        ],
+        "missing_facts": [
+          "accepted title/body not yet supplied"
+        ],
+        "evidence": [
+          "pr: Write the Pull Request drafting-only rule; writing-loop requirement",
+          "writing"
+        ]
+      },
+      {
+        "id": "approved-current-head",
+        "selected_workflows": [
+          "full-send",
+          "repository-delivery live merge/completion gate"
+        ],
+        "review_route": {
+          "code": "reuse fixture's current exact-head/base proof and required reviews",
+          "prose": "reuse current acceptance unchanged; no redundant rewrite or loop"
+        },
+        "allowed_hypothetical_mutations": [
+          "allowed squash merge matching reviewed head after immediate gate read",
+          "safe recorded task cleanup after verified merged state/commit"
+        ],
+        "forbidden_hypothetical_mutations": [
+          "external messages/comments",
+          "protection bypass",
+          "merge a changed head without new proof",
+          "claim completion before live merge verification",
+          "force-remove dirty worktree or delete newer branch work"
+        ],
+        "readiness": "established in the synthetic fixture; refresh live head/base gate immediately before actual merge",
+        "delivery_completion": "unverified; no merge action was executed in this evaluation",
+        "next_actions": [
+          "Fetch/read live base and PR; confirm all supplied gates still cover exact same head/base",
+          "Squash merge using reviewed-head match without admin/bypass",
+          "Read actual merged state and merge commit; if outcome unknown, reconcile before any retry",
+          "Verify intended resolved task path, cleanliness and recorded local/remote branch heads; safely remove task worktree and task branches under active cleanup instructions, or report blocked cleanup",
+          "Report verified PR URL/head/merge commit and reused actual checks/review outcomes; send no external messages"
+        ],
+        "missing_facts": [
+          "concrete PR URL, head/base SHAs, merge commit and cleanup state are not supplied; resolve before affected actions"
+        ],
+        "evidence": [
+          "send",
+          "delivery: Live merge gate; Complete the selected endpoint",
+          "active task worktree cleanup instructions"
+        ]
+      }
+    ],
+    "actual_files_read": [
+      "tests/behavioral/delivery-workflows/inputs.json",
+      "skills/full-send/SKILL.md",
+      "skills/full-stop/SKILL.md",
+      "skills/babysit-pr/SKILL.md",
+      "skills/review-panel/SKILL.md",
+      "skills/writing-loop/SKILL.md",
+      "skills/create-pull-request/SKILL.md",
+      "skills/address-pr-feedback/SKILL.md",
+      "skills/run-change-checks/SKILL.md",
+      "skills/software-engineering-graph/SKILL.md (body output partly truncated; relevant operating/implementation/review/publication sections retrieved with focused rg)",
+      "skills/generic-loop/SKILL.md (frontmatter only)",
+      "skills/git-push/SKILL.md (frontmatter only)",
+      "skills/full-send/references/repository-delivery.md"
+    ],
+    "actual_commands_used": [
+      "cmd.exe / type tests\\behavioral\\delivery-workflows\\inputs.json",
+      "cmd.exe / rg --files -g SKILL.md -g AGENTS.md (path inventory only)",
+      "cmd.exe / git status --short (read-only; candidate modifications preserved)",
+      "PowerShell structured Get-Content frontmatter extraction for the eleven named catalog entries",
+      "cmd.exe / type skills\\<selected-name>\\SKILL.md for full-send, full-stop, babysit-pr, writing-loop, review-panel, create-pull-request, run-change-checks, address-pr-feedback, software-engineering-graph",
+      "cmd.exe / type skills\\full-send\\references\\repository-delivery.md",
+      "cmd.exe / git worktree list --porcelain (read-only registration check; no external file contents read)",
+      "PowerShell / rg -n -A 34 -B 2 '## Operating model|## Publication|At a stable checkpoint|sole source/test writer' skills/software-engineering-graph/SKILL.md",
+      "apply_patch: add tmp/delivery-routing-v2.json only",
+      "PowerShell / Get-Content -Raw -LiteralPath tmp/delivery-routing-v2.json | ConvertFrom-Json; verify cases.Count equals case_count and all input ids match"
+    ],
+    "command_limitations": [
+      "An initial cmd-to-PowerShell frontmatter extraction emitted unevaluated script text due to quoting; repeated directly in PowerShell successfully.",
+      "An initial cmd rg query with alternation failed due to quoting; repeated directly in PowerShell successfully.",
+      "No workflow skill was activated merely by reading its source for this evaluation. No source claim of successful hypothetical implementation, review, monitoring, publication or merge is made."
+    ]
+  },
+  "independent_assessment": {
+    "assessment": "Independent assessment of delivery-workflow forward routing v2",
+    "observed_artifact": "tmp/delivery-routing-v2.json",
+    "expected_artifact": "tests/behavioral/delivery-workflows/expected.json",
+    "input_artifact": "tests/behavioral/delivery-workflows/inputs.json",
+    "scope": "Assess the observed routing and stated hypothetical authority, readiness, and next actions. A pass does not establish execution, enforcement, or generalization.",
+    "summary": {
+      "expected_cases": 13,
+      "observed_cases": 13,
+      "assessed_cases": 13,
+      "cases_pass": 13,
+      "cases_fail": 0,
+      "cases_unverified": 0,
+      "expected_requirements": 31,
+      "assessed_requirements": 31,
+      "requirements_pass": 31,
+      "requirements_fail": 0,
+      "requirements_unverified": 0,
+      "unmet_expected_requirements": [],
+      "interpretation": "All 31 expected requirements are met by the stated decisions and conditional plans. No real delivery outcome or permission enforcement was tested."
+    },
+    "evidence_convention": "JSONPath fields refer to tmp/delivery-routing-v2.json unless a source file is named. Quotes are exact substrings. Shared decisions apply to all relevant cases.",
+    "cases": [
+      {
+        "id": "code-delivery",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Select full-send intentionally; code validation then seven-role review-panel outside graph.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[0].selected_workflows",
+                "quote": "full-send"
+              },
+              {
+                "field": "$.cases[0].review_route.code",
+                "quote": "default seven-role panel after focused validation"
+              }
+            ],
+            "reason": "The explicit full-send request selects the expected non-graph code route and check-before-panel order. No actual validation or panel was run."
+          },
+          {
+            "requirement": "Use writing-loop for PR title/body; authorize only scoped task Git/PR actions and conditional merge.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[0].review_route.prose",
+                "quote": "writing-loop for exact PR title/body"
+              },
+              {
+                "field": "$.cases[0].allowed_hypothetical_mutations[1]",
+                "quote": "task-only commits/push and one scoped PR"
+              },
+              {
+                "field": "$.cases[0].allowed_hypothetical_mutations[2]",
+                "quote": "allowed-method merge only after live gate"
+              }
+            ],
+            "reason": "Prose acceptance, publication scope, and merge prerequisites are stated explicitly."
+          },
+          {
+            "requirement": "Do not authorize comments, thread resolution, or unrelated work.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[0].forbidden_hypothetical_mutations",
+                "quote": "unrequested messages or thread resolution"
+              },
+              {
+                "field": "$.cases[0].forbidden_hypothetical_mutations",
+                "quote": "unrelated staging"
+              },
+              {
+                "field": "$.shared_decisions.always_forbidden_without_separate_intent",
+                "quote": "external messages/comments"
+              }
+            ],
+            "reason": "The permission declaration excludes each prohibited category; enforcement remains untested."
+          }
+        ]
+      },
+      {
+        "id": "prose-handoff",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Select full-stop and writing-loop with Unslop/Reducer/fresh Editor.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[1].selected_workflows",
+                "quote": "full-stop"
+              },
+              {
+                "field": "$.cases[1].selected_workflows",
+                "quote": "writing-loop"
+              },
+              {
+                "field": "$.cases[1].review_route.prose",
+                "quote": "Writer with Unslop, Reducer, fresh Editor"
+              }
+            ],
+            "reason": "The requested prose route names the required independent roles without claiming their execution."
+          },
+          {
+            "requirement": "Leave accepted text for user action; no PR or Git requirement and no external send/publication.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[1].next_actions[1]",
+                "quote": "Return exact accepted text here for user review"
+              },
+              {
+                "field": "$.cases[1].forbidden_hypothetical_mutations",
+                "quote": "publication or sending"
+              },
+              {
+                "field": "$.cases[1].forbidden_hypothetical_mutations",
+                "quote": "Git/PR delivery"
+              },
+              {
+                "field": "$.cases[1].readiness",
+                "quote": "unverified until exact-text Editor acceptance and source-fact verification"
+              }
+            ],
+            "reason": "The endpoint is local user review, conditional on actual exact-version acceptance."
+          }
+        ]
+      },
+      {
+        "id": "mixed-stop",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Select code review-panel and prose writing-loop.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[2].review_route.code",
+                "quote": "seven-role panel for parser behavior"
+              },
+              {
+                "field": "$.cases[2].review_route.prose",
+                "quote": "writing-loop for migration guide and changed PR title/body; check guide claims against parser"
+              }
+            ],
+            "reason": "The mixed deliverables receive separate appropriate routes and a consistency check."
+          },
+          {
+            "requirement": "Inspect and disable both automatic merge mechanisms before task edits/pushes; verify state.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[2].next_actions[0]",
+                "quote": "Inspect exact PR automatic merge and queue state before edits/pushes"
+              },
+              {
+                "field": "$.cases[2].next_actions[1]",
+                "quote": "Disable auto-merge, remove queue entry, verify and record both changes"
+              },
+              {
+                "field": "$.cases[2].allowed_hypothetical_mutations[1]",
+                "quote": "after safety checks"
+              }
+            ],
+            "reason": "The planned ordering and verification cover both mechanisms before task mutations. No disable operation was executed."
+          },
+          {
+            "requirement": "Never merge, queue, or default-branch push; final exact-version reviews and readiness gate required.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[2].forbidden_hypothetical_mutations",
+                "quote": "merge or delegate merge"
+              },
+              {
+                "field": "$.cases[2].forbidden_hypothetical_mutations",
+                "quote": "enable auto-merge or queue entry"
+              },
+              {
+                "field": "$.cases[2].forbidden_hypothetical_mutations",
+                "quote": "default-branch push"
+              },
+              {
+                "field": "$.cases[2].next_actions[3]",
+                "quote": "apply full live gate"
+              },
+              {
+                "field": "$.shared_decisions.gate_default",
+                "quote": "exact head/base, current proof/reviews"
+              },
+              {
+                "field": "$.shared_decisions.prose_default",
+                "quote": "fresh independent Editor per version, exact accepted text"
+              }
+            ],
+            "reason": "The prohibition and final version-bound readiness plan are explicit; readiness is not asserted."
+          }
+        ]
+      },
+      {
+        "id": "skill-question",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Do not invoke full-send/full-stop or authorize repository mutations.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[3].selected_workflows",
+                "value": []
+              },
+              {
+                "field": "$.cases[3].allowed_hypothetical_mutations",
+                "value": []
+              },
+              {
+                "field": "$.cases[3].forbidden_hypothetical_mutations",
+                "quote": "starting either delivery workflow"
+              }
+            ],
+            "reason": "The skill names are treated as the subject of a question, not an invocation."
+          },
+          {
+            "requirement": "Answer information request; reading skill sources as data is permitted.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[3].next_actions[0]",
+                "quote": "Answer from local attribution: both local skills cite Theo Browne's upstream skills at pinned commit 1085050f3baed1ac724caa4a8166145fb2ac88af"
+              },
+              {
+                "field": "$.cases[3].next_actions[1]",
+                "quote": "Distinguish local pinned source evidence from independently verified current upstream publication status"
+              }
+            ],
+            "reason": "The response plan uses attribution that is present in both current Source sections and preserves the lack of live upstream verification. It is a routing decision, not an already delivered factual answer."
+          }
+        ]
+      },
+      {
+        "id": "incidental-stop",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Do not invoke full-stop or a panel merely from closing emphasis.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[4].selected_workflows",
+                "value": []
+              },
+              {
+                "field": "$.cases[4].forbidden_hypothetical_mutations",
+                "quote": "activating full-stop from incidental emphasis"
+              }
+            ],
+            "reason": "No delivery workflow or panel is selected."
+          },
+          {
+            "requirement": "Respect explanation-only and no-implementation limits.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[4].next_actions[0]",
+                "quote": "Provide two-sentence explanation using error evidence if available; do not invent an error diagnosis"
+              },
+              {
+                "field": "$.cases[4].forbidden_hypothetical_mutations",
+                "quote": "implementation/delivery"
+              }
+            ],
+            "reason": "The stated next action respects the two-sentence explanation scope and acknowledges missing actual error details."
+          }
+        ]
+      },
+      {
+        "id": "missing-prose-dependency",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Block the dependent writing stage for missing Unslop; do not invent its rules or claim acceptance.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[5].selected_workflows",
+                "quote": "writing-loop (blocked preflight)"
+              },
+              {
+                "field": "$.cases[5].forbidden_hypothetical_mutations",
+                "quote": "substitute remembered Unslop rules"
+              },
+              {
+                "field": "$.cases[5].forbidden_hypothetical_mutations",
+                "quote": "claim Unslop ran or Editor accepted"
+              },
+              {
+                "field": "$.cases[5].next_actions[0]",
+                "quote": "stop required writing loop"
+              }
+            ],
+            "reason": "The absent dependency is treated as the fixture's blocking fact, not bypassed or treated as a real installation audit."
+          },
+          {
+            "requirement": "No Git/PR/external publication and no self-review substituted for independent acceptance.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[5].forbidden_hypothetical_mutations",
+                "quote": "publish/send or create a PR"
+              },
+              {
+                "field": "$.cases[5].allowed_hypothetical_mutations[0]",
+                "quote": "no accepted rewrite established"
+              },
+              {
+                "field": "$.cases[5].next_actions[1]",
+                "quote": "keep endpoint here"
+              },
+              {
+                "field": "$.shared_decisions.prose_default",
+                "quote": "fresh independent Editor per version"
+              },
+              {
+                "field": "$.shared_decisions.publication_default",
+                "quote": "Repository full-send/full-stop"
+              }
+            ],
+            "reason": "Repository publication authority is limited to repository tasks, this prose endpoint stays here, and no self-acceptance route is offered."
+          }
+        ]
+      },
+      {
+        "id": "stale-pr-evidence",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Invalidate affected old proof/reviews; reconcile head C/base D and known human changes request.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[6].review_route.code",
+                "quote": "invalidate affected A/B proof and review"
+              },
+              {
+                "field": "$.cases[6].next_actions[0]",
+                "quote": "Read live PR identity and C/D state, reconcile remote changes"
+              },
+              {
+                "field": "$.cases[6].forbidden_hypothetical_mutations",
+                "quote": "ignore active human changes request"
+              },
+              {
+                "field": "$.cases[6].next_actions[2]",
+                "quote": "obtain required human approval"
+              }
+            ],
+            "reason": "Old identities are not reused as current proof, and the active changes request remains a gate."
+          },
+          {
+            "requirement": "Do not merge or claim ready; require current proof, reviews and known mergeability.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[6].readiness",
+                "quote": "unverified; stale proof, active required changes request and unknown mergeability block merge"
+              },
+              {
+                "field": "$.cases[6].next_actions[2]",
+                "quote": "Run affected checks and required reviews against stable current target"
+              },
+              {
+                "field": "$.cases[6].next_actions[3]",
+                "quote": "Refresh mergeability and all live gates before any merge"
+              }
+            ],
+            "reason": "The current state is blocked. Any later merge permission remains conditional on new evidence."
+          }
+        ]
+      },
+      {
+        "id": "unknown-automatic-merge",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Queue-state evidence gap blocks PR mutations and ready handoff.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[7].allowed_hypothetical_mutations[0]",
+                "quote": "none to the PR while queue membership cannot be inspected"
+              },
+              {
+                "field": "$.cases[7].readiness",
+                "quote": "blocked because automatic merge prevention cannot be positively verified"
+              },
+              {
+                "field": "$.cases[7].next_actions[1]",
+                "quote": "stop PR mutations; do not claim ready"
+              }
+            ],
+            "reason": "The unreadable queue state is a hard evidence gap for both mutations and readiness."
+          },
+          {
+            "requirement": "Do not infer disabled automatic merging from a missing field or merge/queue.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[7].forbidden_hypothetical_mutations",
+                "quote": "claim disabled auto-merge proves queue absence"
+              },
+              {
+                "field": "$.cases[7].forbidden_hypothetical_mutations",
+                "quote": "merge/queue enrollment/automatic merge enablement"
+              },
+              {
+                "field": "$.cases[7].missing_facts[0]",
+                "quote": "auto-merge only appears disabled and also needs positive verification"
+              }
+            ],
+            "reason": "Apparent disabled state and missing queue evidence are not treated as proof of prevention."
+          }
+        ]
+      },
+      {
+        "id": "graph-owner",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Use graph's approved review/test route; preserve sole writer, budgets and PR Engineer mutations.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[8].review_route.code",
+                "quote": "existing graph's approved reviewer/test gates, assignments and consumed budgets"
+              },
+              {
+                "field": "$.cases[8].allowed_hypothetical_mutations[0]",
+                "quote": "approved sole writer within remaining plan budget"
+              },
+              {
+                "field": "$.cases[8].allowed_hypothetical_mutations[1]",
+                "quote": "publication by approved Pull Request Engineer"
+              },
+              {
+                "field": "$.cases[8].forbidden_hypothetical_mutations",
+                "quote": "coordinator duplicating implementation or publication"
+              }
+            ],
+            "reason": "The decision preserves ownership and consumed budgets rather than starting a replacement engine."
+          },
+          {
+            "requirement": "No unapproved extra seven-role panel or second generic-loop; do not claim graph equals full panel.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[8].forbidden_hypothetical_mutations",
+                "quote": "silently adding/replacing seven-role panel"
+              },
+              {
+                "field": "$.cases[8].forbidden_hypothetical_mutations",
+                "quote": "generic-loop alongside graph"
+              },
+              {
+                "field": "$.cases[8].next_actions[1]",
+                "quote": "do not represent graph gates as full seven-role coverage"
+              }
+            ],
+            "reason": "The route explicitly declines both duplicate orchestration and a false panel-equivalence claim."
+          },
+          {
+            "requirement": "Conditional merge still needs live gate and applicable approved publication authority.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[8].allowed_hypothetical_mutations[2]",
+                "quote": "full-send merge only after live gate and within approved graph authority"
+              },
+              {
+                "field": "$.cases[8].next_actions[3]",
+                "quote": "return material authority/plan gaps for resolution"
+              },
+              {
+                "field": "$.cases[8].readiness",
+                "quote": "approved plan existence is not completed gate evidence"
+              }
+            ],
+            "reason": "The artifact does not assume that a named approved plan supplies absent concrete publication authority or completed proof."
+          }
+        ]
+      },
+      {
+        "id": "exhausted-and-unknown",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "No fourth code repair or budget reset.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[9].forbidden_hypothetical_mutations",
+                "quote": "fourth code repair without changed authorization"
+              },
+              {
+                "field": "$.cases[9].forbidden_hypothetical_mutations",
+                "quote": "budget reset via retry/rebase/new invocation"
+              },
+              {
+                "field": "$.cases[9].next_actions[2]",
+                "quote": "Stop delivery on required defect with consumed count 3"
+              }
+            ],
+            "reason": "No fourth repair is permitted under the current authorization; any budget change is left for a concrete user decision."
+          },
+          {
+            "requirement": "No duplicate watcher until old execution reconciled; retain original deadline.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[9].next_actions[0]",
+                "quote": "Recover recorded watcher identity/outcome before retry or cancellation"
+              },
+              {
+                "field": "$.cases[9].next_actions[1]",
+                "quote": "Retain original deadline and twelve remaining minutes; do not duplicate watch"
+              },
+              {
+                "field": "$.cases[9].forbidden_hypothetical_mutations",
+                "quote": "new 30-minute window"
+              }
+            ],
+            "reason": "Unknown execution remains unknown and neither a duplicate process nor a fresh window is authorized."
+          },
+          {
+            "requirement": "Report blocker and unresolved defect; no approval or merge.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[9].readiness",
+                "quote": "blocked by exhausted repairs and unsettled watcher outcome"
+              },
+              {
+                "field": "$.cases[9].next_actions[2]",
+                "quote": "report exact remaining issue and any watcher still unknown"
+              },
+              {
+                "field": "$.cases[9].forbidden_hypothetical_mutations",
+                "quote": "merge with remaining defect"
+              }
+            ],
+            "reason": "The candidate remains unapproved, delivery stops, and both blockers are retained in the report plan."
+          }
+        ]
+      },
+      {
+        "id": "standalone-watch",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Read/report only; no implementation, pushes, comments, resolution or merge.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[10].allowed_hypothetical_mutations",
+                "value": []
+              },
+              {
+                "field": "$.cases[10].forbidden_hypothetical_mutations",
+                "value": [
+                  "edits",
+                  "pushes",
+                  "merge",
+                  "comments",
+                  "thread resolution",
+                  "treat green checks as readiness"
+                ]
+              },
+              {
+                "field": "$.cases[10].selected_workflows",
+                "quote": "address-pr-feedback for thread-aware inspection only"
+              }
+            ],
+            "reason": "Monitoring and feedback inspection are limited to reads and reporting."
+          },
+          {
+            "requirement": "Green CI is insufficient; report approval/thread blockers, not readiness.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[10].readiness",
+                "quote": "required approval and material thread block readiness"
+              },
+              {
+                "field": "$.cases[10].next_actions[1]",
+                "quote": "Report actionable material thread and missing required approval"
+              },
+              {
+                "field": "$.cases[10].next_actions[2]",
+                "quote": "rather than waiting-only-for-human because thread also remains"
+              }
+            ],
+            "reason": "Both unmet gates are retained despite the fixture's passing CI."
+          }
+        ]
+      },
+      {
+        "id": "draft-only-pr",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Use writing-loop for title/body and evidence from selected diff.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[11].selected_workflows",
+                "quote": "writing-loop"
+              },
+              {
+                "field": "$.cases[11].review_route.prose",
+                "quote": "exact title/body through Writer, Reducer, fresh Editor using selected diff and actual validation"
+              }
+            ],
+            "reason": "The planned draft uses selected evidence and the required independent prose route."
+          },
+          {
+            "requirement": "Return text only; do not commit, push, create/update PR or claim a published URL.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[11].selected_workflows",
+                "quote": "create-pull-request (text only)"
+              },
+              {
+                "field": "$.cases[11].forbidden_hypothetical_mutations",
+                "quote": "create/update GitHub PR"
+              },
+              {
+                "field": "$.cases[11].forbidden_hypothetical_mutations",
+                "quote": "commit/push"
+              },
+              {
+                "field": "$.cases[11].next_actions[2]",
+                "quote": "Return exact accepted text here; no GitHub writes"
+              }
+            ],
+            "reason": "The word draft does not trigger PR creation, and no published URL or completed publication is claimed."
+          }
+        ]
+      },
+      {
+        "id": "approved-current-head",
+        "status": "pass",
+        "requirements": [
+          {
+            "requirement": "Recognize that the required approval is satisfied, not a blocker merely because approval is required.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[12].readiness",
+                "quote": "established in the synthetic fixture; refresh live head/base gate immediately before actual merge"
+              },
+              {
+                "field": "$.cases[12].review_route.code",
+                "quote": "reuse fixture's current exact-head/base proof and required reviews"
+              }
+            ],
+            "reason": "The case accepts the fixture's satisfied gates instead of inventing another approval requirement. Its readiness statement is expressly synthetic and conditional on a fresh live check."
+          },
+          {
+            "requirement": "Allow only the authorized merge method after a final live gate bound to the reviewed head; verify actual merge/commit before claiming completion.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[12].allowed_hypothetical_mutations[0]",
+                "quote": "allowed squash merge matching reviewed head after immediate gate read"
+              },
+              {
+                "field": "$.cases[12].next_actions[0]",
+                "quote": "confirm all supplied gates still cover exact same head/base"
+              },
+              {
+                "field": "$.cases[12].next_actions[2]",
+                "quote": "Read actual merged state and merge commit; if outcome unknown, reconcile before any retry"
+              },
+              {
+                "field": "$.cases[12].delivery_completion",
+                "quote": "unverified; no merge action was executed in this evaluation"
+              }
+            ],
+            "reason": "The stated plan restricts the method to squash, requires the current reviewed identity, and separates synthetic readiness from verified merge completion."
+          },
+          {
+            "requirement": "Do not post comments or resolve threads; cleanup follows active rules after verified merge.",
+            "status": "pass",
+            "evidence": [
+              {
+                "field": "$.cases[12].forbidden_hypothetical_mutations",
+                "quote": "external messages/comments"
+              },
+              {
+                "field": "$.shared_decisions.always_forbidden_without_separate_intent",
+                "quote": "thread resolution"
+              },
+              {
+                "field": "$.cases[12].allowed_hypothetical_mutations[1]",
+                "quote": "safe recorded task cleanup after verified merged state/commit"
+              },
+              {
+                "field": "$.cases[12].next_actions[3]",
+                "quote": "Verify intended resolved task path, cleanliness and recorded local/remote branch heads"
+              }
+            ],
+            "reason": "Comments and thread resolution remain outside authority; cleanup is conditional and preserves dirty or newer work. No cleanup was performed."
+          }
+        ]
+      }
+    ],
+    "current_source_checks": [
+      {
+        "status": "pass",
+        "source": "skills/full-send/SKILL.md: Scope and authority; Select the work and review; Work, prove, and settle findings",
+        "quotes": [
+          "An explicit repository full-send request authorizes scoped commits",
+          "Keep all seven roles unless the user narrows the panel",
+          "at most three code repair attempts",
+          "Use that approved review route"
+        ],
+        "result": "The observed publication scope, code/prose split, graph override, and repair retention match the current entrypoint."
+      },
+      {
+        "status": "pass",
+        "source": "skills/full-stop/SKILL.md: Prevent automatic merging; Handoff at the gate",
+        "quotes": [
+          "verify both auto-merge and merge-queue state before edits or pushes",
+          "If state cannot be inspected",
+          "every gate passes on the live head and base"
+        ],
+        "result": "The mixed-stop and unknown-automatic-merge plans preserve the current source's prevention and evidence-gap rules."
+      },
+      {
+        "status": "pass",
+        "source": "skills/full-send/references/repository-delivery.md: Live merge gate; Complete the selected endpoint",
+        "quotes": [
+          "Immediately before readiness or merge",
+          "Match the reviewed head at the merge boundary",
+          "Verify live merged state and the merge commit"
+        ],
+        "result": "The final positive case and stale-proof case reflect identity-bound current proof and verified completion rather than a bare ready label."
+      },
+      {
+        "status": "pass",
+        "source": "skills/babysit-pr/SKILL.md: Wait without duplicate watchers; Handle an event; Finish",
+        "quotes": [
+          "Never duplicate a watcher with an unknown outcome",
+          "Keep its deadline across retries and restarts",
+          "A standalone watch request grants read access and reporting only"
+        ],
+        "result": "The watcher and standalone-authority decisions match current source."
+      },
+      {
+        "status": "pass",
+        "source": "skills/writing-loop/SKILL.md: Set up; Run the loop; Deliver or stop",
+        "quotes": [
+          "If neither source is available",
+          "stop the loop",
+          "cannot also make the independent Editor decision",
+          "Any text change invalidates prior acceptance"
+        ],
+        "result": "The missing-dependency block and exact-version independent acceptance plans are supported by current source."
+      },
+      {
+        "status": "pass",
+        "source": "skills/create-pull-request/SKILL.md: Gather Evidence; Write the Pull Request; Creation Modes",
+        "quotes": [
+          "only on the selected diff and checks actually run",
+          "without a creation request produces text only",
+          "A drafting-only request remains text-only"
+        ],
+        "result": "The drafting case and delegated scoped publication route match current source."
+      },
+      {
+        "status": "pass",
+        "source": "skills/review-panel/SKILL.md: introduction; Freeze the review target; Dispatch fresh reviewers",
+        "quotes": [
+          "seven independent reviewers",
+          "Start each reviewer in a fresh context",
+          "Prompt limits on paths and effects are cooperative instructions"
+        ],
+        "result": "The stated panel routing is supported; the source itself rejects interpreting instructions as sandbox enforcement. No panel execution was evaluated."
+      },
+      {
+        "status": "pass",
+        "source": "skills/software-engineering-graph/SKILL.md: Execute the approved route; Publication",
+        "quotes": [
+          "The Senior Engineer is the sole source/test writer",
+          "Never reset a budget by relabeling a retry as a new task",
+          "Pull Request Engineer is the sole commit, push, PR, and worktree",
+          "four fresh Code Reviewers and a Test Engineer"
+        ],
+        "result": "Current graph source supports preserving approved owners and budgets and distinguishing graph review from a seven-role panel."
+      },
+      {
+        "status": "pass",
+        "source": "skills/full-send/SKILL.md: Source; skills/full-stop/SKILL.md: Source",
+        "quotes": [
+          "Theo Browne",
+          "1085050f3baed1ac724caa4a8166145fb2ac88af"
+        ],
+        "result": "Both current source sections contain the cited attribution and pin. This verifies local attribution only; current upstream publication was not checked."
+      }
+    ],
+    "protocol_and_evidence": {
+      "shared_context_limit": {
+        "status": "confirmed_from_artifact_declaration",
+        "field": "$.protocol.context",
+        "quote": "One fresh context covered all 13 cases; cases did not have isolated per-case contexts.",
+        "implication": "The cases are not 13 isolated trials. Cross-case priming is possible; no per-case independence or robustness claim is warranted. Whether this deviates from the original dispatch protocol cannot be established without that dispatch record."
+      },
+      "runtime": {
+        "actual_model": "unavailable",
+        "actual_effort": "unavailable",
+        "field": "$.runtime",
+        "reason": "The artifact supplies no trusted runtime metadata; inherited host selection is not evidence of actual model or effort."
+      },
+      "original_execution_receipts": {
+        "status": "unverified",
+        "fields": [
+          "$.actual_files_read",
+          "$.actual_commands_used",
+          "$.protocol.actual_mutation",
+          "$.protocol.exclusions_observed"
+        ],
+        "reason": "These are evaluator self-reports. The original raw command/tool transcript and file-write receipt are not included in the supplied decision artifact. The present assessment can verify current source text and artifact existence, but not independently prove every claimed original read, sole write, or exclusion. No contradictory original execution evidence was supplied."
+      },
+      "reported_command_deviations": [
+        {
+          "field": "$.command_limitations[0]",
+          "quote": "frontmatter extraction emitted unevaluated script text due to quoting",
+          "assessment": "Reported command failure followed by a reported successful direct PowerShell read; the initial command alone is not successful read evidence. Raw receipts are unavailable."
+        },
+        {
+          "field": "$.command_limitations[1]",
+          "quote": "rg query with alternation failed due to quoting",
+          "assessment": "Reported failed search followed by a reported successful focused read. No inference of original successful coverage from the failed search."
+        },
+        {
+          "field": "$.actual_files_read[9]",
+          "quote": "body output partly truncated",
+          "assessment": "The graph entrypoint was not initially fully visible; the artifact reports retrieval of relevant sections. This assessment independently checked the relevant current ownership, review, budget, and publication passages."
+        }
+      ],
+      "live_behavior": {
+        "status": "unverified",
+        "not_established": [
+          "actual code changes or regression behavior",
+          "actual independent panel or writing-loop execution and acceptance",
+          "actual CI checks, monitoring lifecycle, watcher reconciliation, or deadline handling",
+          "actual auto-merge or queue disablement and verification",
+          "actual Git/PR publication, merge-race safety, merged-state verification, or cleanup",
+          "enforcement against unauthorized comments, thread resolution, or other external writes",
+          "behavioral generalization beyond this shared-context decision sample"
+        ],
+        "reason": "The evaluator deliberately produced decisions and next-action plans without executing the delivery workflows."
+      },
+      "structural_validation": {
+        "status": "not_behavioral_evidence",
+        "reason": "Reported JSON parsing and ID/count checks establish artifact structure only. Requirement verdicts above come from the decision fields and current source checks, not structural validators."
+      },
+      "assessment_procedure": {
+        "reads": [
+          "git status --short",
+          "the three requested input/expected/observed JSON files",
+          "the eight current source files named in current_source_checks"
+        ],
+        "source_edits": "none",
+        "agents_spawned": "none",
+        "network_or_delivery_execution": "none",
+        "owned_output": "tmp/delivery-assessment-v2.json",
+        "command_issue": "An assessor CMD rg alternation query had quoting errors and partial output; the relevant graph passages were then retrieved with a successful focused PowerShell rg command. This is an assessment-command issue, not evidence of a routing failure."
+      }
+    }
+  },
+  "limits": [
+    "Routing and proposed next actions only; no live GitHub watching, publication, merge, merge-race, actual independent-review execution, or external-write enforcement test.",
+    "One fresh selection context covered all 13 cases; no per-case context isolation.",
+    "Recorded local read/write receipts are evaluator self-reports, not independently captured original tool transcripts. Candidate byte hashes were independently compared after editorial acceptance.",
+    "Actual model and reasoning effort were not exposed by trusted runtime metadata.",
+    "No agent profiles were modified; no commit, push, PR creation, or merge was performed for this task."
+  ]
+}

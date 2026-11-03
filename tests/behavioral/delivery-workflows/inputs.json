@@ -1,0 +1,67 @@
+[
+  {
+    "id": "code-delivery",
+    "prompt": "Fix the off-by-one bug in the supplied function. Full send.",
+    "fixture": "Synthetic code repository. All local delivery dependencies and independent agents are available. No graph workflow is requested. No PR exists yet."
+  },
+  {
+    "id": "prose-handoff",
+    "prompt": "Rewrite this proposal for a nontechnical reader. Full stop. Keep it here for my review; do not publish it.",
+    "fixture": "A prose draft with source facts is available, as are writing-loop, Unslop, a Reducer, and an Editor. There is no repository-delivery request."
+  },
+  {
+    "id": "mixed-stop",
+    "prompt": "Fix the parser and update its migration guide. Full stop.",
+    "fixture": "Synthetic task PR is open with auto-merge enabled and a queue entry. Both can be inspected and disabled. Local code and prose review dependencies are available."
+  },
+  {
+    "id": "skill-question",
+    "prompt": "Did Theo publish full-send/full-stop skills?",
+    "fixture": "The user requests information only. No implementation, publication, or delivery workflow is requested."
+  },
+  {
+    "id": "incidental-stop",
+    "prompt": "Explain this error in two sentences. No implementation or delivery workflow. Full stop.",
+    "fixture": "The closing phrase is emphasis in an explanation-only request. No repository actions are requested."
+  },
+  {
+    "id": "missing-prose-dependency",
+    "prompt": "Clean up this announcement. Full send. Return the text here.",
+    "fixture": "Writing-loop is available, but Unslop is absent from both the host catalog and known sibling installation. The original text is available."
+  },
+  {
+    "id": "stale-pr-evidence",
+    "prompt": "Continue full send on the task PR.",
+    "fixture": "Code PR reviewed at head A/base B. Remote head is now C and base D. Old CI was green for A. Current required human review requests changes. Mergeability is unknown."
+  },
+  {
+    "id": "unknown-automatic-merge",
+    "prompt": "Prepare this existing task PR with full stop.",
+    "fixture": "PR is open. Auto-merge appears disabled, but queue membership cannot be read through the available tools. The branch has not been changed in this invocation."
+  },
+  {
+    "id": "graph-owner",
+    "prompt": "Complete this code change with full send using the existing approved engineering graph plan.",
+    "fixture": "The graph plan names its sole implementation writer, required reviewer/test gates, consumed repair budgets, and Pull Request Engineer. It does not include a separate seven-role panel. No user explicitly requests that extra panel."
+  },
+  {
+    "id": "exhausted-and-unknown",
+    "prompt": "Resume full send from the recorded task state.",
+    "fixture": "Three code repairs have been consumed and a required defect remains. A prior watcher timed out with an unknown handle/outcome. Twelve minutes remain in its original window."
+  },
+  {
+    "id": "standalone-watch",
+    "prompt": "Watch this PR and tell me when it is ready.",
+    "fixture": "Checks are green, but required human approval and an unresolved material thread remain. No edits, comments, resolution, or merge authority was granted."
+  },
+  {
+    "id": "draft-only-pr",
+    "prompt": "Draft a PR title and description for these changes. Do not open or update anything on GitHub.",
+    "fixture": "Selected diff and actual validation results are available. Writing-loop and its independent roles are available. No publication permission exists."
+  },
+  {
+    "id": "approved-current-head",
+    "prompt": "Finish full send on this task PR.",
+    "fixture": "Synthetic PR is open, not draft, on the intended branch and up-to-date base. Current code/prose proof and all required reviews cover exactly these head/base commits. Every required CI result passes, required human approval is present, no changes request or unresolved material thread remains, and live mergeability is known. The repository allows squash merge. No external messaging permission was granted."
+  }
+]
