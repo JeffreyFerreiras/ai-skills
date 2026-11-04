@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paginate"
+  short_description: "Explain topics one short page at a time"
+  default_prompt: "Use $paginate to explain this topic in pages of no more than 90 words, waiting for Next between pages."
