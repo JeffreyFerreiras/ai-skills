@@ -12,6 +12,10 @@ review before dependent delivery approval.
 
 ## Visual direction and assets
 
+For the optional [Dark drafting desk](dark-drafting-desk.md) treatment, follow its
+palette and inspect its bundled reference. The chalkboard direction below remains
+the fallback when no style is selected.
+
 Honor the chosen style and supplied references. Inspect actual reference pixels;
 record identity, material, lighting, texture, palette, and composition matches
 and mismatches. Do not infer an aesthetic match from a filename or prompt.

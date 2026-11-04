@@ -14,6 +14,12 @@ Its [Cloudflare case decomposition](references/cloudflare-cinematic-decompositio
 provides inspected composition and narrative examples, known weaknesses and
 scene-aware vertical adaptation guidance. Read it when those examples help the brief.
 
+[Dark drafting desk](references/dark-drafting-desk.md) is an optional alternative
+with a dark slate drafting surface, ivory technical lines and restrained copper
+and sage accents. Offer it alongside Neon Chalk Systems when the user asks for
+style options, or use it when selected. Keep the existing default and any
+episode-specific style unless the user chooses a change.
+
 ## Establish the brief
 
 Read the user's sources, existing project, and applicable instructions. Resolve
