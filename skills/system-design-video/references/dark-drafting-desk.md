@@ -1,9 +1,9 @@
 # Dark drafting desk
 
 Use this optional treatment when the user selects Dark drafting desk or asks for
-the dark architect's drafting-desk style. Offer it alongside Neon Chalk Systems
-when presenting style choices. Selecting it does not replace other styles or
-change the default for future episodes.
+the dark architect's drafting-desk style. Include its saved frame in the
+[visual style picker](style-gallery.md). Selecting it does not replace other
+styles or select the style for future episodes.
 
 Before designing, open the [approved reference frame](../assets/style-references/dark-drafting-desk.png).
 Compare the actual pixels with the candidate at delivery size. The reference

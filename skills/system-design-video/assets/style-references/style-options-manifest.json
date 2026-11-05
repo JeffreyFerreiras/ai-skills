@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "created_on": "2026-11-04",
+  "generator": "built-in imagegen",
+  "scope": "Still art-direction exploration for system-design-video style options",
+  "reference_subject": "Illustrative photo-processing queue; no real deployment or queue guarantees are specified.",
+  "status": "Saved visual references; no episode style choice or user style acceptance recorded.",
+  "saved_for_style_picker_on": "2026-11-05",
+  "technical_form": "Opaque generated PNG raster artwork; no editable geometry, sprite sheet, narration or motion.",
+  "requested_format": "Portrait 9:16 concept still; actual output is 992x1586 and needs recomposition for 1080x1920 production.",
+  "samples": [
+    {
+      "id": "sculpted-studio",
+      "title": "Sculpted studio",
+      "file": "sculpted-studio.png",
+      "width": 992,
+      "height": 1586,
+      "sha256": "49491d7f609a085a74f7a42710ee5c7a012029c53903cdbedc3aeebf2122d213",
+      "prompt": "Use case: stylized-concept.\nAsset type: one portrait 9:16 art-direction still for an educational system-design video. This is a style exploration, not a finished diagram or video.\nCreate an exceptionally polished SCULPTED STUDIO 3D miniature, a tangible photo-processing queue, on a warm off-white studio background. Premium tactile ceramic and matte resin, rounded but architectural silhouettes, soft directional studio lighting, grounded contact shadows, gentle orthographic isometric camera. Seafoam green, terracotta orange, ivory, dark ink accents. Thoughtful editorial design, not a generic SaaS dashboard.\nComposition: one large scene with three distinct stations arranged along a gentle ascending diagonal across the central two-thirds of the portrait. At upper left an upright ivory upload kiosk displays a simple mountain-and-sun photo icon. In the middle a shallow terracotta waiting tray contains three separate upright seafoam picture cards, one behind the next; show all silhouettes clearly. At lower right a larger ivory processing station holds one picture card in a clearly visible opening and displays the same photo icon. Two broad simple flat inset route strips connect kiosk to tray and tray to processing station, no other routes. Deliberately enlarged objects, generous empty top and bottom margins for future code-rendered labels and captions. Keep all critical objects sharp and separated. A sculptural still that makes the objects feel touchable.\nNo lettering, no digits, no tiny technical text, no logos, no watermark, no extra screens, no humanoid robots, no decorative particles, no spaghetti wires, no arrows indicating fictitious return paths. Portrait artwork only, no mockup phone border."
+    },
+    {
+      "id": "sculpted-studio-dark",
+      "title": "Sculpted studio, dark",
+      "file": "sculpted-studio-dark.png",
+      "created_on": "2026-11-04",
+      "width": 992,
+      "height": 1586,
+      "sha256": "70f4577ae3d31e367d83659a64f5e7da461ecb0de3e52b933fb32ea83bcc8e8f",
+      "derived_from": {
+        "file": "sculpted-studio.png",
+        "sha256": "49491d7f609a085a74f7a42710ee5c7a012029c53903cdbedc3aeebf2122d213"
+      },
+      "prompt": "Edit this exact Sculpted studio art-direction sample into a dark-mode variant. Preserve the composition, camera angle, object geometry, rounded ceramic/resin forms, three waiting picture cards, single active card, mountain-and-sun icons, two connecting strips, object positions and generous empty margins. Change only the palette and lighting.\nReplace the warm off-white background and floor with a deep matte charcoal-blue studio environment. Replace the ivory machine shells and plinths with tactile medium-dark slate ceramic, distinctly lighter than the background. Preserve the terracotta-orange queue tray and warm orange icon suns, and retain muted seafoam-green picture cards and connecting strips. The screen icon should remain readable on its darker inset. Use soft warm key lighting and a restrained cool edge light to separate dark forms, with convincing contact shadows. Keep enough diffuse light on front faces that no important shape disappears. Premium sculptural dark mode, calm and tangible. No neon glow, no glass, no glossy chrome, no crushed blacks, no added objects, no words, no labels, no logos, no watermark. Preserve the original portrait aspect ratio and opaque background.",
+      "review": {
+        "round": 1,
+        "visual_reviewer": "sculpted_dark_review",
+        "visual_verdict": "ACCEPT for the preview still",
+        "inspection": "Compared actual source and dark-candidate PNG pixels; palette and lighting change retained composition and object identity. No motion or architecture certification.",
+        "findings": []
+      }
+    },
+    {
+      "id": "glass-cutaway",
+      "title": "Glass cutaway",
+      "file": "glass-cutaway.png",
+      "width": 992,
+      "height": 1586,
+      "sha256": "3360318aea0b1fda4ef43bccdb6dd306af41e495e622c602d6b6bf18681d1e90",
+      "prompt": "Use case: stylized-concept.\nAsset type: one portrait 9:16 art-direction still for an educational system-design video. A style exploration, not a finished diagram or video.\nCreate a precise GLASS CUTAWAY 3D miniature of a photo-processing queue on a deep midnight navy background. A premium architectural engineering model, selectively transparent smoked-glass enclosures, machined graphite bases, luminous edges used very sparingly, cyan glass and warm amber internal job cards. Cinematic studio lighting, restrained reflections, controlled contrast, orthographic three-quarter view. Sophisticated technical editorial design.\nComposition: three clearly separated large stations along a diagonal from upper left to lower right. Upper left, an upright graphite upload kiosk with a simple mountain-and-sun photo icon on one face. In the middle, a long shallow transparent blue glass queue enclosure, front wall visibly cut away to expose three distinct amber picture cards in an ordered row. At lower right, a larger smoked-glass worker enclosure with a visible processing cradle holding one amber photo card, a clear purposeful cutaway so the active card cannot be hidden. One simple broad cyan inset route strip joins kiosk to queue, another joins queue to worker. No other routes or decorative connections. Cards share exactly the same simple mountain-and-sun icon. Job cards are the visual focus, machinery is subordinate. Transparent shells must have clearly readable outlines, avoid ghosted overlapping silhouettes. All objects sit on one dark grounded surface. Generous empty top and bottom areas for future code-rendered labels and captions. Keep every important card sharp, no depth-of-field blur.\nNo words, lettering, digits, logos, watermark, microtext, UI mockups, extra screens, humans, floating holographic panels or decorative particles. Portrait artwork only, no phone border."
+    },
+    {
+      "id": "pixel-circuit",
+      "title": "Pixel circuit",
+      "file": "pixel-circuit.png",
+      "width": 992,
+      "height": 1586,
+      "sha256": "0efb383404b96d19eb3bf0e48e1422cff2486624be965d90e01b5d3713204ee9",
+      "prompt": "Use case: stylized-concept.\nAsset type: one portrait 9:16 art-direction still for an educational system-design video, a style exploration.\nCreate PIXEL CIRCUIT, an exquisite hand-authored-looking 2D pixel-art miniature explaining a photo-processing queue, designed like a refined late-1990s strategy-game interface illustration. True visibly chunky square pixel clusters, clean stair-step edges, consistent logical pixel grid, nearest-neighbor aesthetic. Limited deep ink-purple palette with cream, mint, golden yellow and muted coral. Crisp deliberate pixel shading and selective dithering only on background surfaces. Absolutely no smooth vector edges, no photographic rendering, no glassy blur, no bloom, no depth-of-field.\nThree clear large stations composed on a deep navy-purple flat field, with ample empty top and bottom margin for future code-rendered labels. Upper left: a pixel-art upload kiosk with one large mountain-and-sun photo symbol. Center: a low waiting rack holding exactly three upright mint picture cards, spaced in a row, each sharing the same clear mountain-and-sun icon. Lower right: a larger pixel-art processing machine with one picture card in its active opening, a simple gold working-status lamp. Two wide short cream-and-mint stepped pathways connect upload kiosk to waiting rack and rack to worker. No other routes. All objects share one isometric pixel-art projection, objects are large enough to read on a phone. Small coherent stepped shadows anchor them to the same plane. Restrained mint and amber highlights on meaningful parts. Friendly engineering miniature, no random game scenery. Strong hierarchy and negative space.\nNo lettering, words, numbers, watermark, logos, extra screens, human characters, robots, decorative particles or scattered pixels. No mockup phone border."
+    },
+    {
+      "id": "voxel-workshop",
+      "title": "Voxel workshop",
+      "file": "voxel-workshop.png",
+      "width": 992,
+      "height": 1586,
+      "sha256": "e94ae770ec6d88ffcf8ea89ab8cf963a9cad9a1d597a232e8582705e7cec6770",
+      "prompt": "Use case: stylized-concept.\nAsset type: one portrait 9:16 art-direction still for an educational system-design video, a style exploration.\nCreate VOXEL WORKSHOP, a delightful premium 3D voxel diorama of a photo-processing queue. Everything constructed from intentional cubic forms with chunky stepped silhouettes, real dimensional geometry appearance and crisp broad faces, physically grounded soft shadows and selective warm lighting. It should clearly differ from flat pixel art: a three-dimensional miniature seen through an orthographic camera, with visible solid cubic volume. Dark desaturated teal studio background, dusty teal cuboids, honey yellow job blocks, cream machine shells and burnt orange details. Beautiful crafted engineering-toy look, not Minecraft scenery or a crowded game level.\nSingle portrait composition: upper-left is a cubic upload kiosk on a low platform, displaying one large mountain-and-sun icon assembled from square tiles. Middle is a stepped teal waiting rack holding three distinct upright honey-yellow picture-job slabs in order, each with the same tiled photo icon. Lower right is a larger block-built processing machine with one matching job slab visible inside an open-front work cradle. Only two broad cuboid tracks connect kiosk to waiting rack and rack to worker. All stations rest on one coherent low stepped base. No side branches. Station silhouettes and job slabs must be easy to distinguish, the picture jobs are the focal point. Arrange this as a spacious diagonal flowing downward, with generous empty upper and lower margins for future code-rendered labels and captions. Show all critical objects sharply with clean readable lighting.\nNo words, letters, numbers, logos, watermark, microtext, humans, robots, extra buildings, foliage, decorative particles, fluffy clouds, glass transparency, depth-of-field blur or mockup phone border."
+    }
+  ],
+  "review": {
+    "applies_to": ["sculpted-studio", "glass-cutaway", "pixel-circuit", "voxel-workshop"],
+    "round": 1,
+    "visual_reviewer": "style_visual_review",
+    "visual_verdict": "ACCEPT for still style exploration",
+    "logical_reviewer": "style_blind_read",
+    "logical_verdict": "APPROVE for still style exploration",
+    "inspection": "Actual full-scene PNG pixels; no temporal, narration or encoded-media inspection.",
+    "advisory": {
+      "id": "STYLE-LOGIC-01",
+      "status": "Nonblocking for still style selection; unresolved for technical animation.",
+      "finding": "Hidden internal path connections and height changes; object roles, direction and repeated-card identities are unspecified.",
+      "production_action": "Rebuild visible connector continuity and establish job identity and causal state changes in episode-specific animation."
+    }
+  }
+}
