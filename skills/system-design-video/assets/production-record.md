@@ -18,6 +18,8 @@ checks pending; remove branches outside the requested deliverable.
 - Hook form (question/phrase/claim), relevance and specific interest, claim sources,
   payoff, natural landing time, picture alignment, ad-evidence versus workflow scope:
 - Requested deliverable, format, duration constraint, style/reference identities:
+- Style picker: sample labels and paths/hashes shown to the user, their answer or
+  existing episode choice, selected style and light/dark variant; pending choice:
 - For shorts, natural-pace runtime estimate within the 90-180-second target;
   any over-180 warning/reason, user choice of approved longer runtime or
   narrower/split scope, exact approval and production boundary; actual runtime

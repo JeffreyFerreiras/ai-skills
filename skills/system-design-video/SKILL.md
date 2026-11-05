@@ -9,6 +9,15 @@ Produce an editable vertical video that teaches how a system works. Keep the
 architecture, spoken explanation, and visible events consistent. Deliver the
 requested plan, preview, or rendered video, with the evidence needed to review it.
 
+At the start of a new episode, use the [visual style picker](references/style-gallery.md).
+Show the saved sample images to the user, then ask which style to use. Wait for
+their choice before committing to visual direction or production. An explicit
+style in the request, a recorded choice for this episode, or an explicit request
+to choose on the user's behalf satisfies the choice. Do not ask again on
+continuation. A general preference or a previous episode's
+style does not select the style for a new episode. Source and script planning
+may continue while the choice is pending.
+
 For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
 Its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
 provides inspected composition and narrative examples, known weaknesses and
@@ -16,9 +25,15 @@ scene-aware vertical adaptation guidance. Read it when those examples help the b
 
 [Dark drafting desk](references/dark-drafting-desk.md) is an optional alternative
 with a dark slate drafting surface, ivory technical lines and restrained copper
-and sage accents. Offer it alongside Neon Chalk Systems when the user asks for
-style options, or use it when selected. Keep the existing default and any
-episode-specific style unless the user chooses a change.
+and sage accents. Include its saved sample in the style picker and use it when
+selected. Preserve an episode's chosen style unless the user changes it.
+
+For more choices, use [3D and pixel-art styles](references/style-options.md):
+Sculpted studio in light or dark mode, Glass cutaway, Pixel circuit and Voxel
+workshop. Read it when the user requests style exploration or one of these
+treatments. Select by the user's answer and the episode brief. Its bundled still
+samples show appearance only. They do not satisfy a new episode's narrated sample
+or motion-review gates.
 
 ## Establish the brief
 
@@ -66,7 +81,8 @@ artifact-bound records. Plan-only work does not require rendering capabilities.
 A request for a script or storyboard ends with that artifact. A request for a
 video includes its local render or export unless the user selects preview-only
 work. Publishing, account changes, and external sharing require corresponding
-user intent. Do not add approval checkpoints to already-authorized local work.
+user intent. Do not add approval checkpoints beyond the requested style choice
+to already-authorized local work.
 
 ## Run the built-in review loop
 

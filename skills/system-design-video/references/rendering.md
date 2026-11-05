@@ -13,14 +13,17 @@ review before dependent delivery approval.
 ## Visual direction and assets
 
 For the optional [Dark drafting desk](dark-drafting-desk.md) treatment, follow its
-palette and inspect its bundled reference. The chalkboard direction below remains
-the fallback when no style is selected.
+palette and inspect its bundled reference. For Sculpted studio, Glass cutaway,
+Pixel circuit or Voxel workshop, follow [3D and pixel-art styles](style-options.md)
+for materials, geometry, pixel scaling and sample limits. Complete the
+[visual style choice](style-gallery.md) before committing to a treatment.
+An unanswered choice does not authorize using a default.
 
 Honor the chosen style and supplied references. Inspect actual reference pixels;
 record identity, material, lighting, texture, palette, and composition matches
 and mismatches. Do not infer an aesthetic match from a filename or prompt.
 Apply the [scene director handoff](scene-direction.md) to each new episode.
-When no style is selected, prefer an authentic matte charcoal chalkboard for
+When Neon Chalk Systems is selected, use an authentic matte charcoal chalkboard for
 technical teaching views with
 soft overlapping eraser marks and restrained grain, plus crisp drawn technical
 diagrams and semantic colors. Compare supplied board references as actual pixels;
