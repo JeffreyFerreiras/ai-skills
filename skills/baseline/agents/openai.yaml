@@ -1,0 +1,4 @@
+interface:
+  display_name: "Baseline"
+  short_description: "Return to the latest default branch for the next task"
+  default_prompt: "Use $baseline to get me back to the default branch, pull the latest changes, and clean up verified merged branches."

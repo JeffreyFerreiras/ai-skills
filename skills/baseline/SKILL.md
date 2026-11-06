@@ -1,13 +1,15 @@
 ---
-name: clean-merged-branches
-description: Pull the latest default branch and clean up local and remote task branches whose current heads match confirmed merges. Use when the user asks to return to master or main and remove merged branches.
+name: baseline
+description: Get ready for the next task by returning to master or main, pulling the latest changes, and cleaning up verified merged task branches.
 ---
 
-# Update the default branch and remove merged branches
+# Return to the default branch for the next task
 
 Resolve the intended repository, remote and default branch. Inspect status and
 registered worktrees. Fetch the remote and prune stale tracking refs. Use the
-existing checkout of the default branch, or switch a clean checkout to it.
+current checkout for the next task: switch it to the default branch when clean
+and available. If another worktree already holds the default branch, use that
+worktree for subsequent commands and give the user its path.
 Fast-forward with `git pull --ff-only`. Preserve local changes and report any
 checkout that could not be switched. Name the checkout used for subsequent work.
 
