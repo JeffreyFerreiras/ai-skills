@@ -106,6 +106,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [clean-architecture-review](skills/clean-architecture-review/SKILL.md) | Review code for architecture drift |
 | [clean-code](skills/clean-code/SKILL.md) | Write and refactor pragmatic clean code |
 | [clean-code-review](skills/clean-code-review/SKILL.md) | Review defects and design opportunities |
+| [clean-merged-branches](skills/clean-merged-branches/SKILL.md) | Update the default branch and remove verified merged branches |
 | [create-pull-request](skills/create-pull-request/SKILL.md) | Create GitHub pull requests |
 | [discernment-nudge](skills/discernment-nudge/SKILL.md) | Prompt reflection on key facts and assumptions |
 | [doc-coauthoring](skills/doc-coauthoring/SKILL.md) | Co-author specs, proposals, and decision documents |

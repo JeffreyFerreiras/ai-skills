@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clean merged branches"
+  short_description: "Update the default branch and remove verified merged branches"
+  default_prompt: "Use $clean-merged-branches to pull the latest default branch and clean up merged task branches."
