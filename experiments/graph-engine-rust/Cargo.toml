@@ -1,0 +1,39 @@
+[package]
+name = "graph-engine-rust"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+build = "build.rs"
+
+[lib]
+name = "graph_engine"
+path = "src/lib.rs"
+
+[dependencies]
+sha2 = "0.10.8"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+ryu = "1.0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "=0.34.0", features = ["bundled"] }
+time = { version = "=0.3.36", features = ["formatting", "parsing"] }
+getrandom = "0.2.15"
+base64 = "0.22.1"
+# graph-suite is a binary target; only its verification fixtures use tempfile.
+tempfile = "3"
+
+[build-dependencies]
+sha2 = "0.10.8"
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_System_Console", "Win32_Security"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

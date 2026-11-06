@@ -1,0 +1,43 @@
+{
+  "generator": {
+    "path": "tools/generate_unicode.py",
+    "sha256": "8105e73199cfe46a21a08273c03e875d18ffa289d9ab607a9dd409755d071eaf",
+    "transitive_inputs": []
+  },
+  "input": {
+    "format": "graph-unicode",
+    "path": "compat/unicode/cpython-3.12.10/unicode-tables.bin",
+    "sha256": "5e05a2c55b5365ba364aa6b80e895ac46832c3a93c28deec93f28f8e4a4ab425",
+    "size_bytes": 2253079,
+    "version": 1
+  },
+  "oracle": {
+    "executable_sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a",
+    "implementation": "cpython",
+    "integer_digit_limit": 4300,
+    "modules": {
+      "__init__.py": "47c8f9bb0caf3fb5caca6e8781debb3ddb1c7dcd81645875b961dd0ee9e5f8f4",
+      "checks.py": "12608728fcb1cb09f1c27e8e51fed572e9a46e0b0f8e6872dad60c51a13527f2",
+      "cli.py": "ba4f1c35235f405691053caee83ad7a832075ef1ecbca85b3dd973a6e198bf4a",
+      "config.py": "7e2d797012da328291c71ffbcff2f330f21a15aa08ec670fe8c708ac2e18a2ed",
+      "constraints.py": "fefc70c06d5ff11a53de61a0c8b44b473427b363386ff34e79097fa38252deea",
+      "contracts.py": "13c41df8bdefaf2b3064ffe851edf5700668887e837ac8a830c6c122da015ca3",
+      "evidence.py": "fd0ef01cf1accbcae20360da1febc49b9ea5011383dd98c3757d91e10116d28b",
+      "execution.py": "2054f98b99a031f64ee9aee09cddac339414f038a4e8563ae9d1df14ddf11196",
+      "helper_register.py": "476b9c53fa5d385a4ed61cf7a185f218eb35c8f71defb61f9cafe5257dbbf045",
+      "hosts.py": "52d1580562aa57269b1e8209aed47ce35d831695d710a261fdb3146ead753431",
+      "ids.py": "97d500df0ab91dca5bb4c83bb11e7dfc88aa6ce6dbfe7ce24053a1c7bb026bf5",
+      "merge_readiness.py": "003472165b33ec7585880bef1f440d6b577ac0bd123670039662816dee9e1999",
+      "planner.py": "abe1ae109f57175a49399d73262a8ee051fafa4f110e7d2a91883e8d9a00573d",
+      "reviewer_delegation.py": "e9fe92ade930d8f7a0d653da7c51083eb0c012e05a4f6327ff0410a6d5c089c4",
+      "state.py": "18f8bfe9f525de516a49c3bab9d0430a442c9e9558ceb560d1660f287a5da983",
+      "usage.py": "3db1d01468475d7e59300ac8ed7d51bc1f7fad81e55aa0abdf705c973c28128c",
+      "validator.py": "f0b8e005b4642ca8e076867a92f4987f58bcdc771a7a61edadd3dc9e8b05aff7"
+    },
+    "recursion_limit": 1000,
+    "revision": "76e30295477c0b341f5160d3eef319c51a768a47",
+    "unicode_version": "15.0.0",
+    "version": "3.12.10"
+  },
+  "schema_version": 1
+}
