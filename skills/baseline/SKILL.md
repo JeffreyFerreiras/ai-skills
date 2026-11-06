@@ -1,9 +1,13 @@
 ---
 name: baseline
-description: Get ready for the next task by returning to master or main, pulling the latest changes, and cleaning up verified merged task branches.
+description: Use after confirming an authorized task branch merge into the default branch, or when asked to return to the latest default branch and clean up verified merged branches.
 ---
 
 # Return to the default branch for the next task
+
+After a PR or direct merge, confirm the task branch merged into the default
+branch before starting. Limit automatic cleanup to that task and use its
+recorded head. For an explicit baseline request, follow the requested scope.
 
 Resolve the intended repository, remote and default branch. Inspect status and
 registered worktrees. Fetch the remote and prune stale tracking refs. Use the

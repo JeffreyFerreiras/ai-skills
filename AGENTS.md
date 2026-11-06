@@ -23,6 +23,8 @@ specific instructions take precedence.
 
 - Do repository work in a dedicated task worktree. Create or reuse it before edits
   or task checks. Keep the primary checkout for repository and worktree management.
+- Run `baseline` when a pull request or direct merge lands the task branch on
+  the default branch.
 - Treat cleanup as part of an authorized merge. After confirming the task branch
   merged, through a pull request or directly, remove its task worktree and delete
   its local and remote task branches. Do not ask for separate cleanup approval.
