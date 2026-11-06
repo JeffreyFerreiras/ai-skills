@@ -70,7 +70,9 @@ bypass. If using an authorized queue or auto-merge, wait for actual merged state
 within the monitoring budget.
 
 Verify live merged state and the merge commit before reporting completion.
-Follow active task-worktree cleanup instructions after an authorized merge.
+When the PR merged into the default branch, invoke `baseline` with the repository,
+task branch and reviewed head. For other target
+branches, follow the active task-worktree cleanup instructions.
 Verify the intended resolved path, clean worktree, and recorded branch heads
 before removal. Preserve dirty worktrees and newer branch work; report blocked
 cleanup rather than force-deleting it.

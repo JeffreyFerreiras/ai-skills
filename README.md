@@ -41,6 +41,8 @@ The [authoring guide](docs/authoring.md) includes a minimal complete example. Di
 
 Full-send completes authorized delivery; full-stop leaves the reviewed result ready for your final action. Both route code through the review panel and requested prose through the writing loop. The [integration guide](docs/full-send-stop-integration.md) covers dependencies, graph ownership, permissions, and their upstream source.
 
+When the agent confirms a task branch merged into the default branch, it runs [baseline](skills/baseline/SKILL.md) automatically. Baseline pulls the latest changes and cleans up the merged task.
+
 ## Hooks
 
 [`hooks/laya`](hooks/laya/README.md) provides local English Laya model selection
@@ -99,7 +101,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
 | [babysit-pr](skills/babysit-pr/SKILL.md) | Watch PR checks, reviews, and readiness |
-| [baseline](skills/baseline/SKILL.md) | Return to the latest default branch for the next task |
+| [baseline](skills/baseline/SKILL.md) | Automatically update the default checkout and clean up the task |
 | [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
 | [catch-up](skills/catch-up/SKILL.md) | Recap the current conversation and next step |
 | [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
