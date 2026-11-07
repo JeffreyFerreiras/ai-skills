@@ -123,20 +123,7 @@ the task. Do not put chat formatting in source code.
   unverified claims are work remaining, not caveats to publish.
 - If a skill blocks completion, link the exact instruction, explain what is missing,
   and continue independent authorized work.
-
-### Attention kinds formatting
-
-- Mark each point with `→` in its own paragraph, such as `**→ Lead-in.** Details`.
-  For ordered points, use `**1 →**`, `**2 →**`, and so on.
-- Bold each lead-in and the key term, decision, number, or warning. The bold text alone
-  must carry the answer for someone scanning.
-- Separate points with blank lines, one idea per block. Keep paragraphs to 1-3
-  sentences; use paragraphs instead of tight bullet lists.
-- Use tables only when they are clearly better, and keep them under five rows.
-- Put optional **Also found:** side notes at the end, one line each. Keep facts
-  needed to act correctly with the main point.
-- These formatting rules take precedence over conflicting Unslop style rules.
-  Explicit user requests for a different format take precedence.
+- Use lists or headings when they make the answer easier to read.
 
 ## Disposable backups
 
