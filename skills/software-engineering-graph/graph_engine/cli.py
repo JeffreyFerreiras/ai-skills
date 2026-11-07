@@ -667,6 +667,8 @@ def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mappin
     )
     full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy)
     validate_task_capability_paths(repo, full_task, policy, runtime_root)
+    for check_id in full_task["required_check_ids"]:
+        configured_check(policy, check_id)
     if full_task["schema_version"] == 3:
         allowance = full_task["helper_allowance"]
         allowance_snapshot = safe_json_snapshot(
@@ -692,6 +694,40 @@ def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mappin
             raise ContractError("size", str(error))
         raise ContractError("model_overrides", str(error))
     return task_snapshot, full_task, task, execution_plan
+
+
+def _execution_preflight(task_snapshot, task, policy, policy_digest, plan):
+    """Project the proposed scope and effects without creating approval or run state."""
+    roles = sorted({item["role"] for item in plan["assignments"]})
+    capabilities = {
+        role: effective_role_capabilities(policy, task, role, plan.get("capability_projection_version"))
+        for role in roles
+    }
+    checks = []
+    for check_id in task["required_check_ids"]:
+        check = policy["required_checks"][check_id]
+        capability = {"effect": "command", "action": "run", "target_ref": check["command_id"]}
+        checks.append({
+            "check_id": check_id, "command_id": check["command_id"],
+            "capable_roles": [role for role in roles if capability in capabilities[role]],
+        })
+    return {
+        "schema_version": 1,
+        "task": {
+            "path": str(task_snapshot.path), "sha256": task_snapshot.digest,
+            **{key: task[key] for key in (
+                "schema_version", "task_id", "objective", "user_outcome", "scope", "acceptance_criteria",
+            )},
+        },
+        "policy_schema_version": policy["schema_version"], "policy_digest": policy_digest,
+        "plan_digest": plan["plan_digest"],
+        "requested_capabilities": task["authority"]["capabilities"],
+        "role_capabilities": capabilities,
+        "required_checks": checks,
+        "required_human_decisions": task["required_human_decisions"],
+        "inspection_budget": task["inspection_budget"],
+        "loop_limits": {key: policy["limits"][key] for key in ("design_revisions", "delivery_repairs")},
+    }
 
 
 def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, store: StateStore) -> Dict[str, Any]:
@@ -2827,11 +2863,16 @@ def _next_action(connection: sqlite3.Connection, run: Mapping[str, Any],
     ).fetchone()
     if retryable_child:
         return {"kind": "retry_review_child", "branch_id": retryable_child["branch_id"]}
+    failed = connection.execute(
+        """SELECT n.* FROM nodes n WHERE n.run_id=? AND n.depth=0 AND n.status IN ('failed','timed_out')
+        AND NOT EXISTS (SELECT 1 FROM join_members m JOIN joins j USING(join_id)
+                        WHERE m.branch_id=n.branch_id AND j.status='sealed')
+        ORDER BY n.branch_id LIMIT 1""", (run["run_id"],),
+    ).fetchone()
+    if failed:
+        packet = _repair_packet(connection, run, failed)
+        return {"kind": packet["next_permitted_action"], "branch_id": failed["branch_id"], "repair_packet": packet}
     if run["state_schema_version"] == 7:
-        failed = connection.execute("SELECT * FROM nodes WHERE run_id=? AND depth=0 AND status IN ('failed','timed_out') ORDER BY branch_id LIMIT 1", (run["run_id"],)).fetchone()
-        if failed:
-            packet = _repair_packet(connection, run, failed)
-            return {"kind": packet["next_permitted_action"], "branch_id": failed["branch_id"], "repair_packet": packet}
         unknown = [item for item in reservation_states(connection, run["run_id"]).values() if item["state"] == "open"]
         if unknown:
             return {"kind": "check_execution_unknown", "reservation_ids": sorted(item["reservation_id"] for item in unknown)}
@@ -3063,6 +3104,14 @@ def command_run_control(
             "recorded_degraded_durability": bool(run["degraded_durability_ack"]),
         }
         result["unresolved_running"] = [branch["branch_id"] for branch in result["branches"] if branch["status"] == "running"]
+        result["continuation"] = {
+            "task": _task_input(run),
+            "remaining_budgets": {item["budget_id"]: item["limit_value"] - item["used"] for item in result["budgets"]},
+            "pending_human_decisions": sorted(set(task["required_human_decisions"]) - {
+                item["approval_id"] for item in result["approvals"] if item["decision"] == "APPROVE"
+            }),
+        }
+        result["next_action"] = _resume_next_action(connection, run, result)
         return result
     if args.command == "block":
         snapshot = _manifest_snapshot(store, policy, run["run_id"], args.evidence_manifest, 128 * 1024)
@@ -3101,6 +3150,41 @@ def command_run_control(
         connection, run["run_id"], opaque(args.op_id, "op_id"), request, action,
         semantic_validator=semantic_validator,
     )
+
+
+def _resume_next_action(connection, run, status):
+    """Reconcile interrupted execution before recommending another dispatch."""
+    if status["status"] in {"blocked", "complete", "aborted"}:
+        return status["next_action"]
+    lifecycle = status.get("evidence_lifecycle") or {}
+    unknown = [item["reservation_id"] for item in lifecycle.get("reservations", []) if item["state"] == "open"]
+    if unknown:
+        return {"kind": "check_execution_unknown", "reservation_ids": sorted(unknown)}
+    running = [branch for branch in status["branches"] if branch["status"] == "running"]
+    for branch in running:
+        if _lease_expired(branch["lease_expires_at"]):
+            return {"kind": "timeout_expired", "branch_id": branch["branch_id"], "attempt_id": branch["attempt_id"]}
+    if running:
+        return {
+            "kind": "await_result", "branch_ids": [branch["branch_id"] for branch in running],
+            "leases": [{"branch_id": branch["branch_id"], "lease_expires_at": branch["lease_expires_at"]} for branch in running],
+        }
+    stale = next((item for item in lifecycle.get("checks", []) if item["eligibility"] != "eligible"), None)
+    if stale:
+        if status["next_action"]["kind"] == "claim" and not stale["executor_options"]:
+            return status["next_action"]
+        source = stale.get("source") or {}
+        failed_source = connection.execute(
+            "SELECT * FROM nodes WHERE run_id=? AND branch_id=? AND status IN ('failed','timed_out')",
+            (run["run_id"], source.get("branch_id")),
+        ).fetchone()
+        if failed_source:
+            packet = _repair_packet(connection, run, failed_source)
+            return {"kind": packet["next_permitted_action"], "branch_id": failed_source["branch_id"],
+                    "repair_packet": packet}
+        return {"kind": "replace_check", "check_id": stale["check_id"], "replace_ref": stale["artifact_ref"],
+                "eligibility": stale["eligibility"], "executor_options": stale["executor_options"]}
+    return status["next_action"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -3244,8 +3328,11 @@ def execute(argv: Optional[Sequence[str]] = None, store: Optional[StateStore] = 
             repository_id=policy["repository_id"],
         ), 0
     if args.command == "plan":
-        _snapshot, _full_task, _task, plan = _prepare_execution_plan(args, repo, policy, policy_snapshot, runtime_root)
-        return _json_result(True, "EXECUTION_PLAN_PREVIEW", args.run_id, None, execution_plan=plan), 0
+        snapshot, full_task, _task, plan = _prepare_execution_plan(args, repo, policy, policy_snapshot, runtime_root)
+        return _json_result(
+            True, "EXECUTION_PLAN_PREVIEW", args.run_id, None, execution_plan=plan,
+            preflight=_execution_preflight(snapshot, full_task, policy, policy_snapshot.digest, plan),
+        ), 0
     if args.command == "constraints":
         bundle = safe_json_snapshot(Path(args.bundle), _reference_roots(repo, policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed
         context = safe_json_snapshot(Path(args.context), _reference_roots(repo, policy, runtime_root), policy["limits"]["manifest_bytes"]).parsed

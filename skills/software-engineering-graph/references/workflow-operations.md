@@ -3,6 +3,32 @@
 Read only the section needed for the current operation. The shared approval, dispatch-transparency,
 role-skill, independence, and publication rules remain in `SKILL.md`.
 
+## Delivery preflight
+
+Choose a complete acceptance scenario before implementation. State supported task/policy schemas,
+helper and review depth, and interruption behavior where they affect that scenario. Record excluded
+cases and dependencies explicitly. A partial controller repair is not evidence that a blocked product
+task can resume. Keep controller maintenance separate from the product task's findings and scope.
+
+Use the `plan` response's `preflight` projection to check the original objective, scope, acceptance
+criteria, exact task/policy digests, per-role capabilities, required checks, human decisions, and
+finite budgets together. Role capabilities cover possible assignments; the plan's dispatch conditions
+still apply. This projection grants no execution permission. Prepare concrete sensitive actions and
+their affected files/effects before requesting missing authorization. Reuse applicable prior approval;
+a scope approval does not override an execution denial or mandatory stop.
+
+Budget for context reconstruction, complete review inputs, implementation, targeted checks, required
+integration/review gates, and bounded repair. An estimate for the next few reads is not a completion
+estimate. Choose an adequate finite allowance before initializing the immutable brief, within the
+approved policy. Retain consumed counts when assessing continuation; never start a fresh task to
+refund them. Unsupported terminal budget extension remains a blocker, not an implicit permission.
+
+For continuation, use the existing run's `resume` response and retained task reference. Settle unknown
+check execution and running attempts first, then follow the reported retry, join, or dispatch action.
+Do not repeat unchanged approved design work merely because the session restarted. Reuse evidence
+only where its original scope, source, authority, and schema contracts still hold. See
+[Daily workflow recovery](daily-workflow.md) for the supported boundary.
+
 ## Task brief and design loop
 
 The Supervisor records the objective, user outcome, included and excluded scope, constraints,
@@ -23,8 +49,8 @@ material gaps, contradictions, or human decisions.
 
 The Tech Lead produces current behavior, interfaces, data/control flow, failure handling,
 compatibility, observability, rollout, rollback, alternatives, and test strategy. It writes only
-the approved design artifact. The initial inspection ceiling is 12 file reads and 8 focused
-discovery commands unless the task brief approves less; only a Supervisor follow-up may expand it.
+the approved design artifact. Assign inspection work within the task's approved finite allowance
+and the policy ceiling. A Supervisor follow-up cannot change a persisted budget by itself.
 
 The Architect and required read-only specialists independently return `APPROVE`, `REVISE`, or
 `BLOCK`, with stable finding IDs and evidence. A blocking finding must identify the acceptance
@@ -51,6 +77,12 @@ The Senior Engineer receives the approved brief, design, acceptance criteria, an
 It is the sole source/test writer, preserves unrelated changes, applies the mandatory role-skill
 preflight from `SKILL.md`, runs focused checks, and reports design deviations before implementing
 them. It does not commit, push, open a PR, or remove a worktree.
+
+Check environment isolation, supported schemas, and fixture artifact references before expensive
+integration runs. First reproduce the affected behavior with a focused test, then run the required
+integration checks on the final candidate. After a repair, rerun affected checks before crediting the
+fix; preserve unchanged passing evidence where its source contract permits reuse. Syntax parsing,
+design approval, and prose review are separate evidence and cannot substitute for behavioral tests.
 
 For new delivery plans with `simplification_review_version`, follow
 [Simplification review](simplification-review.md) before recording the successful implementation
@@ -92,6 +124,12 @@ Start independent reviewers and specialists with fresh context reconstructed fro
 design, stable diff/checkpoint, acceptance, and evidence artifacts. Do not pass worker reasoning or
 Supervisor narration. Same-role repairs may retain that role's own context. Research nodes return
 evidence manifests only and never write, test, decide, create findings, or spawn children.
+
+Verify input byte counts and hashes before reviewer dispatch. Use explicit UTF-8 and plain pipes
+for large JSON/text transfers, retrieve every page, and cache the verified complete artifact before
+bounded display. A truncated display or missing tool result is an input gap. Restore it before
+requesting a verdict. Keep peer reports and agent rosters that expose peer conclusions out of
+independent reviewer inputs; preserve completed reviews only when their original independence holds.
 
 Prefer repository evidence with stable file, line, command, log, or artifact references. Keep noisy
 exploration in role sessions and return compact packets with exact failures, contradictions,
