@@ -65,6 +65,13 @@ supported. The stateless usage checkpoint above is exempt.
 
    `python <skill>/scripts/graphctl.py --repo <repo> plan --run-id <id> --task-brief <path> [--size small|medium|large] [--host claude|codex|codex-astra|cursor]`
 
+   The separate `preflight` projection includes the full task's scope and acceptance criteria,
+   task/policy/plan digests, requested and per-role capabilities, configured check IDs and capable
+   roles, human decisions, inspection allowance, and loop limits. Missing or unconfigured required
+   checks fail before initialization. Capable roles are conditional plan candidates, not dispatch
+   permission; host restrictions and execution review still apply. The projection creates neither
+   a run nor approval and does not change the canonical execution-plan digest.
+
    Initialize only after choices are settled; the task brief becomes immutable at initialization,
    even before approval. Use a new run for changes after that point, never edit stored plan JSON.
    Pass `--size small|medium|large`
@@ -335,7 +342,15 @@ generic claim-operation response store, which retains the returned claim respons
   under the same ID is an operation conflict.
 - Use `resume` after interruption. Resolve every running branch by ingesting its actual result or
   recording an explicit timeout with its current attempt fence. Expired leases appear as a timeout
-  action; send `record heartbeat` before expiry when work is still active.
+  action; send `record heartbeat` before expiry when work is still active. Its `next_action` gives
+  unknown check execution and running attempts priority over new dispatch. The `continuation`
+  projection includes the retained task reference, remaining budgets, and pending human decisions.
+  Stale check evidence reports its eligibility and exact predecessor reference; replacing a check
+  does not refresh an obsolete review-source binding. If its source attempt failed, restore that
+  attempt through its permitted recovery first. Claim the next ready branch when no check executor
+  is eligible. Unknown check outcomes still take priority over either action.
+  It is read-only: no retry, new allowance, approval, or terminal reopening occurs. Normal `status`
+  retains parallel scheduling guidance; use `resume` when reconstructing interrupted work.
 - Use `complete` only after the closure join, acceptance evidence, approvals, and required checks
   are satisfied. Use `abort` for rollback; retained databases are audit evidence and are not deleted.
 

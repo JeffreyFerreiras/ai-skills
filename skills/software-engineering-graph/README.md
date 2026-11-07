@@ -456,6 +456,8 @@ cannot be isolated.
 - State validation, joins, and closure rules: `tests.test_validator`, plus affected
   workflows in `tests.test_cli` and `tests.test_graph_hardening`.
 - Dispatch and state transitions: affected classes or methods in `tests.test_cli`.
+- Plan preflight and same-run interruption recovery: `tests.test_continuation`. Its disposable
+  format-6/7 delivery traces retain approval, design, failure evidence, and consumed budgets.
 - Persistence, recovery, and concurrency: affected cases in `tests.test_state` and
   `tests.test_graph_hardening`. Keep their real filesystem and transaction checks.
 - Delegated review: `tests.test_reviewer_delegation`, plus affected planner or state

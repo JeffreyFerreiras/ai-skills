@@ -1,5 +1,34 @@
 # Daily workflow recovery and rehearsal
 
+## Supported continuation
+
+The supported path is interruption of an existing run with unchanged task, policy, and applicable
+source bindings, using its remaining retry and inspection allowances. `resume` revalidates the run,
+returns its original task reference and remaining budgets, and prioritizes unknown check outcomes
+and unfinished attempts. Stale checks remain visible with their exact replacement reference.
+If a check's source attempt failed, resume reports that branch's permitted recovery before a rerun;
+it reports a ready claim when no check executor is eligible. Neither action changes the old receipt.
+Resolve those outcomes explicitly before new dispatch. Once reconciled,
+an eligible failed root branch reports `retry` in both state formats 6 and 7. A retry retains the
+approved plan and completed design gates and creates a fresh attempt fence under the existing limit.
+
+This is a read-only recovery projection over existing transitions. It does not extend exhausted
+budgets, reopen terminal runs, import another run's approvals, migrate task/policy schemas, admit
+helpers to legacy tasks, or add nested reviewer depth. Task/plan v1/v2 still cannot initialize the
+v3 helper register. Format 6 keeps its historical evidence semantics; format 7 retains its stricter
+source and check bindings. Reconcile separately registered helper sessions with their original
+parent before continuation; this projection does not settle the helper register. These boundaries
+must be explicit in any proposed recovery scope.
+
+`tests.test_continuation` exercises interruption after design approval through retry, all delivery
+reviews, a real local check, acceptance, and completion in disposable runs for both state formats.
+It verifies unchanged approval, consumed budgets, original failure artifacts, and a single design
+generation. Separate cases cover running siblings, expired leases, unknown checks, and exhausted
+retry limits. Approvals and role reports are synthetic; these tests do not establish live reviewer
+quality, hosted CI, or recovery of the historical Out2Nite run.
+
+## Terminal blocks
+
 `status` retains `next_action.kind=blocked` for a terminal block. Its `recovery` field,
 also returned as `blocked_recovery` by `recovery show`, identifies the block reason,
 original rejecting gates, immutable ledger result references, and successor-plan requirements.

@@ -18,6 +18,13 @@ large, select only pertinent roles, assign each possible role a model and reason
 the size, route floor, assignments, and omitted roles to the human. No branch may execute until the
 human explicitly approves that immutable execution plan.
 
+Keep the requested product outcome as the task boundary. A graph failure does not authorize graph
+maintenance inside a product task. Preserve the product findings and report the exact blocker;
+scope any controller repair separately unless the user already authorized it. Before freezing a
+plan, apply [Delivery preflight](references/workflow-operations.md#delivery-preflight) to its
+supported scenarios, effects, completion budget, and acceptance tests. After interruption, use
+`resume` for the existing run and reconcile its reported work before dispatching again.
+
 Repository policy is not an input to this workflow. Before preparing a task brief, run
 `graphctl --repo <repo> policy`. The engine loads a per-repository policy from `policies/` in the
 selected runtime home, creating a conservative schema-3 policy there if absent. By default the
