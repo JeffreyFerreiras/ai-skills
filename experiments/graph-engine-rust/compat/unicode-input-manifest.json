@@ -1,13 +1,13 @@
 {
   "generator": {
     "path": "tools/generate_unicode.py",
-    "sha256": "8105e73199cfe46a21a08273c03e875d18ffa289d9ab607a9dd409755d071eaf",
+    "sha256": "d43b1139d6ee31312d02e8753be5086b657bb2fa9a7e4327a8811041ba449249",
     "transitive_inputs": []
   },
   "input": {
     "format": "graph-unicode",
     "path": "compat/unicode/cpython-3.12.10/unicode-tables.bin",
-    "sha256": "5e05a2c55b5365ba364aa6b80e895ac46832c3a93c28deec93f28f8e4a4ab425",
+    "sha256": "1748b704f7c681d479c600b9bec373d93a906c8c08e5704af9af8f297bc82b04",
     "size_bytes": 2253079,
     "version": 1
   },
@@ -18,14 +18,14 @@
     "modules": {
       "__init__.py": "47c8f9bb0caf3fb5caca6e8781debb3ddb1c7dcd81645875b961dd0ee9e5f8f4",
       "checks.py": "12608728fcb1cb09f1c27e8e51fed572e9a46e0b0f8e6872dad60c51a13527f2",
-      "cli.py": "ba4f1c35235f405691053caee83ad7a832075ef1ecbca85b3dd973a6e198bf4a",
+      "cli.py": "f76bdb105f37d71bf5675b7db42d845eecef119da48b108d37c6c4bf7e5be4e4",
       "config.py": "7e2d797012da328291c71ffbcff2f330f21a15aa08ec670fe8c708ac2e18a2ed",
       "constraints.py": "fefc70c06d5ff11a53de61a0c8b44b473427b363386ff34e79097fa38252deea",
       "contracts.py": "13c41df8bdefaf2b3064ffe851edf5700668887e837ac8a830c6c122da015ca3",
       "evidence.py": "fd0ef01cf1accbcae20360da1febc49b9ea5011383dd98c3757d91e10116d28b",
-      "execution.py": "2054f98b99a031f64ee9aee09cddac339414f038a4e8563ae9d1df14ddf11196",
+      "execution.py": "9504dfefe4181f290111a99fb95002b53fcb786f10b1a01d6297fb9609723e83",
       "helper_register.py": "476b9c53fa5d385a4ed61cf7a185f218eb35c8f71defb61f9cafe5257dbbf045",
-      "hosts.py": "52d1580562aa57269b1e8209aed47ce35d831695d710a261fdb3146ead753431",
+      "hosts.py": "28d9ce24928f9048789c35bc39ff0292d7daf72b63f8a2904d82e06cf2612670",
       "ids.py": "97d500df0ab91dca5bb4c83bb11e7dfc88aa6ce6dbfe7ce24053a1c7bb026bf5",
       "merge_readiness.py": "003472165b33ec7585880bef1f440d6b577ac0bd123670039662816dee9e1999",
       "planner.py": "abe1ae109f57175a49399d73262a8ee051fafa4f110e7d2a91883e8d9a00573d",
@@ -35,7 +35,7 @@
       "validator.py": "f0b8e005b4642ca8e076867a92f4987f58bcdc771a7a61edadd3dc9e8b05aff7"
     },
     "recursion_limit": 1000,
-    "revision": "76e30295477c0b341f5160d3eef319c51a768a47",
+    "revision": "5f10521a4a249d03961fe2ad84df64ceed88c7ad",
     "unicode_version": "15.0.0",
     "version": "3.12.10"
   },

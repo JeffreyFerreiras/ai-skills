@@ -2,7 +2,8 @@
 #[path = "../../tests/support/hardening_case.rs"]
 mod hardening_case;
 
-use super::{evidence_status, status_with_evidence, ClaimServices, Value};
+use super::{evidence_status, resume_next_action, status_with_evidence, ClaimServices, Value};
+use crate::application::graph_ledger::{GraphLedgerReadPort, GraphRead};
 use crate::infrastructure::{
     claim_runtime::NativeClaimRuntime, process::NativeProcess,
     source_files::NativeSourceFileFactory,
@@ -81,4 +82,39 @@ fn test_command_status_shares_single_evidence_report_with_next_action() {
     );
     assert_ne!(reports[0], reports[1]);
     assert!(!first["next_action"].py_eq(&second["next_action"]));
+}
+
+#[test]
+fn resume_reports_expired_attempt_without_mutating_ledger() {
+    let mut case = HardeningCase::stock();
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize(&task, true).unwrap();
+    let branch = case.claim_raw().unwrap();
+    let mut status = case.status().unwrap();
+    let mut branches = status["branches"].as_list().unwrap().to_vec();
+    let projected = branches
+        .iter_mut()
+        .find(|row| row["branch_id"].py_eq(&branch["branch_id"]))
+        .unwrap();
+    projected.set("lease_expires_at", "2000-01-01T00:00:00Z".into());
+    status.set("branches", Value::List(branches));
+    case.fixture
+        .with_session(|session, _| {
+            let run = session.first(GraphRead::Run, &["RUN-1".into()])?.unwrap();
+            let before = session
+                .first(GraphRead::Node, &[branch["branch_id"].clone()])?
+                .unwrap();
+            let action =
+                resume_next_action(session, &run, &status, &NativeClaimRuntime, cfg!(windows))?;
+            assert!(action["kind"].is_text("timeout_expired"));
+            assert!(action["branch_id"].py_eq(&branch["branch_id"]));
+            assert!(action["attempt_id"].py_eq(&branch["attempt_id"]));
+            assert!(before.py_eq(
+                &session
+                    .first(GraphRead::Node, &[branch["branch_id"].clone()])?
+                    .unwrap()
+            ));
+            Ok(())
+        })
+        .unwrap();
 }

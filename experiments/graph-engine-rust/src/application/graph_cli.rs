@@ -6,8 +6,8 @@ use super::{
     graph_arguments,
     graph_claim::claim_next,
     graph_initialization::{
-        initialize_run, prepare_execution_plan_traced, preview_constraints, InitRequest,
-        PlanRequest,
+        execution_preflight, initialize_run, prepare_execution_plan_traced, preview_constraints,
+        InitRequest, PlanRequest,
     },
     graph_next::next_ready,
     graph_plan_approval::record_plan_approval,
@@ -165,6 +165,17 @@ fn dispatch_run(
                     .map(|branch| branch["branch_id"].clone()),
             );
             result.set("unresolved_running", running);
+            let continuation =
+                super::graph_status::continuation(session, run, &loaded.task, &result)?;
+            let action = super::graph_status::resume_next_action(
+                session,
+                run,
+                &result,
+                claims.runtime,
+                context.files.windows(),
+            )?;
+            result.set("continuation", continuation);
+            result.set("next_action", action);
         }
         Ok(result)
     } else if arguments["command"].is_text("consolidation") {
@@ -506,6 +517,7 @@ pub fn execute_parsed(
             arguments["run_id"].clone(),
             Value::Null,
         );
+        result.set("preflight", execution_preflight(&context, &plan)?);
         result.set("execution_plan", plan.execution_plan);
         return Ok(response(result));
     }

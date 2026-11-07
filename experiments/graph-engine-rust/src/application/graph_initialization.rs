@@ -12,6 +12,7 @@ use super::{
 use crate::{
     compat::{self, repr, unicode, PyString, SerializationProfile, Value},
     domain::{
+        check_receipts::configured_check,
         constraints,
         contract_values::get,
         contracts::{self, ContractError},
@@ -21,7 +22,10 @@ use crate::{
     },
 };
 use num_bigint::BigInt;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 pub struct PlanRequest<'a> {
     pub run_id: &'a Value,
@@ -186,6 +190,9 @@ pub(super) fn prepare_execution_plan_traced(
         Some(&context.store.state_root),
         Some(&projection),
     )?;
+    for check in errors::iterable_values(string_item(&full_task, "required_check_ids")?)? {
+        configured_check(context.policy, &check)?;
+    }
     if full_task["schema_version"].py_eq(&3_i64.into()) {
         let allowance = string_item(&full_task, "helper_allowance")?;
         let path = reference_path(context, &allowance["ref"])?;
@@ -265,6 +272,115 @@ pub(super) fn prepare_execution_plan_traced(
         task,
         execution_plan,
     })
+}
+
+pub fn execution_preflight(
+    context: &SemanticContext<'_>,
+    prepared: &PreparedPlan,
+) -> EngineResult<Value> {
+    let task = &prepared.full_task;
+    let plan = &prepared.execution_plan;
+    let roles: BTreeSet<_> = plan["assignments"]
+        .as_list()
+        .expect("validated plan assignments")
+        .iter()
+        .map(|assignment| assignment["role"].text().expect("validated role"))
+        .collect();
+    let mut capabilities = Value::Object(Vec::new());
+    for role in &roles {
+        capabilities.set(
+            role,
+            Value::List(planner::effective_role_capabilities(
+                context.policy,
+                task,
+                role,
+                Some(
+                    plan.get("capability_projection_version")
+                        .unwrap_or(&Value::Null),
+                ),
+                context.files.windows(),
+            )?),
+        );
+    }
+    let mut checks = Vec::new();
+    for check_id in errors::iterable_values(string_item(task, "required_check_ids")?)? {
+        let check = configured_check(context.policy, &check_id)?;
+        let capability = Value::object([
+            ("effect", "command".into()),
+            ("action", "run".into()),
+            ("target_ref", check["command_id"].clone()),
+        ]);
+        checks.push(Value::object([
+            ("check_id", check_id),
+            ("command_id", check["command_id"].clone()),
+            (
+                "capable_roles",
+                Value::list(
+                    roles
+                        .iter()
+                        .filter(|role| {
+                            capabilities[role.as_str()]
+                                .as_list()
+                                .unwrap()
+                                .iter()
+                                .any(|allowed| allowed.py_eq(&capability))
+                        })
+                        .map(|role| Value::from(role.as_str())),
+                ),
+            ),
+        ]));
+    }
+    let mut proposed_task = Value::object([
+        (
+            "path",
+            Value::String(context.files.spelling(&prepared.task_snapshot.path)),
+        ),
+        ("sha256", prepared.task_snapshot.digest.clone().into()),
+    ]);
+    for key in [
+        "schema_version",
+        "task_id",
+        "objective",
+        "user_outcome",
+        "scope",
+        "acceptance_criteria",
+    ] {
+        proposed_task.set(key, string_item(task, key)?.clone());
+    }
+    Ok(Value::object([
+        ("schema_version", 1_i64.into()),
+        ("task", proposed_task),
+        (
+            "policy_schema_version",
+            context.policy["schema_version"].clone(),
+        ),
+        ("policy_digest", context.current_policy_digest.into()),
+        ("plan_digest", plan["plan_digest"].clone()),
+        (
+            "requested_capabilities",
+            task["authority"]["capabilities"].clone(),
+        ),
+        ("role_capabilities", capabilities),
+        ("required_checks", Value::List(checks)),
+        (
+            "required_human_decisions",
+            task["required_human_decisions"].clone(),
+        ),
+        ("inspection_budget", task["inspection_budget"].clone()),
+        (
+            "loop_limits",
+            Value::object([
+                (
+                    "design_revisions",
+                    context.policy["limits"]["design_revisions"].clone(),
+                ),
+                (
+                    "delivery_repairs",
+                    context.policy["limits"]["delivery_repairs"].clone(),
+                ),
+            ]),
+        ),
+    ]))
 }
 
 pub(crate) fn constraint_markers(full_task: &Value) -> EngineResult<Vec<String>> {

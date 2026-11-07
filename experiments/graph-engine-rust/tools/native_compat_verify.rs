@@ -6,7 +6,7 @@ use std::{
 };
 
 pub const MANIFEST_SHA256: &str =
-    "e64534513fb200261b1853452e8bf995dc9500660ef1064ff01c5d1b097fb6f8";
+    "29b2cdb077bc22a61a9cfc1180062fc5fd4336b5c8169d80a5a44383c4ef703f";
 pub const INPUT_PATH: &str = "compat/unicode/cpython-3.12.10/unicode-tables.bin";
 
 pub fn digest(bytes: &[u8]) -> String {

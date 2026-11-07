@@ -8,7 +8,7 @@ import stat
 import struct
 from pathlib import Path
 
-MANIFEST_SHA256 = "e64534513fb200261b1853452e8bf995dc9500660ef1064ff01c5d1b097fb6f8"
+MANIFEST_SHA256 = "29b2cdb077bc22a61a9cfc1180062fc5fd4336b5c8169d80a5a44383c4ef703f"
 INPUT_PATH = "compat/unicode/cpython-3.12.10/unicode-tables.bin"
 
 
