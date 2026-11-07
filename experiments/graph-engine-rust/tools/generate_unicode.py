@@ -10,7 +10,7 @@ from pathlib import Path
 
 MAGIC = b"GUNICOD1"
 RELATIVE_INPUT = "compat/unicode/cpython-3.12.10/unicode-tables.bin"
-ORACLE_REVISION = "76e30295477c0b341f5160d3eef319c51a768a47"
+ORACLE_REVISION = "5f10521a4a249d03961fe2ad84df64ceed88c7ad"
 
 
 def sha256(path):

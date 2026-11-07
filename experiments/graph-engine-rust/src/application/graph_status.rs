@@ -4,6 +4,7 @@ use super::{
     evidence_status::{evidence_status, EvidenceStatusPort},
     evidence_verification::EvidenceVerification,
     graph_ledger::{GraphLedgerReadPort, GraphRead},
+    graph_nodes::task_input,
     graph_payload::branch_result_input,
     graph_recovery::repair_packet,
     graph_response::json_result,
@@ -287,15 +288,15 @@ pub fn next_action(
             ("branch_id", item(&row, "branch_id")?.clone()),
         ]));
     }
+    if let Some(row) = port.first(GraphRead::FirstFailedRoot, parameters)? {
+        let packet = repair_packet(port, run, &row, None, windows)?;
+        return Ok(Value::object([
+            ("kind", item(&packet, "next_permitted_action")?.clone()),
+            ("branch_id", item(&row, "branch_id")?.clone()),
+            ("repair_packet", packet),
+        ]));
+    }
     if item(run, "state_schema_version")?.py_eq(&7_i64.into()) {
-        if let Some(row) = port.first(GraphRead::FirstFailedRoot, parameters)? {
-            let packet = repair_packet(port, run, &row, None, windows)?;
-            return Ok(Value::object([
-                ("kind", item(&packet, "next_permitted_action")?.clone()),
-                ("branch_id", item(&row, "branch_id")?.clone()),
-                ("repair_packet", packet),
-            ]));
-        }
         let mut unknown = Vec::new();
         for reservation in port.reservation_states(run)? {
             if item(&reservation, "state")?.is_text("open") {
@@ -349,6 +350,134 @@ pub fn next_action(
         ("branch_ids", Value::List(branch_ids)),
         ("leases", Value::List(leases)),
     ]))
+}
+
+pub(crate) fn continuation(
+    ledger: &dyn GraphLedgerReadPort,
+    run: &Value,
+    task: &Value,
+    status: &Value,
+) -> EngineResult<Value> {
+    let mut remaining = Value::Object(Vec::new());
+    for budget in errors::iterable_values(item(status, "budgets")?)? {
+        let key = item(&budget, "budget_id")?
+            .text()
+            .expect("validated budget ID");
+        remaining.set(
+            &key,
+            python_operations::subtract(item(&budget, "limit_value")?, item(&budget, "used")?)?,
+        );
+    }
+    let approvals = errors::iterable_values(item(status, "approvals")?)?;
+    let mut pending = Vec::new();
+    for decision in errors::iterable_values(item(task, "required_human_decisions")?)? {
+        if !approvals.iter().any(|approval| {
+            approval["decision"].is_text("APPROVE") && approval["approval_id"].py_eq(&decision)
+        }) && !pending.iter().any(|prior: &Value| prior.py_eq(&decision))
+        {
+            pending.push(decision);
+        }
+    }
+    Ok(Value::object([
+        ("task", task_input(ledger, run)?),
+        ("remaining_budgets", remaining),
+        ("pending_human_decisions", sorted(pending)?),
+    ]))
+}
+
+pub(crate) fn resume_next_action(
+    ledger: &dyn GraphLedgerReadPort,
+    run: &Value,
+    status: &Value,
+    clock: &dyn ClaimRuntimePort,
+    windows: bool,
+) -> EngineResult<Value> {
+    let action = item(status, "next_action")?;
+    if ["blocked", "complete", "aborted"]
+        .iter()
+        .any(|kind| status["status"].is_text(kind))
+    {
+        return Ok(action.clone());
+    }
+    let lifecycle = &status["evidence_lifecycle"];
+    let reservations = lifecycle["reservations"].as_list().unwrap_or(&[]);
+    let unknown: Vec<_> = reservations
+        .iter()
+        .filter(|item| item["state"].is_text("open"))
+        .map(|item| item["reservation_id"].clone())
+        .collect();
+    if !unknown.is_empty() {
+        return Ok(Value::object([
+            ("kind", "check_execution_unknown".into()),
+            ("reservation_ids", sorted(unknown)?),
+        ]));
+    }
+    let branches = errors::iterable_values(item(status, "branches")?)?;
+    let running: Vec<_> = branches
+        .iter()
+        .filter(|branch| branch["status"].is_text("running"))
+        .collect();
+    for branch in &running {
+        if lease_expired(item(branch, "lease_expires_at")?, clock)? {
+            return Ok(Value::object([
+                ("kind", "timeout_expired".into()),
+                ("branch_id", branch["branch_id"].clone()),
+                ("attempt_id", branch["attempt_id"].clone()),
+            ]));
+        }
+    }
+    if !running.is_empty() {
+        return Ok(Value::object([
+            ("kind", "await_result".into()),
+            (
+                "branch_ids",
+                Value::list(running.iter().map(|branch| branch["branch_id"].clone())),
+            ),
+            (
+                "leases",
+                Value::list(running.iter().map(|branch| {
+                    Value::object([
+                        ("branch_id", branch["branch_id"].clone()),
+                        ("lease_expires_at", branch["lease_expires_at"].clone()),
+                    ])
+                })),
+            ),
+        ]));
+    }
+    if let Some(stale) = lifecycle["checks"]
+        .as_list()
+        .unwrap_or(&[])
+        .iter()
+        .find(|check| !check["eligibility"].is_text("eligible"))
+    {
+        if action["kind"].is_text("claim") && !stale["executor_options"].truthy() {
+            return Ok(action.clone());
+        }
+        if let Some(source) =
+            ledger.first(GraphRead::Node, &[stale["source"]["branch_id"].clone()])?
+        {
+            if source["run_id"].py_eq(&run["run_id"])
+                && ["failed", "timed_out"]
+                    .iter()
+                    .any(|kind| source["status"].is_text(kind))
+            {
+                let packet = repair_packet(ledger, run, &source, None, windows)?;
+                return Ok(Value::object([
+                    ("kind", packet["next_permitted_action"].clone()),
+                    ("branch_id", source["branch_id"].clone()),
+                    ("repair_packet", packet),
+                ]));
+            }
+        }
+        return Ok(Value::object([
+            ("kind", "replace_check".into()),
+            ("check_id", stale["check_id"].clone()),
+            ("replace_ref", stale["artifact_ref"].clone()),
+            ("eligibility", stale["eligibility"].clone()),
+            ("executor_options", stale["executor_options"].clone()),
+        ]));
+    }
+    Ok(action.clone())
 }
 
 pub fn status(

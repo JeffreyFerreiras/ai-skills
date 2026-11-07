@@ -39,7 +39,7 @@ fn statement(query: GraphRead) -> &'static str {
         GraphRead::FirstReadyBranch => "SELECT branch_id FROM nodes WHERE run_id=? AND status='ready' ORDER BY branch_id LIMIT 1",
         GraphRead::OpenJoins => "SELECT * FROM joins WHERE run_id=? AND status='open' ORDER BY join_id",
         GraphRead::RetryableReviewChild => "SELECT branch_id FROM nodes WHERE run_id=? AND depth=1\n        AND status IN ('failed','timed_out') AND retry_count<max_retries ORDER BY branch_id LIMIT 1",
-        GraphRead::FirstFailedRoot => "SELECT * FROM nodes WHERE run_id=? AND depth=0 AND status IN ('failed','timed_out') ORDER BY branch_id LIMIT 1",
+        GraphRead::FirstFailedRoot => "SELECT n.* FROM nodes n WHERE n.run_id=? AND n.depth=0 AND n.status IN ('failed','timed_out') AND NOT EXISTS (SELECT 1 FROM join_members m JOIN joins j USING(join_id) WHERE m.branch_id=n.branch_id AND j.status='sealed') ORDER BY n.branch_id LIMIT 1",
         GraphRead::RunningBranches => "SELECT branch_id,envelope_json FROM nodes WHERE run_id=? AND status='running' ORDER BY branch_id",
         GraphRead::RootBranches => "SELECT * FROM nodes WHERE run_id=? AND depth=0 ORDER BY branch_id",
         GraphRead::BranchSealedForControl => "SELECT 1 FROM join_members jm JOIN joins j ON j.join_id=jm.join_id WHERE jm.branch_id=? AND j.status='sealed'",
