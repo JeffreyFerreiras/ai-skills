@@ -123,7 +123,7 @@ fn start_research() -> HardeningCase {
 }
 
 #[test]
-fn test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip() {
+fn test_help_exposes_portable_state_root_and_default_sol_muse_catalog() {
     let case = HardeningCase::golden();
     let parser = shared_parser();
     let help = |args: &[&str]| {
@@ -138,8 +138,15 @@ fn test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip() 
         stdout.utf8().unwrap()
     };
     assert!(help(&["--help"]).contains("--state-root"));
-    let init = help(&["init", "--help"]);
-    for expected in ["codex-astra (default)", "Luna/Sol option", "claude"] {
+    let init = help(&["init", "--help"])
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    for expected in [
+        "codex (default Sol/Muse recommendations)",
+        "codex-astra",
+        "claude",
+    ] {
         assert!(init.contains(expected), "{init}");
     }
     let repo = case.fixture.graph.repository.to_str().unwrap();
@@ -160,7 +167,7 @@ fn test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip() 
     };
     assert_eq!(
         namespace.get("host"),
-        Some(&ArgumentValue::String("codex-astra".into()))
+        Some(&ArgumentValue::String("codex".into()))
     );
 }
 

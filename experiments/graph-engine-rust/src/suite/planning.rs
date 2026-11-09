@@ -60,7 +60,10 @@ pub fn terra_selections() {
                 effort,
             );
             let plan = build(&task, host, None);
-            assert_eq!(plan["catalog_revision"].as_i64(), Some(10));
+            assert_eq!(
+                plan["catalog_revision"].as_i64(),
+                Some(hosts::current_revision(host).unwrap())
+            );
             assert!(plan["model_options"]["gpt-6.1-terra"].py_eq(&Value::list(
                 ["low", "medium", "high", "xhigh", "max", "ultra"].map(Value::from)
             )));
@@ -95,7 +98,7 @@ pub fn terra_selections() {
             assert!(!hosts::supported_dispatch_weights()
                 .contains_key(&("gpt-6.1-terra".into(), effort.into())));
             for &revision in hosts::supported_revisions(host) {
-                if revision != 10 {
+                if revision < 10 {
                     assert_eq!(
                         hosts::selected_dispatch_model(
                             host,
@@ -372,7 +375,7 @@ pub fn bug_hunter_skill() {
             ("required_skill", skill.into())
         ])));
         assert!(hunter["model"].py_eq(&assignment(&plan, "code_reviewer")["model"]));
-        assert!(hunter["reasoning_effort"].is_text("high"));
+        assert!(hunter["reasoning_effort"].is_text(if host == "codex" { "xhigh" } else { "high" }));
         assert!(
             execution::reconstruct_execution_plan("RUN-1", &task, &plan, None)
                 .unwrap()
@@ -494,8 +497,14 @@ pub fn current_recommendations() {
             Some(hosts::current_revision(host).unwrap())
         );
         for node in ["tech_lead", "senior_engineer", "test_engineer"] {
-            assert!(assignment(&plan, node)["model"].is_text(core));
-            assert!(assignment(&plan, node)["reasoning_effort"].is_text("medium"));
+            let model = if host == "codex" && node == "test_engineer" {
+                hosts::MUSE_MODEL
+            } else {
+                core
+            };
+            let effort = if host == "codex" { "xhigh" } else { "medium" };
+            assert!(assignment(&plan, node)["model"].is_text(model));
+            assert!(assignment(&plan, node)["reasoning_effort"].is_text(effort));
         }
         assert!(plan["helper_recommendation"].py_eq(&pair(scout, "low")));
         for node in [
@@ -503,8 +512,14 @@ pub fn current_recommendations() {
             "design_research_architecture",
             "design_research_validation",
         ] {
-            assert!(assignment(&plan, node)["model"].is_text(scout));
-            assert!(assignment(&plan, node)["reasoning_effort"].is_text("low"));
+            let model = if host == "codex" {
+                hosts::MUSE_MODEL
+            } else {
+                scout
+            };
+            let effort = if host == "codex" { "xhigh" } else { "low" };
+            assert!(assignment(&plan, node)["model"].is_text(model));
+            assert!(assignment(&plan, node)["reasoning_effort"].is_text(effort));
         }
         assert!(plan["publication_assignment"]["reasoning_effort"].is_text("low"));
         if ["codex", "codex-astra"].contains(&host) {
@@ -639,7 +654,10 @@ pub const CASES: &[(&str, fn())] = &[
         "test_v2_override_cannot_drop_below_safety_floor",
         contracts::safety_floor,
     ),
-    ("test_astra_is_the_default_host", contracts::default_astra),
+    (
+        "test_sol_and_muse_are_the_default_for_every_size",
+        contracts::default_codex,
+    ),
     (
         "test_new_writers_are_reasoning_and_legacy_writers_remain_loadable",
         contracts::historical_writers,
@@ -649,7 +667,7 @@ pub const CASES: &[(&str, fn())] = &[
         contracts::role_assignment_fallback,
     ),
     (
-        "test_profile_defaults_match_medium_runtime_assignments",
+        "test_native_profile_defaults_match_or_require_external_dispatch",
         contracts::profile_defaults,
     ),
     (

@@ -1,4 +1,4 @@
-use super::{assignment, build, rebuild, TaskFixture};
+use super::{assignment, build, pair, rebuild, TaskFixture};
 use graph_engine::{
     compat::{PyString, Value},
     domain::{execution, hosts},
@@ -133,32 +133,56 @@ pub fn safety_floor() {
     );
 }
 
-pub fn default_astra() {
+pub fn default_codex() {
     let fixture = TaskFixture::new();
-    let plan = build(&fixture.default_task(), hosts::DEFAULT_HOST, Some("medium"));
-    let explicit = build(&fixture.default_task(), "codex-astra", Some("medium"));
-    assert!(plan.py_eq(&explicit));
-    assert!(plan["host"].is_text(hosts::DEFAULT_HOST));
-    assert_eq!(plan["catalog_revision"].as_i64(), Some(10));
-    for (key, model, effort) in [
-        ("tech_lead", "gpt-6-astra", "medium"),
-        ("impact_mapper", "gpt-6.1-sol", "low"),
-    ] {
-        let row = &plan["assignments"]
-            .as_list()
-            .unwrap()
-            .iter()
-            .find(|row| row["node_key"].is_text(key))
-            .unwrap();
-        assert!(row["model"].is_text(model));
-        assert!(row["reasoning_effort"].is_text(effort));
-        if key == "tech_lead" {
-            assert!(row["dispatch_model"].is_text("gpt-6-astra"));
+    let muse_nodes = [
+        "impact_mapper",
+        "design_research_architecture",
+        "design_research_validation",
+        "code_reviewer_naming",
+        "test_engineer",
+    ];
+    for size in ["small", "medium", "large"] {
+        let task = fixture.default_task();
+        let plan = build(&task, hosts::DEFAULT_HOST, Some(size));
+        assert!(plan.py_eq(&build(&task, "codex", Some(size))));
+        assert!(plan["host"].is_text("codex"));
+        assert_eq!(plan["catalog_revision"].as_i64(), Some(11));
+        for row in plan["assignments"].as_list().unwrap() {
+            if row["role"].is_text("supervisor") {
+                assert!(row["model"].is_text("primary-thread"));
+                assert!(row["reasoning_effort"].is_text("inherited"));
+                continue;
+            }
+            let external = muse_nodes.iter().any(|node| row["node_key"].is_text(node));
+            let model = if external {
+                hosts::MUSE_MODEL
+            } else {
+                "gpt-6.1-sol"
+            };
+            assert!(row["model"].is_text(model));
+            assert!(row["reasoning_effort"].is_text("xhigh"));
+            assert!(row["dispatch_model"].is_text(model));
+            if external {
+                assert!(row["dispatch_runtime"].is_text("opencode-cli"));
+            } else {
+                assert!(row.get("dispatch_runtime").is_none());
+            }
         }
+        assert!(plan["supervisor_recommendation"]["model"].is_text("gpt-6.1-sol"));
+        assert!(plan["supervisor_recommendation"]["reasoning_effort"].is_text("xhigh"));
+        assert!(plan["simplification_assignment"]["reasoning_effort"].is_text("xhigh"));
+        assert!(plan["publication_assignment"]["model"].is_text("gpt-6.1-sol"));
+        assert!(plan["publication_assignment"]["reasoning_effort"].is_text("low"));
+        assert!(plan["helper_recommendation"].py_eq(&pair("gpt-6.1-sol", "low")));
+        assert!(plan["economy_fanout_option"].py_eq(&pair("gpt-6.1-sol", "low")));
+        assert!(plan.get("conditional_review_assignments").is_none());
+        assert!(
+            execution::reconstruct_execution_plan("RUN-1", &task, &plan, Some(size))
+                .unwrap()
+                .py_eq(&plan)
+        );
     }
-    assert!(plan["supervisor_recommendation"]["model"].is_text("gpt-6-astra"));
-    assert!(plan["publication_assignment"]["model"].is_text("gpt-6.1-sol"));
-    assert!(plan["publication_assignment"]["reasoning_effort"].is_text("low"));
 }
 
 pub fn historical_writers() {
@@ -273,6 +297,11 @@ pub fn profile_defaults() {
             .iter()
             .find(|row| row["node_key"].is_text(key))
             .unwrap();
+        if row["dispatch_runtime"].is_text("opencode-cli") {
+            assert!(text.contains("Codex graph revision 11 uses Muse through OpenCode CLI."));
+            assert_eq!(model, "gpt-6.1-sol");
+            continue;
+        }
         assert!(row["model"].is_text(model), "{profile}");
         assert!(row["reasoning_effort"].is_text(effort), "{profile}");
     }

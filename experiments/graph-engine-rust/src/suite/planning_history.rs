@@ -58,7 +58,8 @@ pub fn revision_nine_baselines() {
                     .unwrap()
                     .py_eq(&old)
             );
-            let current = build(&task, host, None);
+            record.set("catalog_revision", 10_i64.into());
+            let current = execution::reconstruct_execution_plan("RUN-1", &task, &record, None).unwrap();
             for (key, value) in old.as_object().unwrap() {
                 if ["catalog_revision", "model_options", "plan_digest"]
                     .iter()

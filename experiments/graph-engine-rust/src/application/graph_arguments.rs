@@ -58,7 +58,7 @@ pub fn parser(hosts: &[&str], default_host: &str, usage_phases: &[&str]) -> Pars
     );
     let mut initialize = leaf("init", &["run-id", "task-brief", "op-id"]);
     initialize.argument(ArgumentSpec::string("size").choices(&["small", "medium", "large"]));
-    initialize.argument(ArgumentSpec::string("host").choices(hosts).default_string(default_host).help("model catalog: codex-astra (default), codex (explicit Luna/Sol option), cursor, or claude"));
+    initialize.argument(ArgumentSpec::string("host").choices(hosts).default_string(default_host).help("model catalog: codex (default Sol/Muse recommendations), codex-astra, cursor, or claude"));
     initialize.argument(ArgumentSpec::flag("ack-degraded-permissions").suppressed_default());
     initialize.argument(ArgumentSpec::flag("ack-degraded-durability").suppressed_default());
     root.subcommand("init", None, initialize);

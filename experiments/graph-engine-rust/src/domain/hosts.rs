@@ -1,12 +1,19 @@
 use super::DomainResult;
 use std::collections::BTreeMap;
 
-pub const DEFAULT_HOST: &str = "codex-astra";
+pub const DEFAULT_HOST: &str = "codex";
 pub const LEGACY_HOST: &str = "codex";
 pub const MUSE_MODEL: &str = "opencode-go/muse-spark-1.3-contributor";
 pub const RETIRED_MODEL_PREFIX: &str = "gpt-5.6-";
 pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 pub const MUSE_EFFORTS: &[&str] = &["minimal", "low", "medium", "high", "xhigh"];
+pub const MUSE_DEFAULT_NODES: &[&str] = &[
+    "impact_mapper",
+    "design_research_architecture",
+    "design_research_validation",
+    "code_reviewer_naming",
+    "test_engineer",
+];
 pub const HOSTS: &[&str] = &["claude", "codex", "codex-astra", "cursor"];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -20,7 +27,8 @@ pub struct Row {
 pub fn current_revision(host: &str) -> DomainResult<i64> {
     match host {
         "claude" => Ok(4),
-        "codex" | "codex-astra" => Ok(10),
+        "codex" => Ok(11),
+        "codex-astra" => Ok(10),
         "cursor" => Ok(5),
         _ => Err("HOST_UNSUPPORTED".into()),
     }
@@ -28,7 +36,8 @@ pub fn current_revision(host: &str) -> DomainResult<i64> {
 pub fn supported_revisions(host: &str) -> &'static [i64] {
     match host {
         "claude" => &[1, 3, 4],
-        "codex" | "codex-astra" => &[2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "codex" => &[2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        "codex-astra" => &[2, 3, 4, 5, 6, 7, 8, 9, 10],
         "cursor" => &[2, 3, 4, 5],
         _ => &[],
     }
@@ -166,10 +175,10 @@ pub fn model_options(
             if ![2, 3, 4, 5, 6, 7].contains(&revision) {
                 result.retain(|model, _| !is_retired_model(model));
             }
-            if [9, 10].contains(&revision) {
+            if [9, 10, 11].contains(&revision) {
                 result.insert(MUSE_MODEL, MUSE_EFFORTS.to_vec());
             }
-            if revision == 10 {
+            if [10, 11].contains(&revision) {
                 result.insert(
                     "gpt-6.1-terra",
                     vec!["low", "medium", "high", "xhigh", "max", "ultra"],
@@ -242,7 +251,7 @@ pub fn recommended_assignment(
             return Ok(("claude-sonnet-5-5".into(), "low".into()));
         }
         if ["codex", "codex-astra"].contains(&host) {
-            if [8, 9, 10].contains(&revision) {
+            if [8, 9, 10, 11].contains(&revision) {
                 return Ok(("gpt-6.1-sol".into(), "low".into()));
             }
             if [6, 7].contains(&revision) {
@@ -266,6 +275,9 @@ pub fn recommended_assignment(
             ),
         };
         return Ok((model.into(), effort.into()));
+    }
+    if host == "codex" && revision == 11 {
+        return Ok(("gpt-6.1-sol".into(), "xhigh".into()));
     }
     let model = if host == "claude" && revision == 4 {
         "claude-opus-5-5"
