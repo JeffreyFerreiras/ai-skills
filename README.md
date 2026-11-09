@@ -103,6 +103,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [babysit-pr](skills/babysit-pr/SKILL.md) | Watch PR checks, reviews, and readiness |
 | [baseline](skills/baseline/SKILL.md) | Automatically update the default checkout and clean up the task |
 | [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
+| [cat-sanctuary-benchmark](skills/cat-sanctuary-benchmark/SKILL.md) | Run and grade the 3D cat sanctuary model benchmark |
 | [catch-up](skills/catch-up/SKILL.md) | Recap the current conversation and next step |
 | [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
 | [clean-architecture-code](skills/clean-architecture-code/SKILL.md) | Write code with clean boundaries |

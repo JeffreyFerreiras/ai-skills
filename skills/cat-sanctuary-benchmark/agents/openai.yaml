@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cat Sanctuary Benchmark"
+  short_description: "Run and grade the 3D cat sanctuary model benchmark"
+  default_prompt: "Use $cat-sanctuary-benchmark to run or grade this Three.js benchmark deliverable."
