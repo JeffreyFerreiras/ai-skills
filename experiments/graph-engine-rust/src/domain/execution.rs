@@ -246,6 +246,8 @@ fn selected_pair(
                 .text()
                 .ok_or("MODEL_OVERRIDES_INVALID")?,
         )
+    } else if host == "codex" && revision == 11 && hosts::MUSE_DEFAULT_NODES.contains(&key) {
+        (hosts::MUSE_MODEL.into(), "xhigh".into())
     } else {
         hosts::recommended_assignment(host, workload, Some(revision))?
     };
@@ -478,7 +480,7 @@ fn build_plan(
         task.get("model_overrides")
             .unwrap_or(&Value::Object(vec![])),
     )?;
-    let modern = vintage.revision.is_some_and(|n| (3..=10).contains(&n));
+    let modern = vintage.revision.is_some_and(|n| (3..=11).contains(&n));
     if vintage.simplification.is_some() && !modern {
         return Err("SIMPLIFICATION_REVIEW_REQUIRES_CATALOG_3".into());
     }
@@ -567,7 +569,8 @@ fn build_plan(
             ("dispatch_model", dispatch.into()),
             ("dispatch_when", dispatch_when(node, task).into()),
         ]);
-        if vintage.revision.is_some_and(|n| [9, 10].contains(&n)) && model == hosts::MUSE_MODEL {
+        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) && model == hosts::MUSE_MODEL
+        {
             assignment.set("dispatch_runtime", "opencode-cli".into());
         }
         if vintage.panel.is_some() && (panel(node).is_some() || node == "advisory_reviewer") {
@@ -629,7 +632,7 @@ fn build_plan(
         let dispatch = hosts::selected_dispatch_model(host, &model, &effort, vintage.revision)?;
         publication = selection(model, effort, dispatch);
     }
-    if vintage.revision.is_some_and(|n| [9, 10].contains(&n))
+    if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n))
         && publication["model"].is_text(hosts::MUSE_MODEL)
     {
         publication.set("dispatch_runtime", "opencode-cli".into());
@@ -727,7 +730,10 @@ fn build_plan(
                 ]),
             );
         }
-        if vintage.revision.is_some_and(|n| [8, 9, 10].contains(&n)) {
+        if vintage
+            .revision
+            .is_some_and(|n| [8, 9, 10, 11].contains(&n))
+        {
             plan.set(
                 "economy_fanout_option",
                 Value::object([
@@ -736,7 +742,7 @@ fn build_plan(
                 ]),
             );
         }
-        if vintage.revision.is_some_and(|n| [9, 10].contains(&n)) {
+        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) {
             plan.set(
                 "external_economy_option",
                 Value::object([
@@ -777,7 +783,8 @@ fn build_plan(
             ),
             ("max_passes_per_generation", 1_i64.into()),
         ]);
-        if vintage.revision.is_some_and(|n| [9, 10].contains(&n)) && model == hosts::MUSE_MODEL {
+        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) && model == hosts::MUSE_MODEL
+        {
             assignment.set("dispatch_runtime", "opencode-cli".into());
         }
         plan.set("simplification_review_version", version.into());
@@ -807,7 +814,7 @@ pub fn assignment_for<'a>(plan: &'a Value, node: &str) -> DomainResult<&'a Value
                 .ok_or("MODEL_ASSIGNMENT_INVALID")?;
             if plan["catalog_revision"]
                 .as_i64()
-                .is_some_and(|n| (3..=10).contains(&n))
+                .is_some_and(|n| (3..=11).contains(&n))
             {
                 if node_role(node) == Some("supervisor") {
                     if (model.as_str(), effort.as_str()) != ("primary-thread", "inherited") {

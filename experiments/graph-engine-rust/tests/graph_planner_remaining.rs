@@ -140,32 +140,77 @@ fn test_invalid_model_overrides_fail_without_creating_state() {
     }
 }
 
-fn approved_astra_trace(host: Option<&str>) {
+#[test]
+fn test_astra_catalog_survives_approval_claim_and_resume() {
     let mut case = HardeningCase::stock();
     let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
-    let initialized = initialize(&case, &task, host, Some("medium"), true).unwrap();
+    let initialized = initialize(&case, &task, Some("codex-astra"), Some("medium"), true).unwrap();
     case.impact("full_delivery");
     let lead = case.claim();
-    if host.is_some() {
-        assert!(lead["node_key"].is_text("tech_lead"));
-    }
+    assert!(lead["node_key"].is_text("tech_lead"));
     assert_selection(&lead, "gpt-6-astra", "medium");
     resume(&case).unwrap();
     let status = case.status().unwrap();
     let plan = &status["execution_plan"];
     assert!(plan["host"].is_text("codex-astra"));
+    assert_eq!(plan["catalog_revision"].as_i64(), Some(10));
     assert!(plan["plan_digest"].py_eq(&initialized["execution_plan_digest"]));
     assert!(plan["status"].is_text("approved"));
 }
 
 #[test]
 fn test_default_cli_plan_survives_approval_claim_and_resume() {
-    approved_astra_trace(None);
-}
-
-#[test]
-fn test_astra_catalog_survives_approval_claim_and_resume() {
-    approved_astra_trace(Some("codex-astra"));
+    let mut case = HardeningCase::stock();
+    let task = task_v2(&case, "full_delivery");
+    let plan = preview(&case, &task, None);
+    no_database(&case);
+    assert!(plan["host"].is_text("codex"));
+    assert_eq!(plan["catalog_revision"].as_i64(), Some(11));
+    for node in [
+        "impact_mapper",
+        "design_research_architecture",
+        "design_research_validation",
+        "code_reviewer_naming",
+        "test_engineer",
+    ] {
+        let assignment = assignment_for(&plan, node).unwrap();
+        assert_selection(assignment, MUSE_MODEL, "xhigh");
+        assert!(assignment["dispatch_runtime"].is_text("opencode-cli"));
+    }
+    for node in ["tech_lead", "senior_engineer", "code_reviewer_architecture"] {
+        let assignment = assignment_for(&plan, node).unwrap();
+        assert_selection(assignment, "gpt-6.1-sol", "xhigh");
+        assert!(assignment.get("dispatch_runtime").is_none());
+    }
+    let initialized = initialize(&case, &task, None, None, true).unwrap();
+    assert!(initialized["execution_plan_digest"].py_eq(&plan["plan_digest"]));
+    let mapper = case.claim_raw().unwrap();
+    assert!(mapper["node_key"].is_text("impact_mapper"));
+    assert_selection(&mapper, MUSE_MODEL, "xhigh");
+    assert!(mapper["dispatch_runtime"].is_text("opencode-cli"));
+    case.record_mapper(&mapper, &[]);
+    let status = case.status().unwrap();
+    assert!(status["next_action"]["kind"].is_text("record_fanout_assessment"));
+    assert!(status["next_action"]["stage"].is_text("research"));
+    assert!(plan.get("conditional_review_assignments").is_none());
+    let lead = case.claim();
+    assert!(lead["node_key"].is_text("tech_lead"));
+    assert_selection(&lead, "gpt-6.1-sol", "xhigh");
+    assert!(lead.get("dispatch_runtime").is_none());
+    let (before, nodes) = plan_rows(&case);
+    assert!(compat::loads_value(&before["plan_json"])
+        .unwrap()
+        .py_eq(&plan));
+    assert!(before["approval_digest"].truthy());
+    resume(&case).unwrap();
+    let status = case.status().unwrap();
+    for (key, value) in plan.as_object().unwrap() {
+        assert!(status["execution_plan"][key.utf8().unwrap().as_str()].py_eq(value));
+    }
+    assert!(status["execution_plan"]["status"].is_text("approved"));
+    let (after, after_nodes) = plan_rows(&case);
+    assert!(after.py_eq(&before));
+    assert_eq!(after_nodes, nodes);
 }
 
 #[test]
@@ -283,7 +328,8 @@ fn test_new_panel_binds_four_independent_scopes_and_model_selections() {
                 ]);
                 assert!(branch["code_review_assignment"].py_eq(&expected));
                 if spec.key == "code_reviewer_naming" {
-                    assert_selection(&branch, "gpt-6.1-sol", "low");
+                    assert_selection(&branch, MUSE_MODEL, "xhigh");
+                    assert!(branch["dispatch_runtime"].is_text("opencode-cli"));
                     assert!(
                         assignment_for(&plan, &spec.key).unwrap()["intelligence_class"]
                             .is_text("economy")
@@ -543,8 +589,12 @@ fn test_research_node_assignments_reuse_impact_mapper() {
                 assert_eq!(node.role, "impact_mapper");
                 assert_selection(
                     assignment_for(&plan, &node.key).unwrap(),
-                    "gpt-6.1-sol",
-                    "low",
+                    MUSE_MODEL,
+                    "xhigh",
+                );
+                assert!(
+                    assignment_for(&plan, &node.key).unwrap()["dispatch_runtime"]
+                        .is_text("opencode-cli")
                 );
             }
             Ok(())

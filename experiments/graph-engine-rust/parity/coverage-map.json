@@ -4182,7 +4182,7 @@
         "skills/software-engineering-graph/tests/test_cli.py:1757-1783"
       ],
       "native_assertions": [
-        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip"
+        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_default_sol_muse_catalog"
       ],
       "native_component": "src/application/graph_arguments.rs",
       "native_symbol": "shared_parser",
@@ -4380,7 +4380,7 @@
         "skills/software-engineering-graph/tests/test_cli.py:1757-1783"
       ],
       "native_assertions": [
-        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
+        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
         "tests/graph_planner_remaining.rs::test_default_cli_plan_survives_approval_claim_and_resume"
       ],
       "native_component": "src/application/graph_arguments.rs",
@@ -5017,7 +5017,7 @@
       ],
       "native_assertions": [
         "tests/graph_closure.rs::test_cli_exit_codes_are_stable",
-        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
+        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
         "tests/state_cli_remaining.rs::test_changed_operation_id_payload_conflicts_without_mutation",
         "tests/state_cli_remaining.rs::test_init_and_identical_operation_are_idempotent"
       ],
@@ -5060,7 +5060,7 @@
       ],
       "native_assertions": [
         "tests/graph_closure.rs::test_cli_exit_codes_are_stable",
-        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
+        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
         "tests/support/review_continuation.rs::terminal_collection_and_parent_continuation_commit_atomically_in_format7",
         "src/infrastructure/graph_traceback.rs::graphctl_traceback"
       ],
@@ -15005,22 +15005,22 @@
       ],
       "status": "proven"
     },
-    "tests.test_cli.CliGoldenTraceTests.test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip": {
+    "tests.test_cli.CliGoldenTraceTests.test_help_exposes_portable_state_root_and_default_sol_muse_catalog": {
       "boundary": "Exact audited native original. The release runner selects its existing Cargo test function by exact name.",
       "fixtures": [
         "ART/golden-cli-remaining-original-identity-audit.json"
       ],
       "native_assertions": [
-        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
-        "graph-suite --identity tests.test_cli.CliGoldenTraceTests.test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip"
+        "tests/graph_golden_remaining.rs::test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
+        "graph-suite --identity tests.test_cli.CliGoldenTraceTests.test_help_exposes_portable_state_root_and_default_sol_muse_catalog"
       ],
       "native_component": "tests/graph_golden_remaining.rs",
       "native_dispatch": {
-        "selector": "test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
+        "selector": "test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
         "target": "graph_golden_remaining"
       },
       "native_source_sha256": "7a45f9d8c8f3b04fcf0893aa58c0953f7d78fb271107d56ceba1e458763e7f81",
-      "native_symbol": "test_help_exposes_portable_state_root_and_sol_catalog_without_default_flip",
+      "native_symbol": "test_help_exposes_portable_state_root_and_default_sol_muse_catalog",
       "negative_proof": [],
       "nondeterministic_relationships": [],
       "oracle_lines": [
@@ -21150,18 +21150,18 @@
       ],
       "status": "proven"
     },
-    "tests.test_planner_unit.PlannerUnitTests.test_astra_is_the_default_host": {
+    "tests.test_planner_unit.PlannerUnitTests.test_sol_and_muse_are_the_default_for_every_size": {
       "boundary": "native equivalent of original import-level assertions",
       "fixtures": [
         "src/suite/task_fixture.rs::TaskFixture",
         "unchanged skills/software-engineering-graph/tests/fixtures/engineering-graph.json"
       ],
       "native_assertions": [
-        "src/suite/planning_contracts.rs::default_astra",
-        "graph-suite --identity tests.test_planner_unit.PlannerUnitTests.test_astra_is_the_default_host"
+        "src/suite/planning_contracts.rs::default_codex",
+        "graph-suite --identity tests.test_planner_unit.PlannerUnitTests.test_sol_and_muse_are_the_default_for_every_size"
       ],
       "native_component": "experiments/graph-engine-rust/src/suite/planning_contracts.rs",
-      "native_symbol": "default_astra",
+      "native_symbol": "default_codex",
       "negative_proof": [],
       "nondeterministic_relationships": [],
       "proof_artifacts": [
@@ -21831,7 +21831,7 @@
       ],
       "status": "proven"
     },
-    "tests.test_planner_unit.PlannerUnitTests.test_profile_defaults_match_medium_runtime_assignments": {
+    "tests.test_planner_unit.PlannerUnitTests.test_native_profile_defaults_match_or_require_external_dispatch": {
       "boundary": "native equivalent of original import-level assertions",
       "fixtures": [
         "src/suite/task_fixture.rs::TaskFixture",
@@ -21840,7 +21840,7 @@
       ],
       "native_assertions": [
         "src/suite/planning_contracts.rs::profile_defaults",
-        "graph-suite --identity tests.test_planner_unit.PlannerUnitTests.test_profile_defaults_match_medium_runtime_assignments"
+        "graph-suite --identity tests.test_planner_unit.PlannerUnitTests.test_native_profile_defaults_match_or_require_external_dispatch"
       ],
       "native_component": "experiments/graph-engine-rust/src/suite/planning_contracts.rs",
       "native_symbol": "profile_defaults",

@@ -34,7 +34,11 @@ fn test_new_codex_and_cursor_writer_assignment_survives_resume_and_claim() {
         case.impact("fast_path");
         let writer = case.claim();
         assert!(writer["node_key"].is_text("senior_engineer"));
-        assert!(writer["reasoning_effort"].is_text("medium"));
+        assert!(writer["reasoning_effort"].is_text(if host == "codex" {
+            "xhigh"
+        } else {
+            "medium"
+        }));
         assert!(writer["simplification_review_version"].py_eq(&1_i64.into()));
         assert!(["gpt-6.1-sol", "grok-4.7"]
             .iter()

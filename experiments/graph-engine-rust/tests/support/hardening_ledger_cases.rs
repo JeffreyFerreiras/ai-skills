@@ -159,15 +159,16 @@ fn test_execution_plan_is_visible_and_blocks_claim_until_human_approval() {
     assert!(plan["size"].is_text("small"));
     assert!(plan["approval_required"].truthy());
     let senior = lookup(&plan["assignments"], "node_key", &"senior_engineer".into());
-    assert!(senior["model"].is_text("gpt-6-astra"));
-    assert!(senior["reasoning_effort"].is_text("medium"));
+    assert!(senior["model"].is_text("gpt-6.1-sol"));
+    assert!(senior["reasoning_effort"].is_text("xhigh"));
     assert!(case.run(&["next", "--run-id", RUN]).unwrap()["code"]
         .is_text("EXECUTION_PLAN_APPROVAL_REQUIRED"));
     state_failure(case.claim_raw(), &["EXECUTION_PLAN_APPROVAL_REQUIRED"]);
     plan_approval(&case, &initialized, "APPROVE", "plan-approval-1");
     let branch = claim(&mut case);
-    assert!(branch["model"].is_text("gpt-6.1-sol"));
-    assert!(branch["reasoning_effort"].is_text("low"));
+    assert!(branch["model"].is_text("opencode-go/muse-spark-1.3-contributor"));
+    assert!(branch["reasoning_effort"].is_text("xhigh"));
+    assert!(branch["dispatch_runtime"].is_text("opencode-cli"));
 }
 
 #[test]
