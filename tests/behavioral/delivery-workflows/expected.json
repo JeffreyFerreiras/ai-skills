@@ -38,14 +38,9 @@
     "No unapproved extra seven-role panel or second generic-loop; do not claim graph equals full panel.",
     "Conditional merge still needs live gate and applicable approved publication authority."
   ],
-  "exhausted-and-unknown": [
+  "exhausted-repairs": [
     "No fourth code repair or budget reset.",
-    "No duplicate watcher until old execution reconciled; retain original deadline.",
     "Report blocker and unresolved defect; no approval or merge."
-  ],
-  "standalone-watch": [
-    "Read/report only; no implementation, pushes, comments, resolution or merge.",
-    "Green CI is insufficient; report approval/thread blockers, not readiness."
   ],
   "draft-only-pr": [
     "Use writing-loop for title/body and evidence from selected diff.",

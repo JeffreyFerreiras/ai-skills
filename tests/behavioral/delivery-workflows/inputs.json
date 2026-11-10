@@ -45,14 +45,9 @@
     "fixture": "The graph plan names its sole implementation writer, required reviewer/test gates, consumed repair budgets, and Pull Request Engineer. It does not include a separate seven-role panel. No user explicitly requests that extra panel."
   },
   {
-    "id": "exhausted-and-unknown",
+    "id": "exhausted-repairs",
     "prompt": "Resume full send from the recorded task state.",
-    "fixture": "Three code repairs have been consumed and a required defect remains. A prior watcher timed out with an unknown handle/outcome. Twelve minutes remain in its original window."
-  },
-  {
-    "id": "standalone-watch",
-    "prompt": "Watch this PR and tell me when it is ready.",
-    "fixture": "Checks are green, but required human approval and an unresolved material thread remain. No edits, comments, resolution, or merge authority was granted."
+    "fixture": "Three code repairs have been consumed and a required defect remains."
   },
   {
     "id": "draft-only-pr",

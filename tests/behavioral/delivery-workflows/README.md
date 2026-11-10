@@ -1,7 +1,7 @@
 # Delivery workflow scenarios
 
 Use these cases for routing and next-action checks on full-send, full-stop,
-babysit-pr, and their local dependencies. Follow the parent behavioral evaluation
+and their local dependencies. Follow the parent behavioral evaluation
 protocol. Give a fresh selection session the relevant catalog and
 `inputs.json` only; keep `expected.json` for an independent evaluator.
 
@@ -15,3 +15,6 @@ Grade the observed decisions against the hidden expectations. These cases test
 routing and stated next actions, not live CI watching, merge races, actual review
 execution, or protection against unauthorized external writes. Those remain
 unverified until an isolated execution test covers them.
+
+`validation.json` is a historical report for the original suite. It includes
+cases and skills removed from the current inputs.
