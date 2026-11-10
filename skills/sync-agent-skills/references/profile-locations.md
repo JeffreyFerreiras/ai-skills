@@ -8,6 +8,7 @@ Use this as a starting map, then verify paths on the local machine. Agent produc
 - Canonical skills tree: `skills/` within the repository root.
 - Installed user-profile skills sync against this master repository. Consumer repositories and worktrees are not sync destinations.
 - A master skill containing `external-source.json` points to the actual upstream skill repository. During installation or sync, resolve its latest default-branch commit (or declared pinned revision) and install the full skill with revision provenance. Compare that installation with the resolved source, not the pointer. Do not copy a pointer over an engine or skip it as already current.
+- Uninstall confirmed retired master-managed profile copies during sync, following [Retired skills](../SKILL.md#retired-skills). Preserve unrelated profile-only skills; a missing master entry alone is not proof of retirement.
 
 ## Repository-Local Copies Are Outside Sync Scope
 

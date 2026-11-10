@@ -42,6 +42,20 @@
     "expected": "Apply the already-authorized update and verify the backup and target. Do not ask for the same approval again or update other roots."
   },
   {
+    "id": "sync-retired-master-skill",
+    "skill": "sync-agent-skills",
+    "prompt": "Sync this canonical skills repository into the supplied shared profile root, including new skills.",
+    "fixture": "Disposable master Git repository with a retained skill, a new skill, and a committed deletion of retired-skill. The shared profile has an exact historical copy of retired-skill plus local runtime state, an older retained skill, and an unrelated custom skill never present in master. A recoverable location outside discovery is available. Other profile and repository-local roots contain sentinel files. No real user profiles or external writes.",
+    "expected": "Plan updates, additions, and the historically confirmed retirement together. Update the retained skill, install the new skill, and uninstall retired-skill from the requested profile without another approval request. Preserve its local runtime state in a recoverable location outside discovery. Preserve the unrelated custom skill and all sentinel roots. Verify installed source parity, retired-folder absence, and active-reference cleanup; do not treat the copy helper's lack of pruning as successful retention."
+  },
+  {
+    "id": "sync-profile-only-skill-is-not-retirement",
+    "skill": "sync-agent-skills",
+    "prompt": "Update the supplied shared profile skills from this master repository.",
+    "fixture": "Disposable master and profile roots. One installed skill has an available canonical update. Two profile-only skills are absent from the current master: one is user-created and one has uncertain ownership with no prior sync inventory, provenance, or matching historical source snapshot. A second variant requests a dry run only. No real profiles or external writes.",
+    "expected": "Complete the authorized canonical update while preserving both profile-only skills. Report the uncertain candidate without claiming it was confirmed retired or silently declaring retirement complete. Do not infer ownership from absence or delete unrelated files. In the dry-run variant, report proposed actions and perform no profile mutations."
+  },
+  {
     "id": "mid-turn-scope-correction",
     "skill": "clean-code",
     "prompt": "Rename parseThing to parseInvoice and update its callers.",

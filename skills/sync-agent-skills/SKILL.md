@@ -38,15 +38,16 @@ When updating personal assistant profile roots (`~/.agents/skills`, etc.), treat
 4. Decide the direction of sync with the user request as the source of truth. When syncing profiles, pull latest versions from the master `ai-skills` repository.
    - For this two-tool profile setup, update shared skills in `~/.agents/skills` only. Preserve skills unique to Cursor in `~/.cursor/skills` and Cursor-managed built-ins in `~/.cursor/skills-cursor`. Cursor Cloud Agents do not receive personal skills from `~/.agents/skills`; report that limitation or use an explicitly requested Cursor Cloud sync. Do not compensate by installing project skills.
    - Master skills with `external-source.json` are installation pointers. Resolve the declared repository's latest default-branch commit (or an explicitly pinned `revision`) and install the full skill from that commit. Do not skip the skill, install the pointer itself, or treat an existing installation as current without checking upstream during an authorized sync. Ordinary skill execution does not authorize an update.
+   - Include confirmed retired master-managed skills in the sync plan. Follow [Retired skills](#retired-skills); absence from the current master alone does not authorize deletion.
 5. Transform content only when needed:
    - Shared agent skills require a folder with `SKILL.md` frontmatter.
    - Cursor commonly uses rule or instruction files.
    - VS Code/Copilot commonly uses prompt or instruction markdown files.
    - Claude commonly uses project/user instructions, commands, or skill-like markdown assets depending on the installed product surface.
-6. Before writes, state the target paths and whether the operation will copy, transform, or replace files.
+6. Before writes, state the target paths and whether the operation will copy, transform, replace, or uninstall files.
 7. Preserve unrelated profile files, tool-specific skills, and installed-skill runtime data such as graph policies and state. Show differing installed skill paths in the dry run. Do not change consumer repositories, their branches, or application code as part of sync.
 8. Validate by re-running inventory and, where applicable, checking that generated markdown/frontmatter is syntactically valid.
-   - Verify profile copies against the source. For external skills, compare against the resolved upstream commit, not the pointer folder, and record repository/revision provenance. Report counts for updated profiles, resolved external skills, and any inaccessible or excluded profile roots. A failed external resolution is an incomplete sync, not a successful skip.
+   - Verify profile copies against the source and confirm planned retirements are uninstalled. For external skills, compare against the resolved upstream commit, not the pointer folder, and record repository/revision provenance. Report counts for updated profiles, resolved external skills, uninstalled retired skills, and any inaccessible or excluded profile roots. Disclose unresolved retirement candidates. A failed external resolution is an incomplete sync, not a successful skip.
    - After authorized enablement changes, re-inventory the affected skill roots. Use a fresh-process discovery check when a runtime change needs verification; see `references/codex-discovery.md` for Codex.
 9. When the user asks to update installed profile skills from master:
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
@@ -115,6 +116,33 @@ python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.a
 # Apply updates to the shared profile root without retained backups
 python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force --no-backup
 ```
+
+## Retired skills
+
+A requested master-to-profile sync includes uninstalling confirmed retired
+master-managed skills from the requested profile roots. An audit, dry run, or
+explicit update-only request does not authorize removal.
+
+Compare the installed and current master inventories. For a missing skill,
+confirm that the installed folder came from this master using a prior sync
+inventory, provenance, or a matching historical source snapshot. Do not treat
+every profile-only skill as retired. Preserve unrelated custom skills and
+tool-managed built-ins. If ownership or retirement is unclear, preserve the
+candidate, report the uncertainty, and continue the independent sync work.
+
+Include confirmed uninstall paths in the same dry run as updates and additions.
+Once sync is authorized, uninstall those retired copies without another approval
+request. Use `remove-agent-skill` or equivalent scoped removal: resolve each path
+inside the requested profile root, reject links and junctions, and prefer moving
+the whole folder to the Recycle Bin or a recoverable location outside discovery.
+Preserve local runtime data in that recoverable copy. Check active profile
+commands, catalogs, and instruction references for obsolete dependencies; keep
+any cleanup within the authorized scope.
+
+The helper copies and updates skills but does not prune missing master entries.
+Complete retirement separately, then re-inventory. Confirm the retired folders
+and related active references are gone; matching retained copies alone does not
+establish a complete sync.
 
 ## Publishing Profile Changes to Master Repository
 
