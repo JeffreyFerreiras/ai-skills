@@ -39,9 +39,10 @@ needs them. A missing required dependency or independent reviewer is a blocker.
 
 - **Code or runtime behavior:** apply relevant implementation guidance, including
   `clean-code` for production code and architecture guidance when boundaries
-  change. Use `run-change-checks` for focused validation, then `review-panel` on
-  the stable scoped diff, untracked task files, and validation evidence. Keep all
-  seven roles unless the user narrows the panel. Reviewers remain read-only;
+  change. Run the smallest set of relevant tests, lint, type checks, and builds,
+  then use `review-panel` on the stable scoped diff, untracked task files, and
+  validation evidence. Keep all seven roles unless the user narrows the panel.
+  Reviewers remain read-only;
   only the implementation writer makes repairs.
 - **Requested prose writing or editing:** use `writing-loop`. It owns the Writer
   using `unslop`, read-only Reducer, fresh Editor, and prose repair budget.

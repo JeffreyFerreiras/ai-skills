@@ -29,8 +29,8 @@ before any run or grade.
 
 1. Confirm the folder carries its model, effort, and date in its name, and
    that `README.txt`, the HTML, and all vendor assets live inside it.
-2. Launch with the folder's documented method in Chrome, using the
-   chrome-devtools skill for console, network, fps, and draw-call evidence.
+2. Launch with the folder's documented method in Chrome. Use available browser
+   tools to collect console, network, fps, and draw-call evidence.
 3. Mark each checklist item in the benchmark prompt pass or fail with what
    you observed, then give one visual score from 1 to 5.
 4. Report where it failed, not just how many checks it missed. Say plainly
