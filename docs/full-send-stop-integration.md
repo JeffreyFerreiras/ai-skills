@@ -10,7 +10,7 @@ unmerged PR. Prose-only work does not require a PR.
 | Work | Validation and review |
 | --- | --- |
 | Code or runtime behavior | Relevant implementation skills, `run-change-checks`, then `review-panel`. |
-| Requested prose writing or editing | `writing-loop`, including Unslop, its Reducer, and a fresh Editor. Check factual and contractual claims too. |
+| Requested prose writing or editing | `writing-loop`, including `unslop`, `writing-reducer`, and a fresh Editor. Check factual and contractual claims too. |
 | Mixed work | Both routes for their respective deliverables, with prose claims checked against the code. |
 
 The seven-role [review-panel](../skills/review-panel/SKILL.md) can be selected by
@@ -18,9 +18,12 @@ an intentionally invoked delivery mode. It remains read-only. Ordinary code
 implementation does not start a panel. The delivery owner consolidates findings
 and returns repairs to one implementation writer.
 
-[Writing-loop](../skills/writing-loop/SKILL.md) already provides
-[Unslop](../skills/unslop/SKILL.md), reduction, and independent acceptance.
-There is no separate writing-reducer skill. Requested prose cleanup, documentation,
+[Writing-loop](../skills/writing-loop/SKILL.md) coordinates
+[Unslop](../skills/unslop/SKILL.md), the independent
+[writing-reducer](../skills/writing-reducer/SKILL.md) skill, and Editor acceptance.
+Direct invocation of writing-reducer performs one reduction pass and delivers
+the revised text without starting the loop. Explicit single-pass requests also
+bypass the loop. Other requested prose cleanup, documentation,
 instructions, PR titles and bodies, and written updates use that loop.
 Routine status messages, internal packets, and unchanged quotations do not.
 

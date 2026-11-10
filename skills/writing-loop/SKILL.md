@@ -1,6 +1,6 @@
 ---
 name: writing-loop
-description: Draft or revise prose through a bounded Unslop, reduction, and independent clarity review loop. Use for all prose writing or editing requests; not for code review or code implementation.
+description: Draft or revise prose through a bounded Unslop, reduction, and independent clarity review loop. Use for prose writing or editing requests, except standalone writing-reducer or explicit single-pass requests. Not for code review or code implementation.
 ---
 
 # Writing loop
@@ -12,7 +12,8 @@ The initial draft does not count as a repair. Stop when the Editor accepts a ver
 
 Use this loop for all prose-writing and prose-editing requests, including
 ordinary cleanup, without waiting for the user to ask for iteration. It does not
-apply to code review, to writing or editing executable code, or to recursive use
+apply to standalone `writing-reducer` invocations or explicit single-pass requests.
+It also does not apply to code review, to writing or editing executable code, or to recursive use
 inside its own run: do not start new loops for internal role packets, source
 quotations used as evidence, or routine status messages. The requested writing
 deliverable runs through the loop; the machinery around it does not.
@@ -24,11 +25,13 @@ request. Resolve routine choices directly. Ask only when missing context would
 change the meaning or prevent useful writing. Invoking this skill authorizes the
 writing loop. It does not authorize sending, publishing, or changing unrelated files.
 
-Locate `unslop` in the host's skill catalog and read its `SKILL.md`. If it is not
-listed, check the sibling `../unslop/SKILL.md` relative to this skill. Give the
-Writer the source location so it can read and apply the actual instructions.
-If neither source is available, report the missing dependency and stop the loop.
-Do not substitute remembered rules or claim that Unslop ran.
+Locate `unslop` and `writing-reducer` in the host's skill catalog and read their
+`SKILL.md` files. For either skill not listed, check the sibling
+`../unslop/SKILL.md` or `../writing-reducer/SKILL.md`
+relative to this skill. Give the Writer the Unslop source location and the Reducer
+the writing-reducer source location so each can apply the actual instructions.
+If either dependency is unavailable, report it and stop the loop. Do not
+substitute remembered rules or claim that the missing skill ran.
 
 Assign one Writer and a separate Reducer. Give each fresh Editor no Writer or
 Reducer history. The Supervisor may act as Writer when needed, but cannot also
@@ -64,15 +67,15 @@ Separate state files and elaborate checkpoints are not needed.
    source location. It reads Unslop and applies it to the initial draft. Only the
    Writer changes candidate text. Capture the completed draft as `v1` before
    starting feedback.
-2. **Reducer proposes cuts.** Give the Reducer the brief, source evidence, exact
-   candidate version and text, and open feedback. It proposes precise deletions
-   or replacements. Each proposal needs a location or quote and a reason the
-   wording is unnecessary. The Reducer must flag any risk to meaning and may
-   recommend no cuts. It does not edit or approve the candidate.
+2. **Reducer proposes a reduced version.** Give the Reducer the brief, source evidence, exact
+   candidate version and text, open feedback, and writing-reducer source location.
+   It reads and applies `writing-reducer`, returning reduced text as a proposed
+   replacement tied to that version. The captured candidate stays unchanged.
 3. **Editor reviews.** Give a fresh Editor the same brief, sources, exact version
-   and text, Reducer proposals, and prior unresolved feedback. Ask it to check
+   and text, the Reducer's proposed replacement, and prior unresolved feedback. Ask it to check
    clarity, simplicity, completeness, the user's voice and format, and preservation
-   of meaning. It evaluates each proposed cut without assuming shorter is better.
+   of meaning. It compares the replacement with the candidate and evaluates the
+   cuts without assuming shorter is better.
    Require one decision tied to that exact version:
    - `ACCEPT`: the current text meets the brief, with no required edits or open
      feedback. Explain briefly why any unused Reducer proposals are declined.
@@ -102,8 +105,8 @@ Return the accepted prose in the requested format, without internal review
 packets or process commentary unless requested. Acceptance applies only to the
 captured text, not to later edits or external publication.
 
-Stop without acceptance if the Editor returns `BLOCK`, required agents or Unslop
-are unavailable, review results are missing, or a required revision would exceed
-the repair limit. State the obstacle and remaining issue briefly. If useful,
-include the latest draft clearly labeled as unaccepted. Never present an exhausted
-or incomplete loop as approved.
+Stop without acceptance if the Editor returns `BLOCK`, required agents, Unslop,
+or writing-reducer are unavailable, review results are missing, or a required
+revision would exceed the repair limit. State the obstacle and remaining issue
+briefly. If useful, include the latest draft clearly labeled as unaccepted. Never
+present an exhausted or incomplete loop as approved.

@@ -148,6 +148,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
 | [writing-loop](skills/writing-loop/SKILL.md) | Refine prose with a reducer and independent editor |
+| [writing-reducer](skills/writing-reducer/SKILL.md) | Reduce wordiness and unnecessary explanations |
 <!-- skill-catalog:end -->
 
 Looking for `loop` or `code-review`? They are now `generic-loop` and `clean-code-review` to avoid built-in command collisions. See the [migration record](docs/migrations/skill-name-collisions-20260926.md).

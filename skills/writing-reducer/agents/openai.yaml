@@ -1,0 +1,4 @@
+interface:
+  display_name: "Writing Reducer"
+  short_description: "Reduce wordiness and unnecessary explanations"
+  default_prompt: "Use $writing-reducer to simplify and shorten the text we are working on in one pass, preserving needed meaning and returning the finished revision."
