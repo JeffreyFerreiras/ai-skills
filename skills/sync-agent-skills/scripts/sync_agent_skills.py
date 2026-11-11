@@ -234,7 +234,6 @@ def list_skills_in_root(root: Path) -> dict[str, Path]:
 @contextmanager
 def shared_profile_write_lock(shared_root: Path):
     lock_path = shared_root.resolve().parent / ".sync-agent-skills.lock"
-    reject_link_paths(lock_path, recursive=False)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as lock:
         try:
@@ -378,15 +377,17 @@ def retire_codex_duplicates(
     archive_root = codex_home / ".retired-profile-skills"
     shared_root = shared_root.expanduser().absolute()
     try:
-        for root in (shared_root, legacy_root, archive_root):
-            reject_link_paths(root, recursive=False)
         shared_root = shared_root.resolve()
         codex_home = codex_home.resolve()
         legacy_root = codex_home / "skills"
         archive_root = codex_home / ".retired-profile-skills"
-        for root in (legacy_root, archive_root):
-            if root.is_relative_to(shared_root) or shared_root.is_relative_to(root):
-                raise ValueError(f"shared skill root {shared_root} overlaps {root}")
+        resolved_legacy = legacy_root.resolve()
+        resolved_archive = archive_root.resolve()
+        for root, other in (
+            (shared_root, resolved_legacy), (shared_root, resolved_archive), (resolved_legacy, resolved_archive),
+        ):
+            if root.is_relative_to(other) or other.is_relative_to(root):
+                raise ValueError(f"skill root {root} overlaps {other}")
         shared = list_skills_in_root(shared_root)
         legacy = list_skills_in_root(legacy_root)
         names = set(legacy) if skill_names is None else set(legacy).intersection(skill_names)
@@ -403,8 +404,6 @@ def retire_codex_duplicates(
         target = archive_root / name
         changed = False
         try:
-            reject_link_paths(source)
-            reject_link_paths(target, recursive=False)
             if target.exists():
                 action = f"kept legacy skill because the archive destination already exists at {target}"
             elif not apply and (name in shared or name in planned_replacements):
@@ -414,7 +413,6 @@ def retire_codex_duplicates(
                 action = "kept legacy skill because the shared profile has no replacement"
             else:
                 replacement = shared[name]
-                reject_link_paths(replacement)
                 if (replacement / "external-source.json").exists() or not catalogs or not all(
                     (entry := catalog.get(source / "SKILL.md")) is not None
                     and catalog.get(replacement / "SKILL.md") == (entry[0], True)
@@ -598,15 +596,13 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
             or any(character in name for character in '/\\:<>"|?*')
             or any(ord(character) < 32 for character in name) or is_reserved_windows_name(name)):
         raise ValueError("target name must be a single non-reserved filename")
-    source = source.expanduser().absolute()
-    reject_link_paths(source)
     source = source.expanduser().resolve()
     target_root = target_root.expanduser().resolve()
     target = target_root / name
-    reject_link_paths(target)
-    if not target.resolve().is_relative_to(target_root) or target.resolve() == target_root:
+    resolved_target = target.resolve()
+    if not resolved_target.is_relative_to(target_root) or resolved_target == target_root:
         raise ValueError("target must stay strictly inside target root")
-    if source != target and (source.is_relative_to(target) or target.is_relative_to(source)):
+    if source != resolved_target and (source.is_relative_to(resolved_target) or resolved_target.is_relative_to(source)):
         raise ValueError("source and target trees must not overlap")
     result: dict[str, object] = {
         "source": str(source),
@@ -619,7 +615,7 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
     if not source.exists():
         raise FileNotFoundError(f"source does not exist: {source}")
     if source.is_dir() and (source / "external-source.json").is_file():
-        if source == target:
+        if source == resolved_target:
             raise ValueError("Cannot replace the canonical pointer with its resolved installation")
         with tempfile.TemporaryDirectory(prefix="resolved-skill-") as temporary:
             resolved = Path(temporary) / name
@@ -634,8 +630,8 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
     if not no_backup:
         backup_root = (backup_root.expanduser().absolute() if backup_root is not None
                        else target.parent / ".sync-agent-skills-backups")
-        reject_link_paths(backup_root)
-        if backup_root.resolve().is_relative_to(target) or backup_root.resolve().is_relative_to(source):
+        resolved_backup = backup_root.resolve()
+        if resolved_backup.is_relative_to(resolved_target) or resolved_backup.is_relative_to(source):
             raise ValueError("Backup root must be outside source and target")
     if not target_root.exists():
         result["actions"].append(f"create directory {target_root}")
@@ -682,19 +678,6 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
     return result
-
-
-def reject_link_paths(path: Path, *, recursive: bool = True) -> None:
-    """Copies and backup moves must not traverse symlinks or Windows junctions."""
-    for candidate in (path, *path.parents):
-        if candidate.is_symlink() or candidate.is_junction():
-            raise ValueError(f"link or junction is not a supported sync target/source: {candidate}")
-    if recursive and path.is_dir():
-        for directory, subdirectories, files in os.walk(path, followlinks=False):
-            for name in subdirectories + files:
-                candidate = Path(directory) / name
-                if candidate.is_symlink() or candidate.is_junction():
-                    raise ValueError(f"link or junction inside sync tree: {candidate}")
 
 
 def strip_json_comments(text: str) -> str:

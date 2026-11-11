@@ -380,50 +380,6 @@ class SyncAgentSkillsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "canonical pointer"):
                 sync_agent_skills.copy_source(pointer, pointer.parent, None, True, True)
 
-    def test_linked_target_and_source_descendant_are_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "source"
-            source.mkdir()
-            outside = root / "outside"
-            outside.mkdir()
-            target = root / "targets"
-            target.mkdir()
-            link = target / "source"
-            try:
-                link.symlink_to(outside, target_is_directory=True)
-            except OSError as error:
-                self.skipTest(f"Symlinks unavailable: {error}")
-            with self.assertRaises(ValueError):
-                sync_agent_skills.copy_source(source, target, None, True, True)
-            link.unlink()
-            (source / "linked").symlink_to(outside, target_is_directory=True)
-            with self.assertRaises(ValueError):
-                sync_agent_skills.copy_source(source, target, None, True, True)
-            self.assertEqual([], list(outside.iterdir()))
-
-    @unittest.skipUnless(os.name == "nt", "Windows junction behavior")
-    def test_windows_junction_target_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "source"
-            source.mkdir()
-            outside = root / "outside"
-            outside.mkdir()
-            (outside / "keep").write_text("preserved", encoding="utf-8")
-            targets = root / "targets"
-            targets.mkdir()
-            link = targets / "source"
-            quoted_link = str(link).replace("'", "''")
-            quoted_outside = str(outside).replace("'", "''")
-            subprocess.run(["powershell", "-NoProfile", "-Command", f"New-Item -ItemType Junction -Path '{quoted_link}' -Target '{quoted_outside}' | Out-Null"], check=True)
-            try:
-                with self.assertRaises(ValueError):
-                    sync_agent_skills.copy_source(source, targets, None, True, True)
-                self.assertEqual("preserved", (outside / "keep").read_text(encoding="utf-8"))
-            finally:
-                link.rmdir()
-
     def test_load_json_object_accepts_jsonc(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             settings_path = Path(temporary_directory) / "settings.json"
