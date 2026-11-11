@@ -8,12 +8,17 @@ import filecmp
 import hashlib
 import json
 import os
+import queue
 import re
 import shutil
 import stat
 import subprocess
 import tempfile
+import threading
+import time
+import tomllib
 import zipfile
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Iterable
@@ -226,6 +231,213 @@ def list_skills_in_root(root: Path) -> dict[str, Path]:
     return skills
 
 
+@contextmanager
+def shared_profile_write_lock(shared_root: Path):
+    lock_path = shared_root.resolve().parent / ".sync-agent-skills.lock"
+    reject_link_paths(lock_path, recursive=False)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+b") as lock:
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise SystemExit(f"Shared skill profile is locked by another operation: {shared_root}") from error
+        # Closing the file releases the lock even if the sync fails.
+        yield
+
+
+def codex_skill_catalog(
+    executable: str, codex_home: Path, workspace: Path, skill_overrides: str | None = None,
+) -> dict[Path, tuple[str, bool]]:
+    command = [executable, "app-server", "--listen", "stdio://"]
+    if skill_overrides is not None:
+        command.extend(["--config", skill_overrides])
+    environment = {**os.environ, "CODEX_HOME": str(codex_home)}
+    with subprocess.Popen(
+        command, cwd=workspace, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
+    ) as process:
+        assert process.stdin is not None and process.stdout is not None
+        incoming: queue.Queue[str | None] = queue.Queue()
+        output = process.stdout
+
+        def read_output() -> None:
+            try:
+                for line in output:
+                    incoming.put(line)
+            finally:
+                incoming.put(None)
+
+        threading.Thread(target=read_output, daemon=True).start()
+        deadline = time.monotonic() + 15
+
+        def send(method: str, params: dict | None = None, request_id: int | None = None) -> None:
+            request: dict[str, object] = {"method": method}
+            if params is not None:
+                request["params"] = params
+            if request_id is not None:
+                request["id"] = request_id
+            process.stdin.write(json.dumps(request) + "\n")
+            process.stdin.flush()
+
+        def receive(request_id: int) -> dict:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Codex skill discovery timed out")
+                try:
+                    line = incoming.get(timeout=remaining)
+                except queue.Empty as error:
+                    raise TimeoutError("Codex skill discovery timed out") from error
+                if line is None:
+                    raise ValueError("Codex exited during skill discovery")
+                response = json.loads(line)
+                if response.get("id") == request_id:
+                    if "result" not in response:
+                        raise ValueError("Codex refused the skill discovery request")
+                    return response["result"]
+
+        try:
+            send("initialize", {
+                "clientInfo": {"name": "sync-agent-skills", "version": "1.0"},
+                "capabilities": {"experimentalApi": True},
+            }, 1)
+            receive(1)
+            send("initialized")
+            send("skills/list", {"cwds": [str(workspace)], "forceReload": True}, 2)
+            records = receive(2)["data"]
+            if len(records) != 1 or Path(records[0]["cwd"]).resolve() != workspace:
+                raise ValueError("Codex returned an unexpected skill discovery workspace")
+            return {
+                Path(item["path"]): (item["name"], item["enabled"] is True)
+                for item in records[0]["skills"]
+            }
+        except (AttributeError, KeyError, TypeError) as error:
+            raise ValueError("Codex returned an invalid skill discovery response") from error
+        finally:
+            process.kill()
+
+
+def codex_profile_catalogs(codex_home: Path, shared_root: Path) -> list[dict[Path, tuple[str, bool]]]:
+    executable = (shutil.which("codex.exe") if os.name == "nt" else None) or shutil.which("codex")
+    if executable is None:
+        raise ValueError("Codex CLI is unavailable for skill discovery")
+    workspace = shared_root.parent.parent
+    catalogs = [codex_skill_catalog(executable, codex_home, workspace)]
+    for profile in sorted(codex_home.glob("*.config.toml")):
+        if not profile.is_file():
+            continue
+        try:
+            if overrides := codex_profile_skill_overrides(profile):
+                catalogs.append(codex_skill_catalog(executable, codex_home, workspace, overrides))
+        except (OSError, RuntimeError, ValueError) as error:
+            raise ValueError(f"could not verify Codex profile {profile.name}: {error}") from error
+    return catalogs
+
+
+def codex_profile_skill_overrides(profile: Path) -> str | None:
+    """Pass named-profile skill rules to app-server, which does not accept --profile."""
+    with profile.open("rb") as config:
+        skills = tomllib.load(config).get("skills", {})
+    rules = skills.get("config", []) if isinstance(skills, dict) else None
+    if not isinstance(rules, list):
+        raise ValueError("invalid skills.config")
+    overrides = []
+    for rule in rules:
+        if not isinstance(rule, dict) or not isinstance(rule.get("enabled"), bool):
+            raise ValueError("invalid skills.config entry")
+        fields = ["enabled = true" if rule["enabled"] else "enabled = false"]
+        for key in ("name", "path"):
+            if key in rule:
+                selector = rule[key]
+                if not isinstance(selector, str):
+                    raise ValueError(f"invalid skills.config {key}")
+                if key == "path":
+                    # Codex resolves relative paths against the configuration file's directory.
+                    selector = str((profile.parent / Path(selector).expanduser()).resolve())
+                fields.append(f"{key} = {json.dumps(selector, ensure_ascii=False)}")
+        overrides.append("{" + ", ".join(fields) + "}")
+    return "skills.config=[" + ", ".join(overrides) + "]" if overrides else None
+
+
+def retire_codex_duplicates(
+    shared_root: Path,
+    apply: bool,
+    skill_names: Iterable[str] | None = None,
+    planned_replacements: frozenset[str] = frozenset(),
+) -> list[dict[str, object]]:
+    codex_home = Path(os.environ.get("CODEX_HOME") or home() / ".codex").expanduser().absolute()
+    legacy_root = codex_home / "skills"
+    archive_root = codex_home / ".retired-profile-skills"
+    shared_root = shared_root.expanduser().absolute()
+    try:
+        for root in (shared_root, legacy_root, archive_root):
+            reject_link_paths(root, recursive=False)
+        shared_root = shared_root.resolve()
+        codex_home = codex_home.resolve()
+        legacy_root = codex_home / "skills"
+        archive_root = codex_home / ".retired-profile-skills"
+        for root in (legacy_root, archive_root):
+            if root.is_relative_to(shared_root) or shared_root.is_relative_to(root):
+                raise ValueError(f"shared skill root {shared_root} overlaps {root}")
+        shared = list_skills_in_root(shared_root)
+        legacy = list_skills_in_root(legacy_root)
+        names = set(legacy) if skill_names is None else set(legacy).intersection(skill_names)
+        catalogs = codex_profile_catalogs(codex_home, shared_root) if apply and names & shared.keys() else []
+    except (OSError, RuntimeError, ValueError) as error:
+        return [{
+            "skill": "Codex profile", "source": str(legacy_root), "target": str(archive_root),
+            "apply": apply, "changed": False, "actions": [f"kept legacy skills because cleanup failed: {error}"],
+        }]
+
+    results: list[dict[str, object]] = []
+    for name in sorted(names):
+        source = legacy[name]
+        target = archive_root / name
+        changed = False
+        try:
+            reject_link_paths(source)
+            reject_link_paths(target, recursive=False)
+            if target.exists():
+                action = f"kept legacy skill because the archive destination already exists at {target}"
+            elif not apply and (name in shared or name in planned_replacements):
+                action = f"move {source} to {target} if Codex discovers the synced replacement in every profile"
+                changed = True
+            elif name not in shared:
+                action = "kept legacy skill because the shared profile has no replacement"
+            else:
+                replacement = shared[name]
+                reject_link_paths(replacement)
+                if (replacement / "external-source.json").exists() or not catalogs or not all(
+                    (entry := catalog.get(source / "SKILL.md")) is not None
+                    and catalog.get(replacement / "SKILL.md") == (entry[0], True)
+                    for catalog in catalogs
+                ):
+                    action = "kept legacy skill because Codex could not confirm an enabled replacement in every profile"
+                else:
+                    action = f"move {source} to {target}"
+                    changed = True
+                    if apply:
+                        archive_root.mkdir(parents=True, exist_ok=True)
+                        # A completed archive contains SKILL.md, so rename cannot overwrite it.
+                        source.rename(target)
+        except (OSError, ValueError) as error:
+            action = f"kept legacy skill because cleanup failed: {error}"
+            changed = False
+        results.append({
+            "skill": name, "source": str(source), "target": str(target),
+            "apply": apply, "changed": changed, "actions": [action],
+        })
+    return results
+
+
 def sync_skills_from_master(
     master_skills_dir: Path,
     target_root: Path,
@@ -285,6 +497,17 @@ def run_git(*arguments: str) -> str:
     if result.returncode:
         raise RuntimeError(f"External skill Git operation failed: {arguments[0]}")
     return result.stdout.strip()
+
+
+def skill_frontmatter(directory: Path) -> str:
+    skill_text = (directory / "SKILL.md").read_text(encoding="utf-8-sig")
+    frontmatter = re.match(r"\A---\s*\n(.*?)\n---(?:\s|$)", skill_text, re.DOTALL)
+    return frontmatter[1] if frontmatter else ""
+
+
+def skill_name(directory: Path) -> str | None:
+    name_match = re.search(r"^name:\s*([^\n]+)$", skill_frontmatter(directory), re.MULTILINE)
+    return name_match[1].strip().strip("\"'") if name_match else None
 
 
 def resolve_external_skill(source: Path, destination: Path) -> dict[str, str]:
@@ -349,10 +572,7 @@ def resolve_external_skill(source: Path, destination: Path) -> dict[str, str]:
         raise ValueError("External source resolved to another pointer, not a full skill")
     if not (destination / "SKILL.md").is_file():
         raise ValueError("External source has no SKILL.md")
-    skill_text = (destination / "SKILL.md").read_text(encoding="utf-8-sig")
-    frontmatter = re.match(r"\A---\s*\n(.*?)\n---(?:\s|$)", skill_text, re.DOTALL)
-    name_match = re.search(r"^name:\s*([^\n]+)$", frontmatter[1], re.MULTILINE) if frontmatter else None
-    if not name_match or name_match[1].strip().strip("\"'") != source.name:
+    if skill_name(destination) != source.name:
         raise ValueError("External skill name does not match the master pointer")
     missing = [name for name in required if not (destination / name).exists()]
     if missing:
@@ -464,12 +684,12 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
     return result
 
 
-def reject_link_paths(path: Path) -> None:
+def reject_link_paths(path: Path, *, recursive: bool = True) -> None:
     """Copies and backup moves must not traverse symlinks or Windows junctions."""
     for candidate in (path, *path.parents):
         if candidate.is_symlink() or candidate.is_junction():
             raise ValueError(f"link or junction is not a supported sync target/source: {candidate}")
-    if path.is_dir():
+    if recursive and path.is_dir():
         for directory, subdirectories, files in os.walk(path, followlinks=False):
             for name in subdirectories + files:
                 candidate = Path(directory) / name
@@ -698,6 +918,12 @@ def main() -> int:
     sync_from_master_parser.add_argument("--backup-root", type=Path, help="Store recoverable backups outside discovery roots")
     sync_from_master_parser.add_argument("--no-backup", action="store_true", help="Replace without retaining a backup")
 
+    cleanup_parser = subparsers.add_parser(
+        "cleanup-codex-duplicates", help="Archive legacy Codex skills that have a same-named shared replacement",
+    )
+    cleanup_parser.add_argument("--apply", action="store_true", help="Perform changes; default is dry-run")
+    cleanup_parser.add_argument("--json", action="store_true", help="Print JSON")
+
     args = parser.parse_args()
     if args.command == "inventory":
         roots = dict(args.root) if args.root else default_roots()
@@ -707,8 +933,11 @@ def main() -> int:
         return 0
 
     if args.command == "sync":
-        result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force,
-                             args.backup_root, args.no_backup)
+        shared_root = home() / AGENTS_SKILLS_RELATIVE
+        use_lock = args.apply and args.target_root.expanduser().resolve() == shared_root.resolve()
+        with shared_profile_write_lock(shared_root) if use_lock else nullcontext():
+            result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force,
+                                 args.backup_root, args.no_backup)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
@@ -735,41 +964,61 @@ def main() -> int:
                 print(prefix + action)
         return 0
 
-    if args.command == "sync-from-master":
+    if args.command in {"sync-from-master", "cleanup-codex-duplicates"}:
+        shared_root = home() / AGENTS_SKILLS_RELATIVE
+        if args.command == "cleanup-codex-duplicates":
+            with shared_profile_write_lock(shared_root) if args.apply else nullcontext():
+                all_results = retire_codex_duplicates(shared_root, args.apply)
+            print_sync_results(all_results, args.apply, args.json)
+            return 0
+
         master_path = args.master.expanduser().resolve()
         master_skills_dir = master_path / "skills" if (master_path / "skills").is_dir() else master_path
         if not master_skills_dir.is_dir():
             raise FileNotFoundError(f"master skills directory not found at {master_skills_dir}")
 
         target_roots = [target.expanduser().resolve() for target in args.target_root]
-        all_results: list[dict[str, object]] = []
+        all_results = []
         for target_root in target_roots:
-            res = sync_skills_from_master(
-                master_skills_dir=master_skills_dir,
-                target_root=target_root,
-                apply=args.apply,
-                force=args.force,
-                skill_names=args.skills,
-                only_existing=not args.all,
-                backup_root=args.backup_root,
-                no_backup=args.no_backup,
-            )
-            all_results.extend(res)
+            is_shared_profile = target_root == shared_root.resolve()
+            use_lock = args.apply and is_shared_profile
+            with shared_profile_write_lock(shared_root) if use_lock else nullcontext():
+                res = sync_skills_from_master(
+                    master_skills_dir=master_skills_dir,
+                    target_root=target_root,
+                    apply=args.apply,
+                    force=args.force,
+                    skill_names=args.skills,
+                    only_existing=not args.all,
+                    backup_root=args.backup_root,
+                    no_backup=args.no_backup,
+                )
+                all_results.extend(res)
+                if is_shared_profile:
+                    planned_replacements = frozenset(
+                        item["skill"] for item in res if not args.apply and item["changed"]
+                    )
+                    all_results.extend(
+                        retire_codex_duplicates(shared_root, args.apply, args.skills, planned_replacements)
+                    )
 
-        if args.json:
-            print(json.dumps(all_results, indent=2))
-        else:
-            for item in all_results:
-                skill_name = item.get("skill", "")
-                actions = item.get("actions", [])
-                target = item.get("target", "")
-                print(f"Skill '{skill_name}' -> {target}:")
-                for action in actions:
-                    prefix = "would " if not args.apply and not str(action).startswith("target already") and not str(action).startswith("skill '") else ""
-                    print(f"  {prefix}{action}")
+        print_sync_results(all_results, args.apply, args.json)
         return 0
 
     return 2
+
+
+def print_sync_results(results: list[dict[str, object]], apply: bool, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(results, indent=2))
+        return
+    for item in results:
+        print(f"Skill '{item['skill']}' -> {item['target']}:")
+        for action in item["actions"]:
+            prefix = ""
+            if not apply and not action.startswith(("target already", "skill '", "kept legacy")):
+                prefix = "would "
+            print(f"  {prefix}{action}")
 
 
 if __name__ == "__main__":

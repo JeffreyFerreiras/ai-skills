@@ -24,6 +24,7 @@ The canonical `ai-skills/skills` tree remains the source. An explicitly requeste
 - Skill shape: one folder per skill with required `SKILL.md` frontmatter containing `name` and `description`.
 - Optional resources: `scripts/`, `references/`, `assets/`, and `agents/openai.yaml`.
 - The older Codex changelog mentions `~/.codex/skills`; current Codex skill documentation lists `~/.agents/skills` for user skills. Do not move this setup's Codex skills to `.codex/skills` based on the older changelog.
+- Shared-profile sync retires duplicate custom folders from `$CODEX_HOME/skills` (default `~/.codex/skills`). It preserves each original folder in `.retired-profile-skills` under the same Codex home, outside the skills directory.
 
 ## Claude
 

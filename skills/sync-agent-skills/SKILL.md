@@ -21,7 +21,7 @@ The master canonical copy for all skills is the `ai-skills` git repository:
 - Git URL: `https://github.com/JeffreyFerreiras/ai-skills.git`
 - Master skills folder: `skills/` within the repository root.
 
-When updating personal assistant profile roots (`~/.agents/skills`, etc.), treat `ai-skills` as the authoritative master copy. Reading this source repository is not permission to distribute skills to project repositories. Leave leftover `.codex/skills` copies untouched.
+When updating personal assistant profile roots (`~/.agents/skills`, etc.), treat `ai-skills` as the authoritative master copy. Reading this source repository is not permission to distribute skills to project repositories.
 
 ## Workflow
 
@@ -53,6 +53,8 @@ When updating personal assistant profile roots (`~/.agents/skills`, etc.), treat
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
    - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-root <profile-skills-path>`. Pass only user-profile destinations; `--target-repo` is no longer supported.
    - By default this updates existing installed skills to the latest master version. Use `--all` if newly added skills from master should also be installed.
+   - When syncing to `~/.agents/skills`, the helper checks for legacy Codex skills with matching shared folders. It moves the complete legacy folder to `.retired-profile-skills/<name>` under the Codex home only after the Codex CLI reports both copies under the same name and confirms that the shared copy is enabled. The helper checks the default catalog and replays each named profile's skill rules. It reports legacy-only skills and leaves hidden directories such as `.system` alone. A `--skill` filter applies to sync and cleanup.
+   - If Codex discovery is unavailable or cannot confirm the shared copy, the helper keeps the legacy copy. Previews show possible moves before the discovery check. Apply operations that write to the shared profile use the same lock as cleanup.
 10. When the user asks to publish profile changes back to master:
    - This is an explicitly requested contribution to the canonical source, not distribution to consumer repositories. It is not part of ordinary profile sync.
    - Use the repository specified by the user or discover the current `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
@@ -76,6 +78,10 @@ Common operations:
 ```powershell
 # Inventory known profile roots as JSON.
 python <skill-dir>\scripts\sync_agent_skills.py inventory --json
+
+# Preview or apply only the Codex duplicate cleanup
+python <skill-dir>\scripts\sync_agent_skills.py cleanup-codex-duplicates
+python <skill-dir>\scripts\sync_agent_skills.py cleanup-codex-duplicates --apply
 
 # Use broader or narrower bounded scans when profile folders are large.
 python <skill-dir>\scripts\sync_agent_skills.py inventory --max-depth 3 --max-files 100

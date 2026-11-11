@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +22,193 @@ SPEC.loader.exec_module(sync_agent_skills)
 
 
 class SyncAgentSkillsTests(unittest.TestCase):
+    def test_codex_cleanup_previews_and_moves_only_legacy_duplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            shared = profile / ".agents/skills"
+            codex = profile / "custom-codex-home"
+            legacy = codex / "skills"
+            archive = codex / ".retired-profile-skills"
+            for folder in (shared / "catch-up", legacy / "catch-up", legacy / "only-local", legacy / ".system"):
+                folder.mkdir(parents=True)
+                (folder / "SKILL.md").write_text(
+                    f"---\nname: {folder.name}\ndescription: example\n---\n", encoding="utf-8",
+                )
+            (legacy / "catch-up/local-state.json").write_text("preserve", encoding="utf-8")
+            (legacy / "catch-up/SKILL.md").write_text(
+                "---\nname: catch-up # legacy copy\ndescription: example\n---\n", encoding="utf-8",
+            )
+
+            catalog = {
+                legacy / "catch-up/SKILL.md": ("catch-up", True),
+                shared / "catch-up/SKILL.md": ("catch-up", True),
+            }
+            with (
+                patch.dict(os.environ, {"CODEX_HOME": str(codex)}),
+                patch.object(sync_agent_skills, "codex_profile_catalogs", return_value=[catalog]),
+            ):
+                preview = sync_agent_skills.retire_codex_duplicates(shared, apply=False)
+                self.assertEqual(["catch-up"], [item["skill"] for item in preview if item["changed"]])
+                self.assertFalse(archive.exists())
+                self.assertTrue((legacy / "catch-up").is_dir())
+                with patch.object(Path, "rename", side_effect=OSError("move interrupted")):
+                    failed = sync_agent_skills.retire_codex_duplicates(shared, apply=True)
+                self.assertFalse(failed[0]["changed"])
+                self.assertTrue((legacy / "catch-up").is_dir())
+                self.assertFalse((archive / "catch-up").exists())
+                applied = sync_agent_skills.retire_codex_duplicates(shared, apply=True)
+                self.assertEqual(["catch-up"], [item["skill"] for item in applied if item["changed"]])
+                self.assertFalse(any(item["changed"] for item in sync_agent_skills.retire_codex_duplicates(shared, True)))
+                (legacy / "catch-up").mkdir()
+                (legacy / "catch-up/SKILL.md").write_text("---\nname: catch-up\n---\n", encoding="utf-8")
+                collision = sync_agent_skills.retire_codex_duplicates(shared, apply=True, skill_names=["catch-up"])
+
+            self.assertFalse(collision[0]["changed"])
+            self.assertIn("archive destination already exists", collision[0]["actions"][0])
+            self.assertEqual("preserve", (archive / "catch-up/local-state.json").read_text())
+            self.assertTrue((shared / "catch-up/SKILL.md").is_file())
+            self.assertTrue((legacy / "only-local/SKILL.md").is_file())
+            self.assertTrue((legacy / ".system/SKILL.md").is_file())
+
+    def test_master_sync_cleans_only_the_shared_profile_and_requested_skills(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            master = profile / "master/skills"
+            shared = profile / ".agents/skills"
+            other = profile / "other"
+            codex = profile / ".codex"
+            legacy = codex / "skills"
+            for root in (master, legacy):
+                for name in ("first", "second"):
+                    skill = root / name
+                    skill.mkdir(parents=True)
+                    (skill / "SKILL.md").write_text(
+                        f"---\nname: {name}\ndescription: example\n---\n", encoding="utf-8",
+                    )
+
+            def sync(target_root: Path, apply: bool, name: str = "first") -> list[dict]:
+                argv = ["sync-agent-skills", "sync-from-master", "--master", str(master),
+                        "--target-root", str(target_root), "--skill", name, "--json"]
+                if apply:
+                    argv.append("--apply")
+                output = io.StringIO()
+                with patch.object(sys, "argv", argv), redirect_stdout(output):
+                    self.assertEqual(0, sync_agent_skills.main())
+                return json.loads(output.getvalue())
+
+            catalog = {
+                legacy / "first/SKILL.md": ("first", True),
+                shared / "first/SKILL.md": ("first", True),
+            }
+            with (
+                patch.object(sync_agent_skills, "home", return_value=profile),
+                patch.object(sync_agent_skills, "codex_profile_catalogs", return_value=[catalog]),
+            ):
+                with patch.dict(os.environ, {"CODEX_HOME": str(codex)}):
+                    sync(other, apply=True)
+                    self.assertTrue((legacy / "first").exists())
+                    preview = sync(shared, apply=False)
+                    self.assertIn("if Codex discovers the synced replacement", preview[1]["actions"][0])
+                    self.assertFalse(shared.exists())
+                    self.assertTrue((legacy / "first").exists())
+                    sync(shared, apply=True)
+                with patch.dict(os.environ, {"CODEX_HOME": str(shared.parent)}):
+                    results = sync(shared, apply=True, name="second")
+                    self.assertTrue(results[0]["changed"])
+                    self.assertIn("overlaps", results[1]["actions"][0])
+
+            self.assertFalse((legacy / "first").exists())
+            self.assertTrue((legacy / "second").exists())
+
+    def test_codex_cleanup_keeps_legacy_without_an_enabled_match_in_every_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            codex = profile / ".codex"
+            legacy = codex / "skills/example"
+            shared_root = profile / ".agents/skills"
+            shared = shared_root / "example"
+            for skill in (legacy, shared):
+                skill.mkdir(parents=True)
+                (skill / "SKILL.md").write_text(
+                    "---\nname: example\ndescription: fixture\n---\n", encoding="utf-8",
+                )
+            old = legacy / "SKILL.md"
+            new = shared / "SKILL.md"
+            enabled = {old: ("example", True), new: ("example", True)}
+            profile_catalogs = {
+                "replacement missing": [{old: ("example", True)}],
+                "different name": [{old: ("example", True), new: ("different", True)}],
+                "legacy missing": [{new: ("example", True)}],
+                "disabled in named profile": [enabled, {**enabled, new: ("example", False)}],
+                "catalog unavailable": [],
+            }
+            for case, catalogs in profile_catalogs.items():
+                with (
+                    self.subTest(case=case),
+                    patch.dict(os.environ, {"CODEX_HOME": str(codex)}),
+                    patch.object(sync_agent_skills, "codex_profile_catalogs", return_value=catalogs),
+                ):
+                    result = sync_agent_skills.retire_codex_duplicates(shared_root, apply=True)
+                    self.assertFalse(result[0]["changed"])
+                    self.assertIn("could not confirm an enabled replacement", result[0]["actions"][0])
+                    self.assertTrue(old.is_file())
+                    self.assertFalse((codex / ".retired-profile-skills").exists())
+
+            with (
+                patch.dict(os.environ, {"CODEX_HOME": str(codex)}),
+                patch.object(sync_agent_skills, "codex_profile_catalogs", side_effect=ValueError("discovery timed out")),
+            ):
+                result = sync_agent_skills.retire_codex_duplicates(shared_root, apply=True)
+                self.assertFalse(result[0]["changed"])
+                self.assertIn("discovery timed out", result[0]["actions"][0])
+                self.assertTrue(old.is_file())
+
+    def test_cleanup_checks_default_and_named_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            codex = profile / ".codex"
+            codex.mkdir()
+            for name in ("config.toml", "lab.config.toml"):
+                (codex / name).touch()
+            (codex / "work.config.toml").write_text(
+                '[[skills.config]]\nname = "example"\nenabled = false\n'
+                '[[skills.config]]\npath = "../.agents/skills/example/SKILL.md"\nenabled = true\n',
+                encoding="utf-8",
+            )
+            with (
+                patch.object(sync_agent_skills.shutil, "which", return_value="codex"),
+                patch.object(sync_agent_skills, "codex_skill_catalog", return_value={}) as catalog,
+            ):
+                sync_agent_skills.codex_profile_catalogs(codex, profile / ".agents/skills")
+                replacement = json.dumps(str(profile.resolve() / ".agents/skills/example/SKILL.md"))
+                overrides = 'skills.config=[{enabled = false, name = "example"}, {enabled = true, path = '
+                self.assertEqual([
+                    ("codex", codex, profile),
+                    ("codex", codex, profile, overrides + replacement + "}]"),
+                ], [call.args for call in catalog.call_args_list])
+
+    def test_profile_lock_blocks_shared_sync_and_cleanup_until_released(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            shared = profile / ".agents/skills"
+            source = profile / "example"
+            source.mkdir()
+            (source / "SKILL.md").write_text("fixture", encoding="utf-8")
+            commands = (
+                ["sync", "--source", str(source), "--target-root", str(shared), "--apply"],
+                ["sync-from-master", "--master", str(profile), "--target-root", str(shared), "--all", "--apply"],
+                ["cleanup-codex-duplicates", "--apply"],
+            )
+            with patch.object(sync_agent_skills, "home", return_value=profile):
+                with sync_agent_skills.shared_profile_write_lock(shared):
+                    for command in commands:
+                        with patch.object(sys, "argv", ["sync-agent-skills", *command]):
+                            with self.assertRaisesRegex(SystemExit, "locked by another operation"):
+                                sync_agent_skills.main()
+                    self.assertFalse(shared.exists())
+                with sync_agent_skills.shared_profile_write_lock(shared):
+                    self.assertFalse(shared.exists())
+
     def test_rejects_escaped_target_names_before_writes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
