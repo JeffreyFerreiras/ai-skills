@@ -104,7 +104,7 @@ python <skill-dir>\scripts\sync_agent_skills.py sync --source "$HOME\.agents\ski
 
 The script does not convert formats. Use it to inventory, compare checksums, and copy a finalized artifact after deciding that a direct copy is appropriate.
 
-Target names must be single filenames. The helper rejects overlapping trees, linked source/target entries, and linked backup paths. For `external-source.json` pointers, it fetches one concrete upstream commit, validates required resources and the skill name, and installs the full skill with a `.skill-source.json` provenance receipt. Resolution failure leaves the existing installation intact. Git metadata, nested assistant discovery roots, and Python bytecode caches are excluded from the installed snapshot.
+Target names must be single filenames. The helper rejects overlapping trees. For `external-source.json` pointers, it fetches one concrete upstream commit, validates required resources and the skill name, and installs the full skill with a `.skill-source.json` provenance receipt. Resolution failure leaves the existing installation intact. Git metadata, nested assistant discovery roots, and Python bytecode caches are excluded from the installed snapshot.
 
 External resolution also runs during dry runs so the preview can compare the latest content; only temporary staging files are written. The manifest requires an HTTPS `repository`, `management: "external"`, and relative `required_files`. Its optional `revision` must be a full commit hash; otherwise resolve the latest default-branch HEAD. Use `--backup-root <path-outside-skill-discovery>` only when retained backups are requested; it cannot be combined with `--no-backup`. The canonical master pointer remains unchanged.
 
@@ -138,9 +138,9 @@ candidate, report the uncertainty, and continue the independent sync work.
 
 Include confirmed uninstall paths in the same dry run as updates and additions.
 Once sync is authorized, uninstall those retired copies without another approval
-request. Use `remove-agent-skill` or equivalent scoped removal: resolve each path
-inside the requested profile root, reject links and junctions, and prefer moving
-the whole folder to the Recycle Bin or a recoverable location outside discovery.
+request. Use `remove-agent-skill` or equivalent scoped removal. Resolve each path
+inside the requested profile root and prefer moving the whole folder to the
+Recycle Bin or a recoverable location outside discovery.
 Preserve local runtime data in that recoverable copy. Check active profile
 commands, catalogs, and instruction references for obsolete dependencies; keep
 any cleanup within the authorized scope.
