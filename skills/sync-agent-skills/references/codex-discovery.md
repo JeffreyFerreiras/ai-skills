@@ -1,6 +1,6 @@
 # Verify Codex Skill Discovery
 
-`sync-agent-skills` no longer manages `.codex` roots. Use this check only when the user explicitly asks about Codex CLI discovery.
+Use this check after retiring duplicate skills from the Codex user profile or when the user explicitly asks about Codex CLI discovery.
 
 File synchronization and runtime enablement are separate checks. Identical repository and profile copies can both appear in the skill catalog. A successful copy, clean Git status, or existing chat's catalog does not prove that a new process will load the intended skills.
 
