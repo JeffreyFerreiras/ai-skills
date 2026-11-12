@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Production Drive Cleanup"
+  short_description: "Archive and clean video Drive files safely"
+  default_prompt: "Use $video-production-drive-cleanup to audit, archive, or clean scoped video production Drive files with verified evidence."
