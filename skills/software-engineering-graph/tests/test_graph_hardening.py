@@ -713,6 +713,25 @@ class GraphHardeningTests(GraphCase):
         path.write_text("second", encoding="utf-8")
         self.assertNotEqual(first["sha256"], capture_source(self.repo, policy, ["docs/"])["sha256"])
 
+    def test_source_capture_rejects_head_movement_with_unchanged_paths(self):
+        def git(*arguments):
+            subprocess.run(["git", *arguments], cwd=self.repo, check=True, capture_output=True)
+
+        git("init")
+        git("add", "docs/engineering-graph.md")
+        commit = ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit")
+        git(*commit, "-m", "initial")
+        policy, _ = load_policy(self.repo)
+        snapshot = checks_module.safe_file_snapshot
+
+        def advance_head(*args):
+            git(*commit, "--allow-empty", "-m", "advance HEAD without changing files")
+            return snapshot(*args)
+
+        with patch.object(checks_module, "safe_file_snapshot", side_effect=advance_head):
+            with self.assertRaisesRegex(StateError, "SOURCE_UNVERIFIABLE"):
+                capture_source(self.repo, policy, ["docs/engineering-graph.md"])
+
     def test_evidence_enable_preserves_historical_task_and_plan(self):
         initialized = self.initialize()
         task_bytes = (self.repo / "docs/task.json").read_bytes()

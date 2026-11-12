@@ -710,7 +710,9 @@ def capture_source(repo: Path, policy: Mapping[str, Any], roots: Sequence[str], 
                 raise StateError("SOURCE_UNVERIFIABLE")
             return entries
 
-        head = _bounded_git(repo, ["rev-parse", "HEAD"], deadline, output_budget).decode("ascii").strip()
+        head_command = ["rev-parse", "HEAD"]
+        head = _bounded_git(repo, head_command, deadline, output_budget)
+        head_text = head.decode("ascii").strip()
         entries = enumerate_paths()
         excluded = {item["path"] for item in outputs}
         records = []
@@ -740,9 +742,11 @@ def capture_source(repo: Path, policy: Mapping[str, Any], roots: Sequence[str], 
                 raise StateError("SOURCE_UNVERIFIABLE")
             records.append({"path": relative, "index": index, "exists": True,
                             "mode": stat.S_IMODE(metadata.st_mode), "sha256": snapshot.digest})
-        if entries != enumerate_paths() or time.monotonic() > deadline:
+        if (entries != enumerate_paths()
+                or head != _bounded_git(repo, head_command, deadline, output_budget)
+                or time.monotonic() > deadline):
             raise StateError("SOURCE_UNVERIFIABLE")
-        return {"sha256": sha256_bytes(canonical_bytes({"head": head, "paths": records})),
+        return {"sha256": sha256_bytes(canonical_bytes({"head": head_text, "paths": records})),
                 "roots": normalized, "path_count": len(records)}
     except (OSError, ValueError, UnicodeError, ContractError):
         raise StateError("SOURCE_UNVERIFIABLE")

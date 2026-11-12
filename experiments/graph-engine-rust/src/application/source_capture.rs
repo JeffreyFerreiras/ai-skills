@@ -295,11 +295,12 @@ pub fn capture_source_values(
                 selector
             })
             .collect::<Vec<_>>();
+        let head_command = string_arguments(&["rev-parse", "HEAD"], &[]);
         let head = bounded_git(
             process,
             files,
             repository,
-            &string_arguments(&["rev-parse", "HEAD"], &[]),
+            &head_command,
             deadline,
             &mut budget,
         )?;
@@ -315,7 +316,7 @@ pub fn capture_source_values(
             .iter()
             .rposition(|byte| !whitespace(byte))
             .map_or(first, |index| index + 1);
-        let head = String::from_utf8(head[first..last].to_vec()).unwrap();
+        let head_text = String::from_utf8(head[first..last].to_vec()).unwrap();
         let enumeration = Enumeration {
             process,
             files,
@@ -382,12 +383,23 @@ pub fn capture_source_values(
                 ("sha256", digest.into()),
             ]));
         }
-        if entries != enumeration.read(&mut budget)? || files.elapsed() > deadline {
+        if entries != enumeration.read(&mut budget)?
+            || head
+                != bounded_git(
+                    process,
+                    files,
+                    repository,
+                    &head_command,
+                    deadline,
+                    &mut budget,
+                )?
+            || files.elapsed() > deadline
+        {
             return unverifiable();
         }
         let count = records.len();
         let digest = ids::sha256_bytes(&ids::canonical_bytes(&Value::object([
-            ("head", head.into()),
+            ("head", head_text.into()),
             ("paths", Value::List(records)),
         ]))?);
         Ok(Value::object([
