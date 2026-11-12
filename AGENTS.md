@@ -11,8 +11,6 @@ without requesting permission already granted.
 
 ## Git worktrees and merged branches
 
-- Use a dedicated git worktree for new work, except small, isolated documentation
-  edits.
 - Run `baseline` after the task branch merges into the default branch through a
   pull request or direct merge.
 - An authorized merge includes cleanup. After confirming the task branch merged
