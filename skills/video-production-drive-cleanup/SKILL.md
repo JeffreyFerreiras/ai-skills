@@ -16,6 +16,8 @@ Jump to the part that matches the request and read that part plus the safety rul
 
 ## Scope the work
 
+For System Design video archives, use `Z:\ShareDrive\Video\Learning` unless the user specifies a different destination.
+
 Base every item on actual source evidence from the request scope. Accept scoped active and archived production chats, manifests, local exports, and named Drive folders. Treat folder listings and tracker rows as claims to check, not as proof.
 
 Protect source folders from renames and broad sweeps. Confirm the library path before any copy, move, or deletion. Stay inside the scoped set. Keep unrelated accounts and libraries out of the task.
