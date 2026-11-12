@@ -28,11 +28,9 @@ status replies, and one-command verification do not need a subagent.
 4. Only when stdout has `status: fallback` and `reason: uncertain`, delegate
    the same bounded packet to a separate OpenCode CLI process with the exact
    model `opencode-go/deepseek-v4.1-flash`. This is the user's configured fallback,
-   not a confident Laya selection. Follow the `opencode-muse-spark` skill's
-   process with this explicit DeepSeek model override; do not pass this model to
-   Codex `spawn_agent` or invent a DeepSeek reasoning-effort setting. Explicit
-   user choices, required fixed-role plans and higher-priority delegation rules
-   still take precedence.
+   not a confident Laya selection. Do not pass this model to Codex `spawn_agent`
+   or invent a DeepSeek reasoning-effort setting. Explicit user choices, required
+   fixed-role plans and higher-priority delegation rules still take precedence.
 
    Before launching, inspect repository status, resolve `opencode` from PATH,
    check `opencode --version`, and check `opencode models` for that exact model.

@@ -129,7 +129,6 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [notebooklm-cinematic-video](skills/notebooklm-cinematic-video/SKILL.md) | Prepare and activate longer NotebookLM lessons |
 | [notebooklm-short-video](skills/notebooklm-short-video/SKILL.md) | Prepare and activate digestible NotebookLM shorts |
 | [opencode-go-compare](skills/opencode-go-compare/SKILL.md) | Compare OpenCode Go models on speed, cost, and benchmarks |
-| [opencode-muse-spark](skills/opencode-muse-spark/SKILL.md) | Delegate scoped tasks to Muse Spark via OpenCode |
 | [orchestrator-mode](skills/orchestrator-mode/SKILL.md) | Choose a helper model and orchestrate while the primary only thinks |
 | [recommend-model-effort](skills/recommend-model-effort/SKILL.md) | Choose the right reasoning effort for a task |
 | [remove-agent-skill](skills/remove-agent-skill/SKILL.md) | Remove a skill from all agent tools |

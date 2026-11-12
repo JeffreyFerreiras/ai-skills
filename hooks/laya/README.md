@@ -70,8 +70,8 @@ truncation, malformed input, service failure and unavailable Codex models, remai
 in the parent. Explicit user choices, required fixed-role plans and
 higher-priority delegation restrictions still take precedence.
 
-Use the `opencode-muse-spark` skill's separate-process workflow with the explicit
-model override `opencode-go/deepseek-v4.1-flash`, the `build` agent and `--auto`
+Use a separate OpenCode CLI process with the exact model
+`opencode-go/deepseek-v4.1-flash`, the `build` agent and `--auto`
 (unless manual approval was requested). Resolve OpenCode, check its version and
 confirm this exact ID in `opencode models` before launching; do not install it,
 invent an alternative ID, set a DeepSeek effort, or send it to Codex
