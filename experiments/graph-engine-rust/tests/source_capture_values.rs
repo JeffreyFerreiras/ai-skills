@@ -187,6 +187,25 @@ fn malformed_output_tuple_is_rejected_after_initial_source_enumeration() {
 }
 
 #[test]
+fn head_movement_with_unchanged_paths_is_unverifiable() {
+    let files = Files::new(None);
+    let process = Process::new(&[b"abc\n", b"", b"", b"", b"", b"def\n"]);
+    let result = capture(
+        &Value::List(vec!["docs/".into()]),
+        &Value::List(vec![]),
+        &Value::Null,
+        &files,
+        &process,
+    );
+    assert!(
+        matches!(result, Err(EngineError::State(error)) if error.code == "SOURCE_UNVERIFIABLE")
+    );
+    let calls = process.calls.borrow();
+    assert_eq!(calls.last(), calls.first());
+    assert!(process.outputs.borrow().is_empty());
+}
+
+#[test]
 fn string_root_iteration_and_tuple_roots_preserve_the_source_capture_contract() {
     for (roots, expected_root, records) in [
         (
@@ -201,7 +220,7 @@ fn string_root_iteration_and_tuple_roots_preserve_the_source_capture_contract() 
         (Value::Tuple(vec!["docs/".into()]), "docs/", vec![]),
     ] {
         let files = Files::new(None);
-        let process = Process::new(&[b"abc\n", b"", b"", b"", b""]);
+        let process = Process::new(&[b"abc\n", b"", b"", b"", b"", b"abc\n"]);
         let result = capture(
             &roots,
             &Value::Tuple(vec![]),
@@ -220,7 +239,7 @@ fn string_root_iteration_and_tuple_roots_preserve_the_source_capture_contract() 
             .unwrap(),
         );
         assert!(result["sha256"].is_text(&expected));
-        assert_eq!(process.calls.borrow().len(), 5);
+        assert_eq!(process.calls.borrow().len(), 6);
         assert!(process.outputs.borrow().is_empty());
     }
 }
