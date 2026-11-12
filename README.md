@@ -96,16 +96,13 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 <!-- skill-catalog:start -->
 | Skill | Purpose |
 | --- | --- |
-| [a11y-debugging](skills/a11y-debugging/SKILL.md) | Check accessibility with Chrome DevTools |
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
-| [babysit-pr](skills/babysit-pr/SKILL.md) | Watch PR checks, reviews, and readiness |
 | [baseline](skills/baseline/SKILL.md) | Automatically update the default checkout and clean up the task |
 | [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
 | [cat-sanctuary-benchmark](skills/cat-sanctuary-benchmark/SKILL.md) | Run and grade the 3D cat sanctuary model benchmark |
 | [catch-up](skills/catch-up/SKILL.md) | Recap the current conversation and next step |
-| [chrome-devtools](skills/chrome-devtools/SKILL.md) | Inspect and test web pages in Chrome |
 | [clean-architecture-code](skills/clean-architecture-code/SKILL.md) | Write code with clean boundaries |
 | [clean-architecture-review](skills/clean-architecture-review/SKILL.md) | Review code for architecture drift |
 | [clean-code](skills/clean-code/SKILL.md) | Write and refactor pragmatic clean code |
@@ -135,7 +132,6 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [remove-slop](skills/remove-slop/SKILL.md) | Clean AI artifacts without behavior changes |
 | [review-panel](skills/review-panel/SKILL.md) | Run a seven-role independent review panel |
 | [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Trace failures to evidence-backed causes |
-| [run-change-checks](skills/run-change-checks/SKILL.md) | Run focused checks for changes |
 | [skill-doctor](skills/skill-doctor/SKILL.md) | Validate and audit a skills repository |
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
