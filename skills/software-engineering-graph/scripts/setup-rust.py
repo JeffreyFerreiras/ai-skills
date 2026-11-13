@@ -98,7 +98,21 @@ def native_dispatch(staged, suffix):
         document.write_text(text, encoding="utf-8")
 
 
-def install(source, destination, supplied=None):
+def source_dispatch(staged):
+    for name in ("graphctl", "helper-register"):
+        launcher = (
+            '#!/usr/bin/env python3\n"""Build/cache and execute the native Rust command."""\n'
+            'import os\nfrom pathlib import Path\nimport sys\n'
+            'runtime = Path(__file__).with_name("rust-runtime.py")\n'
+            f'os.execv(sys.executable, [sys.executable, str(runtime), {name!r}, *sys.argv[1:]])\n'
+        )
+        for suffix in ("", ".py"):
+            target = staged / "scripts" / (name + suffix)
+            target.write_text(launcher, encoding="utf-8")
+            target.chmod(0o755)
+
+
+def install(source, destination, supplied=None, source_only=False):
     source = source.resolve(strict=True)
     if destination.is_symlink():
         raise SetupError("Install destination is a symlink; choose a new directory (nothing was replaced)")
@@ -108,7 +122,7 @@ def install(source, destination, supplied=None):
             raise SetupError("Install destination must be outside the copied skill and Rust source trees")
     if destination.exists() or destination.is_symlink():
         raise SetupError("Install destination already exists; choose a new directory (nothing was replaced)")
-    for command in ("git", "cargo", "rustc"):
+    for command in (("git",) if source_only else ("git", "cargo", "rustc")):
         if shutil.which(command) is None:
             raise SetupError(f"{command} is required; install Rust >=1.85 from https://rustup.rs and Git, then retry")
     manifest = verify_manifest(source / PACKAGE)
@@ -124,6 +138,19 @@ def install(source, destination, supplied=None):
         generator = package / manifest["generator"]["path"]
         generator.write_bytes(frozen_bytes(generator.read_bytes(), manifest["generator"]["sha256"]))
         stage_oracle(source, build, manifest)
+        if source_only:
+            staged = work / "installed"
+            shutil.copytree(source / SKILL, staged, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            # The temporary bare Git object store is not part of the runtime input.
+            bundled = staged / "rust-source"
+            shutil.copytree(build / "experiments", bundled / "experiments")
+            shutil.copytree(build / "skills", bundled / "skills")
+            shutil.copytree(package / "licenses", staged / "licenses", dirs_exist_ok=True)
+            source_dispatch(staged)
+            if destination.exists() or destination.is_symlink():
+                raise SetupError("Install destination appeared during packaging; nothing was replaced")
+            staged.rename(destination)
+            return destination
         artifacts = work / "artifacts"
         prepare_input(package, artifacts, manifest, supplied)
         environment = os.environ.copy()
@@ -153,9 +180,12 @@ def main(argv=None):
     parser.add_argument("--source", type=Path, required=True, help="ai-skills Git checkout")
     parser.add_argument("--install-dir", type=Path, required=True, help="new skill directory; never overwrites")
     parser.add_argument("--unicode-input", type=Path, help="optional exact frozen Unicode blob; otherwise restore and verify")
+    parser.add_argument("--source-only", action="store_true", help="bundle source; compile and cache native binaries on first use")
     args = parser.parse_args(argv)
     try:
-        destination = install(args.source, args.install_dir, args.unicode_input)
+        if args.source_only and args.unicode_input:
+            raise SetupError("--unicode-input is only used for an immediate native build")
+        destination = install(args.source, args.install_dir, args.unicode_input, args.source_only)
     except (SetupError, OSError, subprocess.CalledProcessError) as error:
         print(f"Rust graph setup failed: {error}", file=sys.stderr)
         return 1

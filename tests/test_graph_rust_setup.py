@@ -143,6 +143,20 @@ class SetupTests(unittest.TestCase):
             self.assertIn("os.execv", (target / "scripts/graphctl.py").read_text())
             self.assertEqual(list(root.iterdir()), [target])
 
+    def test_source_package_does_not_build_or_include_native_binary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "source-skill"
+            def oracle(source, build, manifest):
+                (build / setup.SKILL / "graph_engine").mkdir(parents=True)
+            with patch.object(setup.shutil, "which", return_value="found"), \
+                    patch.object(setup, "stage_oracle", side_effect=oracle), \
+                    patch.object(setup, "run") as run:
+                self.assertEqual(setup.install(ROOT, target, source_only=True), target)
+                run.assert_not_called()
+            self.assertTrue((target / "rust-source" / setup.PACKAGE / "Cargo.lock").is_file())
+            self.assertIn("rust-runtime.py", (target / "scripts/graphctl.py").read_text())
+            self.assertTrue((target / "scripts/graphctl").read_bytes().startswith(b"#!/usr/bin/env python3"))
+
 
 if __name__ == "__main__":
     unittest.main()

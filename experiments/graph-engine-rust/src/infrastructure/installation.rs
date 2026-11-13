@@ -3,6 +3,11 @@ use std::path::{Path, PathBuf};
 /// Installed packages may be renamed by a skill manager. Locate their resources
 /// next to the executable rather than retaining the build machine's checkout.
 pub fn root() -> PathBuf {
+    // Source-only skill launchers keep compiled binaries in a writable cache,
+    // while resources and profile-relative defaults belong to the installed skill.
+    if let Some(root) = std::env::var_os("GRAPH_RUST_SKILL_ROOT") {
+        return PathBuf::from(root);
+    }
     std::env::current_exe()
         .ok()
         .and_then(|executable| installed_root(&executable))
