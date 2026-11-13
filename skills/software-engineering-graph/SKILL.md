@@ -5,6 +5,14 @@ description: Orchestrate software delivery with approved role/model plans, bound
 
 # Software Engineering Graph
 
+## Rust setup
+
+For the Rust runtime, follow [Rust installation](references/rust-setup.md). Run
+`scripts/setup-rust.py` from a checkout of this repository to build and install a
+self-contained skill directory. The installed package runs Rust binaries, including
+through its legacy `.py` entry points; it never falls back to the Python engine.
+The source checkout retains the Python engine as the compatibility oracle.
+
 Use the local control ledger for every new graph run. Treat it as a deterministic coordination and
 recovery aid, not a security boundary or a model-agent executor. Keep the primary agent as Supervisor
 and the sole `graphctl` and ledger CLI mutator. The Supervisor alone dispatches engine-managed graph

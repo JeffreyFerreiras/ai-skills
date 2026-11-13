@@ -30,18 +30,7 @@ impl FaultHook for NoFault {
 }
 
 fn installation_root() -> PathBuf {
-    let installed = std::env::current_exe().ok().and_then(|executable| {
-        let scripts = executable
-            .parent()
-            .filter(|path| path.ends_with("scripts"))?;
-        let skill = scripts
-            .parent()
-            .filter(|path| path.ends_with("skills/software-engineering-graph"))?;
-        Some(skill.to_path_buf())
-    });
-    installed.unwrap_or_else(|| {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../skills/software-engineering-graph")
-    })
+    graph_engine::infrastructure::installation::root()
 }
 
 fn execute(installation: &Path) -> EngineResult<ExecuteOutcome> {

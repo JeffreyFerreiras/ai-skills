@@ -77,7 +77,7 @@ fn execute(arguments: &Arguments) -> Result<Value, CliFailure> {
     let platform = NativeStatePlatform;
     let transactions = NativeHelperFileTransactions;
     let installation = files.resolve(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skills/software-engineering-graph"),
+        &graph_engine::infrastructure::installation::root(),
         false,
     )?;
     let registry = HelperRegister {
