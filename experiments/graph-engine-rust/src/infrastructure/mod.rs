@@ -11,6 +11,7 @@ pub mod helper_files;
 pub mod helper_traceback;
 pub mod os_error;
 pub mod policy_files;
+pub mod installation;
 pub mod process;
 pub mod python_temporary;
 mod snapshot_file;
