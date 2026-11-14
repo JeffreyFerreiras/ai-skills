@@ -4,6 +4,8 @@ import importlib.util
 import io
 import json
 import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -19,6 +21,206 @@ SPEC = importlib.util.spec_from_file_location("sync_agent_skills", MODULE_PATH)
 assert SPEC and SPEC.loader
 sync_agent_skills = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(sync_agent_skills)
+
+
+@unittest.skipUnless(shutil.which("ssh-keygen"), "OpenSSH is required for signed skill tests")
+class SignedSkillTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.master = self.root / "source"
+        self.source = self.master / "skills/demo"
+        self.source.mkdir(parents=True)
+        self.target = self.root / "profile/demo"
+        self.key = self.root / "signing_key"
+        self.signers = self.root / "allowed_signers"
+        self.manifest = self.master / ".skill-signatures.json"
+        self.run_command("git", "init", str(self.master))
+        self.run_command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(self.key))
+        self.signers.write_text("ai-skills " + self.key.with_suffix(".pub").read_text(), encoding="ascii")
+        (self.source / "SKILL.md").write_text("---\nname: demo\ndescription: demo\n---\n", encoding="utf-8")
+        for name in ("obsolete.mp4", "edited.mp4"):
+            (self.source / name).write_bytes(b"tracked video")
+        self.commit_source()
+        self.sign_source()
+
+    def run_command(self, *args, expected=0):
+        result = subprocess.run(args, cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+        return result
+
+    def commit_source(self):
+        self.run_command("git", "-C", str(self.master), "add", "skills")
+        self.run_command("git", "-C", str(self.master), "-c", "user.name=Test", "-c", "user.email=test@example.test",
+                         "-c", "commit.gpgsign=false", "commit", "-m", "fixture")
+
+    def sign_source(self):
+        self.manifest.unlink(missing_ok=True)
+        self.run_command(sys.executable, str(MODULE_PATH), "sign-skills", "--master", str(self.master),
+                         "--signing-key", str(self.key), "--output", str(self.manifest))
+
+    def sync(self, *options, expected=0):
+        return self.run_command(
+            sys.executable, str(MODULE_PATH), "sync-from-master", "--master", str(self.master),
+            "--target-root", str(self.target.parent), "--all", "--force", "--json",
+            *options, expected=expected,
+        )
+
+    def retire_videos(self):
+        (self.source / "obsolete.mp4").unlink()
+        (self.source / "edited.mp4").unlink()
+        self.commit_source()
+        self.sign_source()
+
+    def test_prunes_only_unchanged_previously_signed_files(self):
+        # Legacy content is retained on the first signed sync.
+        self.target.mkdir(parents=True)
+        (self.target / "local.mp4").write_bytes(b"local video")
+        (self.source / "untracked.mp4").write_bytes(b"untracked video")
+        options = ("--allowed-signers", str(self.signers))
+        self.sync(*options, "--apply")
+        self.assertTrue((self.target / ".skill-signature.json").is_file())
+        self.assertFalse((self.target / "untracked.mp4").exists())
+        (self.target / "edited.mp4").write_bytes(b"local edit")
+
+        self.retire_videos()
+        preview = json.loads(self.sync(*options).stdout)[0]
+        self.assertIn("prune signed file removed from source: obsolete.mp4", preview["actions"])
+        self.assertIn("kept changed or read-only file removed from source: edited.mp4", preview["actions"])
+        self.assertTrue((self.target / "obsolete.mp4").is_file())
+        self.sync(*options, "--apply")
+        self.assertFalse((self.target / "obsolete.mp4").exists())
+        self.assertEqual(b"local video", (self.target / "local.mp4").read_bytes())
+        self.assertEqual(b"local edit", (self.target / "edited.mp4").read_bytes())
+        self.assertTrue(list(self.target.parent.glob(".sync-agent-skills-backups/demo.*/obsolete.mp4")))
+        self.assertFalse(json.loads(self.sync(*options).stdout)[0]["changed"])
+
+    def test_rejects_tampered_or_stale_source_and_unsigned_downgrade(self):
+        options = ("--allowed-signers", str(self.signers))
+        self.sync(*options, "--apply")
+        original = self.manifest.read_bytes()
+        changed = json.loads(original)
+        changed["demo"]["manifest"]["files"]["SKILL.md"]["sha256"] = "tampered"
+        self.manifest.write_text(json.dumps(changed), encoding="utf-8")
+        self.assertIn("did not verify", self.sync(*options, "--apply", expected=1).stderr)
+        self.manifest.write_bytes(original)
+        (self.source / "new.txt").write_text("new tracked file", encoding="utf-8")
+        self.commit_source()
+        self.assertIn("do not match", self.sync(*options, "--apply", expected=1).stderr)
+        self.assertIn("requires signed sync", self.sync("--apply", expected=1).stderr)
+        self.assertTrue((self.target / "obsolete.mp4").is_file())
+        self.assertFalse((self.target / "new.txt").exists())
+
+    def test_invalid_previous_signature_preserves_obsolete_files(self):
+        options = ("--allowed-signers", str(self.signers))
+        self.sync(*options, "--apply")
+        (self.target / ".skill-signature.json").write_text("{}", encoding="utf-8")
+        self.retire_videos()
+        result = self.sync(*options, "--apply", "--no-backup")
+        self.assertIn("previous skill signature is invalid", result.stdout)
+        self.assertTrue((self.target / "obsolete.mp4").is_file())
+
+    def test_preserves_local_pointer_and_repairs_tracked_files_named_tags(self):
+        self.target.mkdir(parents=True)
+        local_pointer = self.target / "external-source.json"
+        local_pointer.write_text("local data", encoding="utf-8")
+        (self.source / "tags").write_bytes(b"tracked tags")
+        self.commit_source()
+        self.sign_source()
+        options = ("--allowed-signers", str(self.signers), "--apply")
+        self.sync(*options)
+        self.assertEqual("local data", local_pointer.read_text(encoding="utf-8"))
+        (self.target / "tags").write_bytes(b"edited")
+        self.sync(*options)
+        self.assertEqual(b"tracked tags", (self.target / "tags").read_bytes())
+
+    def test_prune_allows_tracked_directory_to_become_a_file(self):
+        media = self.source / "media"
+        media.mkdir()
+        (media / "old.mp4").write_bytes(b"tracked file")
+        self.commit_source()
+        self.sign_source()
+        options = ("--allowed-signers", str(self.signers), "--apply")
+        self.sync(*options)
+        (media / "old.mp4").unlink()
+        media.rmdir()
+        media.write_bytes(b"replacement file")
+        self.commit_source()
+        self.sign_source()
+        self.sync(*options)
+        self.assertEqual(b"replacement file", (self.target / "media").read_bytes())
+
+    def test_executable_mode_is_authenticated(self):
+        self.run_command("git", "-C", str(self.master), "update-index", "--chmod=+x", "skills/demo/SKILL.md")
+        self.run_command("git", "-C", str(self.master), "-c", "user.name=Test", "-c", "user.email=test@example.test",
+                         "-c", "commit.gpgsign=false", "commit", "-m", "change mode")
+        result = self.sync("--allowed-signers", str(self.signers), "--apply", expected=1)
+        self.assertIn("do not match", result.stderr)
+        self.assertFalse(self.target.exists())
+
+    def test_publish_restores_live_skill_when_it_changed_after_staging(self):
+        with patch.dict(sys.modules, {"signed_skills": load_signed_skills()}):
+            self.target.mkdir(parents=True)
+            video = self.target / "obsolete.mp4"
+            video.write_bytes(b"original")
+            baseline = sync_agent_skills.skill_tree_signature(self.target)
+            staged = self.root / "staged"
+            staged.mkdir()
+            (staged / "SKILL.md").write_bytes(b"new")
+            video.write_bytes(b"edit during sync")
+            with self.assertRaisesRegex(ValueError, "changed during staging"):
+                sync_agent_skills.publish_signed_skill(staged, self.target, baseline, None)
+            self.assertEqual(b"edit during sync", video.read_bytes())
+
+    def test_invalid_backup_destination_leaves_profile_unchanged(self):
+        options = ("--allowed-signers", str(self.signers), "--apply")
+        self.sync(*options)
+        self.retire_videos()
+        backup = self.root / "invalid-backup"
+        backup.write_bytes(b"existing file")
+        self.sync(*options, "--backup-root", str(backup), expected=1)
+        self.assertEqual(b"tracked video", (self.target / "obsolete.mp4").read_bytes())
+        self.assertFalse(list(self.target.parent.glob(".signed-skill-*")))
+
+    def test_preserves_retired_files_with_local_permission_changes(self):
+        options = ("--allowed-signers", str(self.signers), "--apply", "--no-backup")
+        self.sync(*options)
+        installed = self.target / "obsolete.mp4"
+        installed.chmod(stat.S_IREAD if os.name == "nt" else 0o600)
+        self.addCleanup(installed.chmod, stat.S_IWRITE | stat.S_IREAD)
+        self.retire_videos()
+        self.sync(*options)
+        self.assertEqual(b"tracked video", installed.read_bytes())
+
+    def test_unsigned_copy_rejects_receipt_in_source(self):
+        source = self.root / "unsigned"
+        source.mkdir()
+        receipt = json.loads(self.manifest.read_bytes())["demo"]
+        (source / ".skill-signature.json").write_text(json.dumps(receipt), encoding="utf-8")
+        result = self.run_command(
+            sys.executable, str(MODULE_PATH), "sync", "--source", str(source),
+            "--target-root", str(self.target.parent), "--apply", expected=1,
+        )
+        self.assertIn("receipts cannot be copied", result.stderr)
+        self.assertFalse((self.target.parent / "unsigned").exists())
+
+    def test_rejects_git_export_omissions_before_pruning(self):
+        options = ("--allowed-signers", str(self.signers), "--apply")
+        self.sync(*options)
+        (self.source / ".gitattributes").write_text("*.mp4 export-ignore\n", encoding="ascii")
+        self.commit_source()
+        result = self.sync(*options, expected=1)
+        self.assertIn("Git archive omitted tracked skill file", result.stderr)
+        self.assertTrue((self.target / "obsolete.mp4").is_file())
+
+
+def load_signed_skills():
+    spec = importlib.util.spec_from_file_location("signed_skills", MODULE_PATH.with_name("signed_skills.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class SyncAgentSkillsTests(unittest.TestCase):
@@ -200,13 +402,13 @@ class SyncAgentSkillsTests(unittest.TestCase):
                 ["cleanup-codex-duplicates", "--apply"],
             )
             with patch.object(sync_agent_skills, "home", return_value=profile):
-                with sync_agent_skills.shared_profile_write_lock(shared):
+                with sync_agent_skills.profile_write_lock(shared):
                     for command in commands:
                         with patch.object(sys, "argv", ["sync-agent-skills", *command]):
                             with self.assertRaisesRegex(SystemExit, "locked by another operation"):
                                 sync_agent_skills.main()
                     self.assertFalse(shared.exists())
-                with sync_agent_skills.shared_profile_write_lock(shared):
+                with sync_agent_skills.profile_write_lock(shared):
                     self.assertFalse(shared.exists())
 
     def test_rejects_escaped_target_names_before_writes(self) -> None:

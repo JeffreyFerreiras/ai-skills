@@ -21,8 +21,11 @@ import zipfile
 from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 from urllib.parse import urlsplit
+
+if TYPE_CHECKING:
+    from signed_skills import SignedFile
 
 
 INTERESTING_SUFFIXES = {
@@ -35,6 +38,8 @@ INTERESTING_SUFFIXES = {
 }
 
 AI_SKILLS_DEFAULT_REPO_URL = "https://github.com/JeffreyFerreiras/ai-skills.git"
+SKILL_SIGNATURE_RECEIPT = ".skill-signature.json"
+SkillTreeSignature = tuple[dict[str, tuple[str, int]], set[str]]
 
 # Codex skill root, also discovered by local Cursor.
 AGENTS_SKILLS_RELATIVE = Path(".agents/skills")
@@ -232,8 +237,8 @@ def list_skills_in_root(root: Path) -> dict[str, Path]:
 
 
 @contextmanager
-def shared_profile_write_lock(shared_root: Path):
-    lock_path = shared_root.resolve().parent / ".sync-agent-skills.lock"
+def profile_write_lock(profile_root: Path):
+    lock_path = profile_root.resolve().parent / ".sync-agent-skills.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as lock:
         try:
@@ -247,7 +252,7 @@ def shared_profile_write_lock(shared_root: Path):
 
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as error:
-            raise SystemExit(f"Shared skill profile is locked by another operation: {shared_root}") from error
+            raise SystemExit(f"Skill profile is locked by another operation: {profile_root}") from error
         # Closing the file releases the lock even if the sync fails.
         yield
 
@@ -451,24 +456,11 @@ def sync_skills_from_master(
     target_skills = list_skills_in_root(target_root)
     results: list[dict[str, object]] = []
 
-    names_to_sync = (
-        set(skill_names)
-        if skill_names is not None
-        else (set(target_skills.keys()) if only_existing else set(master_skills.keys()))
-    )
+    names_to_sync = selected_skill_names(master_skills, target_skills, skill_names, only_existing)
 
-    for name in sorted(names_to_sync):
+    for name in names_to_sync:
         if name not in master_skills:
-            results.append(
-                {
-                    "skill": name,
-                    "source": None,
-                    "target": str(target_root / name),
-                    "apply": apply,
-                    "changed": False,
-                    "actions": [f"skill '{name}' not found in master skills repository"],
-                }
-            )
+            results.append(missing_master_skill(name, target_root, apply))
             continue
 
         source_path = master_skills[name]
@@ -485,6 +477,223 @@ def sync_skills_from_master(
         results.append(copy_res)
 
     return results
+
+
+def selected_skill_names(
+    master_skills: Iterable[str], target_skills: Iterable[str],
+    skill_names: Iterable[str] | None, only_existing: bool,
+) -> list[str]:
+    return sorted(
+        set(skill_names)
+        if skill_names is not None
+        else (set(target_skills) if only_existing else set(master_skills))
+    )
+
+
+def missing_master_skill(name: str, target_root: Path, apply: bool) -> dict[str, object]:
+    return {
+        "skill": name, "source": None, "target": str(target_root / name),
+        "apply": apply, "changed": False,
+        "actions": [f"skill '{name}' not found in master skills repository"],
+    }
+
+
+def sync_signed_skills(args: argparse.Namespace, master: Path, target_root: Path) -> list[dict[str, object]]:
+    import signed_skills
+
+    allowed_signers = args.allowed_signers.expanduser().resolve()
+    if allowed_signers.is_relative_to(master) or allowed_signers.is_relative_to(target_root):
+        raise ValueError("Use an allowed signers file outside the master checkout and profile root")
+    if target_root.is_relative_to(master) or master.is_relative_to(target_root):
+        raise ValueError("Master checkout and profile root must not overlap")
+    if any((parent / SKILL_SIGNATURE_RECEIPT).is_file() for parent in (target_root, *target_root.parents)):
+        raise ValueError("Choose a profile root outside signed skill directories")
+    with tempfile.TemporaryDirectory(prefix="signed-skills-") as temporary:
+        staging = Path(temporary)
+        snapshot = staging / "source"
+        inventory = signed_skills.archive_skills(master, snapshot)
+        manifest_path = args.manifest or master / signed_skills.MANIFEST_FILE
+        receipts = json.loads(manifest_path.read_bytes())
+        if not isinstance(receipts, dict) or receipts.keys() != inventory.keys():
+            raise ValueError("Signed manifest must cover every skill in the checked-out commit")
+        target_skills = list_skills_in_root(target_root)
+        names = selected_skill_names(inventory, target_skills, args.skills, not args.all)
+        # Verify the whole selection before touching any installations.
+        for name in names:
+            if name not in inventory:
+                continue
+            if signed_skills.verified_files(receipts[name], name, allowed_signers) != inventory[name]:
+                raise ValueError(f"Signed files do not match the checked-out commit: {name}")
+            if (snapshot / name / "external-source.json").exists():
+                raise ValueError(f"Cannot install a signed external pointer without signed upstream files: {name}")
+        return [
+            install_signed_skill(args, target_root, snapshot / name, receipts[name], inventory[name], allowed_signers)
+            if name in inventory else missing_master_skill(name, target_root, args.apply)
+            for name in names
+        ]
+
+
+def install_signed_skill(
+    args: argparse.Namespace, target_root: Path, source: Path, receipt: dict,
+    managed: dict[str, SignedFile], allowed_signers: Path,
+) -> dict[str, object]:
+    import signed_skills
+
+    name = source.name
+    target = target_root / name
+    actions = []
+    previous = {}
+    baseline = None
+    receipt_name = SKILL_SIGNATURE_RECEIPT
+    if os.path.lexists(target):
+        baseline = skill_tree_signature(target)
+        if any(path.name.casefold() == receipt_name and path.name != receipt_name for path in target.iterdir()):
+            raise ValueError(f"Ambiguous installed signature path: {target}")
+        if (target / receipt_name).is_dir():
+            raise ValueError(f"Installed signature path is a directory: {target / receipt_name}")
+    with tempfile.TemporaryDirectory(prefix="signed-skill-install-") as temporary:
+        staged = Path(temporary) / name
+        if baseline is not None:
+            shutil.copytree(target, staged, symlinks=True)
+            if skill_tree_signature(staged) != baseline:
+                raise ValueError(f"Profile skill changed during staging: {target}")
+        else:
+            staged.mkdir()
+        if (staged / receipt_name).is_file():
+            try:
+                previous = signed_skills.verified_files(
+                    json.loads((staged / receipt_name).read_bytes()), name, allowed_signers,
+                )
+            except ValueError:
+                actions.append("kept obsolete files because the previous skill signature is invalid")
+        for relative_path in sorted(baseline[0] if baseline is not None else {}):
+            if relative_path not in managed and relative_path in previous:
+                obsolete = staged / relative_path
+                digest, mode = baseline[0][relative_path]
+                old_file = previous[relative_path]
+                mode_matches = (mode == (0o755 if old_file["executable"] else 0o644) if os.name != "nt"
+                                else bool(mode & stat.S_IWRITE))
+                if digest == old_file["sha256"] and mode_matches:
+                    obsolete.unlink()
+                    for folder in obsolete.parents:
+                        if folder == staged or any(folder.iterdir()):
+                            break
+                        folder.rmdir()
+                    actions.append(f"prune signed file removed from source: {relative_path}")
+                else:
+                    actions.append(f"kept changed or read-only file removed from source: {relative_path}")
+        # Refuse case aliases and directory collisions before copying a tracked file.
+        staged_paths = {}
+        for item in staged.rglob("*"):
+            relative = item.relative_to(staged).as_posix()
+            if relative.casefold() in staged_paths:
+                raise ValueError(f"Conflicting local path spellings: {target / relative}")
+            staged_paths[relative.casefold()] = item
+        for relative_path in managed:
+            destination = staged / relative_path
+            for path in (destination, *destination.parents):
+                if path == staged:
+                    break
+                existing = staged_paths.get(path.relative_to(staged).as_posix().casefold())
+                if existing is not None and (
+                    str(existing) != str(path) or (existing.is_dir() if path == destination else existing.is_file())
+                ):
+                    raise ValueError(f"Local path conflicts with signed file {relative_path}: {target}")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            remove_staged_file(destination)
+            shutil.copy2(source / relative_path, destination)
+        remove_staged_file(staged / receipt_name)
+        (staged / receipt_name).write_bytes(signed_skills.json_bytes(receipt))
+        changed = skill_tree_signature(staged) != baseline
+        if not changed:
+            actions.insert(0, "target already has the verified files")
+        elif baseline is not None and not args.force:
+            changed = False
+            actions = ["target differs; rerun with --force to replace", *(
+                action for action in actions if action.startswith("kept ")
+            )]
+        else:
+            backup = None
+            if baseline is not None and not args.no_backup:
+                default_backup_root = target_root / ".sync-agent-skills-backups"
+                backup_root = args.backup_root or default_backup_root
+                backup_root = backup_root.expanduser().resolve()
+                if (backup_root.is_relative_to(target_root) and backup_root != default_backup_root
+                        or backup_root.is_relative_to(args.master.expanduser().resolve())):
+                    raise ValueError("Use the default hidden backup directory or a backup root outside the profile and master")
+                backup = backup_root / backup_path(target).name
+                actions.insert(0, f"backup {target} to {backup}")
+            actions.insert(0, f"install verified files in {target}")
+            if args.apply:
+                publish_signed_skill(staged, target, baseline, backup)
+    result = {
+        "skill": name, "source": str(args.master.expanduser().resolve() / "skills" / name),
+        "target": str(target), "apply": args.apply, "changed": changed, "actions": actions,
+    }
+    return result
+
+
+def remove_staged_file(path: Path) -> None:
+    if path.is_file():
+        if os.name == "nt":
+            path.chmod(stat.S_IWRITE)
+        path.unlink()
+
+
+def skill_tree_signature(root: Path) -> SkillTreeSignature:
+    import signed_skills
+
+    files, directories = signed_skills.regular_tree(root)
+    return {
+        name: (signed_skills.file_digest(path), stat.S_IMODE(path.stat().st_mode))
+        for name, path in files.items()
+    }, directories
+
+
+def publish_signed_skill(
+    staged: Path, target: Path, baseline: SkillTreeSignature | None, backup: Path | None,
+) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Keep displaced files outside discovery, on the target filesystem for rollback.
+    transaction = Path(tempfile.mkdtemp(prefix=".signed-skill-", dir=target.parent))
+    incoming = transaction / "incoming"
+    displaced = transaction / "previous"
+    installed = False
+    try:
+        shutil.copytree(staged, incoming)
+        if backup is not None:
+            backup.parent.mkdir(parents=True, exist_ok=True)
+        if baseline is not None:
+            target.rename(displaced)
+            if skill_tree_signature(displaced) != baseline:
+                raise ValueError(f"Profile skill changed during staging: {target}")
+        elif os.path.lexists(target):
+            raise ValueError(f"Profile skill appeared during staging: {target}")
+        if backup is not None:
+            # Finish the requested backup while the previous folder can still be restored.
+            with tempfile.TemporaryDirectory(prefix=".signed-skill-backup-", dir=backup.parent) as temporary:
+                staged_backup = Path(temporary) / "previous"
+                shutil.copytree(displaced, staged_backup)
+                staged_backup.rename(backup)
+            if skill_tree_signature(displaced) != baseline:
+                raise ValueError(f"Profile skill changed during backup: {target}")
+        incoming.rename(target)
+        installed = True
+    finally:
+        if displaced.exists() and not installed:
+            try:
+                displaced.rename(target)
+            except OSError as error:
+                raise RuntimeError(f"Restore the previous skill from {displaced}") from error
+        shutil.rmtree(transaction, onerror=retry_read_only_cleanup)
+
+
+def retry_read_only_cleanup(function, path, error):
+    if isinstance(error[1], PermissionError):
+        os.chmod(path, stat.S_IWRITE)
+        function(path)
+    else:
+        raise error[1]
 
 
 def run_git(*arguments: str) -> str:
@@ -614,6 +823,11 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
 
     if not source.exists():
         raise FileNotFoundError(f"source does not exist: {source}")
+    if source.is_dir() and any(child.name.casefold() == SKILL_SIGNATURE_RECEIPT for child in source.iterdir()):
+        raise ValueError("Installed signature receipts cannot be copied by unsigned sync")
+    for parent in (resolved_target, *resolved_target.parents):
+        if (parent / SKILL_SIGNATURE_RECEIPT).is_file():
+            raise ValueError(f"{parent} requires signed sync with --allowed-signers")
     if source.is_dir() and (source / "external-source.json").is_file():
         if source == resolved_target:
             raise ValueError("Cannot replace the canonical pointer with its resolved installation")
@@ -900,6 +1114,13 @@ def main() -> int:
     sync_from_master_parser.add_argument("--json", action="store_true", help="Print JSON")
     sync_from_master_parser.add_argument("--backup-root", type=Path, help="Store recoverable backups outside discovery roots")
     sync_from_master_parser.add_argument("--no-backup", action="store_true", help="Replace without retaining a backup")
+    sync_from_master_parser.add_argument("--allowed-signers", type=Path, help="Trusted OpenSSH allowed signers file for signed sync")
+    sync_from_master_parser.add_argument("--manifest", type=Path, help="Signed manifest path (default: .skill-signatures.json in master)")
+
+    sign_parser = subparsers.add_parser("sign-skills", help="Sign every skill in the source checkout's committed tree")
+    sign_parser.add_argument("--master", type=Path, required=True, help="Path to the source repository checkout")
+    sign_parser.add_argument("--signing-key", type=Path, required=True, help="OpenSSH signing key")
+    sign_parser.add_argument("--output", type=Path, required=True, help="Write the signed manifest to a new file")
 
     cleanup_parser = subparsers.add_parser(
         "cleanup-codex-duplicates", help="Archive legacy Codex skills that have a same-named shared replacement",
@@ -908,6 +1129,19 @@ def main() -> int:
     cleanup_parser.add_argument("--json", action="store_true", help="Print JSON")
 
     args = parser.parse_args()
+    if args.command == "sign-skills":
+        import signed_skills
+
+        with tempfile.TemporaryDirectory(prefix="sign-skills-") as temporary:
+            inventory = signed_skills.archive_skills(args.master.expanduser().resolve(), Path(temporary) / "skills")
+            receipts = {
+                name: signed_skills.sign_skill(name, files, args.signing_key.expanduser().resolve())
+                for name, files in inventory.items()
+            }
+        with args.output.expanduser().open("xb") as manifest:
+            manifest.write(signed_skills.json_bytes(receipts))
+        print(f"Signed {len(receipts)} skills in {args.output}")
+        return 0
     if args.command == "inventory":
         roots = dict(args.root) if args.root else default_roots()
         excluded_dirs = set() if args.include_noisy_dirs else DEFAULT_EXCLUDED_DIRS
@@ -916,9 +1150,7 @@ def main() -> int:
         return 0
 
     if args.command == "sync":
-        shared_root = home() / AGENTS_SKILLS_RELATIVE
-        use_lock = args.apply and args.target_root.expanduser().resolve() == shared_root.resolve()
-        with shared_profile_write_lock(shared_root) if use_lock else nullcontext():
+        with profile_write_lock(args.target_root.expanduser()) if args.apply else nullcontext():
             result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force,
                                  args.backup_root, args.no_backup)
         if args.json:
@@ -950,12 +1182,16 @@ def main() -> int:
     if args.command in {"sync-from-master", "cleanup-codex-duplicates"}:
         shared_root = home() / AGENTS_SKILLS_RELATIVE
         if args.command == "cleanup-codex-duplicates":
-            with shared_profile_write_lock(shared_root) if args.apply else nullcontext():
+            with profile_write_lock(shared_root) if args.apply else nullcontext():
                 all_results = retire_codex_duplicates(shared_root, args.apply)
             print_sync_results(all_results, args.apply, args.json)
             return 0
 
         master_path = args.master.expanduser().resolve()
+        if args.no_backup and args.backup_root:
+            parser.error("--no-backup and --backup-root cannot be combined")
+        if args.manifest and not args.allowed_signers:
+            parser.error("--manifest requires --allowed-signers")
         master_skills_dir = master_path / "skills" if (master_path / "skills").is_dir() else master_path
         if not master_skills_dir.is_dir():
             raise FileNotFoundError(f"master skills directory not found at {master_skills_dir}")
@@ -964,18 +1200,20 @@ def main() -> int:
         all_results = []
         for target_root in target_roots:
             is_shared_profile = target_root == shared_root.resolve()
-            use_lock = args.apply and is_shared_profile
-            with shared_profile_write_lock(shared_root) if use_lock else nullcontext():
-                res = sync_skills_from_master(
-                    master_skills_dir=master_skills_dir,
-                    target_root=target_root,
-                    apply=args.apply,
-                    force=args.force,
-                    skill_names=args.skills,
-                    only_existing=not args.all,
-                    backup_root=args.backup_root,
-                    no_backup=args.no_backup,
-                )
+            with profile_write_lock(target_root) if args.apply else nullcontext():
+                if args.allowed_signers:
+                    res = sync_signed_skills(args, master_path, target_root)
+                else:
+                    res = sync_skills_from_master(
+                        master_skills_dir=master_skills_dir,
+                        target_root=target_root,
+                        apply=args.apply,
+                        force=args.force,
+                        skill_names=args.skills,
+                        only_existing=not args.all,
+                        backup_root=args.backup_root,
+                        no_backup=args.no_backup,
+                    )
                 all_results.extend(res)
                 if is_shared_profile:
                     planned_replacements = frozenset(
@@ -999,7 +1237,7 @@ def print_sync_results(results: list[dict[str, object]], apply: bool, as_json: b
         print(f"Skill '{item['skill']}' -> {item['target']}:")
         for action in item["actions"]:
             prefix = ""
-            if not apply and not action.startswith(("target already", "skill '", "kept legacy")):
+            if not apply and not action.startswith(("target already", "skill '", "kept ")):
                 prefix = "would "
             print(f"  {prefix}{action}")
 

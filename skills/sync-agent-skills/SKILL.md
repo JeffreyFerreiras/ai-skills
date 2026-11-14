@@ -51,14 +51,14 @@ When updating personal assistant profile roots (`~/.agents/skills`, etc.), treat
    - After authorized enablement changes, re-inventory the affected skill roots. Use a fresh-process discovery check when a runtime change needs verification; see `references/codex-discovery.md` for Codex.
 9. When the user asks to update installed profile skills from master:
    - Identify the local `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
-   - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-root <profile-skills-path>`. Pass only user-profile destinations; `--target-repo` is no longer supported.
+   - Run `sync_agent_skills.py sync-from-master --master <ai-skills-path> --target-root <profile-skills-path>`. Add the [signed sync options](#signed-profile-sync) for a signed profile. Pass only user-profile destinations; `--target-repo` is no longer supported.
    - By default this updates existing installed skills to the latest master version. Use `--all` if newly added skills from master should also be installed.
    - When syncing to `~/.agents/skills`, the helper checks for legacy Codex skills with matching shared folders. It moves the complete legacy folder to `.retired-profile-skills/<name>` under the Codex home only after the Codex CLI reports both copies under the same name and confirms that the shared copy is enabled. The helper checks the default catalog and replays each named profile's skill rules. It reports legacy-only skills and leaves hidden directories such as `.system` alone. A `--skill` filter applies to sync and cleanup.
    - If Codex discovery is unavailable or cannot confirm the shared copy, the helper keeps the legacy copy. Previews show possible moves before the discovery check. Apply operations that write to the shared profile use the same lock as cleanup.
 10. When the user asks to publish profile changes back to master:
    - This is an explicitly requested contribution to the canonical source, not distribution to consumer repositories. It is not part of ordinary profile sync.
    - Use the repository specified by the user or discover the current `ai-skills` checkout (`https://github.com/JeffreyFerreiras/ai-skills.git`).
-   - Mirror each changed skill folder into `<repo>\skills\<skill-name>`.
+   - Mirror each changed skill folder into `<repo>\skills\<skill-name>`. Leave installed signature receipts in the profile.
    - Inspect `git status --short --branch` before staging so unrelated user changes are visible.
    - Commit only the mirrored skill changes with a focused message when the user requests a commit.
    - Push only when the user explicitly requests publication, using the repository's configured branch.
@@ -122,6 +122,38 @@ python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.a
 # Apply updates to the shared profile root without retained backups
 python $syncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --apply --force --no-backup
 ```
+
+## Signed profile sync
+
+Maintainers can sign each skill exported from the committed `skills/` tree.
+Use a dedicated OpenSSH signing key and keep it outside the repository. Run
+the signer and verifier from a trusted installation separate from the source
+checkout. Set `$trustedSyncScript` to that installation's
+`scripts/sync_agent_skills.py` path.
+
+```powershell
+python $trustedSyncScript sign-skills --master $masterRepo --signing-key $signingKey --output $newManifest
+python $trustedSyncScript sync-from-master --master $masterRepo --target-root "$HOME\.agents\skills" --manifest $newManifest --allowed-signers $trustedSigners --force
+```
+
+Publish the manifest as `.skill-signatures.json` at the checkout root to use the
+default path. Regenerate it after changing tracked skill files. Keep the trusted
+signers file outside the checkout and profile roots. Its entry
+uses the format `ai-skills ssh-ed25519 <public-key-data>`. Verify the public key
+with the maintainer before trusting it. Signed sync needs `ssh-keygen` with
+`-Y` support and a Git checkout of the source commit.
+
+The preview lists files to prune. Add `--apply` to install the signed files and
+prune files that an earlier verified receipt lists, that still match the old
+hash and file permissions, and that are absent from the new source. On Windows
+sync uses the read-only attribute to detect local permission changes. Local-only files, edited retired files,
+and unknown files in legacy installs stay in place. Backups retain the previous
+folder by default. Use signed sync for later updates to an installation with a
+receipt. Receipts describe source content. Leave each receipt in the profile
+where sync wrote it.
+
+Signed mode covers tracked native skills. External pointers require the existing
+external sync workflow. Whole-skill retirement follows the procedure below.
 
 ## Retired skills
 
