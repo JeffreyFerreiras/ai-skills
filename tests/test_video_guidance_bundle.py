@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -56,9 +58,9 @@ class VideoGuidanceBundleTests(unittest.TestCase):
                 bundler.bundle(root)
             self.assertFalse((root / "skills").exists())
 
-    def test_notebooklm_installs_have_no_sibling_reference_dependencies(self) -> None:
+    def test_video_installs_have_no_sibling_reference_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            for skill in ("notebooklm-cinematic-video", "notebooklm-short-video"):
+            for skill in bundler.BUNDLES:
                 standalone = Path(directory) / skill
                 shutil.copytree(ROOT / "skills" / skill, standalone)
                 checker = standalone / "scripts/scene_bridge.py"
@@ -66,6 +68,28 @@ class VideoGuidanceBundleTests(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stderr)
                 result = subprocess.run([sys.executable, "-B", str(standalone / "scripts/cover_style.py"), "--help"], capture_output=True, text=True)
                 self.assertEqual(0, result.returncode, result.stderr)
+                project = Path(directory) / (skill + "-project")
+                project.mkdir()
+                data = "synthetic café".encode("utf-8")
+                (project / "source.txt").write_bytes(data)
+                prior = b'{"schema_version":1}'
+                (project / "prior.json").write_bytes(prior)
+                record = {"schema_version": 1, "production_id": "p1", "stage_id": "s1", "generation": 0,
+                    "nodes": [{"id": "n1", "kind": "source", "scope_ids": ["s1"], "depends_on": [],
+                               "artifacts": [{"path": "source.txt", "sha256": hashlib.sha256(data).hexdigest()}]}],
+                    "gates": [{"id": "g1", "prerequisite_nodes": [], "check_ids": ["structure"], "consistency_coverage": ["source"],
+                               "budget_checkpoint": {"path": "prior.json", "sha256": hashlib.sha256(prior).hexdigest()},
+                               "required": [{"role": "technical", "reviewer_id": "r1", "scope_ids": ["s1"], "criterion_ids": ["C1"]}]}]}
+                manifest = project / "context.json"
+                manifest.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+                result = subprocess.run([sys.executable, "-B", str(standalone / "scripts/production_context.py"),
+                    "check", str(manifest), "--project", str(project)], capture_output=True, text=True, encoding="utf-8")
+                self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+                self.assertTrue(json.loads(result.stdout)["valid"])
+                for name in bundler.CONTEXT_RESOURCES:
+                    folder = "scripts" if name.endswith(".py") else "references"
+                    self.assertEqual((ROOT / "shared/video-production" / name).read_bytes(),
+                                     (standalone / folder / name).read_bytes())
                 for document in standalone.rglob("*.md"):
                     for link in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
                         if "://" not in link:

@@ -20,8 +20,9 @@ BUNDLES = {
 COVER_RESOURCES = ("cover-style.md", "cover_style.py", "cover-references/manifest.json",
                    "cover-references/safe-rollbacks-tiktok-cover.png", "cover-references/logical-clocks-tiktok-cover.png")
 STYLE_RESOURCES = ("neon-chalk-systems.md", "cloudflare-cinematic-decomposition.md", "teaching-opening.md")
+CONTEXT_RESOURCES = ("production-context.md", "production-preflight.md", "production_context.py")
 BUNDLES = {
-    skill: (*resources, *COVER_RESOURCES, *STYLE_RESOURCES)
+    skill: (*resources, *COVER_RESOURCES, *STYLE_RESOURCES, *CONTEXT_RESOURCES)
     for skill, resources in BUNDLES.items()
 }
 
