@@ -137,7 +137,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
-| [system-design-video](skills/system-design-video/SKILL.md) | Create narrated vertical system design videos |
+| [system-design-video](skills/system-design-video/SKILL.md) | Create narrated vertical system design videos, including Jeffrit chalk TikToks |
 | [theme-factory](skills/theme-factory/SKILL.md) | Apply consistent colors and fonts to artifacts |
 | [tiktok-copy-cover](skills/tiktok-copy-cover/SKILL.md) | Write TikTok captions and matching covers |
 | [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |

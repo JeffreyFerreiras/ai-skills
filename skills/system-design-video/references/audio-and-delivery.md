@@ -18,7 +18,10 @@ Without a destination contract, a conservative speech starting point is -18 LUFS
 with a review range of -20 to -16 LUFS and final true peak at or below -2 dBTP.
 Aim near -3 dBTP before lossy encoding for headroom. These are production choices,
 not universal platform limits. Adjust from destination requirements and actual
-listening; do not sacrifice headroom to hit a loudness number. Record the channel
+listening; do not sacrifice headroom to hit a loudness number. The Jeffrit chalk
+TikTok series is a destination contract: -14 LUFS integrated and true peak at or
+below -2 dBTP on the encoded master. Do not use the -18 starting point for that
+series. See [the series reference](chalk-tiktok-series.md). Record the channel
 convention; the following recipe uses `dual_mono=false`:
 
 ```bash
