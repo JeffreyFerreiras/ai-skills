@@ -60,9 +60,17 @@ class VideoGuidanceBundleTests(unittest.TestCase):
 
     def test_video_installs_have_no_sibling_reference_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            for skill in bundler.BUNDLES:
+            for skill, resources in bundler.BUNDLES.items():
                 standalone = Path(directory) / skill
                 shutil.copytree(ROOT / "skills" / skill, standalone)
+                for document in standalone.rglob("*.md"):
+                    for link in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
+                        if "://" not in link:
+                            target = (document.parent / link.split("#")[0]).resolve()
+                            self.assertTrue(target.is_relative_to(standalone.resolve()), link)
+                            self.assertTrue(target.is_file(), link)
+                if "scene_bridge.py" not in resources:
+                    continue
                 checker = standalone / "scripts/scene_bridge.py"
                 result = subprocess.run([sys.executable, "-B", str(checker), "--help"], capture_output=True, text=True)
                 self.assertEqual(0, result.returncode, result.stderr)
@@ -90,10 +98,6 @@ class VideoGuidanceBundleTests(unittest.TestCase):
                     folder = "scripts" if name.endswith(".py") else "references"
                     self.assertEqual((ROOT / "shared/video-production" / name).read_bytes(),
                                      (standalone / folder / name).read_bytes())
-                for document in standalone.rglob("*.md"):
-                    for link in re.findall(r"\]\(([^)]+)\)", document.read_text(encoding="utf-8")):
-                        if "://" not in link:
-                            self.assertTrue((document.parent / link.split("#")[0]).is_file(), link)
 
 
 if __name__ == "__main__":

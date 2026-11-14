@@ -68,6 +68,9 @@ last-good snapshot, frozen plan, current phase, bound Writer identity, role/mode
 assignments, round reservations, dispatch states, checks, review decisions, and
 stable finding IDs. Store short evidence summaries, not reasoning transcripts.
 Keep recovery state task-scoped and out of cross-task memory.
+Only reusable, evidence-backed lessons belong in `lessons-learned.md` under the
+[production lessons protocol](production-lessons.md). Never copy recovery state
+or review approvals into that journal.
 
 Publish complete checkpoints through a host atomic transaction/pointer replacement
 when available and retain the previous valid version. State is recovery data, not

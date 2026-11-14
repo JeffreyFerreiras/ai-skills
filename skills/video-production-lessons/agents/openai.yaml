@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Production Lessons"
+  short_description: "Reuse verified lessons across video productions"
+  default_prompt: "Use $video-production-lessons to apply relevant past lessons and record verified outcomes for this video production."

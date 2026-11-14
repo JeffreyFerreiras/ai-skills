@@ -9,6 +9,11 @@ Create a digestible learning short through NotebookLM, using a reviewed producti
 document and a separate concise activation prompt. A document-only request ends
 with those files; upload-only work ends with verified source ingestion.
 
+Before planning and at closure, follow the bundled
+[production lessons](references/production-lessons.md). Apply relevant saved
+evidence and record verified lessons when current memory-write rules permit.
+Keep the journal out of NotebookLM sources and activation prompts.
+
 Read the bundled [NotebookLM workflow](references/notebooklm-workflow.md) for
 source preparation, review, upload/activation, duplicate checks and delivery.
 Use the [scene director](references/scene-direction.md) before storyboard lock.
