@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -144,6 +146,60 @@ class ChalkTikTokSeriesTests(unittest.TestCase):
             self.assertTrue((PIPELINE / name).is_file(), name)
         self.assertIn("CHALK_SOUND_HELPERS", (PIPELINE / "build_audio.py").read_text(encoding="utf-8"))
         self.assertIn("-14.0", (PIPELINE / "master.py").read_text(encoding="utf-8"))
+
+    def load_reference(self, name: str):
+        path = PIPELINE / name
+        spec = importlib.util.spec_from_file_location(f"outbox_{path.stem}", path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        return module
+
+    def test_speech_check_reports_a_truncated_paragraph_and_keeps_complete_sentences(self) -> None:
+        coverage = self.load_reference("asr_mp4.py").sentence_coverage
+        paragraph = {"para": "N04", "sentences": [
+            {"sid": "N04S1", "start": 0.0, "end": 1.0, "text": "one"},
+            {"sid": "N04S2", "start": 1.4, "end": 2.2, "text": "two"},
+            {"sid": "N04S3", "start": 2.6, "end": 4.0, "text": "three"},
+        ]}
+        complete_paragraphs, complete_sentences, gaps = coverage([paragraph], 3.0)
+        self.assertEqual([], complete_paragraphs)
+        self.assertEqual(["N04S1", "N04S2"], [sentence["sid"] for sentence in complete_sentences])
+        self.assertEqual([("N04S3", "truncated")], [(gap["sid"], gap["reason"]) for gap in gaps])
+        _, _, later = coverage([{"para": "N05", "sentences": [
+            {"sid": "N05S1", "start": 5.0, "end": 6.0, "text": "four"}]}], 3.0)
+        self.assertEqual("missing", later[0]["reason"])
+        ok_paragraphs, ok_sentences, none = coverage([paragraph], 4.0)
+        self.assertEqual(["N04"], [item["para"] for item in ok_paragraphs])
+        self.assertEqual(3, len(ok_sentences))
+        self.assertEqual([], none)
+        exact_paragraphs, exact_sentences, exact_gaps = coverage([{"para": "N01", "sentences": [
+            {"sid": "N01S1", "start": 0.0, "end": 3.0, "text": "fits"}]}], 3.0)
+        self.assertEqual(["N01"], [item["para"] for item in exact_paragraphs])
+        self.assertEqual(["N01S1"], [sentence["sid"] for sentence in exact_sentences])
+        self.assertEqual([], exact_gaps)
+
+    def test_loudness_master_name_is_used_only_after_both_targets_pass(self) -> None:
+        master = self.load_reference("master.py")
+        self.assertTrue(master.meets_loudness(-14.0, -2.0))
+        self.assertTrue(master.meets_loudness(-13.96, -2.8))
+        self.assertTrue(master.meets_loudness(-14.04, -2.0))
+        self.assertFalse(master.meets_loudness(-13.94, -2.8))
+        self.assertFalse(master.meets_loudness(-14.06, -2.8))
+        self.assertFalse(master.meets_loudness(-18.0, -2.8))
+        self.assertFalse(master.meets_loudness(-14.0, -1.2))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate = root / "candidate.mp4"
+            final = root / "transactional-outbox-final-v1-master.mp4"
+            candidate.write_bytes(b"attempt")
+            final.write_bytes(b"previous-good")
+            self.assertIsNone(master.commit_master(False, candidate, final))
+            self.assertEqual(b"previous-good", final.read_bytes())
+            self.assertEqual(b"attempt", candidate.read_bytes())
+            self.assertEqual(final.name, master.commit_master(True, candidate, final))
+            self.assertEqual(b"attempt", final.read_bytes())
+            self.assertFalse(candidate.exists())
 
     def test_new_guidance_has_no_dashes_or_private_paths(self) -> None:
         roots = (
