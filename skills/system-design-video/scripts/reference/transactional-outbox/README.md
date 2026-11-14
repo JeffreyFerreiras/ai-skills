@@ -19,9 +19,9 @@ The Jeffrit end card is imported from this skill's brand kit at [jeffrit](../../
 - `render.py` and `part2.py`: the picture. `part2.py` is the second half (fix, relay, trade-offs, laptop close, end card) and uses names from `render.py`.
 - `events.json`: cue times written for the sound build.
 - `build_audio.py`: narration, music high-passed at 230 Hz, SFX high-passed at 300 Hz, no whoosh in a pause, C add9 chord under the end card.
-- `master.py`: iterative gain to -14 LUFS integrated and true peak at or below -2 dBTP, then AAC in the MP4, measured with `ebur128`.
+- `master.py`: iterative gain to -14 LUFS integrated and true peak at or below -2 dBTP, measured on the AAC in the MP4 with `ebur128`. Saves the measurements and exits nonzero if all attempts miss the targets. Only an attempt that passes replaces the final master.
 - `measure_pauses.py`: sentence and paragraph gaps on the final MP4, plus words per minute. Pass the MP4, and optionally the performance JSON, as arguments.
-- `asr_mp4.py`: `small.en` and `base.en`, beam 5 and greedy, per sentence and per paragraph of the final MP4.
+- `asr_mp4.py`: `small.en` and `base.en`, beam 5 and greedy, per sentence and per paragraph of the final MP4. Reports missing or truncated sentence IDs and exits nonzero before decoding speech if the audio is too short.
 - `enc_qa.py`: contact sheet, 360x640 frames, and a strip of every transition from the encoded file.
 
 Do not point these scripts at a private machine path inside the skill. Pass the episode directory on the command line or through `CHALK_SOUND_HELPERS`.
