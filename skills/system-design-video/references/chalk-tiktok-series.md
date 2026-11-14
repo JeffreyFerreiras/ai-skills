@@ -28,7 +28,7 @@ Move one stage at a time. Update the episode tracker at every stage, including a
 4. **Full render.** Start only after the sample review. Retime the picture to the measured audio. Run the QA gates below on the encoded master.
 5. **Deliver.** In one shot, hand over the clean master, the 1080x1920 cover, and the caption. The caption is its own message and that message contains only the caption. Also hand over `QA-REPORT.md` and `SHA256SUMS` with the package. Do not wait to be asked for the cover or the caption.
 6. **Publish.** Stop. Jeffrey uploads to TikTok himself. Delivery is not approval to publish. Do not upload, schedule, or post.
-7. **After publish.** Archive, clean working copies, and capture lessons. Those three are separate from each other and from the upload.
+7. **After publish.** Archive and clean working copies. Send lessons to the destinations Jeffrey has explicitly authorized.
 
 Planning may continue while a choice is pending. TTS, the sample render, and the full render may not.
 
@@ -167,13 +167,13 @@ Wait until Jeffrey confirms the upload of that master.
 
 Archive with the video-production-drive-cleanup skill. That cleanup is the Video Janitor step. Copy the accepted master, cover, caption, QA report, hashes, and the source project into the configured system-design archive, read the copy back, and update the tracker with the archive result. Then clean only the working copies that skill allows. Do not archive or delete before publish. Do not treat cleanup as permission to post.
 
-Capture lessons in both places. They are additive.
+Keep proposed lessons in the authorized episode record when they are learned. Delivery does not wait on the write-up. Require explicit authorization for each destination and for any Git push. Treat upload confirmation as the trigger for archive and cleanup.
 
-- Write a short retrospective, the next-run checks, and an evidence index to the configured Google Drive lessons document. Read it back. Do not store the Drive file id in this skill.
-- Process the same lessons into the knowledge vault and push that change directly to the vault's `main` branch. A Drive folder is not the vault. Do not record the vault path or a machine id here.
-- The local production-lessons journal still applies when its write rules allow. It is a third store, outside this repository. Do not confuse the three.
+- When authorized, write a short retrospective, the next-run checks, and an evidence index to the configured Google Drive lessons document. Read it back.
+- When authorized, process the same lessons into the knowledge vault. Follow the vault repository's branch and review rules for any authorized push.
+- Apply the local production-lessons journal's own write rules.
 
-Record a lesson when it is learned, not only at the end. Delivery does not wait on the write-up. Publishing and archiving stay blocked until their own conditions are met. If Drive or the vault cannot be written, say which one is pending. Do not report both done.
+Track the Drive and vault updates separately. Mark a destination pending if it lacks authorization or the write could not be completed. Keep Drive file IDs, vault paths, and machine IDs out of this skill.
 
 ## Reference scripts
 

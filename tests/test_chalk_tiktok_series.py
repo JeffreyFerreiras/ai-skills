@@ -50,7 +50,7 @@ REQUIRED_SERIES_PHRASES = (
     "QA-REPORT.md",
     "SHA256SUMS",
     "Video Janitor",
-    "directly to the vault's `main` branch",
+    "Require explicit authorization for each destination and for any Git push.",
 )
 
 CASE_IDS = (
@@ -141,7 +141,7 @@ class ChalkTikTokSeriesTests(unittest.TestCase):
                 self.assertLessEqual(len(line), 34, f"{card.name}: {line}")
         self.assertTrue((EXAMPLE / "transactional-outbox-tiktok-cover-1080x1920-v2.png").is_file())
         self.assertTrue((EXAMPLE / "QA-REPORT.md").is_file())
-        for name in ("render.py", "part2.py", "timeline.py", "chalkkit.py", "build_audio.py",
+        for name in ("render.py", "timeline.py", "chalkkit.py", "build_audio.py",
                      "master.py", "measure_pauses.py", "asr_mp4.py", "enc_qa.py", "events.json"):
             self.assertTrue((PIPELINE / name).is_file(), name)
         self.assertIn("CHALK_SOUND_HELPERS", (PIPELINE / "build_audio.py").read_text(encoding="utf-8"))

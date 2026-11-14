@@ -16,7 +16,7 @@ The Jeffrit end card is imported from this skill's brand kit at [jeffrit](../../
 
 - `timeline.py`: word-timed scene boundaries. Internal scene names are never drawn.
 - `chalkkit.py`: board, chalk marks, C# lexer tokens, limb-name check, 1080x1920 at 24 fps.
-- `render.py` and `part2.py`: the picture. `part2.py` is the second half (fix, relay, trade-offs, laptop close, end card) and uses names from `render.py`.
+- `render.py`: the complete picture renderer, including the fix, relay, trade-offs, laptop close, and end card.
 - `events.json`: cue times written for the sound build.
 - `build_audio.py`: narration, music high-passed at 230 Hz, SFX high-passed at 300 Hz, no whoosh in a pause, C add9 chord under the end card.
 - `master.py`: iterative gain to -14 LUFS integrated (within 0.05) and true peak at or below -2 dBTP, then AAC in the MP4, measured with `ebur128`. The final master filename is written only after both checks pass. Ten misses keep the measurement report, leave the candidate off that filename, and exit nonzero.
