@@ -143,6 +143,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [to-tickets](skills/to-tickets/SKILL.md) | Draft verifiable tickets with explicit blockers |
 | [unslop](skills/unslop/SKILL.md) | Remove AI phrasing and filler from writing |
 | [video-production-drive-cleanup](skills/video-production-drive-cleanup/SKILL.md) | Archive and clean video Drive files safely |
+| [video-production-lessons](skills/video-production-lessons/SKILL.md) | Reuse verified lessons across video productions |
 | [word-documents](skills/word-documents/SKILL.md) | Create and verify .docx files |
 | [writing-loop](skills/writing-loop/SKILL.md) | Refine prose with a reducer and independent editor |
 | [writing-reducer](skills/writing-reducer/SKILL.md) | Reduce wordiness and unnecessary explanations |

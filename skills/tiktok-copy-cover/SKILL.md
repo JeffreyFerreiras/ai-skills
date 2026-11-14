@@ -9,6 +9,11 @@ Produce posting copy plus a real `cover.png` for the current video or topic.
 Reuse facts already in chat or the episode brief. Ask only when material
 information is absent. Do not regenerate video for a copy/cover-only task.
 
+Before drafting and at closure, follow the bundled
+[production lessons](references/production-lessons.md). Reuse relevant copy/cover
+evidence and save verified lessons when current memory-write rules permit.
+Keep private lesson history out of captions and cover text.
+
 Read [references/copy-guide.md](references/copy-guide.md) for the copy
 deliverables and constraints. Read
 [references/cover-style.md](references/cover-style.md) when a cover is needed.

@@ -96,6 +96,11 @@ run `python scripts/bundle-video-guidance.py` and its `--check` mode. The genera
 bundles scene direction, its story-bridge contract and checker into all three
 video skills, with workflow/history references also bundled into each NotebookLM
 skill. Standalone installs need no sibling skill.
+The shared production-lessons protocol is bundled into those three skills,
+`tiktok-copy-cover` and the `video-production-lessons` companion for workflows
+such as OpenArt. Live journals stay in the configured runtime home, outside this
+repository and installed skills. Edit the shared protocol and regenerate its
+copies; do not commit production lessons or private evidence.
 Cover style, its checker and the two unchanged original PNGs with provenance
 manifest are also canonical under `shared/video-production` and bundled into
 each video skill. Edit shared files, then regenerate; do not edit generated

@@ -9,6 +9,11 @@ Produce an editable vertical video that teaches how a system works. Keep the
 architecture, spoken explanation, and visible events consistent. Deliver the
 requested plan, preview, or rendered video, with the evidence needed to review it.
 
+Before planning and at closure, follow the bundled
+[production lessons](references/production-lessons.md). Apply relevant saved
+evidence and record verified lessons when current memory-write rules permit.
+Keep the shared journal separate from this episode's recovery state and approvals.
+
 At the start of a new episode, use the [visual style picker](references/style-gallery.md).
 Show the saved sample images to the user, then ask which style to use. Wait for
 their choice before committing to visual direction or production. An explicit
