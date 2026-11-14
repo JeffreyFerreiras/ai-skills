@@ -1,0 +1,1 @@
+center 452 600 radius 405 size 904 1152

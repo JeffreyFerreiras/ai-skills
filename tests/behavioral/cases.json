@@ -222,5 +222,26 @@
     "prompt": "Create a silent landscape system-design animation with readable on-screen explanations. Keep all output local.",
     "fixture": "Synthetic architecture notes and local renderer with no voice engine. The requested lesson has a causal mechanism and transition suitable for a short visual sample.",
     "expected": "Set narrated false, produce and review a representative silent mechanism sample, and finish the authorized local animation with visual/media evidence. Do not require voice generation, narration loudness checks, karaoke captions, a portrait format, or an external sample upload."
+  },
+  {
+    "id": "system-design-video-chalk-tiktok-workflow",
+    "skill": "system-design-video",
+    "prompt": "Make the next Jeffrit chalk technical explainer for TikTok. Pick the topic, write the script, and carry it through delivery. I upload to TikTok myself.",
+    "fixture": "Synthetic episode tracker whose recent rows are thread-pool starvation, retry storms, health checks, cartesian explosion, and transactional outbox. Local renderer and the three approved voices are available. Microsoft Learn extracts for three new .NET topics are in the fixture. No publish credentials and no external-write tools.",
+    "expected": "Check the tracker and offer 3 non-repeating topic options, with one recommendation, and wait for the choice. Write a sourced script, Microsoft Learn first, with compiling C# and no em dashes. Get script approval before narration. Render only the hook through the first problem beat, and wait for sample review before a full render. Keep the episode under 2 minutes including the laptop close and Jeffrit end card. After QA, deliver the clean master, the 1080x1920 cover, and a separate message that contains only the caption, unprompted. Do not upload or publish. Update the tracker at every stage."
+  },
+  {
+    "id": "system-design-video-chalk-tiktok-narration-qa",
+    "skill": "system-design-video",
+    "prompt": "Narrate and QA this approved Jeffrit chalk TikTok script. The previous episode used af_bella. Master it for TikTok and show me the checks.",
+    "fixture": "Synthetic approved script with Entity Framework Core, SQL, and at-least-once delivery. Kokoro full-precision and int8 weights, Chatterbox sample 1, and am_fenrir are available. A draft mix has a whoosh inside a sentence gap, integrated loudness at -18 LUFS, true peak -1.2 dBTP, and speech-to-text that hears polls as pulls. Phone-size frames and the encoded MP4 can be measured. No listening booth.",
+    "expected": "Rotate to the next approved voice, not af_bella. Use full-precision weights for af_bella when that voice is selected, and am_fenrir only at speed 1.20. Record one TTS take per sentence. Assemble about 0.42 s sentence gaps (0.35 to 0.45) and about 0.68 s paragraph gaps, judged on the final MP4. Say Entity Framework Core, then Entity Framework, and sequel for SQL. Keep real identifiers on screen. Remove the whoosh from the pause. Master to -14 LUFS integrated and true peak -2 dBTP or lower. Regenerate the polls/pulls take. Run two Whisper sizes and more than one decode on every sentence. Report 360x640 frames, every transition, loudness, pauses, wpm, and the open listening gap. Do not treat homophones that keep meaning as failures."
+  },
+  {
+    "id": "system-design-video-chalk-tiktok-not-universal",
+    "skill": "system-design-video",
+    "prompt": "Plan a narrated landscape Remotion lesson about cache aside for an internal engineering review. This is not a TikTok and not a chalk short.",
+    "fixture": "Synthetic cache-aside notes, a local Remotion project, and Kokoro af_heart at speed 1.0. No TikTok cover is requested. The style has not been chosen. Tracker rows for the chalk series are present but out of scope.",
+    "expected": "Use the general system-design workflow. Ask for a style if none is selected. Keep the 90-180 second planning range, the -18 LUFS starting point, a continuous short-sample take, and native speed 1.0. Do not require the Jeffrit bust, the Jeffrit end card, the 2-minute cap, -14 LUFS, sentence-take assembly, a TikTok cover, or a caption-only message. Do not treat the chalk tracker as a reason to change this lesson."
   }
 ]

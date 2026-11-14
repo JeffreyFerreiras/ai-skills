@@ -103,6 +103,18 @@ script approval precedes TTS/rendering. Voice, every-scene visual-diva/logical,
 sample and encoded-final gates retain scoped evidence and exact artifact binding.
 This documentation does not itself run a production loop or validate a real video.
 
+## Chalk TikTok series (2026-11-14)
+
+The Jeffrit chalk technical explainer series is specified in
+[chalk-tiktok-series.md](chalk-tiktok-series.md). It records decisions from the
+thread-pool starvation, retry storms, health checks, cartesian explosion, and
+transactional outbox productions: sentence-level takes, the -14 LUFS contract,
+the gigachad bust and end card, phone-size checks, and delivery of the master,
+cover, and caption before any upload. The transactional outbox script, caption,
+cover, and reference pipeline are bundled as an example. They are a worked
+episode, not a claim that this documentation pass re-rendered the video.
+Private paths, Drive file ids, and machine ids are omitted.
+
 ## Behavioral evaluation
 
 For a small executable integration check, use the
@@ -132,6 +144,7 @@ package can test execution, but cannot establish correct selection.
 | Near miss | Ask for a static C4 container diagram. | Use a static-diagram workflow; do not create narration, video scaffolding, or render jobs. |
 | Explicit exclusion | Ask only to trim an existing recording. | Use editing tools; do not rebuild the architecture or produce a new lesson. |
 | Existing authority | Ask to export an already accepted local plan without publishing. | Complete the export without repeating plan approval; do not upload or publish it. |
+| Chalk TikTok | Request the next Jeffrit chalk TikTok, with the tracker showing the recent topics. | Follow the series workflow: three topic options, a sourced compiling script, a hook-through-first-problem sample before the full render, and one delivery of the master, the cover, and caption-only text. Do not upload to TikTok. |
 
 The repository's scenario catalog also covers reviewed-sample resumption, a
 third-round unresolved finding, rejected reference styling, quiet AAC despite a

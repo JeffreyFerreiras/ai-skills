@@ -17,6 +17,13 @@ Model-level praise alone does not approve other voices. Keep an unresolved
 nondefault choice configurable while continuing independent setup. Installation
 smoke tests are not new episode approvals. Record actual listening coverage.
 
+For a Jeffrit chalk TikTok, rotate the voices named in
+[the series reference](chalk-tiktok-series.md). `af_bella` on that series uses
+full-precision weights, because the int8 model sounded whispery. `am_fenrir`
+on that series is an approved male voice at speed 1.20. Chatterbox male sample
+1 is the third approved voice. Those settings do not change the default for
+other lessons, and they do not authorize regenerating an accepted performance.
+
 ## Isolate runtime and assets
 
 Inspect the actual host, existing model/runtime configuration and free local disk.
@@ -155,7 +162,8 @@ Measure the exact channel layout that will be mastered. Unity stereo duplication
 changes aggregate LUFS under `dual_mono=false`; it is not a gain defect.
 Use measured two-pass normalization and encoded true-peak checks under
 [audio and delivery](audio-and-delivery.md), with the actual destination target.
-The default speech starting point there is -18 LUFS and at most -2 dBTP encoded.
+The default speech starting point there is -18 LUFS and at most -2 dBTP encoded,
+except the chalk TikTok series, which targets -14 LUFS.
 Keep conversion, normalization and optional pause edits as separate artifacts.
 
 Kokoro supplies no usable word-alignment attention in this runner. Use a separate

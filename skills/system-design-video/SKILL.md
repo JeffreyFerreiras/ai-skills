@@ -1,6 +1,6 @@
 ---
 name: system-design-video
-description: Create local code-rendered vertical system design explainer videos with sourced architecture, narrated timelines and media checks. Use for animated technical lessons, not NotebookLM production packets, static diagrams or footage editing alone.
+description: Create local code-rendered vertical system design explainer videos, including Jeffrit chalk TikTok lessons, with sourced architecture, narrated timelines and media checks. Use for animated technical lessons, not NotebookLM production packets, static diagrams or footage editing alone.
 ---
 
 # System design video
@@ -22,6 +22,14 @@ to choose on the user's behalf satisfies the choice. Do not ask again on
 continuation. A general preference or a previous episode's
 style does not select the style for a new episode. Source and script planning
 may continue while the choice is pending.
+
+When the request is a Jeffrit chalk technical explainer for TikTok, or a
+continuation of that series, follow
+[the chalk TikTok series](references/chalk-tiktok-series.md). That series
+already selects the chalk treatment, the Jeffrit bust, and the end card. Do
+not ask for a style. Its length, loudness, narration, sample, cover, caption,
+and delivery rules override the general defaults where that reference says so.
+Other briefs keep the style picker and the defaults below.
 
 For the established neon/chalk style, use [Neon Chalk Systems](references/neon-chalk-systems.md).
 Its [Cloudflare case decomposition](references/cloudflare-cinematic-decomposition.md)
@@ -66,6 +74,10 @@ and any explicit runtime approval in the production document. An unexpected
 measured overrun does not authorize longer delivery: pause further production
 and delivery, report it, and obtain the same choice before proceeding. Retain
 consumed review rounds and invalidate affected approvals after scope/timing edits.
+
+A Jeffrit chalk TikTok is capped under 2 minutes, including the laptop close
+and the end card. Use the series reference for that cap instead of the
+180-second warning above.
 
 Reuse an existing renderer. For a new project, prefer Remotion for React/SVG
 architecture diagrams. Use HyperFrames for HTML/SVG/GSAP scenes or Manim for
@@ -192,7 +204,9 @@ regenerating episodes. Read [local narration](references/local-narration.md)
 for synthetic-reference provenance, tested limits, configurable model storage,
 and matched listening. Fix acronym pronunciation before the final timeline.
 For short samples, prefer one continuous narration take, then segment visuals
-around the actual audio. Review voice consistency independently before locking
+around the actual audio. The chalk TikTok series is the exception: one TTS
+take per sentence, assembled with the measured gaps and the approved voice
+rotation in the series reference. Review voice consistency independently before locking
 final visual timing: cadence, within-sentence continuity, sentence pauses,
 identity/timbre/energy, and neighboring joins. See the narration reference for
 bounded repairs and honest handling when perceptual listening is unavailable.
@@ -296,7 +310,9 @@ quality, reference comparison, and safe captions, use the visual guidance in
    affected intervals.
 4. For a requested export, inspect the actual final file with FFprobe and FFmpeg.
    Check streams, dimensions, fps, duration, audio clipping, and start/end sync.
-   Follow the media checks in [rendering.md](references/rendering.md). Probe
+   Follow the media checks in [rendering.md](references/rendering.md). For a
+   diagram, code card, or moving request, also follow
+   [diagram QA](references/diagram-qa.md). Probe
    success alone does not establish readable visuals or intelligible narration.
 
 Record the inspected revision, scene IDs/timecodes, findings, repairs, and actual
@@ -319,7 +335,10 @@ original references and obtain current independent full-cover/thumbnail approval
 before cover delivery. Keep cover-style and storytelling references distinct.
 
 Provide the requested video or preview, subtitles when narrated, editable scene
-source, script, `video-spec.json`, and a short QA report. Keep output in the chosen
+source, script, `video-spec.json`, and a short QA report. A finished Jeffrit
+chalk TikTok also includes the clean master, the TikTok cover, and a message
+that contains only the caption, delivered together without waiting to be asked.
+Keep output in the chosen
 project, outside the installed skill. Record exact runtime versions, commands,
 source locators, clip durations, and any remaining defects in the report. Preserve
 existing work and use new versioned output names for revisions. Resolve final

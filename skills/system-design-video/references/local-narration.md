@@ -51,6 +51,10 @@ take rather than rushing speech, padding excessive dead air, or splicing unrelat
 voice takes. Preserve approved audio unless a change is authorized. Test a longer
 narration strategy explicitly; do not assume unlimited text fits one generation
 or that matching reference settings guarantee continuity across chunks.
+The Jeffrit chalk TikTok series is the exception to the one-take preference.
+Record one TTS take per sentence and assemble the measured gaps in
+[the series reference](chalk-tiktok-series.md). Do not apply that cadence,
+or the Fenrir speed 1.20 setting, to other lessons.
 
 One user-accepted 60-second sample used a single 145-word take with 54.24 seconds
 of native narration, 126.958 ms of verified quiet-gap additions, and a 5.633-second

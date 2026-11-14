@@ -1,0 +1,19 @@
+The order saved. The confirmation email never came. And nothing in the logs says why.
+
+Here's the code. Save the order with Entity Framework Core, then publish Order Placed to the message broker, so email and inventory hear about it.
+
+Two writes. One to the database, one to the broker. Nothing ties them together.
+
+If the app crashes between them, or the broker is down, the order is committed, but the event is gone. Email never sends. Inventory never reserves. Publish first instead, and a rollback leaves everyone reacting to an order that doesn't exist.
+
+That's the dual write problem.
+
+The fix is a transactional outbox. Don't publish yet. Add an outbox message, with the event inside, to the same context, and call Save Changes once. Entity Framework writes the order and the message in one transaction. Both commit, or neither does.
+
+Then a background service, the relay, polls the outbox table, publishes each unsent message, and marks it sent. Broker down? The message waits in the table, and the relay tries again.
+
+Now the trade-offs. If the relay crashes after publishing but before marking it sent, it publishes again. That's at-least-once delivery, so consumers must be idempotent. Record every message you handle, and skip repeats.
+
+Delivery isn't instant, either. Polling adds a little delay. And the table keeps growing, so clean out sent rows.
+
+Rule of thumb: when a database change has to tell other services, write the news in the same transaction, and let the relay do the talking.
