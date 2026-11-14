@@ -39,7 +39,8 @@ INTERESTING_SUFFIXES = {
 
 AI_SKILLS_DEFAULT_REPO_URL = "https://github.com/JeffreyFerreiras/ai-skills.git"
 SKILL_SIGNATURE_RECEIPT = ".skill-signature.json"
-SkillTreeSignature = tuple[dict[str, tuple[str, int]], set[str]]
+StreamDigests = tuple[tuple[str, str], ...]
+SkillTreeSignature = tuple[dict[str, tuple[str, int, StreamDigests]], dict[str, tuple[int, StreamDigests]]]
 
 # Codex skill root, also discovered by local Cursor.
 AGENTS_SKILLS_RELATIVE = Path(".agents/skills")
@@ -238,7 +239,9 @@ def list_skills_in_root(root: Path) -> dict[str, Path]:
 
 @contextmanager
 def profile_write_lock(profile_root: Path):
-    lock_path = profile_root.resolve().parent / ".sync-agent-skills.lock"
+    profile_root = profile_root.resolve()
+    lock_path = profile_root.parent / ".sync-agent-skills.lock"
+    reject_signed_ancestors(lock_path.parent)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+b") as lock:
         try:
@@ -554,7 +557,7 @@ def install_signed_skill(
     with tempfile.TemporaryDirectory(prefix="signed-skill-install-") as temporary:
         staged = Path(temporary) / name
         if baseline is not None:
-            shutil.copytree(target, staged, symlinks=True)
+            copy_signed_tree(target, staged)
             if skill_tree_signature(staged) != baseline:
                 raise ValueError(f"Profile skill changed during staging: {target}")
         else:
@@ -569,14 +572,16 @@ def install_signed_skill(
         for relative_path in sorted(baseline[0] if baseline is not None else {}):
             if relative_path not in managed and relative_path in previous:
                 obsolete = staged / relative_path
-                digest, mode = baseline[0][relative_path]
+                digest, mode, streams = baseline[0][relative_path]
                 old_file = previous[relative_path]
                 mode_matches = (mode == (0o755 if old_file["executable"] else 0o644) if os.name != "nt"
                                 else bool(mode & stat.S_IWRITE))
-                if digest == old_file["sha256"] and mode_matches:
+                if streams:
+                    actions.append(f"kept file with Windows alternate data streams: {relative_path}")
+                elif digest == old_file["sha256"] and mode_matches:
                     obsolete.unlink()
                     for folder in obsolete.parents:
-                        if folder == staged or any(folder.iterdir()):
+                        if folder == staged or any(folder.iterdir()) or baseline[1][folder.relative_to(staged).as_posix()][1]:
                             break
                         folder.rmdir()
                     actions.append(f"prune signed file removed from source: {relative_path}")
@@ -600,11 +605,24 @@ def install_signed_skill(
                 ):
                     raise ValueError(f"Local path conflicts with signed file {relative_path}: {target}")
             destination.parent.mkdir(parents=True, exist_ok=True)
+            old_entry = baseline[0].get(relative_path) if baseline is not None else None
+            if old_entry is not None and old_entry[2]:
+                tracked_file = managed[relative_path]
+                digest, mode, _ = old_entry
+                if digest == tracked_file["sha256"] and mode & stat.S_IWRITE:
+                    continue
+                raise ValueError(f"Cannot replace a tracked file with Windows alternate data streams: {target / relative_path}")
             remove_staged_file(destination)
             shutil.copy2(source / relative_path, destination)
-        remove_staged_file(staged / receipt_name)
-        (staged / receipt_name).write_bytes(signed_skills.json_bytes(receipt))
-        changed = skill_tree_signature(staged) != baseline
+        receipt_bytes = signed_skills.json_bytes(receipt)
+        receipt_path = staged / receipt_name
+        if not receipt_path.is_file() or receipt_path.read_bytes() != receipt_bytes:
+            if baseline is not None and baseline[0].get(receipt_name, ("", 0, ()))[2]:
+                raise ValueError(f"Cannot replace a receipt with Windows alternate data streams: {target / receipt_name}")
+            remove_staged_file(receipt_path)
+            receipt_path.write_bytes(receipt_bytes)
+        staged_signature = skill_tree_signature(staged)
+        changed = staged_signature != baseline
         if not changed:
             actions.insert(0, "target already has the verified files")
         elif baseline is not None and not args.force:
@@ -625,7 +643,7 @@ def install_signed_skill(
                 actions.insert(0, f"backup {target} to {backup}")
             actions.insert(0, f"install verified files in {target}")
             if args.apply:
-                publish_signed_skill(staged, target, baseline, backup)
+                publish_signed_skill(staged, target, baseline, backup, staged_signature)
     result = {
         "skill": name, "source": str(args.master.expanduser().resolve() / "skills" / name),
         "target": str(target), "apply": args.apply, "changed": changed, "actions": actions,
@@ -643,16 +661,36 @@ def remove_staged_file(path: Path) -> None:
 def skill_tree_signature(root: Path) -> SkillTreeSignature:
     import signed_skills
 
+    if os.name == "nt":
+        from windows_streams import stream_digests
+
+    def metadata(path: Path) -> tuple[int, StreamDigests]:
+        return stat.S_IMODE(path.stat().st_mode), stream_digests(path) if os.name == "nt" else ()
+
     files, directories = signed_skills.regular_tree(root)
     return {
-        name: (signed_skills.file_digest(path), stat.S_IMODE(path.stat().st_mode))
+        name: (signed_skills.file_digest(path), *metadata(path))
         for name, path in files.items()
-    }, directories
+    }, {name: metadata(root / name) for name in sorted(directories | {""})}
+
+
+def copy_signed_tree(source: Path, target: Path) -> None:
+    if os.name != "nt":
+        shutil.copytree(source, target, symlinks=True)
+        return
+
+    from windows_streams import copy_directory_streams
+
+    shutil.copytree(source, target, symlinks=True)
+    copy_directory_streams(source, target)
 
 
 def publish_signed_skill(
     staged: Path, target: Path, baseline: SkillTreeSignature | None, backup: Path | None,
+    staged_signature: SkillTreeSignature | None = None,
 ) -> None:
+    if staged_signature is None:
+        staged_signature = skill_tree_signature(staged)
     target.parent.mkdir(parents=True, exist_ok=True)
     # Keep displaced files outside discovery, on the target filesystem for rollback.
     transaction = Path(tempfile.mkdtemp(prefix=".signed-skill-", dir=target.parent))
@@ -660,7 +698,9 @@ def publish_signed_skill(
     displaced = transaction / "previous"
     installed = False
     try:
-        shutil.copytree(staged, incoming)
+        copy_signed_tree(staged, incoming)
+        if skill_tree_signature(incoming) != staged_signature:
+            raise ValueError(f"Could not copy all staged skill data: {target}")
         if backup is not None:
             backup.parent.mkdir(parents=True, exist_ok=True)
         if baseline is not None:
@@ -673,7 +713,9 @@ def publish_signed_skill(
             # Finish the requested backup while the previous folder can still be restored.
             with tempfile.TemporaryDirectory(prefix=".signed-skill-backup-", dir=backup.parent) as temporary:
                 staged_backup = Path(temporary) / "previous"
-                shutil.copytree(displaced, staged_backup)
+                copy_signed_tree(displaced, staged_backup)
+                if skill_tree_signature(staged_backup) != baseline:
+                    raise ValueError(f"Could not back up all skill data: {target}")
                 staged_backup.rename(backup)
             if skill_tree_signature(displaced) != baseline:
                 raise ValueError(f"Profile skill changed during backup: {target}")
@@ -798,13 +840,60 @@ def is_reserved_windows_name(name: str) -> bool:
     return False
 
 
+def is_receipt_name(name: str) -> bool:
+    return name.rstrip(" .").casefold() == SKILL_SIGNATURE_RECEIPT
+
+
+def reject_signed_ancestors(path: Path) -> None:
+    for parent in (path, *path.parents):
+        if parent.is_dir() and any(is_receipt_name(child.name) for child in parent.iterdir()):
+            raise ValueError(f"{parent} requires signed sync with --allowed-signers")
+
+
+def find_receipt(path: Path, ancestors: frozenset[Path] = frozenset()) -> Path | None:
+    """Check the tree that copytree would copy, including linked directories."""
+    if is_receipt_name(path.name):
+        return path
+    if path.is_dir():
+        resolved = path.resolve()
+        if is_receipt_name(resolved.name):
+            return path
+        if resolved in ancestors:
+            raise ValueError(f"Directory cycle in skill tree: {path}")
+        for child in path.iterdir():
+            if receipt := find_receipt(child, ancestors | {resolved}):
+                return receipt
+    elif path.is_symlink() and is_receipt_name(path.resolve().name):
+        return path
+    return None
+
+
+def reject_receipt_copy(
+    directory: str, names: list[str], omit_root: Path | None = None,
+) -> list[str]:
+    omitted = []
+    for name in names:
+        child = Path(directory) / name
+        if is_receipt_name(name):
+            if omit_root == Path(directory):
+                omitted.append(name)
+                continue
+            raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {child}")
+        if is_receipt_name(child.resolve().name):
+            raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {child}")
+    return omitted
+
+
 def copy_source(source: Path, target_root: Path, target_name: str | None, apply: bool, force: bool,
-                backup_root: Path | None = None, no_backup: bool = False) -> dict[str, object]:
+                backup_root: Path | None = None, no_backup: bool = False, *,
+                strip_install_receipt: bool = False) -> dict[str, object]:
     name = target_name if target_name is not None else source.name
     if (not name or name in {".", ".."} or name != name.rstrip(" .")
             or any(character in name for character in '/\\:<>"|?*')
             or any(ord(character) < 32 for character in name) or is_reserved_windows_name(name)):
         raise ValueError("target name must be a single non-reserved filename")
+    if is_receipt_name(name) or is_receipt_name(source.name):
+        raise ValueError("Installed signature receipts cannot be copied by unsigned sync")
     source = source.expanduser().resolve()
     target_root = target_root.expanduser().resolve()
     target = target_root / name
@@ -813,22 +902,33 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
         raise ValueError("target must stay strictly inside target root")
     if source != resolved_target and (source.is_relative_to(resolved_target) or resolved_target.is_relative_to(source)):
         raise ValueError("source and target trees must not overlap")
-    result: dict[str, object] = {
-        "source": str(source),
-        "target": str(target),
-        "apply": apply,
-        "changed": False,
-        "actions": [],
-    }
-
     if not source.exists():
         raise FileNotFoundError(f"source does not exist: {source}")
-    if source.is_dir() and any(child.name.casefold() == SKILL_SIGNATURE_RECEIPT for child in source.iterdir()):
-        raise ValueError("Installed signature receipts cannot be copied by unsigned sync")
-    for parent in (resolved_target, *resolved_target.parents):
-        if (parent / SKILL_SIGNATURE_RECEIPT).is_file():
-            raise ValueError(f"{parent} requires signed sync with --allowed-signers")
+    reject_signed_ancestors(resolved_target)
+    if receipt := find_receipt(resolved_target):
+        raise ValueError(f"{receipt.parent} requires signed sync with --allowed-signers")
+    if strip_install_receipt:
+        if not source.is_dir() or not (source / "SKILL.md").is_file():
+            raise ValueError("--strip-install-receipt requires a skill directory")
+        if backup_root is not None and backup_root.expanduser().resolve().is_relative_to(source):
+            raise ValueError("Backup root must be outside source and target")
+        for child in source.iterdir():
+            if not is_receipt_name(child.name) and (receipt := find_receipt(child)):
+                raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {receipt}")
+        with tempfile.TemporaryDirectory(prefix="export-skill-") as temporary:
+            exported = Path(temporary) / name
+
+            def omit_receipt(directory: str, names: list[str]) -> list[str]:
+                return reject_receipt_copy(directory, names, omit_root=source)
+
+            shutil.copytree(source, exported, ignore=omit_receipt)
+            result = copy_unsigned_content(exported, target_root, target, apply, force, backup_root, no_backup)
+            result["source"] = str(source)
+            result["actions"].insert(0, f"export {source} without its installed signature receipt")
+        return result
     if source.is_dir() and (source / "external-source.json").is_file():
+        if receipt := find_receipt(source):
+            raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {receipt}")
         if source == resolved_target:
             raise ValueError("Cannot replace the canonical pointer with its resolved installation")
         with tempfile.TemporaryDirectory(prefix="resolved-skill-") as temporary:
@@ -839,12 +939,26 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
             result["external_source"] = provenance
             result["actions"].insert(0, f"resolved {provenance['repository']} at {provenance['revision']}")
         return result
+    return copy_unsigned_content(source, target_root, target, apply, force, backup_root, no_backup)
+
+
+def copy_unsigned_content(
+    source: Path, target_root: Path, target: Path, apply: bool, force: bool,
+    backup_root: Path | None, no_backup: bool,
+) -> dict[str, object]:
+    resolved_target = target.resolve()
+    if receipt := find_receipt(source):
+        raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {receipt}")
+    result = {
+        "source": str(source), "target": str(target), "apply": apply, "changed": False, "actions": [],
+    }
     if no_backup and backup_root is not None:
         raise ValueError("--no-backup and --backup-root cannot be combined")
     if not no_backup:
         backup_root = (backup_root.expanduser().absolute() if backup_root is not None
                        else target.parent / ".sync-agent-skills-backups")
         resolved_backup = backup_root.resolve()
+        reject_signed_ancestors(resolved_backup)
         if resolved_backup.is_relative_to(resolved_target) or resolved_backup.is_relative_to(source):
             raise ValueError("Backup root must be outside source and target")
     if not target_root.exists():
@@ -854,43 +968,41 @@ def copy_source(source: Path, target_root: Path, target_name: str | None, apply:
     if target.exists() and paths_identical(source, target):
         result["actions"].append("target already matches source")
         return result
+    backup = None
     if target.exists():
         if not force:
             result["actions"].append("target differs; rerun with --force to replace")
             return result
         if no_backup:
             result["actions"].append(f"replace {target} without a retained backup")
-            if apply:
-                with tempfile.TemporaryDirectory(prefix="sync-agent-skills-") as temporary:
-                    displaced = Path(temporary) / name
-                    shutil.move(str(target), str(displaced))
-                    try:
-                        if source.is_dir():
-                            shutil.copytree(source, target)
-                        else:
-                            shutil.copy2(source, target)
-                    except Exception:
-                        if target.is_dir():
-                            shutil.rmtree(target)
-                        elif target.exists():
-                            target.unlink()
-                        shutil.move(str(displaced), str(target))
-                        raise
-            result["changed"] = True
-            return result
-        backup = backup_root / backup_path(target).name
-        result["actions"].append(f"backup {target} to {backup}")
-        if apply:
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(target), str(backup))
+        else:
+            backup = backup_root / backup_path(target).name
+            result["actions"].append(f"backup {target} to {backup}")
     result["actions"].append(f"copy {source} to {target}")
     result["changed"] = True
     if apply:
-        if source.is_dir():
-            shutil.copytree(source, target)
-        else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
+        with tempfile.TemporaryDirectory(prefix=".unsigned-skill-", dir=target_root) as temporary:
+            staging = Path(temporary)
+            incoming = staging / "incoming"
+            if source.is_dir():
+                shutil.copytree(source, incoming, ignore=reject_receipt_copy)
+            else:
+                shutil.copy2(source, incoming)
+            if receipt := find_receipt(incoming):
+                raise ValueError(f"Installed signature receipts cannot be copied by unsigned sync: {receipt}")
+            if receipt := find_receipt(target):
+                raise ValueError(f"{receipt.parent} requires signed sync with --allowed-signers")
+            displaced = None
+            if target.exists():
+                displaced = (staging / "previous") if no_backup else backup
+                displaced.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(target), str(displaced))
+            try:
+                incoming.rename(target)
+            except BaseException:
+                if displaced is not None:
+                    shutil.move(str(displaced), str(target))
+                raise
     return result
 
 
@@ -1075,6 +1187,8 @@ def main() -> int:
     sync_parser.add_argument("--json", action="store_true", help="Print JSON")
     sync_parser.add_argument("--backup-root", type=Path, help="Store recoverable backups outside discovery roots")
     sync_parser.add_argument("--no-backup", action="store_true", help="Replace without retaining a backup")
+    sync_parser.add_argument("--strip-install-receipt", action="store_true",
+                             help="Export a skill for publication without its installed signature receipt")
 
     vscode_parser = subparsers.add_parser("doctor-vscode", help="Check VS Code agent skill discovery settings")
     vscode_parser.add_argument("--settings", type=Path, help="Path to VS Code settings.json; default is user profile")
@@ -1152,7 +1266,7 @@ def main() -> int:
     if args.command == "sync":
         with profile_write_lock(args.target_root.expanduser()) if args.apply else nullcontext():
             result = copy_source(args.source, args.target_root, args.target_name, args.apply, args.force,
-                                 args.backup_root, args.no_backup)
+                                 args.backup_root, args.no_backup, strip_install_receipt=args.strip_install_receipt)
         if args.json:
             print(json.dumps(result, indent=2))
         else:

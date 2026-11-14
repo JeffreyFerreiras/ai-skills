@@ -145,8 +145,8 @@ with the maintainer before trusting it. Signed sync needs `ssh-keygen` with
 
 The preview lists files to prune. Add `--apply` to install the signed files and
 prune files that an earlier verified receipt lists, that still match the old
-hash and file permissions, and that are absent from the new source. On Windows
-sync uses the read-only attribute to detect local permission changes. Local-only files, edited retired files,
+hash and file permissions, and that are absent from the new source. On Windows,
+pruning skips read-only files and files with alternate data streams. Local-only files, edited retired files,
 and unknown files in legacy installs stay in place. Backups retain the previous
 folder by default. Use signed sync for later updates to an installation with a
 receipt. Receipts describe source content. Leave each receipt in the profile
@@ -192,11 +192,14 @@ $skillName = "sync-agent-skills"
 $source = Join-Path $HOME ".agents\skills\$skillName"
 $target = Join-Path $repo "skills\$skillName"
 
-python (Join-Path $source "scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --apply --force --no-backup
+python (Join-Path $repo "skills\sync-agent-skills\scripts\sync_agent_skills.py") sync --source $source --target-root (Join-Path $repo "skills") --strip-install-receipt --apply --force --no-backup
 git -C $repo status --short --branch
 ```
 
-Stage, commit, or push only when requested. Resolve the configured remote and target branch instead of assuming `master` or `main`.
+The export leaves the installed receipt in the profile and excludes it from the
+repository copy. Review the resulting diff before creating a new signed manifest.
+Stage, commit, or push only when requested. Resolve the configured remote and
+target branch instead of assuming `master` or `main`.
 
 ## Format Guidance
 

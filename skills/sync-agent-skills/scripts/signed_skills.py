@@ -119,7 +119,7 @@ def archive_skills(master: Path, destination: Path) -> dict[str, dict[str, Signe
         if not skill.is_dir() or skill.name.startswith(".") or not (skill / "SKILL.md").is_file():
             continue
         files, _ = regular_tree(skill)
-        if any(path.name.casefold() == RECEIPT_FILE for path in skill.iterdir()):
+        if any(path.name.casefold() == RECEIPT_FILE for path in skill.rglob("*")):
             raise ValueError(f"{skill.name}: {RECEIPT_FILE} is reserved for installed provenance")
         inventory[skill.name] = {
             name: {"sha256": file_digest(path), "executable": f"{skill.name}/{name}" in executable}

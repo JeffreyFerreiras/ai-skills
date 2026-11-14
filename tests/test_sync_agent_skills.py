@@ -23,6 +23,14 @@ sync_agent_skills = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(sync_agent_skills)
 
 
+def load_sync_helper(name: str):
+    spec = importlib.util.spec_from_file_location(name, MODULE_PATH.with_name(f"{name}.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 @unittest.skipUnless(shutil.which("ssh-keygen"), "OpenSSH is required for signed skill tests")
 class SignedSkillTests(unittest.TestCase):
     def setUp(self):
@@ -160,7 +168,10 @@ class SignedSkillTests(unittest.TestCase):
         self.assertFalse(self.target.exists())
 
     def test_publish_restores_live_skill_when_it_changed_after_staging(self):
-        with patch.dict(sys.modules, {"signed_skills": load_signed_skills()}):
+        helpers = {"signed_skills": load_sync_helper("signed_skills")}
+        if os.name == "nt":
+            helpers["windows_streams"] = load_sync_helper("windows_streams")
+        with patch.dict(sys.modules, helpers):
             self.target.mkdir(parents=True)
             video = self.target / "obsolete.mp4"
             video.write_bytes(b"original")
@@ -193,6 +204,31 @@ class SignedSkillTests(unittest.TestCase):
         self.sync(*options)
         self.assertEqual(b"tracked video", installed.read_bytes())
 
+    @unittest.skipUnless(os.name == "nt", "Windows alternate data streams")
+    def test_preserves_alternate_streams_on_retired_video_without_backup(self):
+        options = ("--allowed-signers", str(self.signers), "--apply", "--no-backup")
+        self.sync(*options)
+        retired = self.target / "obsolete.mp4"
+        stream = Path(f"{retired}:local-notes")
+        stream.write_bytes(b"unsynced edit")
+        directory_stream = Path(f"{self.target}:profile-notes")
+        directory_stream.write_bytes(b"local folder metadata")
+        nested = self.target / "media"
+        nested.mkdir()
+        nested_stream = Path(f"{nested}:local-notes")
+        nested_stream.write_bytes(b"read-only folder metadata")
+        nested.chmod(stat.S_IREAD)
+        self.retire_videos()
+        result = json.loads(self.sync(*options).stdout)[0]
+        self.assertIn("kept file with Windows alternate data streams: obsolete.mp4", result["actions"])
+        self.assertEqual(b"tracked video", retired.read_bytes())
+        self.assertEqual(b"unsynced edit", stream.read_bytes())
+        self.assertEqual(b"local folder metadata", directory_stream.read_bytes())
+        self.assertEqual(b"read-only folder metadata", nested_stream.read_bytes())
+        self.assertFalse(nested.stat().st_mode & stat.S_IWRITE)
+        self.assertFalse((self.target / "edited.mp4").exists())
+        self.assertFalse((self.target.parent / ".sync-agent-skills-backups").exists())
+
     def test_unsigned_copy_rejects_receipt_in_source(self):
         source = self.root / "unsigned"
         source.mkdir()
@@ -205,6 +241,51 @@ class SignedSkillTests(unittest.TestCase):
         self.assertIn("receipts cannot be copied", result.stderr)
         self.assertFalse((self.target.parent / "unsigned").exists())
 
+    def test_unsigned_copy_rejects_standalone_nested_and_renamed_receipts(self):
+        self.sync("--allowed-signers", str(self.signers), "--apply")
+        receipt = self.target / ".skill-signature.json"
+        innocent = self.root / "receipt.txt"
+        shutil.copy2(receipt, innocent)
+        target_root = self.root / "unsigned"
+        for source, target_name in (
+            (receipt, "ordinary.json"),
+            (self.target.parent, "nested"),
+            (innocent, ".SKILL-SIGNATURE.JSON"),
+        ):
+            with self.subTest(source=source, target_name=target_name):
+                result = self.run_command(
+                    sys.executable, str(MODULE_PATH), "sync", "--source", str(source),
+                    "--target-root", str(target_root), "--target-name", target_name,
+                    "--apply", expected=1,
+                )
+                self.assertIn("receipts cannot be copied", result.stderr)
+                self.assertFalse(target_root.exists())
+        result = self.run_command(
+            sys.executable, str(MODULE_PATH), "sync", "--source", str(self.source.parent),
+            "--target-root", str(self.root), "--target-name", self.target.parent.name,
+            "--force", "--apply", expected=1,
+        )
+        self.assertIn("requires signed sync", result.stderr)
+        self.assertTrue(receipt.exists())
+
+    def test_exports_signed_install_for_publication_without_copying_receipt(self):
+        self.sync("--allowed-signers", str(self.signers), "--apply")
+        receipt = self.target / ".skill-signature.json"
+        original = receipt.read_bytes()
+        (self.target / "SKILL.md").write_text("local edit", encoding="utf-8")
+        (self.target / "external-source.json").write_text("local data", encoding="utf-8")
+        command = (
+            sys.executable, str(MODULE_PATH), "sync", "--source", str(self.target),
+            "--target-root", str(self.source.parent), "--strip-install-receipt", "--force", "--no-backup",
+        )
+        self.run_command(*command)
+        self.assertNotEqual("local edit", (self.source / "SKILL.md").read_text(encoding="utf-8"))
+        self.run_command(*command, "--apply")
+        self.assertEqual("local edit", (self.source / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual("local data", (self.source / "external-source.json").read_text(encoding="utf-8"))
+        self.assertFalse((self.source / receipt.name).exists())
+        self.assertEqual(original, receipt.read_bytes())
+
     def test_rejects_git_export_omissions_before_pruning(self):
         options = ("--allowed-signers", str(self.signers), "--apply")
         self.sync(*options)
@@ -213,14 +294,6 @@ class SignedSkillTests(unittest.TestCase):
         result = self.sync(*options, expected=1)
         self.assertIn("Git archive omitted tracked skill file", result.stderr)
         self.assertTrue((self.target / "obsolete.mp4").is_file())
-
-
-def load_signed_skills():
-    spec = importlib.util.spec_from_file_location("signed_skills", MODULE_PATH.with_name("signed_skills.py"))
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class SyncAgentSkillsTests(unittest.TestCase):
