@@ -9,7 +9,7 @@ unmerged PR. Prose-only work does not require a PR.
 
 | Work | Validation and review |
 | --- | --- |
-| Code or runtime behavior | Relevant implementation skills, `run-change-checks`, then `review-panel`. |
+| Code or runtime behavior | Relevant implementation skills, focused project checks, then `review-panel`. |
 | Requested prose writing or editing | `writing-loop`, including `unslop`, `writing-reducer`, and a fresh Editor. Check factual and contractual claims too. |
 | Mixed work | Both routes for their respective deliverables, with prose claims checked against the code. |
 
@@ -47,11 +47,13 @@ and can create or update the exact task PR under delegated publication authority
 It commits selected changes; `git-push` remains for explicit all-pending-changes
 requests.
 
-[Babysit-pr](../skills/babysit-pr/SKILL.md) monitors checks and reviews with one
-owned watcher and a default 30-minute window. It reports events to the delivery
-owner. [Address-pr-feedback](../skills/address-pr-feedback/SKILL.md) supplies
-thread-aware inspection and selected repairs. Neither monitoring nor delivery
-implies permission to post comments or resolve threads.
+[Babysit-pr](../skills/babysit-pr/SKILL.md) uses one GitHub CLI check watcher and
+bounded review reads within a default 30-minute window. Standalone monitoring
+reads and reports. In either delivery mode, the monitor reports events for the
+live head and base to the delivery owner. The owner routes authorized repairs
+to the existing writer and uses
+[address-pr-feedback](../skills/address-pr-feedback/SKILL.md) for selected review
+feedback. Posting comments and resolving threads require separate user intent.
 
 Dependencies are resolved from the host catalog, then a known sibling installation.
 Missing required skills or independent reviewers block the dependent stage.
@@ -67,6 +69,11 @@ An invoked repository mode authorizes its scoped commits, task-branch pushes,
 PR preparation, and lease-protected task-branch rewrites. Only full send grants
 merge authority, and only after the live head/base gate passes. System and host
 approvals and project testing rules remain in force.
+
+The monitor reports readiness for the live head and base only when required
+checks and reviews pass, required threads are settled, and the branch is
+up to date and mergeable. It hands pending human approval and unresolved
+required threads back to the delivery owner.
 
 Full stop disables existing auto-merge and removes the PR from its merge queue.
 It verifies both states before pushes and handoff and never merges or pushes to
