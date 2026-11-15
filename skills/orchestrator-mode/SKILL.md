@@ -5,13 +5,13 @@ description: Orchestrate with the primary only thinking and dispatching little h
 
 # Orchestrator Mode
 
-The primary thinks and orchestrates. Every file read, research step, write or edit, and validation runs as a little helper through the OpenCode CLI. The primary never touches files or runs checks itself.
+The primary thinks and orchestrates. Little helpers use the OpenCode CLI to handle the task's file reads, research, edits, and validation.
 
-Invoke as `$orchestrator-mode model=<provider/model> <task>`. `model=` is optional; when omitted use `opencode-go/muse-spark-1.3-contributor`. The choice selects every helper, never the primary chat; reuse it for every job and follow-up until the user changes it. Honor any exact listed model including valid non-Muse models. Verify the full `provider/model` against `opencode models`; report an unavailable or ambiguous model and ask, never silently substitute. An explicit choice takes precedence over automatic routing; resolve any fixed-role plan conflict without bypass.
+Invoke as `$orchestrator-mode <task>` for automatic free-first routing, or `$orchestrator-mode model=<provider/model> <task>` to pin the model for every helper and follow-up. The choice applies to helpers only. Verify the full ID in the runtime catalog. If the pinned model is unavailable or ambiguous, report the blocker and ask for a replacement. Resolve conflicts with fixed-role plans before dispatch.
 
 ## Primary boundary
 
-The primary may plan, reason, compose job packets, dispatch and monitor workers, accept evidence, and communicate. The primary must not directly read files, research, write or edit files, or perform validation. Delegate even instruction and skill reads and Git inspection to helpers. Runtime discovery may be done by a helper; the primary may launch and monitor processes as orchestration without filesystem inspection. Keep implementation authority separate from design-only work.
+The primary may plan, compose job packets, dispatch and monitor workers, accept evidence, and communicate. For dispatch preflight, the primary may load `$little-helper` and inspect CLI help, model metadata, and provider terms. Delegate task instructions, file and Git inspection, task research, edits, and validation to helpers. Keep implementation authority separate from design-only work.
 
 ## Job packets
 
@@ -19,18 +19,9 @@ Give each little helper job a self-contained packet: a one-sentence objective, 1
 
 ## Dispatch
 
-Invoke the OpenCode CLI with the verified selected model, the build agent, and automatic approval only within authority unless manual approval was requested. Verify the full provider/model against the runtime catalog before dispatch; resolve actual --variant support for that model and prefer xhigh when supported. Report effort or speed as unavailable or unverified when unsupported; never invent a DeepSeek effort value or silently alter an explicit choice. Only ask for a missing choice when the workflow truly blocks. Prefer an isolated Git worktree when authorized or repository-required; do not create one from mere read-only review without authorization. Before every dispatch announce the concrete worker name, bounded scope, exact model, and actual effort and speed availability.
+Use `$little-helper` for runtime discovery, free-model eligibility, effort, and availability fallback. With automatic routing, start with a verified free model when one fits and is available. Share confirmed quota or availability failures across jobs in the same orchestration so helpers can use the remaining free models before the authorized paid fallback. An exact orchestrator pin overrides Little Helper's model defaults and exclusions and disables automatic substitution. Verify the pinned model's availability and data terms. Honor a supported user-selected effort. For a pinned model with no Little Helper effort floor, prefer `xhigh` when supported unless the user selects another effort. Use `model=opencode/muse-ember-1.0` to pin paid Muse Ember, or use it after free choices when the user explicitly selects it as the paid fallback.
 
-Run it from the intended workspace. In PowerShell, keep the prompt in a here-string so shell metacharacters in the task are passed as data, and pass the selected model as one safely quoted data argument:
-
-```powershell
-$helperPrompt = @'
-<bounded prompt>
-'@
-opencode run --model "opencode-go/muse-spark-1.3-contributor" --agent build --auto --dir 'C:\path\to\workspace' --title 'helper: scoped task' $helperPrompt
-```
-
-Replace the model with the verified selection, and the directory, title, and prompt with the resolved values. Pass arguments directly to `opencode`; do not build a second shell command from untrusted task or model text.
+Run the worker from the intended workspace using Little Helper's CLI syntax. Prefer an isolated Git worktree when authorized or repository-required. Before every dispatch announce the worker name, bounded scope, exact model, and actual effort and speed availability.
 
 ## Supervise
 
