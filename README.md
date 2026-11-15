@@ -99,6 +99,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address actionable GitHub feedback |
 | [andromeda-ssh](skills/andromeda-ssh/SKILL.md) | Connect to and safely administer Andromeda |
 | [api-docs](skills/api-docs/SKILL.md) | Document public C# APIs accurately |
+| [babysit-pr](skills/babysit-pr/SKILL.md) | Watch PR checks, reviews, and readiness |
 | [baseline](skills/baseline/SKILL.md) | Automatically update the default checkout and clean up the task |
 | [bug-hunter-review](skills/bug-hunter-review/SKILL.md) | Find concrete bugs introduced by a change |
 | [cat-sanctuary-benchmark](skills/cat-sanctuary-benchmark/SKILL.md) | Run and grade the 3D cat sanctuary model benchmark |
