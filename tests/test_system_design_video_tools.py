@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import json
 import shutil
 import stat
 import subprocess
@@ -7,6 +9,7 @@ import sys
 import tempfile
 import unittest
 import wave
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -17,6 +20,8 @@ sys.path.insert(0, str(SKILL / "scripts"))
 try:
     import video_project as project_tools
     import reference_video
+    import check_video_spec
+    import scene_bridge
 finally:
     sys.path.pop(0)
 
@@ -172,11 +177,137 @@ class VideoProjectTests(unittest.TestCase):
                              project_tools.file_hash(self.project / f"public/audio/{name}.wav"))
         self.assertIn("00:00:02,500 --> 00:00:04,500", (self.project / "subtitles.srt").read_text())
 
+    def test_worked_example_prepare_binds_implemented_bridge(self):
+        voices = self.root / "voices"
+        voices.mkdir()
+        for name in ("intro", "shop-sign", "retry"):
+            with wave.open(str(voices / f"{name}.wav"), "wb") as clip:
+                clip.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+                clip.writeframes(b"\x01\x00" * 16000)
+        report = reference_video.prepare(self.project, voices, False, True)
+        self.assertEqual([], report["after_retiming_errors"])
+        spec = project_tools.read_json(self.project / "video-spec.json")
+        self.assertEqual(["intro", "shop-sign", "retry"], [scene["id"] for scene in spec["scenes"]])
+        self.assertEqual([], check_video_spec.validate_spec(spec, self.project, ready=True))
+        for name in ("intro", "shop-sign", "retry"):
+            self.assertEqual(project_tools.file_hash(voices / f"{name}.wav"),
+                             project_tools.file_hash(self.project / f"public/audio/{name}.wav"))
+        record = project_tools.read_json(self.project / "scene-bridge.json")
+        self.assertNotIn("encoded", record)
+        self.assertNotIn("reviews", record)
+        bridge = record["bridges"][0]
+        self.assertEqual("shop-sign", bridge["scene_id"])
+        self.assertEqual("src/scene-artwork.jsx", bridge["implementation"]["source"]["path"])
+        self.assertEqual(project_tools.file_hash(self.project / "src/scene-artwork.jsx"),
+                         bridge["implementation"]["source"]["sha256"])
+        self.assertEqual("StoryBridge", bridge["implementation"]["locator"])
+        self.assertEqual(record["fps"], spec["profile"]["fps"])
+        gate = scene_bridge.check_record(record, self.project, "plan")
+        self.assertTrue(gate["valid"], gate["errors"])
+        self.assertEqual([], scene_bridge.check_spec_mapping(record, spec))
+
     @unittest.skipUnless(shutil.which("node"), "Node is needed for deterministic renderer-state tests")
     def test_renderer_event_state_contract(self):
         result = subprocess.run([shutil.which("node"), "--test", str(SKILL / "assets/remotion-starter/src/timeline.test.mjs")],
                                 capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def _write_spec(self):
+        self.project.mkdir(exist_ok=True)
+        spec_path = self.project / "video-spec.json"
+        spec_path.write_bytes((SKILL / "assets/reference-video.json").read_bytes())
+        video = self.project / "explainer.mp4"
+        video.write_bytes(b"fake-video")
+        return spec_path, video
+
+    def _run_main(self, argv):
+        with patch.object(sys, "argv", argv):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                exit_code = project_tools.main()
+        return exit_code, json.loads(output.getvalue())
+
+    def test_media_probe_is_technical_only_without_bridge_record(self):
+        spec_path, video = self._write_spec()
+        sentinel = {"valid": True, "errors": [], "sha256": "abc",
+                    "probe": {}, "probe_command": ["ffprobe"], "decode_command": ["ffmpeg"],
+                    "decode_exit": 0, "loudness": [],
+                    "pending": ["visual inspection", "perceptual listening", "content and cue alignment"]}
+        with patch.object(project_tools, "check_media", return_value=dict(sentinel)) as media:
+            exit_code, result = self._run_main(
+                ["video_project.py", "media-probe", str(spec_path), str(video)])
+        self.assertEqual(0, exit_code)
+        self.assertTrue(result["valid"])
+        self.assertEqual([], result["errors"])
+        self.assertEqual("abc", result["sha256"])
+        self.assertEqual(["ffprobe"], result["probe_command"])
+        self.assertNotIn("bridge_gate", result)
+        self.assertIn("technical-only", result["scope"].lower())
+        self.assertIn("media-check", result["scope"])
+        media.assert_called_once_with(video, project_tools.read_json(spec_path), "ffmpeg", "ffprobe")
+
+    def test_media_probe_preserves_media_failure_exit(self):
+        spec_path, video = self._write_spec()
+        failure = {"valid": False, "errors": ["decode failed"], "sha256": "abc",
+                   "probe": {}, "probe_command": ["ffprobe"], "decode_command": ["ffmpeg"],
+                   "decode_exit": 1, "loudness": [],
+                   "pending": ["visual inspection"]}
+        with patch.object(project_tools, "check_media", return_value=dict(failure)):
+            exit_code, result = self._run_main(
+                ["video_project.py", "media-probe", str(spec_path), str(video)])
+        self.assertEqual(1, exit_code)
+        self.assertFalse(result["valid"])
+        self.assertEqual(["decode failed"], result["errors"])
+        self.assertIn("technical-only", result["scope"].lower())
+
+    def test_media_check_remains_strict_combined_gate(self):
+        spec_path, video = self._write_spec()
+        bridge_path = self.project / "scene-bridge-encoded.json"
+        bridge_path.write_text("{}", encoding="utf-8")
+        gate = {"valid": False, "stage": "encoded", "errors": ["missing review"],
+                "scope": "Bridge structure, artifact/frame provenance and recorded independent verdicts; not automated story quality or full video QA"}
+        with patch.object(project_tools, "check_record", return_value=dict(gate)) as record:
+            with patch.object(project_tools, "check_media") as media:
+                exit_code, result = self._run_main(
+                    ["video_project.py", "media-check", str(spec_path), str(video),
+                     "--bridge-record", str(bridge_path)])
+        self.assertEqual(1, exit_code)
+        self.assertFalse(result["valid"])
+        self.assertIn("missing review", result["errors"])
+        self.assertEqual(gate["errors"], result["bridge_gate"]["errors"])
+        media.assert_not_called()
+        record.assert_called_once()
+
+    def test_media_check_requires_both_bridge_mapping_and_media(self):
+        spec_path, video = self._write_spec()
+        bridge_path = self.project / "scene-bridge-encoded.json"
+        bridge_path.write_text("{}", encoding="utf-8")
+        spec = project_tools.read_json(spec_path)
+        gate = {"valid": True, "stage": "encoded", "errors": [], "scope": "bridge"}
+        with patch.object(project_tools, "check_record", return_value=dict(gate)):
+            with patch.object(project_tools, "check_spec_mapping", return_value=["timeline differs"]) as mapping:
+                with patch.object(project_tools, "check_media") as media:
+                    exit_code, result = self._run_main(
+                        ["video_project.py", "media-check", str(spec_path), str(video),
+                         "--bridge-record", str(bridge_path)])
+        self.assertEqual(1, exit_code)
+        self.assertFalse(result["valid"])
+        self.assertIn("timeline differs", result["errors"])
+        media.assert_not_called()
+        mapping.assert_called_once()
+        with patch.object(project_tools, "check_record", return_value=dict(gate)):
+            with patch.object(project_tools, "check_spec_mapping", return_value=[]):
+                media_result = {"valid": True, "errors": [], "sha256": "abc", "probe": {},
+                                "probe_command": ["ffprobe"], "decode_command": ["ffmpeg"],
+                                "decode_exit": 0, "loudness": [], "pending": ["visual inspection"]}
+                with patch.object(project_tools, "check_media", return_value=dict(media_result)) as media:
+                    exit_code, result = self._run_main(
+                        ["video_project.py", "media-check", str(spec_path), str(video),
+                         "--bridge-record", str(bridge_path)])
+        self.assertEqual(0, exit_code)
+        self.assertTrue(result["valid"])
+        self.assertEqual(gate["errors"], result["bridge_gate"]["errors"])
+        self.assertEqual("abc", result["sha256"])
 
 
 if __name__ == "__main__":

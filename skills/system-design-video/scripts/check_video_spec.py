@@ -13,9 +13,13 @@ from typing import Any
 
 
 ROUNDING_TOLERANCE = 1e-6
-AUDIO_TOLERANCE = 0.1
+AUDIO_TOLERANCE = 1e-6
 AUDIO_CHUNK_BYTES = 64 * 1024
 FRAME_ROUNDING_TOLERANCE = 1e-8
+
+
+def frame_at(seconds: float, fps: float) -> int:
+    return math.ceil(seconds * fps - FRAME_ROUNDING_TOLERANCE)
 
 
 class SpecChecker:
@@ -23,6 +27,7 @@ class SpecChecker:
         self.project = project.resolve()
         self.ready = ready
         self.errors: list[str] = []
+        self.fps: float | None = None
 
     def error(self, where: str, message: str) -> None:
         self.errors.append(f"{where}: {message}")
@@ -120,11 +125,20 @@ class SpecChecker:
             return
         if measured <= 0:
             self.error(f"{where}.file", "audio clip is empty")
-        if duration is not None and abs(measured - duration) > AUDIO_TOLERANCE + ROUNDING_TOLERANCE:
-            self.error(where, f"declares {duration:g}s but WAV measures {measured:g}s")
+        if duration is not None:
+            time_mismatch = abs(measured - duration) > AUDIO_TOLERANCE + ROUNDING_TOLERANCE
+            frame_mismatch = False
+            if self.fps is not None:
+                try:
+                    frame_mismatch = frame_at(duration, self.fps) != frame_at(measured, self.fps)
+                except (TypeError, ValueError, OverflowError):
+                    frame_mismatch = False
+            if time_mismatch or frame_mismatch:
+                self.error(where, f"declares {duration:g}s but WAV measures {measured:g}s")
         return measured
 
-    def narration(self, scene: dict[str, Any], where: str, length: float | None) -> None:
+    def narration(self, scene: dict[str, Any], where: str, start: float | None,
+                  end: float | None, fps: float | None) -> None:
         narration = scene.get("narration")
         where = f"{where}.narration"
         if not isinstance(narration, dict):
@@ -147,13 +161,30 @@ class SpecChecker:
         duration = narration.get("duration_seconds")
         if duration is not None:
             duration = self.number(duration, f"{where}.duration_seconds", positive=True)
+        length = end - start if start is not None and end is not None else None
         if length is not None and offset is not None:
             if offset >= length:
                 self.error(where, "offset must be inside the scene")
-            if duration is not None and offset + duration > length + ROUNDING_TOLERANCE:
-                self.error(where, "narration extends beyond the scene")
-            if measured is not None and offset + measured > length + ROUNDING_TOLERANCE:
-                self.error(where, "measured WAV extends beyond the scene")
+            if fps is not None:
+                try:
+                    scene_start_frame = frame_at(start, fps)
+                    scene_end_frame = frame_at(end, fps)
+                    audio_start_frame = frame_at(start + offset, fps)
+                    if duration is not None:
+                        if (audio_start_frame < scene_start_frame or
+                                audio_start_frame + frame_at(duration, fps) > scene_end_frame):
+                            self.error(where, "narration extends beyond the scene")
+                    if measured is not None:
+                        if (audio_start_frame < scene_start_frame or
+                                audio_start_frame + frame_at(measured, fps) > scene_end_frame):
+                            self.error(where, "measured WAV extends beyond the scene")
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            else:
+                if duration is not None and offset + duration > length + ROUNDING_TOLERANCE:
+                    self.error(where, "narration extends beyond the scene")
+                if measured is not None and offset + measured > length + ROUNDING_TOLERANCE:
+                    self.error(where, "measured WAV extends beyond the scene")
 
     def check(self, doc: Any) -> list[str]:
         if not isinstance(doc, dict):
@@ -176,11 +207,12 @@ class SpecChecker:
                 self.error(f"profile.{key}", "must be a positive even integer")
         fps = self.number(profile.get("fps"), "profile.fps", positive=True)
         duration = self.number(profile.get("duration_seconds"), "profile.duration_seconds", positive=True)
+        self.fps = fps
         frame_count = None
         if fps is not None and duration is not None:
-            if math.isfinite(duration * fps):
-                frame_count = math.ceil(duration * fps - FRAME_ROUNDING_TOLERANCE)
-            else:
+            try:
+                frame_count = frame_at(duration, fps)
+            except (TypeError, ValueError, OverflowError):
                 self.error("profile", "frame count must be finite")
         narrated = profile.get("narrated")
         if type(narrated) is not bool:
@@ -223,18 +255,16 @@ class SpecChecker:
             end = self.number(scene.get("end"), f"{where}.end", positive=True)
             self.text(scene.get("caption"), f"{where}.caption")
             self.refs(scene.get("claim_ids"), claims, f"{where}.claim_ids")
-            length = None
             if start is not None and end is not None:
                 if end <= start:
                     self.error(where, "end must be after start")
                 else:
                     windows[identifier] = (start, end)
-                    length = end - start
                 if abs(start - previous_end) > ROUNDING_TOLERANCE:
                     self.error(where, "scene windows must be contiguous and start at zero")
                 previous_end = end
             if narrated is True:
-                self.narration(scene, where, length)
+                self.narration(scene, where, start, end, fps)
         if duration is not None and abs(previous_end - duration) > ROUNDING_TOLERANCE:
             self.error("scenes", "last scene must end at profile.duration_seconds")
 
@@ -280,10 +310,18 @@ class SpecChecker:
                     completion_times[identifier] = completion
                     if window and completion > window[1] + ROUNDING_TOLERANCE:
                         self.error(where, "event completion extends beyond its scene")
+                    if fps is not None:
+                        try:
+                            if (version == 2 and edge_id is not None and
+                                    frame_at(at, fps) == frame_at(completion, fps)):
+                                self.error(where, "packet has zero travel frames; start and completion share a frame boundary")
+                        except (TypeError, ValueError, OverflowError):
+                            pass
                     if frame_count is not None and (version == 2 or "state_after" in event):
-                        completion_frames = completion * fps
-                        if (not math.isfinite(completion_frames) or
-                                math.ceil(completion_frames - FRAME_ROUNDING_TOLERANCE) >= frame_count):
+                        try:
+                            if frame_at(completion, fps) >= frame_count:
+                                self.error(where, "no visible completion frame; extend the video and final scene with an end hold")
+                        except (TypeError, ValueError, OverflowError):
                             self.error(where, "no visible completion frame; extend the video and final scene with an end hold")
                     for dependency in dependencies:
                         if at + ROUNDING_TOLERANCE < completion_times.get(dependency, 0):

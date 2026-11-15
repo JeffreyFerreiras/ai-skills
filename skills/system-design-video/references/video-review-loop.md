@@ -31,23 +31,33 @@ selected value is unavailable, unverifiable, unsupported, or mismatched. Record 
 when trusted host metadata exposes them.
 
 Use these gates, with separate role verdicts where one reviewer covers more than
-one discipline:
+one discipline. Each row is one deliverable stage with its own shared maximum
+of three total rounds, counting the initial review as round one. The table is
+authoritative. Later prose details evidence but adds no gate, role, or round.
 
-| Deliverable | Required evidence and approval before advancing |
-| --- | --- |
-| Script, spoken hook, sources and storyboard | Independent technical and narrative/beginner-comprehension `APPROVE` before any TTS or rendering. Require TEACH-OPEN-01 with cited definition, concrete objectives and scenario/body onset; check truth, scope, sequence, payoff, planned causal visuals and the non-author scene-director handoff with SD1/SD2 acceptance. |
-| Narration and cues | Dedicated voice-consistency review before final visual timing; compare phrasing, identity, pauses and joins. Listening gaps remain explicit. |
-| Every scene and representative sample | Dedicated visual-diva and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. |
-| Full timeline and encoded deliveries | Technical/media, narrative, voice, visual and logical evidence covering the actual revision before final delivery. Preserve the continuous HQ master and any separately reviewed preview. |
+| Deliverable stage | Required independent evidence and roles | Advance condition |
+| --- | --- | --- |
+| Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01 with cited definition, concrete objectives and scenario/body onset. Require truth, scope, sequence, payoff, planned causal visuals and the non-author scene-director handoff with SD1/SD2 acceptance. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
+| Narration and cues | Dedicated voice-consistency review on the current clips and cues. Compare phrasing, identity, pauses and joins. Record listening gaps as explicit pending evidence. | Advance only after voice approval of the current clips and before final visual timing. |
+| Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. The sample may show a mechanism or transition away from the opening. If the sample contains the complete opening, include TEACH-OPEN timestamp evidence. A separate opening excerpt is allowed when useful. | Advance only after both reviews approve the current sample digest and before the full render. |
+| Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision at native pace, including the most crowded scene and transitions. Record unavailable playback or listening as an open gap. | Advance only after all required verdicts approve the current timeline or record explicit gaps, and before the delivery encode. |
+| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require current bridge mapping, reviews and blind reading through media-check, actual encoded opening audio with the hook, TEACH-OPEN timestamps and delivery-size inspection. | Deliver only after all required verdicts approve the current encode with no pending required coverage. Final encoded opening review always applies. |
+| Optional cover or copy, when requested | Independent cover or copy review on the actual artifact, including full and thumbnail or crop evidence for covers. | Deliver only after approval of the current artifact. This review has its own stage counter. |
+
+Run focused preflight and the production-context bindings inside the script and
+sample gates before expensive production. They add no gate, role, or round.
 
 Use [scene direction](scene-direction.md) for required per-episode evaluation,
 fresh transition directions and SD3/SD4 acceptance in scene/sample and encoded
 reviews. Director acceptance and beginner comprehension use the existing stage
 reservation; neither adds rounds or replaces another role. Honor explicit
 episode review overrides without treating them as global policy.
-The [teaching opening check](teaching-opening.md) is part of that existing gate,
-with actual encoded timestamp evidence at sample/final review. It adds no rounds
-and does not reset consumed episode budgets when an opening is repaired.
+The [teaching opening check](teaching-opening.md) is part of those existing
+gates. It always applies at script review with cited lines and at final encoded
+review with actual timestamps. At sample review it applies when the sample
+contains the complete opening, and a separate opening excerpt is allowed when
+useful. It adds no rounds and does not reset consumed episode budgets when an
+opening is repaired.
 The [story bridge contract](story-bridge-contract.md) binds the required scene to
 implemented source, exact encoded frames and blind audience interpretation.
 Neither plan approval nor conformity to a diagram-only plan can satisfy its

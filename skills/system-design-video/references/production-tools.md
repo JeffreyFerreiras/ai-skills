@@ -68,13 +68,18 @@ production gate or prevents independent plan work.
 
 ```bash
 python scripts/video_project.py previews "$VIDEO_PROJECT/video-spec.json"
+python scripts/video_project.py media-probe "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/explainer.mp4"
 python scripts/video_project.py media-check "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/explainer.mp4" --bridge-record "$VIDEO_PROJECT/scene-bridge-encoded.json"
 ```
 
-Follow the [story bridge contract](story-bridge-contract.md) before media-check.
+Run `media-probe` any time for technical-only diagnostics. It needs no bridge
+record. Run `media-check` last, after the current bridge record, reviews, and
+blind reading are bound. Follow the [story bridge contract](story-bridge-contract.md) before media-check.
 It requires actual implementation, encoded samples and distinct independent
 story verdicts, including blind interpretation before intent. The media-check
-CLI rejects a missing record or mismatched story/timeline/video evidence. Direct
+CLI rejects a missing record or mismatched story/timeline/video evidence. A
+probe pass leaves visual quality, perceptual listening, and cue/content
+alignment pending. It never approves production. Direct
 `check_media` calls used by technical fixtures remain technical checks only.
 
 `previews` returns deduplicated frame indexes around starts, midpoints, completions,
@@ -137,7 +142,11 @@ python scripts/reference_video.py prepare "$VIDEO_PROJECT" --synthesize-windows
 ```
 
 On another host, use `--voice-dir` pointing to authorized PCM clips `send.wav` and
-`receive.wav` containing the two fixture sentences. Preparation records voice
+`receive.wav` containing the two fixture sentences. This default fixture keeps
+two scenes for older compatibility. For the three-scene worked example with a
+bound bridge plan, use the
+[worked example](#worked-example-with-bound-bridge-plan) below instead.
+Preparation records voice
 provenance, measures both clips, reports the deliberately short draft's fit errors,
 extends scene windows and dependent events, and emits `subtitles.srt`. Original
 speech samples remain unchanged; captions use scene-level clip timing, not word
@@ -155,3 +164,56 @@ sample filenames include the encoded file hash. Retain the project lockfile, com
 as reproducibility evidence. The fixture tests integration and retiming, not
 production voice quality, viewer comprehension or independent approval. Use the
 real lesson's review gates for those judgments.
+
+## Worked example with bound bridge plan
+
+The worked example prepares three scenes (`intro`, `shop-sign`, `retry`) from
+`assets/worked-example/` and binds the bridge implementation source. It leaves
+the default two-scene fixture unchanged.
+
+```bash
+python scripts/reference_video.py prepare "$VIDEO_PROJECT" --worked-example --synthesize-windows
+```
+
+On another host, pass `--worked-example --voice-dir "$VOICE_DIR"` with
+authorized PCM clips `intro.wav`, `shop-sign.wav`, and `retry.wav` instead of
+`--synthesize-windows`. Preparation copies the example spec and artwork,
+measures the three clips, retimes scenes, events, captions, and the bridge
+plan, then writes `scene-bridge.json` with the implementation source bound to
+the actual `src/scene-artwork.jsx` hash. It adds no reviews and no encoded
+evidence.
+
+Install the starter dependencies in that project as described above, then render:
+
+```bash
+python scripts/reference_video.py render "$VIDEO_PROJECT"
+```
+
+Run the technical probe before dispatching encoded reviewers:
+
+```bash
+python scripts/video_project.py media-probe "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/reference.mp4"
+```
+
+A probe pass never approves a sample or an encode. It only reports technical
+diagnostics for the reviewers to use.
+
+From the episode project, capture bridge evidence from the actual encode:
+
+```bash
+python "$VIDEO_SKILL_DIR/scripts/scene_bridge.py" capture scene-bridge.json outputs/reference.mp4 evidence/bridge-current --output scene-bridge-encoded.json --project .
+```
+
+Collect sample and final evidence through independent review in the existing
+gates. This includes visual and logical review and the other scoped verdicts
+the stage table requires. Sample review comes before full production.
+
+After the current bridge verdicts pass, run the final combined gate:
+
+```bash
+python scripts/video_project.py media-check "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/reference.mp4" --bridge-record "$VIDEO_PROJECT/scene-bridge-encoded.json"
+```
+
+Media-check results never approve a sample or an encode. Sample and final
+acceptance still need the independent reviews in
+[production review](production-review.md).
