@@ -1,4 +1,4 @@
 interface:
   display_name: "Little Helper"
   short_description: "Fast free OpenCode helper with Muse Spark fallback"
-  default_prompt: "Use $little-helper for this narrow task with DeepSeek Flash Free at a minimum of high effort, choosing max when warranted, and Muse Spark at a minimum of xhigh as the availability fallback."
+  default_prompt: "Use $little-helper for this narrow task and try suitable free OpenCode models first."
