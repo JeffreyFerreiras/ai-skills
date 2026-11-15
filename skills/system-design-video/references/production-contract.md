@@ -79,8 +79,10 @@ python "$SYSTEM_DESIGN_VIDEO_SKILL_DIR/scripts/check_video_spec.py" video-spec.j
 The check is read-only. Exit 0 means the declared contract passes; exit 1 means
 input, structure, or audio verification failed. JSON output contains `valid`,
 `stage`, and `errors`. `stage` is `plan` or `animation-inputs`, never final-video
-certification. Clip duration tolerance is 0.1 seconds. Scene and event boundary
-checks allow only floating-point rounding, not a missing frame or a story gap.
+certification. Declared clip duration must match the measured sample-derived
+duration within float rounding. It must yield the same frame count at the profile
+frame rate. A declared 0.90s against a measured 0.99s clip fails. Scene and
+event boundary checks use frame indexes, not a missing frame or a story gap.
 
 Silent projects set `narrated: false`. They need readable on-screen explanations
 and the same architectural and event checks, but no voice clips. Do not use that
@@ -97,7 +99,9 @@ at, and after completion, plus dense motion and every scene boundary. Convert
 seconds to the first frame at or after that time, clamped to the video range.
 Before completion, do not expose the resulting state. At completion, show
 `state_after`. A positive-duration packet must travel along its directed edge;
-one frame after departure is not assumed to be its arrival. The production
+one frame after departure is not assumed to be its arrival. A v2 packet whose
+start and completion fall in the same frame index shows zero travel frames and
+fails. The production
 helper emits these frame indexes for the chosen frame rate. Inspect final-frame
 and next-scene behavior when completion falls exactly on a scene boundary.
 

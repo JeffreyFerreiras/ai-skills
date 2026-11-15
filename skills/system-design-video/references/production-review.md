@@ -20,8 +20,10 @@ required workflow here, not an optional external loop invocation.
 
 ## Scope and evidence
 
-Review the script/storyboard, representative sample, rough full timeline, and
-encoded final as they are produced. Review assets and audio/cues before expensive
+Review the script/storyboard, narration/cues, representative sample, rough full
+timeline, and encoded final as they are produced, using the stage table in
+[video review loop](video-review-loop.md) as the authority for roles, evidence,
+advance conditions, and round budgets. Review assets and audio/cues before expensive
 assembly. Assign a non-author reviewer at every asset deliverable: production
 document/script, storyboard/art, narration/cues, representative sample, full
 render, and delivery encode. Group related files when each is covered explicitly;

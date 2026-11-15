@@ -1,6 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Composition, Sequence, registerRoot, staticFile, useCurrentFrame} from 'remotion';
 import spec from '../video-spec.json';
+import sceneArtwork from './scene-artwork.jsx';
 import {compositionFrames, frameAt, stateAt} from './timeline.mjs';
 
 function Explainer({spec}) {
@@ -8,6 +9,12 @@ function Explainer({spec}) {
   const fps = spec.profile.fps;
   const time = frame / fps;
   const scene = spec.scenes.find((item) => time >= item.start && time < item.end);
+  const Artwork = scene && Object.prototype.hasOwnProperty.call(sceneArtwork, scene.id)
+    ? sceneArtwork[scene.id]
+    : null;
+  const artworkProgress = scene && Artwork && scene.end > scene.start
+    ? Math.min(1, Math.max(0, (time - scene.start) / (scene.end - scene.start)))
+    : 0;
   const {states, packets} = stateAt(spec, frame);
   const positions = Object.fromEntries(spec.nodes.map((node, index) => [node.id,
     node.position ?? {x: 540, y: 560 + index * 720 / Math.max(1, spec.nodes.length - 1)}]));
@@ -24,6 +31,7 @@ function Explainer({spec}) {
       <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="#799cab" /></marker></defs>
       <foreignObject x="80" y="140" width="920" height="280"><div style={{fontFamily: 'Arial, sans-serif', fontSize: 62, lineHeight: 1.15, fontWeight: 700}}>{spec.question}</div></foreignObject>
+      {Artwork ? <Artwork progress={artworkProgress} /> : (<>
       {spec.edges.map((edge) => <line key={edge.id} {...route(edge)} stroke="#799cab" strokeWidth="7" markerEnd="url(#arrow)" />)}
       {spec.nodes.map((node) => <g key={node.id} transform={`translate(${positions[node.id].x}, ${positions[node.id].y})`}>
         <rect x="-230" y="-90" width="460" height="180" rx="24" fill="#1d3c4d" stroke="#84d1bc" strokeWidth="4" />
@@ -37,6 +45,7 @@ function Explainer({spec}) {
         return <g key={packet.id}><circle cx={x} cy={y} r="18" fill="#f6bf66" />
           <text x={x + 35} y={y + 10} fill="#f6bf66" fontFamily="Arial" fontSize="32">{packet.label ?? 'Message'}</text></g>;
       })}
+      </>)}
       <foreignObject x="100" y="1480" width="880" height="280"><div style={{fontFamily: 'Arial, sans-serif', fontSize: 44, lineHeight: 1.25}}>
         {spec.presentation?.burn_captions ? spec.captions?.find((cue) => time >= cue.start && time < cue.end)?.text : scene?.caption}
       </div></foreignObject>

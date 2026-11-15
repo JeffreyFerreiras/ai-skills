@@ -12,7 +12,8 @@ import sys
 import wave
 from pathlib import Path
 
-from check_video_spec import validate_spec
+from check_video_spec import frame_at, validate_spec
+from scene_bridge import check_record, check_spec_mapping
 from video_project import SKILL, atomic_json, check_media, file_hash, initialize, preview_frames, read_json
 
 
@@ -24,8 +25,50 @@ def subtitle_time(seconds):
     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
 
 
-def prepare(project, voice_dir=None, synthesize_windows=False):
+def retime_bridge(spec, project):
+    record = read_json(SKILL / "assets/worked-example/scene-bridge.json")
+    fps = spec["profile"]["fps"]
+    record["fps"] = fps
+    record["frame_count"] = frame_at(spec["profile"]["duration_seconds"], fps)
+    scenes = {scene["id"]: scene for scene in spec["scenes"]}
+    for bridge in record["bridges"]:
+        scene = scenes[bridge["scene_id"]]
+        incoming = scenes[bridge["incoming_scene_id"]]
+        following = scenes[bridge["next_scene_id"]]
+        start = frame_at(scene["start"], fps)
+        end = frame_at(scene["end"], fps)
+        bridge.update(start_frame=start, end_frame=end)
+        span = end - start
+        quarter = max(1, span // 4)
+        bridge["sample_frames"] = {
+            "before": max(frame_at(incoming["start"], fps), start - 30),
+            "entry": start + quarter,
+            "action": start + span // 2,
+            "exit": end - quarter,
+            "after": min(frame_at(following["end"], fps) - 1, end + 10),
+        }
+        bridge["implementation"] = {
+            "source": {"path": "src/scene-artwork.jsx",
+                       "sha256": file_hash(project / "src/scene-artwork.jsx")},
+            "locator": "StoryBridge",
+            "assets": [],
+        }
+    gate = check_record(record, project, "plan")
+    if not gate["valid"]:
+        raise ValueError("; ".join(gate["errors"]))
+    mapping = check_spec_mapping(record, spec)
+    if mapping:
+        raise ValueError("; ".join(mapping))
+    atomic_json(project / "scene-bridge.json", record)
+    return record
+
+
+def prepare(project, voice_dir=None, synthesize_windows=False, worked_example=False):
     initialize(project)
+    if worked_example:
+        example = SKILL / "assets/worked-example"
+        shutil.copyfile(example / "video-spec.json", project / "video-spec.json")
+        shutil.copyfile(example / "StoryBridge.jsx", project / "src/scene-artwork.jsx")
     spec = read_json(project / "video-spec.json")
     if synthesize_windows:
         if sys.platform != "win32":
@@ -50,13 +93,27 @@ def prepare(project, voice_dir=None, synthesize_windows=False):
         audio_hashes[path.name] = file_hash(path)
     before_errors = validate_spec(spec, project, ready=True)
     offset = 0
+    events_by_scene = {}
+    if worked_example:
+        for event in spec["events"]:
+            events_by_scene.setdefault(event.get("scene_id"), []).append(event)
     for index, scene in enumerate(spec["scenes"]):
         voice = scene["narration"]
         # Extend visual windows only. Never alter the measured speech or scale word cues.
         length = math.ceil((voice["duration_seconds"] + 0.5) * spec["profile"]["fps"]) / spec["profile"]["fps"]
         scene.update(start=offset, end=offset + length)
-        spec["events"][index].update(at=offset + 0.1, duration_seconds=min(1.0, length - 0.2))
-        spec["captions"][index].update(start=offset, end=offset + voice["duration_seconds"])
+        if worked_example:
+            scene_events = events_by_scene.get(scene["id"], [])
+            if scene_events:
+                step = (length - 0.2) / len(scene_events)
+                for position, event in enumerate(scene_events):
+                    event.update(at=offset + 0.1 + position * step,
+                                 duration_seconds=min(1.0, step - 0.05))
+            if index < len(spec["captions"]):
+                spec["captions"][index].update(start=offset, end=offset + voice["duration_seconds"])
+        else:
+            spec["events"][index].update(at=offset + 0.1, duration_seconds=min(1.0, length - 0.2))
+            spec["captions"][index].update(start=offset, end=offset + voice["duration_seconds"])
         offset += length
     spec["profile"]["duration_seconds"] = offset
     errors = validate_spec(spec, project, ready=True)
@@ -71,6 +128,9 @@ def prepare(project, voice_dir=None, synthesize_windows=False):
               "duration_seconds": offset, "audio_sha256": audio_hashes,
               "cue_precision": "scene-level measured clips; not word alignment",
               "scope": "Synthetic integration fixture, no production approval"}
+    if worked_example:
+        retime_bridge(spec, project)
+        report["scene_bridge"] = "scene-bridge.json"
     atomic_json(project / "retiming-report.json", report)
     return report
 
@@ -123,6 +183,7 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     prep = commands.add_parser("prepare")
     prep.add_argument("project", type=Path)
+    prep.add_argument("--worked-example", action="store_true")
     voice = prep.add_mutually_exclusive_group(required=True)
     voice.add_argument("--voice-dir", type=Path)
     voice.add_argument("--synthesize-windows", action="store_true")
@@ -136,7 +197,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "prepare":
-            result = prepare(args.project.resolve(), args.voice_dir, args.synthesize_windows)
+            result = prepare(args.project.resolve(), args.voice_dir, args.synthesize_windows,
+                             args.worked_example)
         elif args.command == "render":
             result = render(args.project.resolve(), args.ffmpeg, args.ffprobe, args.browser)
         else:

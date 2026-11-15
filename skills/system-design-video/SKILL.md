@@ -104,7 +104,10 @@ to already-authorized local work.
 ## Run the built-in review loop
 
 Use the self-contained [video review loop](references/video-review-loop.md) at
-each deliverable gate. Freeze scope and criteria, use one bound Writer, settle
+each deliverable gate. Its stage table is authoritative for script/storyboard,
+narration/cues, representative sample, rough full timeline, encoded final, and
+optional cover/copy, including roles, evidence, advance conditions, and the
+shared three-round budget per stage. Freeze scope and criteria, use one bound Writer, settle
 its writes, validate the exact artifact revision, then use fresh independent
 reviewers to approve, request a bounded repair, or block. Keep durable round and
 finding records, bind results to actual artifact hashes, and invalidate stale

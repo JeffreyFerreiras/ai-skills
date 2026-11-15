@@ -304,13 +304,14 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     init = sub.add_parser("init")
     init.add_argument("project", type=Path)
-    for name in ("preflight", "previews", "media-check"):
+    for name in ("preflight", "previews", "media-check", "media-probe"):
         command = sub.add_parser(name)
         command.add_argument("spec", type=Path)
         if name == "preflight":
             command.add_argument("--capabilities", type=Path)
-        if name == "media-check":
+        if name in ("media-check", "media-probe"):
             command.add_argument("video", type=Path)
+        if name == "media-check":
             command.add_argument("--bridge-record", type=Path, required=True)
         if name != "previews":
             command.add_argument("--ffmpeg", default="ffmpeg")
@@ -343,6 +344,10 @@ def main():
                                    read_json(args.capabilities) if args.capabilities else {}, args.ffmpeg, args.ffprobe)
             elif args.command == "previews":
                 result = {"frames": preview_frames(spec), "scope": "sample plan, not playback evidence"}
+            elif args.command == "media-probe":
+                result = check_media(args.video, spec, args.ffmpeg, args.ffprobe)
+                result["scope"] = ("Technical-only media diagnostics; not a production gate. "
+                                   "Bridge mapping/reviews still required via media-check.")
             else:
                 bridge = read_json(args.bridge_record)
                 gate = check_record(bridge, args.spec.parent, "encoded", args.ffmpeg,

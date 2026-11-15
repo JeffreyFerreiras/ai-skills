@@ -221,6 +221,33 @@ class SystemDesignVideoTests(unittest.TestCase):
         self.write_audio(seconds=1.05)
         self.assert_issue("measured WAV extends beyond the scene", ready=True)
 
+    def test_declared_and_measured_pcm_frame_counts_must_match(self) -> None:
+        self.write_audio(seconds=0.99)
+        for scene in self.plan["scenes"]:
+            scene["narration"].update(file="voice.wav", timing_basis="measured", duration_seconds=0.9)
+        self.assert_issue("declares 0.9s but WAV measures 0.99s", ready=True)
+        for scene in self.plan["scenes"]:
+            scene["narration"]["duration_seconds"] = 0.99
+        self.assertFalse(any("declares" in error for error in self.errors(ready=True)))
+
+    def test_quantized_audio_end_must_fit_scene_window(self) -> None:
+        self.write_audio(seconds=0.05)
+        scene = self.plan["scenes"][0]
+        scene["narration"].update(file="voice.wav", timing_basis="measured",
+                                  duration_seconds=0.05, offset=11.95)
+        self.assert_issue("extends beyond the scene", ready=True)
+        scene["narration"]["offset"] = 11.9
+        self.assertFalse(any("extends beyond the scene" in error for error in self.errors(ready=True)))
+
+    def test_v2_packet_needs_a_visible_travel_frame(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        event = self.plan["events"][0]
+        event.update(at=0.51, duration_seconds=0.01)
+        self.assertEqual("request", event["edge_id"])
+        self.assert_issue("zero travel frames")
+        event["duration_seconds"] = 0.05
+        self.assertFalse(any("zero travel frames" in error for error in self.errors()))
+
     def test_audio_paths_cannot_escape_project(self) -> None:
         self.measured_plan()
         for name in ("../outside.wav", str(self.project / "voice.wav"), "invalid\x00.wav"):

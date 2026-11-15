@@ -38,7 +38,10 @@ Capture probes the actual encoded frame rate/count and extracts full-size PNGs
 at the five declared phases. Use explicit `--ffmpeg`/`--ffprobe` paths when needed.
 Evidence/output paths must be new; capture never overwrites. A failed partial
 capture is not a receipt or approval. Reconcile its known state before retrying.
-The created record has no approvals and is not eligible for delivery.
+The created record has no approvals and is not eligible for delivery. The
+worked-example prepare path writes a retimed plan with the implementation
+source bound to the actual project file. It adds no reviews and no encoded
+evidence. Capture and blind review remain required.
 
 ## Blind encoded acceptance
 
