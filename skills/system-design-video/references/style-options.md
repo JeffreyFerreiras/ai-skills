@@ -23,20 +23,12 @@ the picker. Do not infer a choice from silence or from a different episode.
 
 ## Sculpted studio
 
-Inspect the selected variant's saved sample:
-[light](../assets/style-references/sculpted-studio.png) or
-[dark](../assets/style-references/sculpted-studio-dark.png).
+Inspect the [saved sample](../assets/style-references/sculpted-studio.png).
 
 Use tactile matte ceramic or resin, rounded architectural forms, grounded contact
 shadows and soft studio lighting. Start with warm ivory `#F2E5D5`, ink `#263330`,
 seafoam `#91B39B` and terracotta `#C65B32`. These are proposed working tokens,
 not measured swatches from the sample or universal state meanings.
-
-For dark mode, use a charcoal-blue background and slate ceramic housings. Keep
-the seafoam cards and terracotta accents. Soft warm key lighting and restrained
-cool edge lighting should separate the forms without neon glow or crushed blacks.
-The dark sample changes palette and lighting while retaining the light sample's
-composition and rounded forms. Record which variant the user selected.
 
 Give each role a distinct silhouette. Show a queue as a visible rack, a processor
 as an open work cradle, or a storage boundary as a compartment when that metaphor
@@ -141,7 +133,7 @@ pixel art, during motion and in the actual encoded file.
 
 ## Sample scope and provenance
 
-The five linked PNGs are AI-generated still explorations created with the built-in
+The four linked PNGs are AI-generated still explorations created with the built-in
 imagegen tool on November 4, 2026. The [sample manifest](../assets/style-references/style-options-manifest.json)
 records the exact prompts, dimensions and hashes. They illustrate a generic
 photo-processing queue to make the treatments comparable. Their card counts,
