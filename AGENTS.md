@@ -82,6 +82,14 @@ Keep chat formatting out of source code.
 - For multi-step or risky work, state a short plan and material assumptions. Keep
   progress updates brief, with a one-line status during long tasks.
   Skip ceremony for trivial work. Acknowledge instructions in one line, then act.
+- When a useful decision remains, infer the likely next actions from the user's
+  goal and current state. Offer up to three options labeled A, B, and C. Put the
+  recommendation first and say what each option would accomplish. Treat a
+  single-letter reply as a choice if it matches an option in the latest
+  applicable menu, regardless of case. Handle free-text replies normally.
+  Complete clear, authorized work before offering choices.
+- Before delegating work, tell the user each agent's model name and reasoning
+  effort. If either setting is unavailable, say so.
 - If a skill blocks completion, link the exact instruction, explain what is missing,
   and continue independent authorized work.
 
