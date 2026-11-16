@@ -32,41 +32,35 @@ Record the displayed sample paths/hashes, the user's answer and the selected
 variant in the production document. Keep style selection separate from video
 acceptance. These stills do not establish animation, narration or causal accuracy.
 
-## A. Sculpted studio, dark
-
-Slate ceramic, charcoal background, seafoam and terracotta accents.
-
-![A. Sculpted studio in dark mode](../assets/style-references/sculpted-studio-dark.png)
-
-## B. Sculpted studio, light
+## A. Sculpted studio, light
 
 Warm ivory ceramic, soft shadows, seafoam and terracotta accents.
 
-![B. Sculpted studio in light mode](../assets/style-references/sculpted-studio.png)
+![A. Sculpted studio in light mode](../assets/style-references/sculpted-studio.png)
 
-## C. Glass cutaway
+## B. Glass cutaway
 
 Dark transparent housings with visible internal parts and amber records.
 
-![C. Glass cutaway](../assets/style-references/glass-cutaway.png)
+![B. Glass cutaway](../assets/style-references/glass-cutaway.png)
 
-## D. Pixel circuit
+## C. Pixel circuit
 
 Retro sprites and stepped contours on a deep purple field.
 
-![D. Pixel circuit](../assets/style-references/pixel-circuit.png)
+![C. Pixel circuit](../assets/style-references/pixel-circuit.png)
 
-## E. Voxel workshop
+## D. Voxel workshop
 
 Block-built forms, grounded shadows and warm illuminated machinery.
 
-![E. Voxel workshop](../assets/style-references/voxel-workshop.png)
+![D. Voxel workshop](../assets/style-references/voxel-workshop.png)
 
-## F. Dark drafting desk
+## E. Dark drafting desk
 
 Dark slate, precise ivory lines, copper and sage accents.
 
-![F. Dark drafting desk](../assets/style-references/dark-drafting-desk.png)
+![E. Dark drafting desk](../assets/style-references/dark-drafting-desk.png)
 
 ## Other styles and references
 

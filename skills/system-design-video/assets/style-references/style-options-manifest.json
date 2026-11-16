@@ -19,27 +19,6 @@
       "prompt": "Use case: stylized-concept.\nAsset type: one portrait 9:16 art-direction still for an educational system-design video. This is a style exploration, not a finished diagram or video.\nCreate an exceptionally polished SCULPTED STUDIO 3D miniature, a tangible photo-processing queue, on a warm off-white studio background. Premium tactile ceramic and matte resin, rounded but architectural silhouettes, soft directional studio lighting, grounded contact shadows, gentle orthographic isometric camera. Seafoam green, terracotta orange, ivory, dark ink accents. Thoughtful editorial design, not a generic SaaS dashboard.\nComposition: one large scene with three distinct stations arranged along a gentle ascending diagonal across the central two-thirds of the portrait. At upper left an upright ivory upload kiosk displays a simple mountain-and-sun photo icon. In the middle a shallow terracotta waiting tray contains three separate upright seafoam picture cards, one behind the next; show all silhouettes clearly. At lower right a larger ivory processing station holds one picture card in a clearly visible opening and displays the same photo icon. Two broad simple flat inset route strips connect kiosk to tray and tray to processing station, no other routes. Deliberately enlarged objects, generous empty top and bottom margins for future code-rendered labels and captions. Keep all critical objects sharp and separated. A sculptural still that makes the objects feel touchable.\nNo lettering, no digits, no tiny technical text, no logos, no watermark, no extra screens, no humanoid robots, no decorative particles, no spaghetti wires, no arrows indicating fictitious return paths. Portrait artwork only, no mockup phone border."
     },
     {
-      "id": "sculpted-studio-dark",
-      "title": "Sculpted studio, dark",
-      "file": "sculpted-studio-dark.png",
-      "created_on": "2026-11-04",
-      "width": 992,
-      "height": 1586,
-      "sha256": "70f4577ae3d31e367d83659a64f5e7da461ecb0de3e52b933fb32ea83bcc8e8f",
-      "derived_from": {
-        "file": "sculpted-studio.png",
-        "sha256": "49491d7f609a085a74f7a42710ee5c7a012029c53903cdbedc3aeebf2122d213"
-      },
-      "prompt": "Edit this exact Sculpted studio art-direction sample into a dark-mode variant. Preserve the composition, camera angle, object geometry, rounded ceramic/resin forms, three waiting picture cards, single active card, mountain-and-sun icons, two connecting strips, object positions and generous empty margins. Change only the palette and lighting.\nReplace the warm off-white background and floor with a deep matte charcoal-blue studio environment. Replace the ivory machine shells and plinths with tactile medium-dark slate ceramic, distinctly lighter than the background. Preserve the terracotta-orange queue tray and warm orange icon suns, and retain muted seafoam-green picture cards and connecting strips. The screen icon should remain readable on its darker inset. Use soft warm key lighting and a restrained cool edge light to separate dark forms, with convincing contact shadows. Keep enough diffuse light on front faces that no important shape disappears. Premium sculptural dark mode, calm and tangible. No neon glow, no glass, no glossy chrome, no crushed blacks, no added objects, no words, no labels, no logos, no watermark. Preserve the original portrait aspect ratio and opaque background.",
-      "review": {
-        "round": 1,
-        "visual_reviewer": "sculpted_dark_review",
-        "visual_verdict": "ACCEPT for the preview still",
-        "inspection": "Compared actual source and dark-candidate PNG pixels; palette and lighting change retained composition and object identity. No motion or architecture certification.",
-        "findings": []
-      }
-    },
-    {
       "id": "glass-cutaway",
       "title": "Glass cutaway",
       "file": "glass-cutaway.png",
