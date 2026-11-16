@@ -512,8 +512,16 @@ def validate_carry_forward(previous, current, receipt):
     require(role not in FINAL_ROLES, "CARRY_FINAL", "role", "Final acceptance requires fresh review")
     requirement = requirement_for(definition, role)
     old_requirement = requirement_for(old_definition, role)
-    semantics = lambda gate: {key: value for key, value in gate.items() if key != "budget_checkpoint"}
-    require(semantics(definition) == semantics(old_definition) and requirement == old_requirement,
+
+    def carry_semantics(gate):
+        semantics = {key: value for key, value in gate.items() if key != "budget_checkpoint"}
+        semantics["required"] = [{key: value for key, value in item.items() if key != "reviewer_id"}
+                                 for item in gate["required"]]
+        return semantics
+
+    require(carry_semantics(definition) == carry_semantics(old_definition),
+            "CARRY_CONTRACT", "gate", "Frozen review contract changed")
+    require(requirement == old_requirement,
             "CARRY_CONTRACT", "gate", "Frozen review contract changed")
     origin = load_json(artifact(current["project"], receipt.get("prior_receipt")))
     schema(origin)

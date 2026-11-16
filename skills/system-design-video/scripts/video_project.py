@@ -16,7 +16,7 @@ import tempfile
 from fractions import Fraction
 from pathlib import Path
 
-from check_video_spec import validate_spec
+from check_video_spec import frame_at, validate_spec
 from scene_bridge import check_record, check_spec_mapping
 
 
@@ -228,14 +228,14 @@ def record(state_path, manifest, entry):
 
 def preview_frames(spec):
     fps = spec["profile"]["fps"]
-    last = math.ceil(spec["profile"]["duration_seconds"] * fps) - 1
+    last = frame_at(spec["profile"]["duration_seconds"], fps) - 1
     frames = {0, last}
     times = [scene[key] for scene in spec["scenes"] for key in ("start", "end")]
     for event in spec["events"]:
         duration = event.get("duration_seconds", 0)
         times += [event["at"], event["at"] + duration / 2, event["at"] + duration]
     for time in times:
-        boundary = math.ceil(time * fps - 1e-8)
+        boundary = frame_at(time, fps)
         frames.update(frame for frame in (boundary - 1, boundary, boundary + 1) if 0 <= frame <= last)
     return sorted(frames)
 

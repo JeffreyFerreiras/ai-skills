@@ -144,8 +144,7 @@ python scripts/reference_video.py prepare "$VIDEO_PROJECT" --synthesize-windows
 On another host, use `--voice-dir` pointing to authorized PCM clips `send.wav` and
 `receive.wav` containing the two fixture sentences. This default fixture keeps
 two scenes for older compatibility. For the three-scene worked example with a
-bound bridge plan, use the
-[worked example](#worked-example-with-bound-bridge-plan) below instead.
+bound bridge plan, use the worked example with bound bridge plan below instead.
 Preparation records voice
 provenance, measures both clips, reports the deliberately short draft's fit errors,
 extends scene windows and dependent events, and emits `subtitles.srt`. Original
@@ -196,7 +195,8 @@ python scripts/video_project.py media-probe "$VIDEO_PROJECT/video-spec.json" "$V
 ```
 
 A probe pass never approves a sample or an encode. It only reports technical
-diagnostics for the reviewers to use.
+diagnostics for the reviewers to use. Record sample and final responses in the
+[worked-example review record](../assets/worked-example/review-record.md).
 
 From the episode project, capture bridge evidence from the actual encode:
 

@@ -332,6 +332,25 @@ class ProductionContextTests(unittest.TestCase):
         del receipt["old_closure"]
         self.error("CARRY_PROOF", context.validate_carry_forward, self.current, new, receipt)
 
+    def test_visual_reviewer_and_movie_artifact_change_still_allows_technical_carry(self):
+        _, old_results = self.reviews()
+        record = copy.deepcopy(self.record)
+        record["generation"] += 1
+        record["gates"][0]["required"][1]["reviewer_id"] = "r3"
+        encode = next(node for node in record["nodes"] if node["id"] == "encode")
+        encode["artifacts"] = [self.source("encode.txt", "updated synthetic encode")]
+        new = context.validate_context(record, self.root)
+        self.assertEqual(["encode"], context.invalidated_nodes(self.current, new))
+        gate, _ = self.runtime(new, "b" * 64)
+        receipt = self.carry(self.current, new, gate, old_results[0])
+        self.assertTrue(context.validate_carry_forward(self.current, new, receipt))
+        same_role = copy.deepcopy(record)
+        same_role["gates"][0]["required"][0]["reviewer_id"] = "r9"
+        bad = context.validate_context(same_role, self.root)
+        bad_gate, _ = self.runtime(bad, "b" * 64)
+        bad_receipt = self.carry(self.current, bad, bad_gate, old_results[0])
+        self.error("CARRY_CONTRACT", context.validate_carry_forward, self.current, bad, bad_receipt)
+
     def test_carry_rejects_correctly_hashed_origin_packet_with_wrong_reviewer(self):
         _, old_results = self.reviews()
         origin = old_results[0]

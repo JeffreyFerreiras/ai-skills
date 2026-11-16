@@ -153,6 +153,16 @@ class VideoProjectTests(unittest.TestCase):
             self.assertIn(frame, frames)
         self.assertTrue(all(0 <= frame < 60 for frame in frames))
 
+    def test_preview_frames_exact_boundary_has_no_frame_31(self):
+        duration = 31 / 30
+        spec = {"profile": {"fps": 30, "duration_seconds": duration},
+                "scenes": [{"start": 0, "end": duration}], "events": []}
+        frames = project_tools.preview_frames(spec)
+        self.assertEqual(30, frames[-1])
+        self.assertNotIn(31, frames)
+        self.assertIn(0, frames)
+        self.assertTrue(all(0 <= frame <= 30 for frame in frames))
+
     def test_loudness_accepts_trailing_ffmpeg_summary_but_not_silence(self):
         output = 'Parsed_loudnorm\n{"input_i":"-20.26","input_tp":"-3.31"}\n[out#0/null] muxing overhead: unknown'
         self.assertEqual("-3.31", project_tools.parse_loudness(output)["input_tp"])
