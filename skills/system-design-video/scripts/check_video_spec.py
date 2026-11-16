@@ -127,13 +127,19 @@ class SpecChecker:
             self.error(f"{where}.file", "audio clip is empty")
         if duration is not None:
             time_mismatch = abs(measured - duration) > AUDIO_TOLERANCE + ROUNDING_TOLERANCE
-            frame_mismatch = False
+            short_frames = False
             if self.fps is not None:
                 try:
-                    frame_mismatch = frame_at(duration, self.fps) != frame_at(measured, self.fps)
+                    short_frames = frame_at(duration, self.fps) < frame_at(measured, self.fps)
                 except (TypeError, ValueError, OverflowError):
-                    frame_mismatch = False
-            if time_mismatch or frame_mismatch:
+                    short_frames = False
+            if short_frames:
+                self.error(
+                    where,
+                    f"declares {duration:g}s but WAV measures {measured:g}s; the declared duration"
+                    " encodes fewer frames than the measured PCM needs",
+                )
+            elif time_mismatch:
                 self.error(where, f"declares {duration:g}s but WAV measures {measured:g}s")
         return measured
 
@@ -186,6 +192,48 @@ class SpecChecker:
                 if measured is not None and offset + measured > length + ROUNDING_TOLERANCE:
                     self.error(where, "measured WAV extends beyond the scene")
 
+    def script_narration(self, scene: dict[str, Any], where: str) -> None:
+        narration = scene.get("narration")
+        where = f"{where}.narration"
+        if not isinstance(narration, dict):
+            self.error(where, "narrated scenes require an object")
+            return
+        self.text(narration.get("text"), f"{where}.text")
+        for key in ("file", "duration_seconds", "offset", "timing_basis"):
+            if key in narration:
+                self.error(where, f"must omit {key}; narration_track supplies continuous audio")
+
+    def narration_track(self, track: Any, narrated: Any, version: Any,
+                        fps: float | None, frame_count: int | None) -> None:
+        where = "narration_track"
+        if version != 2:
+            self.error(where, "requires schema_version 2")
+        if narrated is not True:
+            self.error(where, "requires profile.narrated true")
+        if not isinstance(track, dict):
+            self.error(where, "must be an object")
+            return
+        if "offset" in track:
+            self.error(where, "is zero-based; remove offset")
+        basis = track.get("timing_basis")
+        if basis not in ("planned", "measured"):
+            self.error(f"{where}.timing_basis", "must be planned or measured")
+        if self.ready and basis != "measured":
+            self.error(where, "animation inputs require measured narration")
+        measured = None
+        if basis == "measured":
+            measured = self.audio(track, where)
+        else:
+            for key in ("file", "duration_seconds"):
+                if key not in track:
+                    self.error(where, f"missing {key}; use null until generated")
+        if measured is not None and frame_count is not None and fps is not None:
+            try:
+                if frame_at(measured, fps) > frame_count:
+                    self.error(where, "measured narration track extends beyond the video")
+            except (TypeError, ValueError, OverflowError):
+                pass
+
     def check(self, doc: Any) -> list[str]:
         if not isinstance(doc, dict):
             self.error("spec", "must be an object")
@@ -217,6 +265,7 @@ class SpecChecker:
         narrated = profile.get("narrated")
         if type(narrated) is not bool:
             self.error("profile.narrated", "must be a boolean")
+        track = doc.get("narration_track")
 
         sources = self.records(doc, "sources", required=False)
         claims = self.records(doc, "claims")
@@ -264,7 +313,12 @@ class SpecChecker:
                     self.error(where, "scene windows must be contiguous and start at zero")
                 previous_end = end
             if narrated is True:
-                self.narration(scene, where, start, end, fps)
+                if track is not None:
+                    self.script_narration(scene, where)
+                else:
+                    self.narration(scene, where, start, end, fps)
+        if track is not None:
+            self.narration_track(track, narrated, version, fps, frame_count)
         if duration is not None and abs(previous_end - duration) > ROUNDING_TOLERANCE:
             self.error("scenes", "last scene must end at profile.duration_seconds")
 
@@ -310,11 +364,23 @@ class SpecChecker:
                     completion_times[identifier] = completion
                     if window and completion > window[1] + ROUNDING_TOLERANCE:
                         self.error(where, "event completion extends beyond its scene")
-                    if fps is not None:
+                    if fps is not None and version == 2 and edge_id is not None and event_duration is not None:
                         try:
-                            if (version == 2 and edge_id is not None and
-                                    frame_at(at, fps) == frame_at(completion, fps)):
-                                self.error(where, "packet has zero travel frames; start and completion share a frame boundary")
+                            start_frame = frame_at(at, fps)
+                            end_frame = frame_at(completion, fps)
+                            # timeline.mjs draws the packet while frame >= frameAt(at) and
+                            # frame < frameAt(completion); motion is in progress only when a
+                            # rendered frame time falls strictly inside the travel interval.
+                            travelling = any(
+                                at < frame / fps < completion
+                                for frame in range(start_frame, max(start_frame, end_frame))
+                            )
+                            if not travelling:
+                                self.error(
+                                    where,
+                                    "packet has zero travel frames showing in-progress motion;"
+                                    " its travel is shorter than one rendered frame interval",
+                                )
                         except (TypeError, ValueError, OverflowError):
                             pass
                     if frame_count is not None and (version == 2 or "state_after" in event):

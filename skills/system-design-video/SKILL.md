@@ -113,6 +113,17 @@ reviewers to approve, request a bounded repair, or block. Keep durable round and
 finding records, bind results to actual artifact hashes, and invalidate stale
 approvals after material revisions. No separate loop skill installation is needed.
 
+| Requested scope | Authoritative stages | Evidence that closes the gate |
+| --- | --- | --- |
+| Script or storyboard only | script/storyboard with the frozen plan | independent script, hook, claim and storyboard verdicts; no render |
+| Representative sample | representative sample | reviewed sample revision and hash, with the opening and mechanism excerpts shown together as one round when one excerpt cannot represent the lesson |
+| Full video, narrated or silent | rough full timeline, then encoded final | native-pace timeline review, then independent final review with current technical media evidence and the verified encoded opening |
+| Narrow revision or resume | only the stages the change affects | fresh review of the changed revision; reuse unchanged hash-bound approvals and state why a stage is skipped |
+
+These rows set the order and evidence only. Each stage keeps its existing scope,
+shared three-round budget, independent-review cap, and pending status when
+independent review is unavailable.
+
 Obtain independent technical and narrative/beginner-comprehension approval of the script, spoken hook,
 source claims, and storyboard before TTS or rendering, including sample production.
 Keep voice-consistency review before final visual retiming, dedicated visual-diva
@@ -156,11 +167,17 @@ document; independent reviewers accept it through the existing shared gates and
 budgets. It complements technical, visual, logical and beginner-comprehension
 review without adding an optional user approval checkpoint.
 The bridge must be an actual storytelling scene beyond architecture-diagram
-presentation, with situation, event, new understanding and return. Run the
+presentation, with situation, event, new understanding and return, whenever it is
+selected. A dedicated off-diagram story bridge is required when the brief requests
+one or the director justifies it for the learning objective. When selected, run the
 [story bridge contract](references/story-bridge-contract.md) plan, implementation
-and actual encoded-evidence gates. Neither another diagram state nor a plan-only
-claim satisfies this requirement. The media-check command requires the current
-bridge record; a technical probe/decode result alone cannot approve production.
+and actual encoded-evidence gates, and complete the media probe before independent
+review. Neither another diagram state nor a plan-only claim satisfies this
+requirement. The release media check keeps its bridge-aware record requirement; a
+technical probe/decode result alone cannot approve production. When not selected,
+record a brief explanation in the frozen production plan and use the normal final
+review with current technical media evidence. Independent per-scene checks apply in
+both cases.
 
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
@@ -251,7 +268,9 @@ For a new video, render and provide a short sample before full production. Use
 actual narration at its intended speed, a causal state change, readable captions
 in the selected format, and a transition. For explicitly silent work, review the
 same visual mechanism without requiring voice. A title still or a sample from a
-different lesson cannot establish this lesson's quality.
+different lesson cannot establish this lesson's quality. When one short excerpt
+would misrepresent the lesson, the opening and mechanism short excerpts are valid
+together as one representative sample and one review round.
 
 Use [production review](references/production-review.md) for separate technical,
 editorial, and visual verdicts, evidence coverage, and the three-round limit.
@@ -315,7 +334,10 @@ quality, reference comparison, and safe captions, use the visual guidance in
    Check streams, dimensions, fps, duration, audio clipping, and start/end sync.
    Follow the media checks in [rendering.md](references/rendering.md). For a
    diagram, code card, or moving request, also follow
-   [diagram QA](references/diagram-qa.md). Probe
+   [diagram QA](references/diagram-qa.md). Complete the technical media probe
+   before independent review so reviewers inspect current evidence; when a bridge
+   is selected, use the bridge-aware media check at release as well.
+   Probe
    success alone does not establish readable visuals or intelligible narration.
 
 Record the inspected revision, scene IDs/timecodes, findings, repairs, and actual

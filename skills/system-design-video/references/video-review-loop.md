@@ -39,9 +39,9 @@ authoritative. Later prose details evidence but adds no gate, role, or round.
 | --- | --- | --- |
 | Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01 with cited definition, concrete objectives and scenario/body onset. Require truth, scope, sequence, payoff, planned causal visuals and the non-author scene-director handoff with SD1/SD2 acceptance. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
 | Narration and cues | Dedicated voice-consistency review on the current clips and cues. Compare phrasing, identity, pauses and joins. Record listening gaps as explicit pending evidence. | Advance only after voice approval of the current clips and before final visual timing. |
-| Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. The sample may show a mechanism or transition away from the opening. If the sample contains the complete opening, include TEACH-OPEN timestamp evidence. A separate opening excerpt is allowed when useful. | Advance only after both reviews approve the current sample digest and before the full render. |
+| Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. The sample may show a mechanism or transition away from the opening, or combine one opening and one mechanism short excerpt as a single sample and review round when one excerpt would be unrepresentative. If the sample contains the complete opening, include TEACH-OPEN timestamp evidence. | Advance only after both reviews approve the current sample digest and before the full render. |
 | Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision at native pace, including the most crowded scene and transitions. Record unavailable playback or listening as an open gap. | Advance only after all required verdicts approve the current timeline or record explicit gaps, and before the delivery encode. |
-| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require current bridge mapping, reviews and blind reading through media-check, actual encoded opening audio with the hook, TEACH-OPEN timestamps and delivery-size inspection. | Deliver only after all required verdicts approve the current encode with no pending required coverage. Final encoded opening review always applies. |
+| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require actual encoded opening audio with the hook, TEACH-OPEN timestamps on the opening excerpt and final master, and delivery-size inspection. When a bridge is selected, also require current bridge mapping, reviews and blind reading through media-check; otherwise require the media probe and normal independent encoded final review. | Deliver only after all required verdicts approve the current encode with no pending required coverage. Final encoded opening review always applies. |
 | Optional cover or copy, when requested | Independent cover or copy review on the actual artifact, including full and thumbnail or crop evidence for covers. | Deliver only after approval of the current artifact. This review has its own stage counter. |
 
 Run focused preflight and the production-context bindings inside the script and
@@ -58,10 +58,14 @@ review with actual timestamps. At sample review it applies when the sample
 contains the complete opening, and a separate opening excerpt is allowed when
 useful. It adds no rounds and does not reset consumed episode budgets when an
 opening is repaired.
-The [story bridge contract](story-bridge-contract.md) binds the required scene to
-implemented source, exact encoded frames and blind audience interpretation.
-Neither plan approval nor conformity to a diagram-only plan can satisfy its
-encoded gate. These checks share the current stage reservation, including on a
+The [story bridge contract](story-bridge-contract.md) governs a selected bridge:
+it binds that scene to implemented source, exact encoded frames and blind
+audience interpretation. When the brief or the director's learning-objective
+justification selects a bridge, use those full unchanged technical and encoded
+gates plus distinct reviewer evidence; the frozen plan records any justified
+no-bridge decision, and that episode still needs the media probe and normal
+independent encoded final review. Neither plan approval nor conformity to a
+diagram-only plan can satisfy an encoded gate. These checks share the current stage reservation, including on a
 correction requested after delivery; never reset consumed rounds or backdate QA.
 
 An explicitly silent brief skips voice/TTS checks, not script or scene review.

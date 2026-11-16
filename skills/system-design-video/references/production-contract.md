@@ -17,7 +17,8 @@ readability, and whether the renderer obeys the spec.
 | Node | Unique `id`, `label`, `responsibility`, and nonempty `claim_ids`. Use stable IDs across all scenes. |
 | Edge | Unique `id`, `from`, `to`, `label`, and nonempty `claim_ids`. Endpoints refer to nodes. Separate request and response directions. |
 | Scene | Unique `id`, `start`, `end`, `caption`, nonempty `claim_ids`, and a `narration` object when narrated. |
-| Narration | `text`, nonnegative scene-relative `offset`, `timing_basis`, `file`, and `duration_seconds`. Basis is `planned` or `measured`. Planned clips may have null file/duration. |
+| Narration | In per-scene mode, `text`, nonnegative scene-relative `offset`, `timing_basis`, `file`, and `duration_seconds`. Basis is `planned` or `measured`. Planned clips may have null file/duration. In `narration_track` mode scenes keep only `text`. |
+| Narration track | Optional v2 root object: `file`, `duration_seconds`, `timing_basis`; zero-based, no `offset`; one continuous PCM WAV measured before `--ready`. |
 | Event | Unique `id`, global start `at`, nonnegative `duration_seconds`, `scene_id`, nonempty `node_ids`, `action`, nonempty `claim_ids`, `after`, optional `edge_id`, and nonempty `state_after` mapping participating node IDs to visible completion-state labels. |
 | Caption | Global `start`, `end`, and nonempty `text`. Cues must be ordered, positive-length, nonoverlapping, and inside the video. Timing validity does not prove speech alignment. |
 
@@ -69,6 +70,20 @@ Preserve original WAVs and cues after review. The measured clip duration can be
 exact while word cues remain model estimates. Check those cues against the audio
 before claiming word-accurate reveals or captions. Retiming must preserve complete
 native speech, including any partial final frame.
+
+Optional v2 `narration_track` replaces per-scene clips when one continuous voice
+file narrates the whole video. It is `{"file", "duration_seconds", "timing_basis"}`
+at the spec root, zero-based from video time zero, with no `offset`. In that mode
+`profile.narrated` must be true, each scene keeps `narration.text` as script
+metadata and omits `file`, `duration_seconds` and `offset`, so mixing is
+ambiguous and rejected. The checker resolves the track like any clip, requires a
+project-relative PCM WAV with measured bytes before `--ready` approves it, and
+requires `frameAt(measured, fps) <= frameAt(profile.duration_seconds, fps)`. The
+renderer emits one `Audio` sequence from frame zero for the measured duration and
+no per-scene `Audio`, so speech runs continuously over scene cuts. Captions stay
+global cues and should be aligned to the track; a scene `caption` still supplies
+the per-scene label when burned captions are off. Silent plans and v1 or per-scene
+v2 plans keep their existing behavior.
 
 Resolve the skill directory from the installation, then run:
 

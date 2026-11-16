@@ -1,5 +1,10 @@
 # Story bridge production gate
 
+Apply this contract whenever a story bridge is selected: the brief requests one or
+the director justifies one for the learning objective. It then gates that scene.
+When no bridge is selected, the frozen plan records a brief explanation and the
+episode uses the media probe plus normal independent encoded final review.
+
 A story bridge briefly leaves architecture-diagram presentation to introduce the
 next idea through a recognizable situation, visible event, new understanding and
 motivated return to the mechanism. Chalk/neon styling may remain. Relabeled boxes,

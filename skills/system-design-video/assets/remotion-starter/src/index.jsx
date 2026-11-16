@@ -50,16 +50,27 @@ function Explainer({spec}) {
         {spec.presentation?.burn_captions ? spec.captions?.find((cue) => time >= cue.start && time < cue.end)?.text : scene?.caption}
       </div></foreignObject>
     </svg>
-    {spec.profile.narrated && spec.scenes.map((item) => {
-      const voice = item.narration;
-      if (voice.timing_basis !== 'measured' || !voice.file?.startsWith('public/')) {
-        throw new Error(`Scene ${item.id} needs measured audio under public/ before rendering`);
+    {spec.profile.narrated && (() => {
+      const track = spec.narration_track;
+      if (track) {
+        if (track.timing_basis !== 'measured' || !track.file?.startsWith('public/')) {
+          throw new Error('narration_track needs measured audio under public/ before rendering');
+        }
+        return <Sequence from={0} durationInFrames={frameAt(track.duration_seconds, fps)} layout="none">
+          <Audio src={staticFile(track.file.slice('public/'.length))} />
+        </Sequence>;
       }
-      const from = frameAt(item.start + voice.offset, fps);
-      return <Sequence key={item.id} from={from} durationInFrames={frameAt(voice.duration_seconds, fps)} layout="none">
-        <Audio src={staticFile(voice.file.slice('public/'.length))} />
-      </Sequence>;
-    })}
+      return spec.scenes.map((item) => {
+        const voice = item.narration;
+        if (voice.timing_basis !== 'measured' || !voice.file?.startsWith('public/')) {
+          throw new Error(`Scene ${item.id} needs measured audio under public/ before rendering`);
+        }
+        const from = frameAt(item.start + voice.offset, fps);
+        return <Sequence key={item.id} from={from} durationInFrames={frameAt(voice.duration_seconds, fps)} layout="none">
+          <Audio src={staticFile(voice.file.slice('public/'.length))} />
+        </Sequence>;
+      });
+    })()}
   </AbsoluteFill>;
 }
 
