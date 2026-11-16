@@ -18,16 +18,20 @@ chalk/neon brand elements, semantic colors and readable teaching diagrams.
 Freshness does not mean color changes, flashy wipes, distracting motion or a
 quota of unrelated scene types. Keep a diagram while it helps understanding.
 
-Every episode needs an implemented storytelling bridge that briefly leaves
+Every episode keeps an independent scene-director evaluation and per-scene
+reviews. A selected story bridge must be implemented and briefly leave
 architecture-diagram presentation. Specify a recognizable situation, visible
 event, new understanding and motivated return to the next explanatory idea.
+When the brief requests a bridge or the director justifies one for the learning
+objective, select it; otherwise record a brief explanation in the frozen plan
+instead of silently waiving a requirement or adding a routine user checkpoint.
 Retain useful chalk/neon styling, but do not count another diagram state,
 relabeled server boxes, furniture behind a diagram, camera moves, cuts or fades
 as the bridge. The scene must tell the connection through actual subjects and
 action, rather than decorating the existing diagram. Keep effective diagrams
 for the mechanism; there is no quota to replace every diagram or change colors.
 If no coherent transition is yet found, repair the plan inside the existing
-budget; do not silently waive the requirement or add a routine user checkpoint.
+budget and record the decision.
 
 Inspect actual reference frames and temporal samples when available. Record
 source identity, timecodes, concrete observations and limits. Do not infer motion,

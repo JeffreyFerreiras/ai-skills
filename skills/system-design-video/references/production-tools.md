@@ -72,12 +72,14 @@ python scripts/video_project.py media-probe "$VIDEO_PROJECT/video-spec.json" "$V
 python scripts/video_project.py media-check "$VIDEO_PROJECT/video-spec.json" "$VIDEO_PROJECT/outputs/explainer.mp4" --bridge-record "$VIDEO_PROJECT/scene-bridge-encoded.json"
 ```
 
-Run `media-probe` any time for technical-only diagnostics. It needs no bridge
-record. Run `media-check` last, after the current bridge record, reviews, and
-blind reading are bound. Follow the [story bridge contract](story-bridge-contract.md) before media-check.
-It requires actual implementation, encoded samples and distinct independent
-story verdicts, including blind interpretation before intent. The media-check
-CLI rejects a missing record or mismatched story/timeline/video evidence. A
+Run `media-probe` first for technical-only diagnostics before independent
+reviews. It needs no bridge record. When a bridge is selected, run the combined
+`media-check` last, after the current bridge record, reviews, and blind reading are
+bound, per the [story bridge contract](story-bridge-contract.md). It requires actual
+implementation, encoded samples and distinct independent story verdicts, including
+blind interpretation before intent. The media-check CLI rejects a missing record or
+mismatched story/timeline/video evidence. Without a selected bridge, the probe plus
+normal independent encoded final review covers release; a
 probe pass leaves visual quality, perceptual listening, and cue/content
 alignment pending. It never approves production. Direct
 `check_media` calls used by technical fixtures remain technical checks only.

@@ -230,6 +230,15 @@ class SystemDesignVideoTests(unittest.TestCase):
             scene["narration"]["duration_seconds"] = 0.99
         self.assertFalse(any("declares" in error for error in self.errors(ready=True)))
 
+    def test_declared_duration_must_cover_measured_pcm_frames_at_30fps(self) -> None:
+        self.assertEqual(30, self.plan["profile"]["fps"])
+        self.write_audio(seconds=0.98)
+        for scene in self.plan["scenes"]:
+            scene["narration"].update(file="voice.wav", timing_basis="measured", duration_seconds=0.9)
+        # 27 declared frames cannot hold the 30 frames the measured PCM needs.
+        self.assert_issue("declares 0.9s but WAV measures 0.98s", ready=True)
+        self.assert_issue("fewer frames than the measured PCM needs", ready=True)
+
     def test_quantized_audio_end_must_fit_scene_window(self) -> None:
         self.write_audio(seconds=0.05)
         scene = self.plan["scenes"][0]
@@ -247,6 +256,51 @@ class SystemDesignVideoTests(unittest.TestCase):
         self.assert_issue("zero travel frames")
         event["duration_seconds"] = 0.05
         self.assertFalse(any("zero travel frames" in error for error in self.errors()))
+        # Declared zero-duration travel is still a v2 directed packet and must be rejected.
+        event["duration_seconds"] = 0
+        self.assert_issue("zero travel frames")
+        # [0.101, 0.102) contains no encoded 30fps frame time, so the packet never moves.
+        event.update(at=0.101, duration_seconds=0.001)
+        self.assert_issue("zero travel frames")
+        event.update(at=0.101, duration_seconds=0.05)
+        self.assertFalse(any("zero travel frames" in error for error in self.errors()))
+
+    def test_continuous_narration_track_spans_scene_cut(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        self.write_audio(seconds=1.5)
+        for scene in self.plan["scenes"]:
+            scene["narration"] = {"text": "Script metadata only."}
+        self.plan["narration_track"] = {
+            "file": "voice.wav", "duration_seconds": 1.5, "timing_basis": "measured"
+        }
+        # 1.5 s spans the cut at 1.0 s and fits the 2 s video.
+        self.assertEqual([], self.errors(ready=True))
+
+    def test_continuous_narration_track_rejects_overrun_and_mixing(self) -> None:
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        self.write_audio(seconds=2.5)
+        for scene in self.plan["scenes"]:
+            scene["narration"] = {"text": "Script metadata only."}
+        self.plan["narration_track"] = {
+            "file": "voice.wav", "duration_seconds": 2.5, "timing_basis": "measured"
+        }
+        self.assert_issue("extends beyond the video", ready=True)
+        self.plan["scenes"][0]["narration"]["file"] = "voice.wav"
+        self.assert_issue("must omit file", ready=True)
+        self.plan["scenes"][0]["narration"] = {"text": "Script metadata only.",
+                                                "timing_basis": "measured"}
+        self.assert_issue("must omit timing_basis", ready=True)
+
+    def test_continuous_track_frame_rounding_beyond_time_tolerance(self) -> None:
+        self.write_audio(seconds=1.0)
+        self.plan = json.loads((SKILL_ROOT / "assets/reference-video.json").read_text(encoding="utf-8"))
+        for scene in self.plan["scenes"]:
+            scene["narration"] = {"text": "Script metadata only."}
+        # 1e-7 s apart, inside AUDIO_TOLERANCE, yet 30 versus 31 frames.
+        self.plan["narration_track"] = {
+            "file": "voice.wav", "duration_seconds": 1.0000001, "timing_basis": "measured"
+        }
+        self.assertFalse(any("declares" in error for error in self.errors(ready=True)))
 
     def test_audio_paths_cannot_escape_project(self) -> None:
         self.measured_plan()

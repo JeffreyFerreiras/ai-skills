@@ -4,7 +4,7 @@ Use the project's current production record. The
 [template](../assets/production-record.md) supplies evidence fields when none
 exist. Keep technical truth, teaching quality, and visual quality separate.
 The spec checker certifies none of them.
-For storytelling bridges, use the [enforced evidence contract](story-bridge-contract.md).
+When a storytelling bridge is selected, use the [enforced evidence contract](story-bridge-contract.md).
 Require a recognizable situation, visible event, new understanding and motivated
 return beyond architecture-diagram presentation. The blind reviewer must describe
 what the actual encode shows before seeing creator intent. Relabeled servers,
