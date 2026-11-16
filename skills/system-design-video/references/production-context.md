@@ -35,8 +35,11 @@ Lower actual host limits still control dispatch.
 
 The budget checkpoint is the trusted prior cumulative state, frozen before the
 current candidate. The current reservation is separate, avoiding a hash cycle.
-Budget checkpoint identity alone is excluded from scoped review-contract
-comparison; all other gate semantics remain equal. Check current lineage separately.
+Scoped review-contract comparison excludes the budget checkpoint and the
+reviewer IDs inside required assignments, with list order and all other role,
+scope, and criterion values preserved. The carried role keeps full equality, including
+its own reviewer ID and historical origin identity. All other gate semantics
+remain equal. Check current lineage separately.
 
 Recursive node fingerprints bind stable IDs, kind, scopes, sorted artifacts and
 dependency fingerprints. `contextDigest` binds all nodes, production/stage/generation

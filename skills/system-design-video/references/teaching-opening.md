@@ -52,8 +52,9 @@ Generic "clear introduction" or "good hook" approval is insufficient.
 At final review, recheck the actual audience-visible opening and cite
 timestamps for the explanation, objectives and scenario/body onset. At sample
 review, apply the same timestamp check when the sample contains the complete
-opening. A sample may instead show a mechanism or transition away from the
-opening. A separate opening excerpt is allowed when useful. For narration,
+opening. When the selected production workflow allows a focused excerpt without
+the opening, defer the opening check to final review or a separate opening
+excerpt. For narration,
 check the actual encoded speech; subtitles or source WAVs alone cannot establish
 what the delivered audio contains. A script pass cannot approve an unseen encode.
 Record actual listening/viewing coverage and evidence limits; unavailable required
