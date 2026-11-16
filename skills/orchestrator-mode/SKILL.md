@@ -15,7 +15,7 @@ The primary may plan, compose job packets, dispatch and monitor workers, accept 
 
 ## Job packets
 
-Give each little helper job a self-contained packet: a one-sentence objective, 1 to 5 exact ordered steps, owned paths and allowed actions, the exact expected output with acceptance criteria, one focused verification, an absolute 120-second deadline, and stop conditions. Do not claim native spawn supports unavailable model identifiers. A longer workflow is multiple bounded jobs; do not call one long-running worker a 120-second little job.
+Give each little helper job a self-contained packet: a one-sentence objective, 1 to 5 exact ordered steps, owned paths and allowed actions, the exact expected output with acceptance criteria, one focused verification, an absolute 150-second deadline, and stop conditions. Do not claim native spawn supports unavailable model identifiers. A longer workflow is multiple bounded jobs; do not call one long-running worker a 120-second little job.
 
 ## Dispatch
 
