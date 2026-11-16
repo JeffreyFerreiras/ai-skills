@@ -10,10 +10,14 @@ Start only for an intentional full-stop request or `$full-stop`. A closing
 authorize work.
 
 Read the installed `full-send` skill from the host catalog or a known sibling
-installation. Follow its scope, code/prose routing, proof, reviews, repair limits,
+installation. Follow its scope, code/prose routing, workflow owner for
+orchestrated skill updates, proof, reviews, repair limits,
 and repository delivery instructions. These overrides take precedence.
 The request authorizes the same scoped preparation and task-branch publication,
 including lease-protected task-branch rewrites, but grants no merge permission.
+When `orchestrator-mode` governs creating or updating an agent skill, the
+existing `generic-loop` remains the sole owner under full-send's rule; ordinary
+prose keeps `writing-loop`. Add no separate owner or budget.
 
 ## Prevent automatic merging
 
@@ -41,10 +45,12 @@ Stop and unregister an owned monitor at handoff. Report the PR URL, final head,
 checks and review outcomes, exact verdict, and remaining risks. Confirm whether
 the PR is open and unmerged. Do not perform post-merge cleanup for an unmerged PR.
 
-For prose outside repository delivery, leave the writing-loop-accepted artifact
-ready for the user's action, in the requested review location. Acceptance does
-not authorize sending or publishing it. State any factual or contract blocker.
-Do not invent a PR requirement.
+For prose outside repository delivery, apply full-send's prose-only acceptance
+and evidence rule: a governed skill edit needs current `generic-loop`
+acceptance, ordinary prose needs current writing-loop acceptance. Leave the
+accepted artifact ready for the user's action, in the requested review location.
+Acceptance does not authorize sending or publishing it. State any factual or
+contract blocker. Do not invent a PR requirement.
 
 ## Source
 

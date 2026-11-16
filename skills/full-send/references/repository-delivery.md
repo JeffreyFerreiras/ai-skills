@@ -27,17 +27,28 @@ Git and PR mutations. The coordinator does not also commit or push. Do not use
 
 ## Monitor and repair
 
-Invoke `babysit-pr` with the exact PR, endpoint, review requirements, remaining
-repair budgets, and publication limits. It reports events; the delivery owner
-routes fixes to the existing writer and reviews the new candidate.
+When a GitHub CLI-capable `babysit-pr` is available, invoke it with the exact
+PR, endpoint, review requirements, remaining repair budgets, and publication
+limits. It reports events; the delivery owner routes fixes to the existing
+writer and reviews the new candidate.
 Use `address-pr-feedback` with all actionable in-scope feedback selected by this
 delivery request. Draft explanations for rejected findings; do not post or resolve
 threads without the corresponding permission.
 
-Code repairs return through focused checks and the code-review route. Prose
-repairs return through `writing-loop`. Preserve issue identities and consumed
-repairs across pushes and monitoring restarts. An unexpected remote-head change
-requires reconciliation, not an automatic overwrite.
+For either delivery mode, when `babysit-pr` is missing or incompatible, monitor the
+exact task PR and its live head and base with read-only `gh pr view`,
+`gh pr checks <number> --repo <owner/repo> --required`, and required
+review-thread reads, bounded by the existing deadline under the same stage
+owner, repair budget, and live-gate evidence. Route pending states within that
+deadline. If those required reads are unavailable, report the blocker and pause.
+
+Follow the approved repair route for graph-owned work. Otherwise, use one repair
+route per changed item: governed skill edits return through the governing
+loop's original Writer and shared budget; ordinary code returns through focused
+checks and the code-review route; ordinary prose returns through `writing-loop`.
+Preserve issue identities and consumed repairs across pushes and monitoring
+restarts. An unexpected remote-head change requires reconciliation, not an
+automatic overwrite.
 
 ## Live merge gate
 

@@ -47,11 +47,13 @@ needs them. A missing required dependency or independent reviewer is a blocker.
 - **Requested prose writing or editing:** use `writing-loop`. It owns the Writer
   using `unslop`, read-only Reducer, fresh Editor, and prose repair budget.
   Deliver its exact accepted text. This includes documentation, instructions,
-  PR titles and bodies, and requested written updates. Routine status messages,
+  PR titles and bodies, and requested written updates, except a skill
+  create-or-update governed below. Routine status messages,
   internal role packets, and unchanged quotations do not start loops. Do not
   add another reduction stage or writing reviewer.
 - **Mixed work:** apply both routes to their respective deliverables and verify
-  prose claims against implemented behavior. A skill instruction is prose with
+  prose claims against implemented behavior, except a skill create-or-update
+  governed below. A skill instruction is prose with
   an execution contract; validate its resources and test its decisions.
   File extensions alone do not determine the route.
 
@@ -60,8 +62,17 @@ approved plan, implementation, review and test gates, repair budgets, and
 publication through its Pull Request Engineer. Use that approved review route
 instead of adding a second delivery engine or changing assignments silently.
 Its existing gates do not establish full seven-role panel coverage. If that panel
-is separately required, account for it in the approved plan. Do not start
-`generic-loop` alongside either owner.
+is separately required, account for it in the approved plan. Never start
+`generic-loop` alongside it for the same edits.
+
+When `orchestrator-mode` governs creating or updating an agent skill, the
+existing `generic-loop` is the one owner of that skill edit, never alongside
+graph, panel, or `writing-loop` for the same skill edits, using one bound
+Writer, a non-Writer verifier, a fresh Reviewer, and one shared repair budget.
+If graph is also required and both contracts cannot be met by one approved
+route, pause before edits. Full send retains its publication and merge endpoint
+outside the graph. Ordinary code or prose, including separately reviewed PR
+titles and bodies, keeps the routes above. Never start competing loops.
 
 ## Work, prove, and settle findings
 
@@ -75,12 +86,15 @@ attempts by default; the initial implementation is not a repair. Consolidate
 panel and CI findings with evidence, dispositions, and stable issue identities.
 Fix in-scope defects and explain rejected or out-of-scope findings. Review the
 new stable target after repairs. The writing loop retains its own three-repair
-limit. Retries, rebases, and new CI feedback do not reset either budget.
+limit. A skill create-or-update governed above returns all fixes and final
+evidence to the loop's original Writer and shared budget. Retries, rebases,
+and new CI feedback do not reset any budget.
 Stop early when the applicable reviews pass.
 
 Retain scope, current candidate or head, proof, findings, consumed repairs,
 workflow owner, endpoint, and active monitor in task state. Changed inputs
-invalidate affected proof and reviews. Any prose edit after acceptance needs a
+invalidate affected proof and reviews. A governed skill edit after acceptance needs a new
+`generic-loop` version and review; any other prose edit after acceptance needs a
 new writing-loop version and review. Material scope or design changes return to
 the governing plan or the user.
 
@@ -90,8 +104,10 @@ For repository delivery, read [Repository delivery](references/repository-delive
 before publication or monitoring. It defines PR preparation, the live merge gate,
 and verified completion.
 
-For prose-only delivery, require current writing-loop acceptance and evidence
-for factual and contractual claims. Return the accepted artifact in the requested
+For prose-only delivery, require current governing-loop acceptance and evidence
+for factual and contractual claims: a governed skill edit requires current
+`generic-loop` acceptance, while ordinary prose and PR titles and bodies require
+current writing-loop acceptance. Return the accepted artifact in the requested
 format. Do not require Git or CI when irrelevant.
 
 Continue authorized work and monitoring within its stated budget. Do not assume
