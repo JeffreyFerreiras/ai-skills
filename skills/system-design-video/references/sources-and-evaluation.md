@@ -146,6 +146,33 @@ package can test execution, but cannot establish correct selection.
 | Existing authority | Ask to export an already accepted local plan without publishing. | Complete the export without repeating plan approval; do not upload or publish it. |
 | Chalk TikTok | Request the next Jeffrit chalk TikTok, with the tracker showing the recent topics. | Follow the series workflow: three topic options, a sourced compiling script, a hook-through-first-problem sample before the full render, and one delivery of the master, the cover, and caption-only text. Do not upload to TikTok. |
 
+### Narrative paper checks
+
+Apply [TEACH-OPEN-01](teaching-opening.md), [SD1/SD2](scene-direction.md#accept-through-the-existing-gates),
+and the [narrative review](video-review-loop.md#judge-the-edit) to these plans.
+
+- **Failover safeguard:** Open on the app's confirmation for order 4817 and
+  its failed lookup while narration explains that a saved order can be missing
+  when a backup takes over. Promise to show the gap and how to preserve the
+  order. Replay the primary's local save and acknowledgment before the standby
+  gets a copy, then the outage, promotion, and missing row. Replay with
+  `synchronous_commit=on` and one required named standby. Hold the client
+  acknowledgment until the standby durably flushes the commit. Show the wait
+  and explain its cost. With the old primary fenced, promote that eligible
+  standby, let it finish replaying the write, then hold on the app finding
+  4817. The two replays answer different questions. A bridge repeating the
+  first replay's gap needs a new inference or a shorter treatment. Cutting from
+  the synchronous wait to general advice leaves the app's outcome unresolved.
+- **Useful outcome:** Open on an app requesting a profile while the narration
+  says that a cache keeps a copy for reuse and promises to show how it saves a
+  database read. Follow the first successful request as it fills the cache.
+  Cut to the same profile requested again and hold on the response from cache
+  with the database path idle. Check the early action, the reason for the cut,
+  and the visible benefit. The lesson can pass without a failure scenario.
+
+These outlines exercise the rubric on paper. A production storyboard still
+needs the timed shot plan, and media verdicts require actual playback evidence.
+
 The repository's scenario catalog also covers reviewed-sample resumption, a
 third-round unresolved finding, rejected reference styling, quiet AAC despite a
 clean WAV, failed oversized transfers, approved-audio preservation, unavailable

@@ -7,9 +7,10 @@ checks pending; remove branches outside the requested deliverable.
 ## Brief and checkpoint
 
 - TEACH-OPEN-01 teaching verdict on current artifact/hash: plain-language concept
-  explanation, concrete objectives and first scenario/body onset, with exact
-  script lines/wording and actual encoded timestamps/inspection limits; missing
-  elements, focused repair and remaining shared rounds:
+  explanation, concrete objectives and spoken walkthrough/body onset (visible
+  text for silent work). Give exact script lines and actual media timestamps.
+  Cite planned and observed times for clear stakes and first meaningful action,
+  the reason for any later beat, inspection limits, and focused repairs:
 
 - Learning question, audience, what/problem/why/solution opening, ordered learning
   preview, concrete example, limits, and source/claim locators:
@@ -78,6 +79,18 @@ checks pending; remove branches outside the requested deliverable.
 - Explicit rejection/repair of diagram-only or furniture-backed diagram claims;
   consumed stage rounds and prior unresolved finding IDs remain unchanged:
 
+### Timed shot plan
+
+Cover the opening, consequential state changes, any analogy and its return,
+and the payoff. Mark times as planned until measured. Track the same request,
+record, or outcome across cuts. For an analogy, name the new inference or the
+mechanism it clarifies. For a safeguard replay, state its conditions and show
+the result for the same outcome.
+
+| Scene/shot and planned time or narration cue | Subject and focal point | Starting state | Visible change | Hold | Reason for next cut |
+| --- | --- | --- | --- | --- | --- |
+| | | | | | |
+
 ## Review ledger entries
 
 Repeat per deliverable stage, retaining previous rounds and finding IDs.
@@ -93,7 +106,12 @@ Repeat per deliverable stage, retaining previous rounds and finding IDs.
 
 - Stage, candidate path/hash, scene IDs/time range, round number, reviewer identity:
 - Technical verdict and source/contract evidence:
-- Editorial verdict and native-speed playback/listening coverage:
+- Editorial verdict on the current digest: reason to continue, transition
+  purpose and opening-to-payoff link. For the sample, record opening/handoff
+  and any high-risk transition excerpt. For rough and encoded cuts, record
+  normal-speed played/heard intervals and timestamps for stakes, first action,
+  momentum loss, confusing cuts, repeated beats and payoff. Record any pending
+  coverage, focused revision and affected approvals to reopen:
 - Independent voice-consistency reviewer, heard intervals versus instrumented
   checks, cadence/identity/energy/join findings, round count, user-audition gaps:
 - Visual verdict, reference comparison, encoded size and scene/transition coverage:

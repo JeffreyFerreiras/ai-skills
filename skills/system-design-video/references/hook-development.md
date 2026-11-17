@@ -13,11 +13,11 @@ does not authorize publishing, extra generation, or redesigning accepted work.
 Speak a captivating question, punchy phrase, or defensible claim that presents
 a recognizable problem, consequential question, or accurate promise the lesson
 actually answers. Make the opening understandable without unexplained terms.
-First explain the concept in plain language and state concrete learning objectives
-before the real-world scenario, following [TEACH-OPEN-01](teaching-opening.md).
-Let that explanation carry an interesting accurate hook; an immediate scenario
-or suspense question cannot displace the baseline. Then show the concrete example
-or consequence and ordered mechanism.
+Speak the plain-language concept and concrete learning objective before the
+spoken walkthrough, following [TEACH-OPEN-01](teaching-opening.md). Show the
+consequence or useful result as the narrator sets up the lesson. A single line
+can carry the hook, concept, and objective. Introduce technical terms at the
+action that makes their meaning clear.
 Avoid manufactured urgency, false guarantees, or a question never answered.
 
 ## Sourced hook rubric
@@ -32,17 +32,12 @@ For each candidate, check:
 - Honest promise and payoff: answer the question or substantiate the claim in
   the lesson. Reject fabricated statistics, exaggeration, and zero-risk promises.
 - Concise, confident speech: use direct words and natural emphasis. Aim for the
-  opening to land in roughly 3-6 seconds when the idea permits it. This is a
-  flexible editorial target; simplify wording or allow time rather than speeding
-  approved speech or enforcing a fixed word rate.
+  opening to land in roughly 3-6 seconds when the idea permits it. This flexible
+  editorial target allows a later beat when the reviewer can explain how the
+  extra time helps comprehension and what holds interest. Keep natural speech.
 - Aligned first frame: spoken words, phone-safe image, optional cover text, and
   purposeful motion should communicate the same idea immediately. A cover
   supports the audible hook and must neither replace nor delay it.
-
-The definition, concrete objectives and useful context can overlap naturally in
-the opening, with the hook supporting them. Do not require a separate hook-first
-beat or five repetitive introductions. TEACH-OPEN-01 takes precedence over older
-scenario-first advice; its reviewer evidence is mandatory alongside this rubric.
 
 These criteria adapt official TikTok advertising guidance, not an organic-video
 retention guarantee. The [SMB Creative Playbook](https://ads.tiktok.com/business/library/TikTok_SMB_Creative_Playbook_2025.pdf)
@@ -67,7 +62,10 @@ the exact first encoded frame for crop, readable text, contrast, and subtitle
 placement at delivery size, then inspect opening motion and the handoff to the
 next scene through temporal evidence. A still cannot establish motion quality.
 
-Story review checks the reason to continue and the actual payoff. Technical and
+Story review cites when the stakes become clear and when the first meaningful
+action occurs, using planned cues at storyboard review and actual timestamps in
+the sample and encode. Check whether the handoff makes the viewer want to see
+the next beat and whether the ending answers the opening. Technical and
 fresh-context logical review check wording, visual implications, and causality.
 Visual review checks composition and opening motion; voice review checks that
 the exact hook is actually spoken, its emphasis, and its join into the explanation.
@@ -95,8 +93,8 @@ waveform. If audio changes are prohibited, disclose the missing spoken hook as
 an unmet requirement rather than passing it from on-screen text.
 
 For a shadow-traffic lesson, these spoken forms can support the opening baseline.
-A standalone question or phrase still needs the definition and concrete objectives
-before any scenario; it cannot move ahead of the required explanation:
+A standalone question or phrase still needs the concept and concrete objective
+before the spoken walkthrough.
 
 - Question: `Can you test live traffic without serving the new version's responses?`
 - Phrase: `Real traffic. Two versions. Only one answers users.`

@@ -37,11 +37,11 @@ authoritative. Later prose details evidence but adds no gate, role, or round.
 
 | Deliverable stage | Required independent evidence and roles | Advance condition |
 | --- | --- | --- |
-| Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01 with cited definition, concrete objectives and scenario/body onset. Require truth, scope, sequence, payoff, planned causal visuals and the non-author scene-director handoff with SD1/SD2 acceptance. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
+| Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01, sourced claims, scoped causal visuals, and the director's timed shot plan with SD1/SD2 acceptance. Check the reason to keep watching, the purpose of each transition, and how the ending answers the opening. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
 | Narration and cues | Dedicated voice-consistency review on the current clips and cues. Compare phrasing, identity, pauses and joins. Record listening gaps as explicit pending evidence. | Advance only after voice approval of the current clips and before final visual timing. |
-| Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Provide the reviewed sample before full production. The sample may show a mechanism or transition away from the opening, or combine one opening and one mechanism short excerpt as a single sample and review round when one excerpt would be unrepresentative. If the sample contains the complete opening, include TEACH-OPEN timestamp evidence. | Advance only after both reviews approve the current sample digest and before the full render. |
-| Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision at native pace, including the most crowded scene and transitions. Record unavailable playback or listening as an open gap. | Advance only after all required verdicts approve the current timeline or record explicit gaps, and before the delivery encode. |
-| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require actual encoded opening audio with the hook, TEACH-OPEN timestamps on the opening excerpt and final master, and delivery-size inspection. When a bridge is selected, also require current bridge mapping, reviews and blind reading through media-check; otherwise require the media probe and normal independent encoded final review. | Deliver only after all required verdicts approve the current encode with no pending required coverage. Final encoded opening review always applies. |
+| Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Test the opening and its handoff with TEACH-OPEN timestamps, and include the riskiest transition identified at storyboard review when needed. Use a second short excerpt in the same sample and round if needed. Provide the reviewed sample before full production. | Advance only after both reviews approve the current sample digest and before the full render. |
+| Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision, including the most crowded scene and transitions. Use a playable editor preview or low-cost rough cut for the normal-speed narrative playback below. | Advance to the full-quality render and delivery encode only after all required verdicts approve the current timeline. |
+| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require normal-speed narrative playback, actual encoded opening audio with the hook for narrated work, TEACH-OPEN timestamps, and delivery-size inspection. When a bridge is selected, also require current bridge mapping, reviews and blind reading through media-check; otherwise require the media probe and normal independent encoded final review. | Deliver an approved final only after all required verdicts approve the current encode with no pending required coverage. |
 | Optional cover or copy, when requested | Independent cover or copy review on the actual artifact, including full and thumbnail or crop evidence for covers. | Deliver only after approval of the current artifact. This review has its own stage counter. |
 
 Run focused preflight and the production-context bindings inside the script and
@@ -52,12 +52,10 @@ fresh transition directions and SD3/SD4 acceptance in scene/sample and encoded
 reviews. Director acceptance and beginner comprehension use the existing stage
 reservation; neither adds rounds or replaces another role. Honor explicit
 episode review overrides without treating them as global policy.
-The [teaching opening check](teaching-opening.md) is part of those existing
-gates. It always applies at script review with cited lines and at final encoded
-review with actual timestamps. At sample review it applies when the sample
-contains the complete opening, and a separate opening excerpt is allowed when
-useful. It adds no rounds and does not reset consumed episode budgets when an
-opening is repaired.
+Use the [teaching opening check](teaching-opening.md) in those same gates.
+At script/storyboard review, cite lines for the baseline and planned cues for
+the stakes and first meaningful action. At sample and final review, cite actual
+timestamps for the current opening.
 The [story bridge contract](story-bridge-contract.md) governs a selected bridge:
 it binds that scene to implemented source, exact encoded frames and blind
 audience interpretation. When the brief or the director's learning-objective
@@ -72,6 +70,29 @@ An explicitly silent brief skips voice/TTS checks, not script or scene review.
 A plan-only request ends at its reviewed plan. Sharing a clearly labelled sample
 for user audition or a blocked-work handoff is allowed within the brief; it does
 not establish final QA approval or permission to publish.
+
+## Judge the edit
+
+At script/storyboard review, identify what makes the viewer want to continue.
+Use the director's shot plan to check what each transition contributes and
+whether the last visible outcome answers the opening. Identify the transition
+most likely to lose the thread and include it in the sample if its clarity or
+pacing needs testing before the full timeline.
+
+At the rough timeline and final encode stages, a fresh narrative reviewer
+watches the complete current cut at normal speed, with sound for narrated
+work. Cite timestamps for when the stakes become clear, the first meaningful
+action, any loss of momentum, confusing cuts or repeated beats, and the payoff.
+For a missing payoff, cite where the cut leaves the outcome unresolved. Record
+the revision digest, actual played and heard intervals, and the verdict.
+Judge progress by what the viewer learns or sees change. A useful outcome can
+carry a lesson without a failure scenario.
+
+Require a focused revision for a material narrative problem even when technical
+checks pass. If required playback or listening is unavailable, record observed
+findings and mark the narrative verdict pending. Use the existing blocked-work
+handoff rules for any authorized draft. The rough and final reviews use their
+existing roles and round budgets.
 
 ## Candidate identity and recovery
 
@@ -182,7 +203,7 @@ not reset the counter. Reconcile uncertain dispatches within the same reservatio
   malformed/unknown/mismatched decisions, missing required evidence, stale state,
   Reviewer mutation, unresolved identity, scope escape, or findings at round three.
 
-Material script, audio, timing, scene, or encode revisions invalidate affected
+Material script, narration, timing, transition, scene, or encode revisions invalidate affected
 approvals and downstream gates. Revalidate and re-review the current hashes within
 the remaining budget, explicitly resolving the old findings again. Preserve prior
 passes only for provably unchanged inputs and scope. At the cap report outstanding

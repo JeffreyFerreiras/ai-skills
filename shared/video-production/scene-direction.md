@@ -18,7 +18,11 @@ chalk/neon brand elements, semantic colors and readable teaching diagrams.
 Freshness does not mean color changes, flashy wipes, distracting motion or a
 quota of unrelated scene types. Keep a diagram while it helps understanding.
 
-Every episode needs an implemented storytelling bridge that briefly leaves
+Every episode needs an independent scene-director evaluation and per-scene
+reviews. A storytelling bridge is required for NotebookLM. For local
+system-design videos, select a bridge when the brief requests one or the
+director justifies it for the learning objective. Otherwise record a brief
+explanation in the frozen plan. Implement every selected bridge beyond
 architecture-diagram presentation. Specify a recognizable situation, visible
 event, new understanding and motivated return to the next explanatory idea.
 Retain useful chalk/neon styling, but do not count another diagram state,
@@ -27,7 +31,7 @@ as the bridge. The scene must tell the connection through actual subjects and
 action, rather than decorating the existing diagram. Keep effective diagrams
 for the mechanism; there is no quota to replace every diagram or change colors.
 If no coherent transition is yet found, repair the plan inside the existing
-budget; do not silently waive the requirement or add a routine user checkpoint.
+budget and record the decision.
 
 Inspect actual reference frames and temporal samples when available. Record
 source identity, timecodes, concrete observations and limits. Do not infer motion,
@@ -54,6 +58,16 @@ Add these fields to the episode's existing production document and scene ledger:
 | Accessibility | Phone-readable labels, bottom captions with safe margins and no collisions during movement, sufficient contrast, and meaning conveyed beyond color. |
 | Evidence and acceptance | Reference locators and observed features, scene-specific criteria below, production owner, reviewer identities, exact candidate hashes, inspected frames/intervals, findings and dispositions. |
 
+For local system-design videos, add a timed shot plan for the opening,
+consequential state changes, any analogy and its return, and the payoff. For
+each shot, give the planned time or narration cue, subject and focal point,
+starting state, visible change, hold, and reason for the next cut. Mark planned
+times as estimates until measured. Show how the same request, record, or outcome
+remains recognizable across cuts. An analogy must add an inference or make a
+hard-to-see mechanism clearer. Shorten or remove a sequence that repeats a point
+the viewer already understands. If a replay teaches a safeguard, show its effect
+on the same outcome under the stated conditions.
+
 Use ordinary language before technical names, one concrete example and one idea
 at a time. Give each cause, travel/processing step and result enough time to be
 understood. Reduce content before rushing speech; never pad duration, add
@@ -70,6 +84,9 @@ load. Existing episode-specific review overrides remain controlling.
 
 - **SD1, plan gate:** the evaluation, alternatives, rationale, scene map and
   purposeful fresh transition are present and tied to the learning objective.
+  For local system-design videos, check the timed shot plan for the first
+  meaningful action, what each cut contributes, and visible closure of the
+  opening promise.
 - **SD2, plan and scene gates:** directions preserve technical meaning and
   object/causal continuity across the transition and cutback; metaphors do not
   introduce false actors, guarantees or hidden causal steps.
