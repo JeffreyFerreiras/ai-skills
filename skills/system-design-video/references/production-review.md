@@ -38,13 +38,11 @@ materially changed later revision.
 - Technical: trace claims to inspected passages, distinguish illustrative choices
   from product guarantees, and verify event order, state, labels, cues, and media
   contracts. A finite demonstration does not prove a distributed-systems guarantee.
-- Editorial: check orientation, stakes, definitions, mechanism, practical use,
-  failures, and scope of the conclusion. Inspect native-paced explanations,
-  transitions, holds, and narration/state agreement across the complete lesson.
-  Review and lock the spoken hook's accurate promise and immediate payoff before full narration
-  lock. The plain-language concept explanation and concrete objectives must
-  precede the scenario; integrate the hook into that baseline rather than
-  approving a separate suspense-only cold open.
+- Editorial: judge the edit using the [narrative review](video-review-loop.md#judge-the-edit).
+  Check the reason to continue, what each cut contributes, and the visible payoff.
+  Review and lock the spoken hook before full narration. Define the concept and
+  give a concrete objective before the spoken walkthrough. The picture can
+  show the stakes as the narrator establishes that baseline.
   Accept question, phrase, or defensible claim without requiring a question mark.
   Apply the hook rubric to specific relevance/interest, evidence, payoff, natural
   delivery, and picture alignment. The 3-6-second heuristic cannot justify rushed
@@ -64,9 +62,9 @@ materially changed later revision.
   causal step. This may share the narrative reviewer with a distinct verdict;
   technical correctness and variety alone cannot establish understanding.
   Require [TEACH-OPEN-01](teaching-opening.md): explain the concept and state
-  concrete learning objectives before the real-world scenario. Reject either
-  missing, vague/jargon-only or late element; cite script lines or actual encoded
-  timestamps for both elements and scenario onset. A hook alone cannot pass.
+  concrete learning objectives before the walkthrough. Cite the wording and
+  walkthrough onset, plus when the stakes become clear and when the first
+  meaningful action occurs. Record actual timestamps for media reviews.
 
 Give any authorized independent reviewer the brief, sources, accepted choices,
 exact revision and artifact hashes, stable scene IDs, and actual artifacts.
@@ -160,8 +158,8 @@ Fix routine defects within authorization, then recheck changed intervals and
 neighboring transitions within the remaining rounds. Preserve accepted voice,
 timing, layout, and style unless the defect requires changing them.
 
-After round three, stop that loop. Surface unresolved critical defects, material
-visual findings, or unmet requirements and keep dependent acceptance pending.
+After round three, stop that loop. Surface unresolved material findings and
+unmet requirements and keep dependent acceptance pending.
 The cap does not imply approval. Minor limitations need an explicit disposition.
 A narrow new request may limit the review scope, but retains prior unresolved
 findings and consumed rounds. Do not run extra rounds under a new filename.

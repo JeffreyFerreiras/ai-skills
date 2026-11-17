@@ -116,8 +116,8 @@ approvals after material revisions. No separate loop skill installation is neede
 | Requested scope | Authoritative stages | Evidence that closes the gate |
 | --- | --- | --- |
 | Script or storyboard only | script/storyboard with the frozen plan | independent script, hook, claim and storyboard verdicts; no render |
-| Representative sample | representative sample | reviewed sample revision and hash, with the opening and mechanism excerpts shown together as one round when one excerpt cannot represent the lesson |
-| Full video, narrated or silent | rough full timeline, then encoded final | native-pace timeline review, then independent final review with current technical media evidence and the verified encoded opening |
+| Representative sample | representative sample | reviewed sample revision and hash covering the opening and its handoff, with a second excerpt in the same round when needed to test the riskiest transition |
+| Full video, narrated or silent | rough full timeline, then encoded final | fresh narrative review of each cut at normal speed with sound for narrated work, plus current technical media evidence and the verified encoded opening for the final |
 | Narrow revision or resume | only the stages the change affects | fresh review of the changed revision; reuse unchanged hash-bound approvals and state why a stage is skipped |
 
 These rows set the order and evidence only. Each stage keeps its existing scope,
@@ -182,26 +182,24 @@ both cases.
 Create one production document before the sample and full production: script, storyboard,
 source/claim ledger, visual direction, voice choice, and review plan. Develop and
 review the spoken hook before locking a new script or generating full narration.
-For every video, first explain the concept in plain language and state concrete
-learning objectives before the real-world scenario. Apply the teaching reviewer's
-[TEACH-OPEN-01 opening check](references/teaching-opening.md), with cited script
-lines before production and actual encoded timestamps before final acceptance.
-For narrated videos, speak this baseline and integrate an interesting accurate
-promise or claim as its hook; a suspense-only or scenario-first cold open fails.
-Pair it with a phone-safe first frame, purposeful motion, and immediate payoff. On-screen text
-or an optional animated cover supports the spoken hook and cannot replace it.
+For narrated videos, speak the plain-language concept and concrete learning
+objective before the spoken walkthrough. The opening picture or action may show
+the consequence as the narrator explains the idea. Combine the hook, concept,
+and objective when the wording supports them. For explicitly silent videos, use
+visible text to establish the concept and objective before the walkthrough.
+Apply [TEACH-OPEN-01](references/teaching-opening.md) with cited script lines,
+planned cues for the stakes and first meaningful action, and actual timestamps
+in the sample and final. Pair the opening with a phone-safe first frame and
+purposeful motion. A cover or on-screen text supports the spoken hook.
 Use [hook development](references/hook-development.md) for promise/payoff review,
 minimal authorized repairs to existing narration, and encoded-audio verification.
 Use the sourced rubric there for relevance, specific curiosity, honest payoff,
 concise natural delivery, and picture/speech alignment. A roughly 3-6-second
 landing is a flexible editorial target, not a deadline or reason to speed the voice.
-Include the problem it solves, why the viewer should care and a brief solution
-overview as useful context. Preview concrete learning outcomes in teaching order
-before the scenario, combining these naturally without a long agenda or repeated
-introductions. Establish the actors,
-goal, and stakes before tracing one concrete request or item through the system.
-Show what changes, why that change matters, and what the approach costs. End with
-the answer and the scope of the conclusion. Each scene should teach one idea.
+Introduce terms as the viewer needs them. Use the director's timed shot plan to
+show what changes, why it matters, and what the approach costs. Trace one
+recognizable request or item through the cuts. End by showing the outcome that
+answers the opening, with the conditions that limit the conclusion.
 Do not use em dashes in user-facing scripts, captions, covers, titles,
 descriptions, or handoff copy; use periods, commas, or a clear sentence rewrite.
 
@@ -265,12 +263,11 @@ format is authorized; do not silently replace requested narration.
 ## Review a representative sample
 
 For a new video, render and provide a short sample before full production. Use
-actual narration at its intended speed, a causal state change, readable captions
-in the selected format, and a transition. For explicitly silent work, review the
-same visual mechanism without requiring voice. A title still or a sample from a
-different lesson cannot establish this lesson's quality. When one short excerpt
-would misrepresent the lesson, the opening and mechanism short excerpts are valid
-together as one representative sample and one review round.
+actual narration at its intended speed and readable captions in the selected
+format. Test the opening through its handoff and show a causal state change.
+Test the riskiest transition when the storyboard review calls for it. Use a
+second short excerpt within the same sample and round if needed. For explicitly
+silent work, review the same visual mechanism without requiring voice.
 
 Use [production review](references/production-review.md) for separate technical,
 editorial, and visual verdicts, evidence coverage, and the three-round limit.
@@ -289,10 +286,11 @@ demonstrations and cutaways may complement the chalk/neon brand when they teach
 better. Show meaningful internal action; camera movement is optional when useful
 and never substitutes for a causal change.
 
-Before expensive rendering, review a rough full timeline at native pace. Check
-each explanation and transition, including the most crowded scene. Still samples
-cannot establish spoken pacing or continuous motion. Record unavailable playback
-or listening as an open evidence gap, not a passed check.
+Before the full-quality render, have a fresh narrative reviewer watch the rough
+full timeline at normal speed, with sound when narrated. Use the same review on the
+final encode through a fresh reviewer. Require timestamped evidence of the
+stakes, momentum, cuts, repeated beats, and payoff. Keep the verdict pending
+when required playback or listening is unavailable.
 
 ## Build meaningful motion
 
