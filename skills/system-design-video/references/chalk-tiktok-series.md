@@ -91,15 +91,41 @@ A Whisper hallucination on one short clip, absent from the other decodes and fro
 
 Dark chalkboard. The episode board is a textured blue-black field. The standalone end-card clip uses flat RGB 17, 25, 29. Match the episode board through the crossfade, then let the card fade.
 
+Match drawn lines to the chalk artwork across clocks, arrows, outlines and state
+edits. Use dry edges and restrained pressure and opacity variation. Keep grain
+fixed to each stroke or moving surface as it reveals or moves. Where the
+renderer generates texture, use repeatable seeds across render workers.
+
 A physical laptop opens and closes by itself. No hands, arms, fingers, or forearms anywhere in the frame, including reflections and asset names. The reference check rejects person assets whose names match hand, arm, finger, or forearm.
+
+Use the opening motion to introduce the first teaching image. When adding a
+lead-in to an accepted cut, shift the body, narration, captions and timed
+effects by one measured offset. Keep the spoken hook intact and inspect the
+encoded join.
 
 Chalk people are detailed and front-on. The developer is the Jeffrit gigachad bust: the whole bust from [jeffrit-bust.png](../assets/brand/jeffrit/jeffrit-bust.png), about 340 px wide on the 1080 frame. Do not paste the face onto another body.
 
-Minimal on-screen labels. Numbers and code can be on screen. Do not label a concept the narration is already naming. Captions are the spoken words, burned in, and they stay in the caption band. In the reference renderer, scene content ends above y 1560 and caption glyphs sit from y 1570 to y 1780, with side margins of 36 px.
+Give one layer ownership of the burned-in spoken captions. In a repair, account
+for any captions already burned into the source before adding an overlay.
+Keep only numbers, code, identities and states the viewer needs. Remove
+headings and labels that repeat narration. Captions stay in the caption band.
+In the reference renderer, scene content ends above y 1560 and caption glyphs
+sit from y 1570 to y 1780, with side margins of 36 px.
 
 C# cards use a real lexer (the reference uses Pygments `CSharpLexer`), whole tokens, and monospace positions. Lines stay at or under 34 characters. Let the viewer read the code. Do not shrink the card to win back time. Type the code in as it is spoken.
 
+Compute typing progress from the exact source, including line breaks and
+indentation. Derive displayed text, syntax colors and cursor position from
+the same visible prefix. Check exact prefixes at newlines and token
+boundaries, and verify the encoded frames around reading holds and completion.
+If keys are audible, trigger them from visible non-whitespace reveals and
+check the key stem for stray taps during holds and after completion.
+
 Show causal data flow. A check appears only after the commit that earned it. A subscriber reacts only after the message arrives. A duplicate is dropped only after the consumer has recorded the first copy. Animate the route. A camera move does not replace that change.
+
+Give arrows smooth routes and clearance. Prefer proportionate open heads with
+clean joins aligned to the route's end tangent. Use local emphasis when a
+connector adds no spatial information.
 
 Enlarge small props and log lines until they read on a phone. Inspect encoded frames at 360x640, not only at 1080x1920.
 

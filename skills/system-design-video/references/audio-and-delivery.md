@@ -50,6 +50,11 @@ adjustment. A delivery sample-rate conversion must preserve playback speed.
 Inspect whether FFmpeg used linear or dynamic normalization and listen for
 pumping. Never use blind gain when peaks already constrain headroom.
 
+Before changing effects or adding a bed, record which sounds are already in
+the accepted mix and which stems serve only as ducking detectors. Include each
+retained sound once. Replace an effect from clean components that exclude the
+old cue. Preserve editable stems and cue timings when available.
+
 Remeasure the actual encoded result after every repair. If AAC overshoots the
 ceiling, lower the pre-encode target or apply measured attenuation to the preserved
 normalized mix, then encode and measure again. Recheck loudness too. Prefer a
@@ -59,7 +64,8 @@ Full-decode repaired outputs. Compare video bitstream hashes, frame counts and
 timestamps with the accepted cut. Verify audio start/end, original WAV hashes,
 and waveform alignment in distributed voiced windows including early and late
 speech. Record method, measured lag, and tolerance; equal file lengths do not
-prove sync. Recheck caption alignment and listen at a realistic destination volume.
+prove sync. Recheck caption alignment and listen at a realistic destination
+volume for cue realism, speech balance, fades and audible pumping.
 Measurements, waveform checks, and actual listening remain separate evidence.
 When listening is unavailable, leave that requirement pending.
 

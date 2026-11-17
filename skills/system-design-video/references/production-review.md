@@ -95,9 +95,19 @@ only the renderer's source stills.
 
 For a supplied aesthetic reference, inspect its actual pixels alongside the
 candidate. Record reference identity, dimensions, concrete matches/mismatches,
-and any access limit. User aesthetic rejection reopens the relevant style finding;
-automated checks or numerical beauty scores cannot override it. Preserve other
-passes only where their verified inputs and scope are unchanged.
+and any access limit. Make the visual criteria observable in the chosen style,
+such as stroke material, connector joins or texture stability. Have the reviewer
+describe the visible result before reading the Writer's rationale or prior
+verdicts. For moving details, include before, during and after samples of each
+distinct reveal design and the most crowded or tightest-clearance frames.
+Resolve conflicts between the encoded evidence and planned state before accepting
+the affected criterion.
+
+User aesthetic rejection reopens the relevant style finding. Automated checks
+or numerical beauty scores cannot override it. Carry forward only verdicts
+that already cover the same criterion and unchanged evidence. Leave untested
+criteria open even when a narrow repair preserves the underlying bytes. Apply
+the existing roles and stage budget.
 
 ## Fresh-context logical scene review
 

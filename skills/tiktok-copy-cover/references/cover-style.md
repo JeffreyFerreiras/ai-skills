@@ -23,6 +23,11 @@ panels and cluttered implementation labels. Match the visual hierarchy, not an
 unrelated title or exact illustration. Preserve episode meaning and phone-safe
 margins. Avoid em dashes in audience-facing copy.
 
+Measure the actual generated raster. If it differs from the delivery canvas,
+resize proportionally and use safe padding or crop only expendable background.
+Keep the untouched source. Verify the exported dimensions, safe margins and
+key art before capturing review evidence.
+
 Create a thumbnail from the actual final cover, at 240 pixels wide with its
 aspect ratio preserved, and inspect it without enlarging it. The hook and subject
 must remain immediately recognizable. A full-resolution pass alone is insufficient.
