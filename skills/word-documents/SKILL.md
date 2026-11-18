@@ -1,12 +1,13 @@
 ---
 name: word-documents
-description: Create, edit, review, and render .docx documents when formatting or layout fidelity matters.
+description: Create, edit, review, and render .docx documents when formatting matters and the bundled Documents skill is unavailable, or when this skill is explicitly requested.
 ---
 
 
 # Word Documents
 
 ## When to use
+- For ordinary DOCX work in Codex, use the bundled `documents:documents` skill when available. Use this portable workflow when that skill is absent or the user explicitly requests `word-documents`.
 - Read or review DOCX content where layout matters (tables, diagrams, pagination).
 - Create or edit DOCX files with professional formatting.
 - Validate visual layout before delivery.

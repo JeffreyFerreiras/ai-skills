@@ -2,31 +2,31 @@
 
 Canonical workflow for Jeffrey's chalk-style technical explainer TikToks. Use it when the request is one of these videos, a continuation of one, or a cover, caption, or repair for one. The recent episodes this was learned from are thread-pool starvation, retry storms, health checks, cartesian explosion, and transactional outbox.
 
-This series selects the chalk treatment, the Jeffrit bust, and the end card. Do not ask for a style again. A different brief still uses the style picker and the general defaults in `SKILL.md`. Do not force this series onto a landscape Remotion lesson, a NotebookLM packet, a silent animation, or a video whose style was explicitly chosen as something else.
+This series selects the chalk treatment, the Jeffrit bust, and a default end card. Do not ask for a style again. A different brief still uses the style picker and the general defaults in `SKILL.md`. Do not force this series onto a landscape Remotion lesson, a NotebookLM packet, a silent animation, or a video whose style was explicitly chosen as something else.
 
 Where this page names a number, that number is the series rule. The worked episode is [transactional outbox](examples/transactional-outbox/README.md). Its measured values show what one accepted master actually did. They do not loosen the rule.
 
 ## What changes from the general defaults
 
-- Length is under 2 minutes (120 seconds), including the laptop close and the end card. Do not use the general 180-second ceiling for this series.
+- Length is under 2 minutes (120 seconds), including the laptop close and the full ending. Do not use the general 180-second ceiling for this series.
 - Loudness is -14 LUFS integrated, true peak -2 dBTP or lower, on the encoded master. Do not master this series to -18 LUFS.
 - Narration is one TTS take per sentence, assembled with measured gaps, using the voice rotation below. Do not use one continuous take for this series.
 - `am_fenrir` runs at speed 1.20. Other lessons stay at native speed 1.0 unless their own record says otherwise.
-- Every video ends on the Jeffrit end card, crossfaded in after the laptop closes.
-- Delivery is the clean master, the TikTok cover, and a caption message that contains only the caption. Do it in the same shot, without waiting to be asked.
+- Use the [series end card](#end-card) by default.
+- Deliver the clean master with the TikTok cover and a caption-only message by default. Honor a video-only request.
 - Jeffrey uploads to TikTok himself. Never publish, and never upload, without an explicit approval that is separate from delivery.
 
 Shared procedures stay in force: sourced claims, the review loop, [teaching opening](teaching-opening.md), [hook development](hook-development.md), [audio measurement and repair](audio-and-delivery.md), [cover originals](cover-style.md), and [diagram QA](diagram-qa.md). This page adds the series contract. It does not add a fourth review round.
 
 ## Workflow
 
-Move one stage at a time. Update the episode tracker at every stage, including a rejected sample and a blocked publish. The header lives in [episode-tracker.csv](../assets/episode-tracker.csv). Keep that tracker in the configured production home, not inside the installed skill, and copy the header when a home does not have one yet. Record hashes of the script, sample, master, cover, and caption. Do not invent a status.
+Move one stage at a time. Update the episode tracker at every stage, including a rejected sample and a blocked publish. The header lives in [episode-tracker.csv](../assets/episode-tracker.csv). Keep that tracker in the configured production home, not inside the installed skill, and copy the header when a home does not have one yet. Record hashes for the script, sample, master, and any posting assets produced. Do not invent a status.
 
 1. **Topic.** Read the tracker. Propose 3 options that are not repeats of the episodes named above, unless Jeffrey asks to revisit one. Say which one you recommend and why it can be taught in one concrete example. Wait for the choice.
 2. **Sourced script.** Write the script from official sources. For a .NET topic, start with Microsoft Learn. Include compiling C# for the bad path, the fix, and the trade-off the narration states. On-screen cards may be short excerpts. The episode still needs a program that compiles and exercises those claims. Run the independent script gate, then get Jeffrey's script approval. Do not generate narration before both.
 3. **Short sample.** Render the hook through the first problem beat only. Use the chosen voice, the real gaps, the chalk laptop, and the first causal failure. Stop before the fix. For transactional outbox, that beat is the crash and the lost event. Provide the sample for review before any full render.
 4. **Full render.** Start only after the sample review. Retime the picture to the measured audio. Run the QA gates below on the encoded master.
-5. **Deliver.** In one shot, hand over the clean master, the 1080x1920 cover, and the caption. The caption is its own message and that message contains only the caption. Also hand over `QA-REPORT.md` and `SHA256SUMS` with the package. Do not wait to be asked for the cover or the caption.
+5. **Deliver.** Hand over the clean master, `QA-REPORT.md`, and `SHA256SUMS` with any posting assets in scope. When included, deliver the 1080x1920 cover and give the caption in its own message.
 6. **Publish.** Stop. Jeffrey uploads to TikTok himself. Delivery is not approval to publish. Do not upload, schedule, or post.
 7. **After publish.** Archive and clean working copies. Send lessons to the destinations Jeffrey has explicitly authorized.
 
@@ -92,7 +92,7 @@ A Whisper hallucination on one short clip, absent from the other decodes and fro
 
 ## Picture
 
-1080x1920 vertical. The worked example is 24 fps. Keep one frame rate for the whole master, including the end card. The general planning default elsewhere is 30 fps. Do not mix them inside one file.
+1080x1920 vertical. The worked example is 24 fps. Keep one frame rate for the whole master, including the ending. The general planning default elsewhere is 30 fps. Do not mix them inside one file.
 
 Dark chalkboard. The episode board is a textured blue-black field. The standalone end-card clip uses flat RGB 17, 25, 29. Match the episode board through the crossfade, then let the card fade.
 
@@ -140,13 +140,13 @@ Use music and SFX. Keep rumble and buzz out. High-pass the music at about 230 Hz
 
 Master the encoded file to -14 LUFS integrated and a true peak of -2 dBTP or lower. The outbox master measured -14.0 LUFS, -2.8 dBTP, LRA 2.8 LU, with ffmpeg `ebur128` on the AAC inside the MP4. The reference [master.py](../scripts/reference/transactional-outbox/master.py) reaches that with an iterative gain and a limiter, then measures the AAC. It writes the final master filename only after a pass is within 0.05 of -14 LUFS and at or below -2 dBTP. Ten misses keep the measurements and exit nonzero. The two-pass `loudnorm` recipe in [audio and delivery](audio-and-delivery.md) is the other accepted path when its targets are I=-14 and TP=-2 or lower. Do not aim this series at -18.
 
-Music resolves on a final chord under the end card. In the outbox build the bed swells from 0.4 s before the card to the bust pop, then hands over to a C add9 chord, high-passed at 230 Hz, which reaches digital silence 60 ms before the file ends. Do not cut the music off on the last frame of the lesson.
+When the series end card is used, music resolves on a final chord under it. In the outbox build the bed swells from 0.4 s before the card to the bust pop, then hands over to a C add9 chord, high-passed at 230 Hz, which reaches digital silence 60 ms before the file ends. Do not cut the music off on the last frame of the lesson.
 
 ## End card
 
-Every video ends with the Jeffrit chalk gigachad end card, crossfaded in after the laptop closes. No hard cut into the card. The laptop close in the outbox example is 1.55 s, then the card.
+By default, end with the Jeffrit chalk gigachad end card, crossfaded in after the laptop closes. Honor an explicit alternate ending or preserve the approved ending already in the cut. The laptop close in the outbox example is 1.55 s, then the card.
 
-Use [endcard.py](../assets/brand/jeffrit/endcard.py). `EndCard.LEN` is 2.9 s:
+For the series end card, use [endcard.py](../assets/brand/jeffrit/endcard.py). `EndCard.LEN` is 2.9 s:
 
 - 0 to 0.6 s: crossfade in from the previous frame.
 - 0.3 to 0.95 s: the ring draws.
@@ -180,12 +180,12 @@ Do not use em dashes. Do not invent metrics.
 
 ## QA gates
 
-Run these on the encoded master before delivery. Write `QA-REPORT.md` and `SHA256SUMS` for the master, cover, caption, and report. Hashes are SHA-256 of the delivered bytes.
+Run these on the encoded master before delivery. Write `QA-REPORT.md` and `SHA256SUMS`. Record SHA-256 hashes of the delivered master, report, and any cover or caption included in the package.
 
 - Automatic frame checks from the renderer: no scene or track labels, no limbs, captions inside the caption band, content outside that band, and the causal state checks for that episode. Keep a known-bad fixture that the check must reject. [Diagram QA](diagram-qa.md) is the geometry and code-card procedure.
 - Contact sheet of the encode.
-- Phone-size frames at 360x640 across the episode, including code, the laptop, a failure, the fix, and the end card.
-- A strip of every transition, including the laptop close and the crossfade into the end card.
+- Phone-size frames at 360x640 across the episode, including code, the laptop, a failure, the fix, and the actual ending.
+- A strip of every transition, including the laptop close and end-card crossfade when used.
 - Integrated LUFS, true peak, and the high-pass confirmation for music and SFX.
 - Pause and wpm measurement on the final MP4, sentence and paragraph, plus the stem targets for comparison.
 - The two-size, multi-decode STT report, with each meaning-changing miss either regenerated or still open. An open miss blocks delivery.
@@ -196,7 +196,7 @@ Record what was inspected and what was not. A self-check does not replace indepe
 
 Wait until Jeffrey confirms the upload of that master.
 
-Archive with the video-production-drive-cleanup skill. That cleanup is the Video Janitor step. Copy the accepted master, cover, caption, QA report, hashes, and the source project into the configured system-design archive, read the copy back, and update the tracker with the archive result. Then clean only the working copies that skill allows. Do not archive or delete before publish. Do not treat cleanup as permission to post.
+Archive with the video-production-drive-cleanup skill. That cleanup is the Video Janitor step. Copy the accepted master, any delivered posting assets, QA report, hashes, and the source project into the configured system-design archive, read the copy back, and update the tracker with the archive result. Then clean only the working copies that skill allows. Do not archive or delete before publish. Do not treat cleanup as permission to post.
 
 Keep proposed lessons in the authorized episode record when they are learned. Delivery does not wait on the write-up. Require explicit authorization for each destination and for any Git push. Treat upload confirmation as the trigger for archive and cleanup.
 
