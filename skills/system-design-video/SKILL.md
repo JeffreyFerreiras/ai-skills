@@ -166,6 +166,8 @@ production directions. The Writer integrates the handoff into the existing
 document; independent reviewers accept it through the existing shared gates and
 budgets. It complements technical, visual, logical and beginner-comprehension
 review without adding an optional user approval checkpoint.
+Carry the story through the full episode. A dedicated bridge is one scene in
+that story.
 The bridge must be an actual storytelling scene beyond architecture-diagram
 presentation, with situation, event, new understanding and return, whenever it is
 selected. A dedicated off-diagram story bridge is required when the brief requests
@@ -196,10 +198,15 @@ minimal authorized repairs to existing narration, and encoded-audio verification
 Use the sourced rubric there for relevance, specific curiosity, honest payoff,
 concise natural delivery, and picture/speech alignment. A roughly 3-6-second
 landing is a flexible editorial target, not a deadline or reason to speed the voice.
+Use [episode storytelling](references/episode-story.md) to carry one question,
+situation, or design constraint from the teaching opening through a connected
+sequence of changes to a visible payoff. Write that sequence in the production
+document before planning component reveals. The existing narrative review checks
+it at script/storyboard, rough full timeline, and encoded final.
 Introduce terms as the viewer needs them. Use the director's timed shot plan to
-show what changes, why it matters, and what the approach costs. Trace one
-recognizable request or item through the cuts. End by showing the outcome that
-answers the opening, with the conditions that limit the conclusion.
+show what changes, why it matters, and what the approach costs. Keep the relevant
+request, item, state, or decision recognizable through the cuts. Show the outcome
+and the conditions that limit the conclusion.
 Do not use em dashes in user-facing scripts, captions, covers, titles,
 descriptions, or handoff copy; use periods, commas, or a clear sentence rewrite.
 

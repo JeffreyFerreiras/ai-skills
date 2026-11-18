@@ -3,8 +3,9 @@
 Use a non-author scene director for every new episode after the independent
 example-fit recommendation and before script/storyboard lock. Give it the
 learning objective, audience, scenario, claim ledger, current script outline,
-recent episode inventory and inspected visual references. It evaluates the
-episode and returns actionable directions to the bound production Writer.
+[episode story](episode-story.md), recent episode inventory and inspected visual
+references. It evaluates the episode and returns actionable directions to the
+bound production Writer.
 This is a production responsibility within the existing gates, not an optional
 style suggestion or a new user approval checkpoint.
 
@@ -52,7 +53,7 @@ Add these fields to the episode's existing production document and scene ledger:
 | --- | --- |
 | Episode decision | Objective, selected example, compared scene approaches, choice and learning benefit; useful continuity with recent episodes and what is fresh. |
 | Scene map | Stable scene IDs, one plain-language idea per scene, scene type and purpose, essential narration beat and visible causal action. Planned timing remains estimated until audio is measured. |
-| Fresh transition | Dedicated story-scene ID and incoming/outgoing scenes, recognizable situation, visible event, new understanding, learning purpose and motivated return. |
+| Fresh transition | Incoming and outgoing scenes, visible action and learning purpose. For a selected bridge, include its dedicated scene ID, recognizable situation, visible event, new understanding and motivated return. |
 | Production instructions | Actors/objects and stable IDs, composition and focal point, assets to create/reuse with provenance, action order, motivated camera/layer movement if useful, reading/understanding holds and cutback. |
 | Continuity | How the same object, record or request remains recognizable; connector origins/destinations, physical support where literal, causal dependencies and mapping between metaphor and system. Label illustration limits. |
 | Accessibility | Phone-readable labels, bottom captions with safe margins and no collisions during movement, sufficient contrast, and meaning conveyed beyond color. |
@@ -62,9 +63,11 @@ For local system-design videos, add a timed shot plan for the opening,
 consequential state changes, any analogy and its return, and the payoff. For
 each shot, give the planned time or narration cue, subject and focal point,
 starting state, visible change, hold, and reason for the next cut. Mark planned
-times as estimates until measured. Show how the same request, record, or outcome
-remains recognizable across cuts. An analogy must add an inference or make a
-hard-to-see mechanism clearer. Shorten or remove a sequence that repeats a point
+times as estimates until measured. At key beats, show what carries over, what
+changes or is decided, and how that result motivates the next beat or pays off
+the opening. Keep the relevant request, record, state, or decision recognizable
+across cuts. An analogy must add an inference or make a hard-to-see mechanism
+clearer. Shorten or remove a sequence that repeats a point
 the viewer already understands. If a replay teaches a safeguard, show its effect
 on the same outcome under the stated conditions.
 
@@ -93,7 +96,7 @@ load. Existing episode-specific review overrides remain controlling.
 - **SD3, scene/sample gates:** actual scene and transition evidence supports the
   chosen composition, readable holds, phone labels, bottom captions and contrast.
   Inspect entry, internal action, result and exit, not just a hero still.
-- **SD3 implementation:** run the [story bridge contract](story-bridge-contract.md)
+- **SD3 implementation for a selected bridge:** run the [story bridge contract](story-bridge-contract.md)
   plan and implemented checks. Map the dedicated story scene to actual hashed
   scene code/assets. A plan-only statement or matching diagram sample cannot pass.
 - **SD4, full/encoded gates:** reviewers compare the actual generated or rendered
@@ -101,9 +104,10 @@ load. Existing episode-specific review overrides remain controlling.
   where playback is available. Record deviations, uninspected intervals and
   listening/playback gaps honestly. A plan or sampled still pass cannot approve
   an unseen encode or prove learner understanding.
-- **SD4 story acceptance:** capture/recheck frames from the actual encoded movie,
-  obtain the blind audience reading before creator intent, and require distinct
-  visual/logical verdicts on situation, event, new understanding and return.
+- **SD4 acceptance for a selected bridge:** capture and recheck frames from the
+  encoded movie. Obtain the blind audience reading before sharing creator intent.
+  Require distinct visual/logical verdicts on situation, event, new understanding
+  and return.
   Run the encoded contract check. Matching a weak plan is not sufficient.
 
 Carry SD findings in the existing shared maximum of three total review rounds

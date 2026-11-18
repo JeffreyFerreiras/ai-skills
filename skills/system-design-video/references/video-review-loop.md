@@ -37,11 +37,11 @@ authoritative. Later prose details evidence but adds no gate, role, or round.
 
 | Deliverable stage | Required independent evidence and roles | Advance condition |
 | --- | --- | --- |
-| Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01, sourced claims, scoped causal visuals, and the director's timed shot plan with SD1/SD2 acceptance. Check the reason to keep watching, the purpose of each transition, and how the ending answers the opening. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
+| Script, spoken hook, sources and storyboard | Independent technical APPROVE and narrative/beginner-comprehension APPROVE on the current digest. Require TEACH-OPEN-01, sourced claims, scoped causal visuals, and the director's timed shot plan with SD1/SD2 acceptance. Require STORY-01 with script and storyboard evidence. | Advance only after all required verdicts approve the current revision and before any TTS or rendering. Script review always applies, including when later stages reuse it. |
 | Narration and cues | Dedicated voice-consistency review on the current clips and cues. Compare phrasing, identity, pauses and joins. Record listening gaps as explicit pending evidence. | Advance only after voice approval of the current clips and before final visual timing. |
 | Representative sample | Dedicated visual-diva review and distinct fresh-context logical review with scene IDs and temporal evidence. Test the opening and its handoff with TEACH-OPEN timestamps, and include the riskiest transition identified at storyboard review when needed. Use a second short excerpt in the same sample and round if needed. Provide the reviewed sample before full production. | Advance only after both reviews approve the current sample digest and before the full render. |
-| Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision, including the most crowded scene and transitions. Use a playable editor preview or low-cost rough cut for the normal-speed narrative playback below. | Advance to the full-quality render and delivery encode only after all required verdicts approve the current timeline. |
-| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require normal-speed narrative playback, actual encoded opening audio with the hook for narrated work, TEACH-OPEN timestamps, and delivery-size inspection. When a bridge is selected, also require current bridge mapping, reviews and blind reading through media-check; otherwise require the media probe and normal independent encoded final review. | Deliver an approved final only after all required verdicts approve the current encode with no pending required coverage. |
+| Rough full timeline | Technical, narrative, voice, visual and logical review of the actual timeline revision, including the most crowded scene and transitions. Use a playable editor preview or low-cost rough cut for normal-speed narrative playback and STORY-01. | Advance to the full-quality render and delivery encode only after all required verdicts approve the current timeline. |
+| Encoded final | Technical/media, narrative, voice, visual and logical evidence covering the actual encode. Require STORY-01 on the delivered sequence, normal-speed narrative playback, actual encoded opening audio with the hook for narrated work, TEACH-OPEN timestamps, and delivery-size inspection. When a bridge is selected, also require current bridge mapping, reviews and blind reading through media-check; otherwise require the media probe and normal independent encoded final review. | Deliver an approved final only after all required verdicts approve the current encode with no pending required coverage. |
 | Optional cover or copy, when requested | Independent cover or copy review on the actual artifact, including full and thumbnail or crop evidence for covers. | Deliver only after approval of the current artifact. This review has its own stage counter. |
 
 Run focused preflight and the production-context bindings inside the script and
@@ -72,6 +72,10 @@ for user audition or a blocked-work handoff is allowed within the brief; it does
 not establish final QA approval or permission to publish.
 
 ## Judge the edit
+
+Apply [STORY-01](episode-story.md#story-01-episode-narrative-review) in the
+existing narrative verdict at script/storyboard, rough full timeline, and
+encoded final. It also applies when the episode stays in a diagram.
 
 At script/storyboard review, identify what makes the viewer want to continue.
 Use the director's shot plan to check what each transition contributes and
