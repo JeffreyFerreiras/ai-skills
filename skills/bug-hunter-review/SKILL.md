@@ -20,9 +20,13 @@ repository's default branch. Report missing diff metadata or inaccessible eviden
 
 ## Find demonstrated failures
 
+### Failure-tracing checklist
+
 Trace changed behavior from realistic inputs and existing contracts. Check boundary conditions,
 error and cancellation paths, state transitions, concurrency, and resource ownership. Follow
 affected callers far enough to establish whether the changed behavior produces a failure.
+
+### Bug-hunt evidence and findings
 
 Use existing tests and validation logs as evidence. Do not run tests or add reproduction files
 without explicit authority. A passing test does not cover an untested path; missing tests alone

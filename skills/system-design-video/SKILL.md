@@ -26,7 +26,7 @@ may continue while the choice is pending.
 When the request is a Jeffrit chalk technical explainer for TikTok, or a
 continuation of that series, follow
 [the chalk TikTok series](references/chalk-tiktok-series.md). That series
-already selects the chalk treatment, the Jeffrit bust, and the end card. Do
+already selects the chalk treatment, the Jeffrit bust, and a default end card. Do
 not ask for a style. Its length, loudness, narration, sample, cover, caption,
 and delivery rules override the general defaults where that reference says so.
 Other briefs keep the style picker and the defaults below.
@@ -76,7 +76,7 @@ and delivery, report it, and obtain the same choice before proceeding. Retain
 consumed review rounds and invalidate affected approvals after scope/timing edits.
 
 A Jeffrit chalk TikTok is capped under 2 minutes, including the laptop close
-and the end card. Use the series reference for that cap instead of the
+and the full ending. Use the series reference for that cap instead of the
 180-second warning above.
 
 Reuse an existing renderer. For a new project, prefer Remotion for React/SVG
@@ -106,7 +106,7 @@ to already-authorized local work.
 Use the self-contained [video review loop](references/video-review-loop.md) at
 each deliverable gate. Its stage table is authoritative for script/storyboard,
 narration/cues, representative sample, rough full timeline, encoded final, and
-optional cover/copy, including roles, evidence, advance conditions, and the
+TikTok cover/copy, including roles, evidence, advance conditions, and the
 shared three-round budget per stage. Freeze scope and criteria, use one bound Writer, settle
 its writes, validate the exact artifact revision, then use fresh independent
 reviewers to approve, request a bounded repair, or block. Keep durable round and
@@ -359,15 +359,27 @@ implies unavailable playback.
 
 ## Deliver and hand off
 
-When a cover is part of the requested deliverables, apply the
-[cover style and thumbnail gate](references/cover-style.md). View both bundled
-original references and obtain current independent full-cover/thumbnail approval
-before cover delivery. Keep cover-style and storytelling references distinct.
+For a finished Jeffrit episode, honor the user's requested ending or keep an
+approved ending already in the cut. Otherwise, add the branded outro once
+after the last teaching beat and narration. The chalk series uses its
+[2.9-second end card and crossfade](references/chalk-tiktok-series.md#end-card).
+For other Jeffrit episodes, use the approved project ending or adapt the
+[bundled brand assets](assets/brand/jeffrit/README.md). Include the outro in the
+runtime and check the join, last frame, and audio in the final encode.
+
+Deliver a reviewed 1080x1920 cover and a ready-to-paste TikTok caption with
+hashtags with each finished episode. Honor video-only or non-TikTok briefs.
+For plans and previews, include posting assets only when requested. Use
+`tiktok-copy-cover` when available. Otherwise, write the caption from the
+verified episode and check hashtag relevance. Apply the
+[cover style and thumbnail gate](references/cover-style.md) whenever a cover is
+included. The cover and caption share one independent review stage. Publishing
+requires separate authorization.
 
 Provide the requested video or preview, subtitles when narrated, editable scene
-source, script, `video-spec.json`, and a short QA report. A finished Jeffrit
-chalk TikTok also includes the clean master, the TikTok cover, and a message
-that contains only the caption, delivered together without waiting to be asked.
+source, script, `video-spec.json`, and a short QA report. For the Jeffrit chalk
+series, deliver the clean master and any posting assets together. Give the
+caption in a caption-only message when it is included.
 Keep output in the chosen
 project, outside the installed skill. Record exact runtime versions, commands,
 source locators, clip durations, and any remaining defects in the report. Preserve

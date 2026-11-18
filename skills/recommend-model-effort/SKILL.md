@@ -1,16 +1,16 @@
 ---
 name: recommend-model-effort
-description: Recommend a supported reasoning-effort level for a task based on complexity, risk, and cost. Use when asked which effort to choose before starting work.
+description: Recommend a model and reasoning effort for a task based on complexity, risk, and cost. Use when asked which model or effort to choose before starting work.
 ---
 
 # Recommend Model Effort
 
-Assess the task without performing it unless the user also asks for execution. Recommend one exact effort level that the active or requested model supports.
+Assess the task without performing it unless the user also asks for execution. Lead with one recommendation that names both the model and its reasoning effort.
 
 ## Workflow
 
-1. Identify the active or requested model and its exposed effort options from available context. Never invent support. If exact availability is unknown, recommend a relative tier and state that uncertainty; consult current official model documentation only when exact mapping matters.
-2. Infer the user's priority from the prompt: latency or cost, balanced, or quality first. Assume balanced when unstated.
+1. Check the current host for model availability and effort options. Infer whether the user prioritizes latency or cost, balance, or quality. Default to balanced.
+2. Use the requested model when verified. Otherwise, prefer the active model if it fits the task and priority, or choose one verified option. Use the model's actual name or ID. Consult current official documentation when exact effort mapping matters. Verify host availability separately.
 3. Evaluate the work by its hardest reasoning demand, not by prompt length:
    - depth of dependent reasoning
    - ambiguity, novelty, or competing hypotheses
@@ -41,15 +41,21 @@ Do not confuse reasoning effort with response length. Recommend verbosity separa
 Lead with one recommendation:
 
 ```text
-Recommended effort: <supported level>
+Recommended model and effort: <model name or ID> · <supported level or labeled relative tier>
 Why: <one sentence naming the decisive task signals>
 ```
+
+If the requested model is unavailable or unverified, lead with its name and
+status, then label the recommendation `Alternative model and effort` when
+there is a verified alternative. If no suitable model can be verified, say so
+in the model field. Whenever exact effort options are unknown, give a clearly
+labeled relative effort tier.
 
 Add at most one of these when material:
 
 ```text
 Assumption: <missing constraint you inferred>
-Use <adjacent level> instead if: <single boundary condition>
+Use <adjacent level on the same model> instead if: <single boundary condition>
 ```
 
-Ask one concise question only when a missing fact could shift the recommendation by two or more tiers. Otherwise, state the assumption and recommend directly.
+Ask one concise question only when missing information would change the model choice materially or shift the effort by two or more tiers. Otherwise, state the assumption and recommend directly.

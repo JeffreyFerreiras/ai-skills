@@ -1,6 +1,6 @@
 ---
 name: clean-code-review
-description: Review a diff or commit range for defects, regressions, and justified design improvements. Use for code or pre-merge reviews that call for findings without implementation.
+description: Review a diff or commit range for defects, regressions, and justified design improvements. Use for general code and pre-merge review. Dedicated introduced-defect-only bug hunts use bug-hunter-review.
 ---
 
 # Clean Code Review
@@ -12,7 +12,7 @@ description: Review a diff or commit range for defects, regressions, and justifi
 3. Establish the intended behavior from the user request and any available change, pull-request, or commit description. Compare that intent with the diff. When intent remains unclear, raise an open question rather than assuming an unfamiliar approach is defective.
 4. Inspect the diff and enough surrounding code, callers, tests, configuration, and contracts to establish impact. If broad or mixed scope prevents reliable review, explain the limitation and identify coherent review units without imposing a fixed size limit.
 5. Inspect available test, lint or format, static-analysis, and presubmit results. Report missing or unavailable validation evidence as residual risk; do not assume a reviewer must rerun checks already evidenced by the workflow.
-6. Prioritize behavioral defects and regressions over stylistic preferences or pattern suggestions.
+6. Prioritize behavioral defects and regressions. Use the failure-tracing checklist in the installed `bug-hunter-review` skill when available. Otherwise, trace changed behavior through affected contracts to establish concrete failures. Apply this skill's own finding criteria and the assigned graph role and report format.
 7. Defer to the author's choice when multiple approaches are equally valid. Recommend an alternative only when it addresses a concrete correctness, comprehension, performance, or maintainability cost.
 8. Report only actionable findings supported by a concrete failure mode or maintainability cost.
 
