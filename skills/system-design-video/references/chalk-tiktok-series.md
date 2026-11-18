@@ -42,7 +42,12 @@ Use these stage values, in order: `topic`, `script`, `script-approved`, `sample`
 
 ## Script
 
-Teach one mechanism. Plain language first, then the concrete case, then the fix, then the trade-offs. Name real costs: duplicates, delay, cleanup, whatever the source actually supports. Do not invent latency, guarantees, or components.
+Teach one mechanism. Start with the plain-language concept and objectives. Use
+[episode storytelling](episode-story.md) to carry the teaching promise through
+the same concrete case, the fix, and its trade-offs.
+Show what changes for that case and what the fix costs. Name real costs that the
+source supports, such as duplicates, delay or cleanup. Do not invent latency,
+guarantees, or components.
 
 Spoken words and on-screen code follow different spelling rules. Say the full name first. On screen, code keeps the real identifiers.
 

@@ -40,6 +40,10 @@ materially changed later revision.
   contracts. A finite demonstration does not prove a distributed-systems guarantee.
 - Editorial: judge the edit using the [narrative review](video-review-loop.md#judge-the-edit).
   Check the reason to continue, what each cut contributes, and the visible payoff.
+  Apply [STORY-01](episode-story.md#story-01-episode-narrative-review) to the
+  full sequence. Record how the viewer can connect the opening promise, causal
+  changes or choices, and the outcome. Cite places where a clear individual
+  beat loses that thread or the ending leaves the teaching question unanswered.
   Review and lock the spoken hook before full narration. Define the concept and
   give a concrete objective before the spoken walkthrough. The picture can
   show the stakes as the narrator establishes that baseline.

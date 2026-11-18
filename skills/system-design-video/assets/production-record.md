@@ -13,7 +13,9 @@ checks pending; remove branches outside the requested deliverable.
   the reason for any later beat, inspection limits, and focused repairs:
 
 - Learning question, audience, what/problem/why/solution opening, ordered learning
-  preview, concrete example, limits, and source/claim locators:
+  preview, concrete example, and source/claim locators:
+- [Episode story](../references/episode-story.md): starting situation or
+  constraint, what matters, causal change or decision, payoff and limits:
 - Exact spoken hook, promise/payoff, first-frame phone-safe design, optional
   supporting animated cover, lock/review before full narration, body-audio hashes:
 - Hook form (question/phrase/claim), relevance and specific interest, claim sources,
@@ -64,7 +66,8 @@ checks pending; remove branches outside the requested deliverable.
 - Scene map: stable IDs, plain-language idea, narration beat, composition, focal
   object, assets/provenance, causal actions, holds and bottom-caption safe area:
 - Fresh transition ID, incoming/outgoing scenes, initial/change/result states,
-  learning purpose, object/path continuity and cutback instructions:
+  learning purpose, object/path continuity and cutback instructions. Include the
+  selected story bridge ID or the rationale for proceeding without a bridge:
 - Writer integration artifact/hash; independent SD1/SD2 plan verdicts, SD3
   scene/sample and SD4 actual full/encoded evidence; beginner-comprehension verdict:
 - Stable findings, affected hashes, scope, shared consumed rounds and acceptance
@@ -81,11 +84,11 @@ checks pending; remove branches outside the requested deliverable.
 
 ### Timed shot plan
 
-Cover the opening, consequential state changes, any analogy and its return,
-and the payoff. Mark times as planned until measured. Track the same request,
-record, or outcome across cuts. For an analogy, name the new inference or the
-mechanism it clarifies. For a safeguard replay, state its conditions and show
-the result for the same outcome.
+Cover the opening, consequential changes or decisions, any analogy and its
+return, and the payoff. Mark times as planned until measured. Track the same
+request, record, state, or decision across cuts. For an analogy, name the new
+inference or the mechanism it clarifies. For a safeguard replay, state its
+conditions and show the result for the same outcome.
 
 | Scene/shot and planned time or narration cue | Subject and focal point | Starting state | Visible change | Hold | Reason for next cut |
 | --- | --- | --- | --- | --- | --- |
@@ -107,10 +110,12 @@ Repeat per deliverable stage, retaining previous rounds and finding IDs.
 - Stage, candidate path/hash, scene IDs/time range, round number, reviewer identity:
 - Technical verdict and source/contract evidence:
 - Editorial verdict on the current digest: reason to continue, transition
-  purpose and opening-to-payoff link. For the sample, record opening/handoff
-  and any high-risk transition excerpt. For rough and encoded cuts, record
-  normal-speed played/heard intervals and timestamps for stakes, first action,
-  momentum loss, confusing cuts, repeated beats and payoff. Record any pending
+  purpose and [STORY-01 reconstruction](../references/episode-story.md#story-01-episode-narrative-review).
+  At script/storyboard review, cite script lines and scene IDs. For the sample,
+  record the opening, its handoff, and any high-risk transition excerpt. For
+  rough and encoded cuts, record normal-speed played/heard intervals and
+  timestamps for stakes, first action, momentum loss, confusing cuts, repeated
+  beats and payoff. Record any pending
   coverage, focused revision and affected approvals to reopen:
 - Independent voice-consistency reviewer, heard intervals versus instrumented
   checks, cadence/identity/energy/join findings, round count, user-audition gaps:
