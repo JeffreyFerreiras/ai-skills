@@ -12,6 +12,9 @@ from .contracts import ContractError, digest, lexical_relative, safe_file_snapsh
 from .ids import canonical_bytes, sha256_bytes
 
 
+DESIGN_EVIDENCE_PAGE_BYTES = 2 * 1024 * 1024
+
+
 @dataclass(frozen=True)
 class VerifiedArtifact:
     ref: str
@@ -240,7 +243,12 @@ def reverify_artifact(
     policy: Mapping[str, Any],
     runtime_root: Optional[Path] = None,
 ) -> None:
-    enforce_artifact_size(artifact["kind"], artifact["size_bytes"], policy)
+    if artifact["kind"] == "design_evidence" and artifact["source_type"] == "ledger":
+        size = artifact["size_bytes"]
+        if type(size) is not int or not 0 <= size <= DESIGN_EVIDENCE_PAGE_BYTES:
+            raise ContractError("artifact_ref", "INVALID_DESIGN_EVIDENCE_SIZE")
+    else:
+        enforce_artifact_size(artifact["kind"], artifact["size_bytes"], policy)
     if artifact["source_type"] == "ledger":
         if artifact["content_json"] is None:
             raise ContractError("artifact_ref", "LEDGER_CONTENT_MISSING")

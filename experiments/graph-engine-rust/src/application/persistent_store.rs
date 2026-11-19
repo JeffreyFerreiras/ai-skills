@@ -72,6 +72,7 @@ pub trait PersistentSession:
     fn journal(&self, enable_wal: bool) -> EngineResult<Value>;
     fn set_full_synchronous(&self) -> EngineResult<()>;
     fn synchronous(&self) -> EngineResult<Value>;
+    fn begin_read(&self) -> EngineResult<()>;
     fn begin_initial(&self) -> EngineResult<()>;
     fn insert_initial_run(&self, values: &[Value]) -> EngineResult<()>;
     fn insert_initial_plan(&self, values: &[Value]) -> EngineResult<()>;

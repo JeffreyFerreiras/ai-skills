@@ -20,12 +20,16 @@ entry skill controls scope and authority.
 - Windows permission and durability acknowledgments disclose platform limits; they grant no
   authority and cannot weaken approval, fencing, or evidence requirements.
 
-Read `Start a run` for initialization, plan approval, fixed research fan-out, and platform
+Read `Start a run` for initialization, plan approval, first branches, and platform
 acknowledgments. Read `Instruction-level helpers` or `Optional reviewer delegation` before those
 paths. Read `Operate the ledger` before claim, record, join, retry, resume, abort, or completion.
 Read `Token accounting at phase handoffs` before binding, collecting, closing, or reporting usage.
 
 ## Start a run
+
+After an upgrade, an exact retry of an authoritative initialization replays its recorded plan.
+Complete an initialization interrupted before the plan became authoritative with the runtime
+that created its recovery marker.
 
 Before substantive scoping, capture the primary session's usage checkpoint when the host exposes
 the metadata and the explicit file is authorized to read:
@@ -60,7 +64,10 @@ supported. The stateless usage checkpoint above is exempt.
    Historical policies retain their repository artifact roots.
 2. Put the `policy` command's exact digest in the brief's `policy_approval`.
 3. Preview the execution plan without writing state. Present roles, work sequence, model/effort
-   recommendations, options, helper allowance, and availability gaps. Apply the human's selections
+   recommendations, options, helper allowance, and availability gaps. In plans with
+   `design_workflow_version: 1`, omit the two entries marked `legacy research workflow only`
+   from the operational summary and host checks. Keep them in the canonical plan and digest.
+   Apply the human's selections
    to task-brief v2/v3 `model_overrides` (helper pairs belong in the allowance), then preview again:
 
    `python <skill>/scripts/graphctl.py --repo <repo> plan --run-id <id> --task-brief <path> [--size small|medium|large] [--host claude|codex|codex-astra|cursor]`
@@ -95,9 +102,12 @@ supported. The stateless usage checkpoint above is exempt.
 
    Cover every listed member and all four resource categories. Order every exclusive conflict and any
    service usage needed to keep each unordered set within capacity. The assessment is immutable.
-   For `design_only` and `full_delivery`, the Impact Mapper result creates the fixed assessed-pending
-   `design_research_architecture` and `design_research_validation` fan-out before any Tech Lead is
-   created. Both branches reuse the Impact Mapper role at the approved host economy assignment,
+   With `design_workflow_version: 1`, the Impact Mapper result opens a ready Tech Lead branch on
+   `design_only` and `full_delivery`, and the branch receives the recorded mapper result. Design
+   revisions and delivery redesigns also open a Tech Lead branch directly for the new generation.
+   Plans without the version retain the assessed-pending `design_research_architecture` and
+   `design_research_validation` fan-out before each Tech Lead. Both branches reuse the Impact
+   Mapper role at the recorded model and effort,
    receive deterministic architecture/validation focus and split inspection budgets, and may project
    only filesystem or external read capabilities. They must return a verified `evidence_manifest` with evidence, no
    decision, and no findings. Sealing `research_collection` materializes the canonical evidence and

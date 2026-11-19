@@ -8,7 +8,7 @@ use super::{
     graph_delivery::{staged_consolidation, verify_delivery_result_source},
     graph_ledger::GraphRead,
     graph_nodes::{
-        insert_collection_successors, insert_join_spec, insert_spec, task_input, SuccessorTopology,
+        insert_design_generation, insert_join_spec, insert_spec, task_input, SuccessorTopology,
     },
     graph_payload::{artifact_reference, sorted_inputs},
     graph_record_control::{check_attempt, claim_token_digest, finish_running_attempt},
@@ -78,19 +78,12 @@ fn insert_initial_successors(
     source_files: &dyn SourceFileFactory,
 ) -> EngineResult<SuccessorTopology> {
     let inputs = [task_input(session, run)?];
-    let specs = planner::initial_route_nodes(&loaded.policy, route)?;
     if ["design_only", "full_delivery"].contains(&route) {
-        let collection = planner::collection_join("research", 0, specs);
-        return insert_collection_successors(
-            session,
-            run,
-            loaded,
-            context,
-            &collection,
-            &inputs,
-            source_files,
-        );
+        let mapper = session.first(GraphRead::ImpactMapper, std::slice::from_ref(&run["run_id"]))?
+            .ok_or_else(|| EngineError::state("TOPOLOGY_NODE_INVALID"))?;
+        return insert_design_generation(session, run, loaded, context, 0, &inputs, &mapper, source_files);
     }
+    let specs = planner::initial_route_nodes(&loaded.policy, route)?;
     let mut topology = SuccessorTopology::default();
     for spec in &specs {
         let row = insert_spec(
@@ -252,7 +245,6 @@ pub fn record(
                                 None => error,
                             }
                         })?;
-                let route = impact["route_label"].text().expect("validated route label");
                 let refs =
                     verified_impact_refs(&resolver, session, run_id, &impact["evidence_refs"])?;
                 impact.set("evidence_refs", refs);
@@ -263,14 +255,6 @@ pub fn record(
                         stored_json(&impact["impact_tags"], SerializationProfile::STORED)?,
                         run["run_id"].clone(),
                     ],
-                )?;
-                topology = insert_initial_successors(
-                    session,
-                    run,
-                    &route,
-                    loaded,
-                    context,
-                    claims.source_files,
                 )?;
                 impact
             } else {
@@ -367,7 +351,12 @@ pub fn record(
                 finished_at,
                 &status,
             )?;
-            if succeeded && (tech_lead || writer || advisory) {
+            if classified {
+                let route = result["route_label"].text().expect("validated route label");
+                topology = insert_initial_successors(
+                    session, run, &route, loaded, context, claims.source_files,
+                )?;
+            } else if succeeded && (tech_lead || writer || advisory) {
                 let updated = session
                     .first(GraphRead::Node, std::slice::from_ref(branch_id))?
                     .ok_or_else(|| EngineError::state("BRANCH_NOT_FOUND"))?;

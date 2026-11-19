@@ -35,10 +35,25 @@ The Supervisor records the objective, user outcome, included and excluded scope,
 acceptance criteria, risk, authority, evidence paths, inspection budget, required checks,
 specialists, and human decisions. Inspect the selected worktree and protect unrelated changes.
 
-Each initial design generation, design revision, and delivery redesign begins with the fixed
-architecture and validation research pair. The Supervisor assesses dependencies/resources, seals
-their evidence collection, and then creates the same-generation Tech Lead branch. Advisory,
-initial fast-path, and initial delivery-only routes omit this research pair.
+Each initial design generation, design revision, and delivery redesign opens a Tech Lead branch
+under `design_workflow_version: 1`. The branch receives the task brief and one or more digest-bound
+`design_evidence` inputs. Read them in ascending page order. Initial design gets the recorded route, tags, and mapper evidence
+references. Revisions and redesigns get the sealed source collection, actionable finding details,
+evidence references, and consolidation dispositions. Relevant preceding design and implementation
+documents remain available by reference. For delegated findings, the inputs include only cited
+references from the frozen preliminary evidence registry and the Supervisor's actionable dispositions.
+The inputs omit accepted echoes, sibling attempt details, and claim data.
+Plans without the marker keep the historical architecture and validation research pair.
+Assess its dependencies and resources and seal `research_collection` before dispatching that lead.
+
+The direct Tech Lead can use the same task-requested filesystem and external reads that repository
+policy allowed for the Impact Mapper's research work, plus its existing Tech Lead capabilities.
+Read access stays within the task and policy scope. A v3 `evidence_scout` allowance uses the Tech
+Lead's read ceiling for the recorded workflow version. The Tech Lead inspects a bounded set of repository
+files, tests, and official documentation. Cite
+evidence beside the architecture and validation choices it supports. Record consequential unresolved
+assumptions and access gaps. An approved optional `evidence_scout` can answer a named independent
+question within the separate helper allowance.
 
 The linked Jira issue remains authoritative for settled requirements, scope, non-goals, and
 acceptance criteria. When no Jira issue applies, the immutable task brief is the normalized
@@ -155,7 +170,7 @@ contract. A publication blocker means incomplete delivery.
 Minimum handoffs:
 
 - task brief: scope, non-goals, constraints, acceptance, risk, authority, evidence and budgets;
-- research: verified evidence manifest, null decision, and empty findings;
+- historical research: verified evidence manifest, null decision, and empty findings;
 - design/review: proposal or decision, stable findings, evidence, revisions and unresolved choices;
 - implementation: changed files, acceptance mapping, checks, deviations, risks and skill usage;
 - simplification when planned: reviewed checkpoint, concrete reductions, preservation evidence,

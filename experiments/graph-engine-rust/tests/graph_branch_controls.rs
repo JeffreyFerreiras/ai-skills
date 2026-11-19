@@ -454,7 +454,8 @@ fn assert_format7_retry_scope(mut case: HardeningCase) {
 #[test]
 fn test_retryable_research_failure_requires_retry_before_collection_seal() {
     let mut case = HardeningCase::golden();
-    initialize(&case, &[]);
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
     case.impact("full_delivery");
     let status = case.status().unwrap();
     assert!(status["next_action"]["kind"].is_text("record_fanout_assessment"));

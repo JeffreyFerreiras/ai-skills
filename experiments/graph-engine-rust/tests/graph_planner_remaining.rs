@@ -165,7 +165,7 @@ fn test_default_cli_plan_survives_approval_claim_and_resume() {
     let plan = preview(&case, &task, None);
     no_database(&case);
     assert!(plan["host"].is_text("codex"));
-    assert_eq!(plan["catalog_revision"].as_i64(), Some(11));
+    assert_eq!(plan["catalog_revision"].as_i64(), Some(12));
     for node in [
         "impact_mapper",
         "design_research_architecture",
@@ -190,8 +190,8 @@ fn test_default_cli_plan_survives_approval_claim_and_resume() {
     assert!(mapper["dispatch_runtime"].is_text("opencode-cli"));
     case.record_mapper(&mapper, &[]);
     let status = case.status().unwrap();
-    assert!(status["next_action"]["kind"].is_text("record_fanout_assessment"));
-    assert!(status["next_action"]["stage"].is_text("research"));
+    assert!(status["next_action"]["kind"].is_text("claim"));
+    assert!(!status["fanouts"].truthy());
     assert!(plan.get("conditional_review_assignments").is_none());
     let lead = case.claim();
     assert!(lead["node_key"].is_text("tech_lead"));

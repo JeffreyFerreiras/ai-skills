@@ -1,12 +1,13 @@
 use super::{
-    artifacts::ArtifactResolver,
+    artifacts::{persist_artifact, ArtifactResolver},
     error::{EngineError, EngineResult},
     graph_initialization::{
         constraint_markers, constraint_snapshot, maximum, node_row, normalize_constraint_path,
         reference_roots, task_roots,
     },
+    graph_design_evidence::design_evidence_artifacts,
     graph_ledger::{GraphLedgerReadPort, GraphRead},
-    graph_payload::persist_payload,
+    graph_payload::{branch_result_input, persist_payload},
     graph_writes::GraphWrite,
     persistent_store::{insert_join, node_values, PersistentSession},
     policy,
@@ -282,6 +283,52 @@ pub(crate) struct SuccessorTopology {
     pub branches: Vec<Value>,
     pub joins: Vec<Value>,
     pub fanouts: Vec<Value>,
+}
+
+pub(crate) fn insert_design_generation(
+    session: &dyn PersistentSession,
+    run: &Value,
+    loaded: &RunContext,
+    context: &SemanticContext<'_>,
+    generation: i64,
+    inputs: &[Value],
+    source: &Value,
+    source_files: &dyn SourceFileFactory,
+) -> EngineResult<SuccessorTopology> {
+    let run_id = std::slice::from_ref(&run["run_id"]);
+    let row = session
+        .first(GraphRead::ExecutionPlanBody, run_id)?
+        .ok_or_else(|| EngineError::state("EXECUTION_PLAN_STATE_INVALID"))?;
+    let plan = compat::loads_value(&row["plan_json"])?;
+    if plan.get("design_workflow_version").is_none() {
+        let specs = planner::design_research_nodes(&loaded.policy, generation)?;
+        let collection = planner::collection_join("research", generation, specs);
+        return insert_collection_successors(
+            session, run, loaded, context, &collection, inputs, source_files,
+        );
+    }
+    let mut inputs = inputs.to_vec();
+    if generation == 0 {
+        let result = compat::loads_value(&source["result_json"])?;
+        inputs.push(branch_result_input(session, source, &result)?);
+    }
+    let spec = planner::revised_design_node(&loaded.policy, generation)?;
+    let run_text = run["run_id"].text().expect("validated run identifier");
+    let policy_digest = run["policy_digest"].text().expect("validated policy digest");
+    let lead_id = planner::branch_id(&run_text, &policy_digest, &spec)?;
+    for (artifact, page) in design_evidence_artifacts(session, run, &lead_id.into(), source)? {
+        persist_artifact(session, &run_text, &artifact)?;
+        let mut evidence_input = artifact.as_input();
+        evidence_input.set("content", page);
+        inputs.push(evidence_input);
+    }
+    let lead = insert_spec(
+        session, run, loaded, context, &spec, &inputs, "ready", source_files,
+    )?;
+    Ok(SuccessorTopology {
+        branches: vec![lead["branch_id"].clone()],
+        ..SuccessorTopology::default()
+    })
 }
 
 pub(crate) fn insert_collection_successors(

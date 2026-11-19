@@ -10,7 +10,7 @@ from graph_engine.contracts import ContractError
 from graph_engine.evidence import canonical_ledger_artifact
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.hosts import MUSE_MODEL
-from graph_engine.validator import canonical_collection_members, join_members
+from graph_engine.validator import _design_evidence_pages, canonical_collection_members, join_members
 from graph_engine.state import StateError, StateStore
 
 from tests.test_support import GraphCase
@@ -545,6 +545,14 @@ class CliGoldenTraceTests(GraphCase):
         ]).host, "codex")
 
     def test_helper_enabled_task_initializes_and_persists_plan_v3(self):
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["role_capabilities"]["tech_lead"] = [
+            capability for capability in policy["role_capabilities"]["tech_lead"]
+            if capability["target_ref"] != "repo:docs/"
+        ]
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
         allowance = {
             "schema_version": 1, "allowance_id": "helpers-1", "run_id": "RUN-1",
             "assignments": [{
@@ -579,6 +587,10 @@ class CliGoldenTraceTests(GraphCase):
             "ref": "repo:docs/helper-allowance.json",
             "sha256": sha256_bytes(allowance_path.read_bytes()),
         }
+        task_path = self.repo / "docs" / "task.json"
+        task_path.write_text(json.dumps(task), encoding="utf-8")
+        preview = self.graphctl("plan", "--run-id", "RUN-1", "--task-brief", str(task_path))
+        self.assertEqual(preview["execution_plan"]["helper_allowance"], task["helper_allowance"])
         initialized = self.initialize_task(task)
         self.assertEqual(initialized["execution_plan"]["schema_version"], 3)
         self.assertEqual(initialized["execution_plan"]["helper_allowance"], task["helper_allowance"])
@@ -630,8 +642,8 @@ class CliGoldenTraceTests(GraphCase):
         policy_path.write_text(json.dumps(policy), encoding="utf-8")
         self.policy_bytes = policy_path.read_bytes()
 
-    def _design_to_reviews(self, mode="delivery", route="full_delivery"):
-        self.initialize(mode, route)
+    def _design_to_reviews(self, mode="delivery", route="full_delivery", *, legacy_research=False):
+        self.initialize(mode, route, legacy_research=legacy_research)
         self.impact(route)
         tech = self.claim()
         self.assertEqual(tech["node_key"], "tech_lead")
@@ -731,7 +743,7 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual((stored_join["status"], stored_join["result_json"]), ("open", None))
 
     def _research_started(self):
-        self.initialize("delivery", "full_delivery")
+        self.initialize("delivery", "full_delivery", legacy_research=True)
         self.impact("full_delivery")
         status = self.graphctl("status", "--run-id", "RUN-1")
         self.assertEqual(status["next_action"]["kind"], "record_fanout_assessment")
@@ -1009,7 +1021,7 @@ class CliGoldenTraceTests(GraphCase):
         self.assertFalse(any(branch["role"] in {"tech_lead", "software_architect"} for branch in status["branches"]))
 
     def test_delivery_only_redesign_activates_fresh_design_gates(self):
-        self.initialize_task(self.task_delivery_only())
+        self.initialize_task(self.task_delivery_only(), legacy_research=True)
         self.impact("delivery_only")
         engineer = self.claim()
         rationale = self.repo_artifact("finding", "delivery-only-redesign-rationale")
@@ -1052,6 +1064,12 @@ class CliGoldenTraceTests(GraphCase):
 
         tech = self.claim()
         self.assertEqual((tech["node_key"], tech["generation"]), ("tech_lead", 1))
+        redesign = next(item["content"] for item in tech["inputs"] if item.get("content", {}).get("kind") == "design_evidence")
+        self.assertEqual(redesign["finding_dispositions"], [{"finding_id": "REV-777", "disposition": "redesign"}])
+        self.assertEqual(redesign["reports"], [{
+            "branch_id": engineer["branch_id"], "findings": [{"finding_id": "REV-777", "disposition": "redesign"}],
+            "evidence": [rationale], "artifact_ref": None,
+        }])
         self.success(tech); self.advance("design_inputs", 1)
         architect = self.claim()
         self.assertEqual((architect["node_key"], architect["generation"]), ("architect", 1))
@@ -1180,7 +1198,7 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(self.graphctl("status", "--run-id", "RUN-1")["status"], "active")
 
     def test_golden_revise_activates_only_next_design_generation(self):
-        self._design_to_reviews()
+        self._design_to_reviews(legacy_research=True)
         self._record_design_review("REVISE", "ARCH-001")
         self.consolidation("design", "REVISE", dispositions=[{"finding_id": "ARCH-001", "disposition": "revise"}])
         result = self.advance("design_consolidation")
@@ -1218,7 +1236,7 @@ class CliGoldenTraceTests(GraphCase):
         self.assertEqual(next(b for b in status["budgets"] if b["budget_id"] == "delivery_repairs")["used"], 1)
 
     def test_golden_redesign_activates_fresh_design_generation(self):
-        self._design_to_reviews()
+        self._design_to_reviews(legacy_research=True)
         self._approve_design_to_implementation()
         self._delivery_to_collection("test_engineer", "redesign")
         self.consolidation("delivery", "REDESIGN", dispositions=[{"finding_id": "TEST-001", "disposition": "redesign"}])
@@ -1241,6 +1259,108 @@ class CliGoldenTraceTests(GraphCase):
         })
         self.assertFalse(any(b["node_key"] == "tech_lead" and b["generation"] == 1 for b in status["branches"]))
         self.assertEqual(next(b for b in status["budgets"] if b["budget_id"] == "design_revisions")["used"], 1)
+
+    def test_inline_design_revision_resumes_with_causal_inputs_and_design_review(self):
+        self._design_to_reviews(mode="design_only", route="design_only")
+        architect = self.claim()
+        evidence = self.repo_artifact("finding", "revision-evidence")
+        report = self.repo_artifact(architect["output_contract"]["artifact_kind"], "architecture-report")
+        self.record(architect, {
+            "schema_version": 1, "run_id": "RUN-1", "branch_id": architect["branch_id"],
+            "status": "succeeded", "output_kind": report["kind"], "artifact_ref": report,
+            "decision": "REVISE", "evidence": [evidence],
+            "findings": [{"finding_id": "ARCH-001", "disposition": "revise"}],
+        })
+        self.advance("design_collection")
+        self.consolidation("design", "REVISE", dispositions=[{"finding_id": "ARCH-001", "disposition": "revise"}])
+        transition = self.advance("design_consolidation")
+        self.assertEqual(transition["outcome"], "REVISE")
+        self.assertEqual((transition["created_join_ids"], transition["created_fanout_ids"]), ([], []))
+        resumed = self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        self.assertFalse(any(branch["stage"] == "research" for branch in resumed["branches"]))
+        lead = self.claim_raw()
+        self.assertEqual(transition["successor_branch_ids"], [lead["branch_id"]])
+        self.assertEqual((lead["node_key"], lead["generation"]), ("tech_lead", 1))
+        self.assertTrue({"technical_design", "branch_result"}.issubset(
+            {item["kind"] for item in lead["inputs"]}
+        ))
+        revision = next(item["content"] for item in lead["inputs"] if item.get("content", {}).get("kind") == "design_evidence")
+        self.assertEqual(revision["outcome"], "REVISE")
+        self.assertEqual(revision["finding_dispositions"], [{"finding_id": "ARCH-001", "disposition": "revise"}])
+        self.assertEqual(revision["reports"][0]["evidence"], [evidence])
+        self.assertEqual(revision["reports"][0]["artifact_ref"], report)
+        self.success(lead)
+        self.advance("design_inputs", 1)
+        architect = self.claim_raw()
+        self.assertEqual(architect["node_key"], "architect")
+        self.success(architect, "APPROVE")
+        self.advance("design_collection", 1)
+        self.consolidation("design", "APPROVE", generation=1)
+        self.advance("design_consolidation", 1)
+        resumed = self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        self.assertEqual(resumed["next_action"]["kind"], "advance_join")
+        self._assert_missing_prior_document_blocks_resume(lead, "technical_design")
+
+    def _assert_missing_prior_document_blocks_resume(self, lead, kind):
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.connect(database) as connection:
+            row = connection.execute(
+                "SELECT envelope_json FROM nodes WHERE branch_id=?", (lead["branch_id"],),
+            ).fetchone()
+            envelope = json.loads(row["envelope_json"])
+            inputs = [item for item in envelope["inputs"] if item["kind"] != kind]
+            self.assertEqual(len(envelope["inputs"]) - len(inputs), 1)
+            envelope["inputs"] = inputs
+            connection.execute("UPDATE nodes SET envelope_json=? WHERE branch_id=?",
+                               (json.dumps(envelope), lead["branch_id"]))
+            connection.commit()
+        with self.assertRaisesRegex(StateError, "TOPOLOGY_EDGE_INVALID"):
+            self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+
+    def test_large_design_revision_ignores_user_evidence_manifest_limit(self):
+        policy_path = self.repo / ".codex" / "engineering-graph.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["artifact_kinds"]["evidence_manifest"]["max_bytes"] = 1024
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        self.policy_bytes = policy_path.read_bytes()
+        self._design_to_reviews(mode="design_only", route="design_only")
+        findings = [{"finding_id": f"ARCH-{index:03d}" + "1" * 510, "disposition": "revise"}
+                    for index in range(300)]
+        self.assertGreater(len(canonical_bytes(findings)), 150 * 1024)
+        self.success(self.claim(), "REVISE", findings)
+        self.advance("design_collection")
+        self.consolidation("design", "REVISE", dispositions=findings)
+        advanced = self.advance("design_consolidation")
+        self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        lead = self.claim_raw()
+        self.assertEqual(advanced["successor_branch_ids"], [lead["branch_id"]])
+        pages = [item for item in lead["inputs"] if item["kind"] == "design_evidence"]
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(pages[0]["content"]["reports"][0]["findings"], findings)
+        self.assertGreater(pages[0]["size_bytes"], 128 * 1024)
+
+    def test_design_evidence_pages_keep_order_and_exact_byte_bound(self):
+        reports = [{"finding": char * 140} for char in "abc"]
+        document = {"kind": "design_evidence", "source_ref": "source", "reports": reports}
+        with patch("graph_engine.validator.DESIGN_EVIDENCE_PAGE_BYTES", 256):
+            pages = list(_design_evidence_pages(document))
+        self.assertEqual([page["page"] for page in pages], [1, 2, 3])
+        self.assertEqual([report for page in pages for report in page["reports"]], reports)
+        self.assertTrue(all(len(canonical_bytes(page)) <= 256 and page["source_ref"] == "source" for page in pages))
+
+    def test_inline_delivery_redesign_keeps_prior_design_and_implementation(self):
+        self._design_to_reviews()
+        self._approve_design_to_implementation()
+        self._delivery_to_collection("test_engineer", "redesign")
+        self.consolidation("delivery", "REDESIGN", dispositions=[{"finding_id": "TEST-001", "disposition": "redesign"}])
+        transition = self.advance("delivery_consolidation")
+        lead = self.claim_raw()
+        self.assertEqual(transition["successor_branch_ids"], [lead["branch_id"]])
+        self.assertEqual((lead["node_key"], lead["generation"]), ("tech_lead", 1))
+        self.assertTrue({"technical_design", "implementation_handoff", "branch_result"}.issubset(
+            {item["kind"] for item in lead["inputs"]}
+        ))
+        self._assert_missing_prior_document_blocks_resume(lead, "implementation_handoff")
 
     def test_resume_preserves_running_work_and_rejects_changed_policy(self):
         self.initialize()

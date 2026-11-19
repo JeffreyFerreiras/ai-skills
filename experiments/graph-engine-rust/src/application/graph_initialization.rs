@@ -4,6 +4,7 @@ use super::{
         ConstraintCommand, EngineError, EngineResult, GraphctlTraceSite, PlanSnapshot,
         PlanTraceCommand, SnapshotJsonTraceSite,
     },
+    execution_validation::validate_execution_plan,
     persistent_store::InitializeRequest,
     policy::{self, PolicyFilePort},
     semantic_state::SemanticContext,
@@ -159,6 +160,15 @@ pub(super) fn prepare_execution_plan_traced(
     request: &PlanRequest<'_>,
     command: PlanTraceCommand,
 ) -> EngineResult<PreparedPlan> {
+    prepare_plan(context, request, command, None)
+}
+
+fn prepare_plan(
+    context: &SemanticContext<'_>,
+    request: &PlanRequest<'_>,
+    command: PlanTraceCommand,
+    bound: Option<&(Value, Value)>,
+) -> EngineResult<PreparedPlan> {
     let run_id = contracts::opaque(request.run_id, "run_id")?;
     let path = policy::path_from_value(context.files, request.task_brief)?;
     let task_snapshot = snapshots::safe_json_snapshot_integer(
@@ -171,7 +181,18 @@ pub(super) fn prepare_execution_plan_traced(
         snapshot_error(error)
             .with_snapshot_trace(SnapshotJsonTraceSite::Plan(command, PlanSnapshot::Task))
     })?;
-    let projection = 1_i64.into();
+    if let Some((run, _)) = bound {
+        if !run["task_digest"].is_text(&task_snapshot.digest)
+            || !run["task_path"].py_eq(&Value::String(context.files.spelling(&task_snapshot.path)))
+        {
+            return Err(EngineError::state("OPERATION_CONFLICT"));
+        }
+    }
+    let current_projection = 1_i64.into();
+    let projection = match bound {
+        Some((_, plan)) => plan.get("capability_projection_version"),
+        None => Some(&current_projection),
+    };
     let full_task = crate::domain::task_contract::validate_task_brief(
         task_snapshot
             .parsed
@@ -179,7 +200,7 @@ pub(super) fn prepare_execution_plan_traced(
             .expect("safe JSON snapshot has parsed value"),
         &context.current_policy_digest.into(),
         context.policy,
-        Some(&projection),
+        projection,
         context.files.windows(),
     )?;
     policy::validate_task_capability_paths(
@@ -188,11 +209,30 @@ pub(super) fn prepare_execution_plan_traced(
         &full_task,
         context.policy,
         Some(&context.store.state_root),
-        Some(&projection),
+        projection,
     )?;
     for check in errors::iterable_values(string_item(&full_task, "required_check_ids")?)? {
         configured_check(context.policy, &check)?;
     }
+    let task = crate::domain::task_contract::authoritative_task_subset(&full_task)?
+        .string_keyed_value()
+        .expect("validated task has string-keyed dictionaries");
+    let execution_plan = if let Some((_, plan)) = bound {
+        plan.clone()
+    } else {
+        execution::build_execution_plan(&run_id, &task, request.size, request.host).map_err(
+            |message| {
+                ContractError::new(
+                    if message == "EXECUTION_SIZE_BELOW_SAFETY_FLOOR" {
+                        "size"
+                    } else {
+                        "model_overrides"
+                    },
+                    &message,
+                )
+            },
+        )?
+    };
     if full_task["schema_version"].py_eq(&3_i64.into()) {
         let allowance = string_item(&full_task, "helper_allowance")?;
         let path = reference_path(context, &allowance["ref"])?;
@@ -222,11 +262,11 @@ pub(super) fn prepare_execution_plan_traced(
         for role in helper_register::ELIGIBLE_PARENTS {
             ceilings.push((
                 PyString::from(*role),
-                Value::List(planner::effective_role_capabilities(
+                Value::List(planner::planned_role_capabilities(
                     context.policy,
                     &full_task,
                     role,
-                    None,
+                    &execution_plan,
                     context.files.windows(),
                 )?),
             ));
@@ -246,26 +286,10 @@ pub(super) fn prepare_execution_plan_traced(
             request.run_id,
             Some(&Value::from(request.host)),
             Some(&ceilings),
-            false,
+            bound.is_some(),
             &absolute,
         )?;
     }
-    let task = crate::domain::task_contract::authoritative_task_subset(&full_task)?
-        .string_keyed_value()
-        .expect("validated task has string-keyed dictionaries");
-    let execution_plan =
-        execution::build_execution_plan(&run_id, &task, request.size, request.host).map_err(
-            |message| {
-                ContractError::new(
-                    if message == "EXECUTION_SIZE_BELOW_SAFETY_FLOOR" {
-                        "size"
-                    } else {
-                        "model_overrides"
-                    },
-                    &message,
-                )
-            },
-        )?;
     Ok(PreparedPlan {
         task_snapshot,
         full_task,
@@ -290,14 +314,11 @@ pub fn execution_preflight(
     for role in &roles {
         capabilities.set(
             role,
-            Value::List(planner::effective_role_capabilities(
+            Value::List(planner::planned_role_capabilities(
                 context.policy,
                 task,
                 role,
-                Some(
-                    plan.get("capability_projection_version")
-                        .unwrap_or(&Value::Null),
-                ),
+                plan,
                 context.files.windows(),
             )?),
         );
@@ -618,18 +639,59 @@ pub(crate) fn node_row(spec: &planner::NodeSpec, envelope: &Value) -> EngineResu
     ]))
 }
 
+fn bound_initialization(
+    context: &SemanticContext<'_>,
+    request: &InitRequest<'_>,
+    run_id: &str,
+    operation_id: &str,
+) -> EngineResult<Option<(Value, Value)>> {
+    let repository_id = context.policy["repository_id"].text().expect("validated repository ID");
+    if !context.store.platform.exists(&context.store.db_path(&repository_id, run_id)) {
+        return Ok(None);
+    }
+    let found = context.store.with_run(&repository_id, run_id, |session| {
+        // Validate the run and its approval from the same SQLite snapshot.
+        session.begin_read()?;
+        let operation = session.operation(run_id, operation_id)?
+            .ok_or_else(|| EngineError::state("RUN_ALREADY_EXISTS"))?;
+        let run = session.run(run_id)?
+            .ok_or_else(|| EngineError::state("RUN_NOT_FOUND"))?.fields;
+        if operation.resulting_revision.as_i64() != Some(1)
+            || !run["policy_digest"].is_text(context.current_policy_digest)
+            || run["degraded_permissions_ack"].truthy() != request.acknowledge_permissions
+            || run["degraded_durability_ack"].truthy() != request.acknowledge_durability
+        {
+            return Err(EngineError::state("OPERATION_CONFLICT"));
+        }
+        let task = compat::loads_value(&run["task_json"])?;
+        context.store.fault.observe("before_init_replay_plan_read")?;
+        let plan = validate_execution_plan(session, &run, &task)?;
+        let size = plan["size_source"].is_text("supervisor_override")
+            .then(|| plan["size"].text().expect("validated plan size"));
+        if !plan["host"].is_text(request.plan.host) || size.as_deref() != request.plan.size {
+            return Err(EngineError::state("OPERATION_CONFLICT"));
+        }
+        Ok(Some((run, plan)))
+    });
+    match found {
+        Err(EngineError::State(error)) if ["RUN_NOT_FOUND", "NON_AUTHORITATIVE_STATE"].contains(&error.code.as_str()) => Ok(None),
+        other => other,
+    }
+}
+
 pub fn initialize_run(
     context: &SemanticContext<'_>,
     request: &InitRequest<'_>,
 ) -> EngineResult<Value> {
     let run_id = contracts::opaque(request.plan.run_id, "run_id")?;
     let operation = contracts::opaque(request.operation_id, "op_id")?;
+    let bound = bound_initialization(context, request, &run_id, &operation)?;
     let PreparedPlan {
         task_snapshot,
         full_task,
         mut task,
         execution_plan,
-    } = prepare_execution_plan_traced(context, &request.plan, PlanTraceCommand::Initialize)?;
+    } = prepare_plan(context, &request.plan, PlanTraceCommand::Initialize, bound.as_ref())?;
     let resolver = ArtifactResolver {
         files: context.files,
         snapshots: context.snapshots,

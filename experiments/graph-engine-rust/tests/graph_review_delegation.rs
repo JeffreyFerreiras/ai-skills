@@ -654,6 +654,81 @@ fn contract_error(result: EngineResult<Value>, code: &str) {
 }
 
 #[test]
+fn delegated_redesign_keeps_cited_refs_and_omits_accepted_parent_echo() {
+    let (mut case, parent) = to_delivery_review("code_reviewer", 15);
+    let expected = &parent["inputs"].as_list().unwrap().iter()
+        .find(|item| item["kind"].is_text("implementation_handoff")).unwrap()["ref"];
+    let (mut preliminary, request) = manifests(&parent, &[1]);
+    let mut parent_finding = child_finding();
+    parent_finding.set("finding_id", "REV-102".into());
+    parent_finding.set("defect_id", "PARENT".into());
+    preliminary.set("findings", Value::list([parent_finding]));
+    let preliminary_path = case.inbox(&preliminary);
+    let request_path = case.inbox(&request);
+    let recorded = run(&case, &request_args(
+        &parent, &preliminary_path, &request_path, &parent["claim_token"].text().unwrap(),
+        "authority:test", "request-redesign",
+    )).unwrap();
+    let assessment = assessment(&mut case, &recorded, "redesign-assessment");
+    let path = case.inbox(&assessment);
+    run(&case, &assessment_args(&recorded, &path, "assess-redesign")).unwrap();
+    let child = case.claim();
+    let manifest = child_manifest(&child, "succeeded", vec![child_finding()]);
+    let args = child_result_args(&mut case, &child, manifest, "child-redesign-finding");
+    run(&case, &args).unwrap();
+    let resumed = case.claim();
+    assert!(resumed["branch_id"].py_eq(&parent["branch_id"]));
+    let echo = Value::object([("finding_id", "REV-102".into()), ("disposition", "block".into())]);
+    let child_echo = Value::object([("finding_id", "REV-101".into()), ("disposition", "block".into())]);
+    let mut review = Value::object([
+        ("schema_version", 1_i64.into()),
+        ("run_id", "RUN-1".into()),
+        ("branch_id", resumed["branch_id"].clone()),
+        ("status", "succeeded".into()),
+        ("output_kind", "delivery_review".into()),
+        ("artifact_ref", case.repo_artifact("delivery_review", "delegated-parent-report")),
+        ("evidence", Value::list([])),
+        ("decision", "BLOCK".into()),
+        ("findings", Value::list([child_echo.clone(), echo.clone()])),
+    ]);
+    for key in ["review_request_slots", "child_members", "terminal_non_successes", "finding_sources"] {
+        review.set(key, resumed["review_continuation"][key].clone());
+    }
+    case.record_as(&resumed, review, "delegated-parent-redesign").unwrap();
+    case.advance("delivery_collection");
+    let supervisor = case.claim();
+    let inputs = supervisor["inputs"].as_list().unwrap();
+    let outer = &inputs.iter().find(|item| item["content"]["kind"].is_text("collection")).unwrap()["content"];
+    let nested = &inputs.iter().find(|item| item["content"]["kind"].is_text("review_nested_collection")).unwrap()["content"];
+    let dispositions = nested["issues"].as_list().unwrap().iter().map(|issue| {
+        let sources = issue["provenance"].as_list().unwrap().iter().map(|source| Value::list([
+            nested["request_slot_id"].clone(), source["branch_id"].clone(), source["finding_id"].clone(),
+        ]));
+        Value::object([
+            ("issue_key", issue["issue_key"].clone()),
+            ("source_identities", Value::list(sources)),
+            ("disposition", if issue["defect_id"].is_text("PARENT") { "accept" } else { "redesign" }.into()),
+        ])
+    });
+    let result = Value::object([
+        ("schema_version", 1_i64.into()), ("kind", "delivery_consolidation".into()), ("run_id", "RUN-1".into()),
+        ("join_id", outer["join_id"].clone()), ("generation", 0_i64.into()),
+        ("source_branch_ids", Value::list(outer["members"].as_list().unwrap().iter().map(|member| member["branch_id"].clone()))),
+        ("finding_dispositions", Value::list([child_echo, echo])),
+        ("delegated_finding_dispositions", Value::list(dispositions)), ("outcome", "REDESIGN".into()),
+    ]);
+    case.record_as(&supervisor, result, "consolidate-delegated-redesign").unwrap();
+    assert!(case.advance("delivery_consolidation")["outcome"].is_text("REDESIGN"));
+    let lead = case.claim();
+    let evidence = &lead["inputs"].as_list().unwrap().iter()
+        .find(|item| item["kind"].is_text("design_evidence")).unwrap()["content"];
+    assert!(!evidence["reports"].truthy() && !evidence["finding_dispositions"].truthy());
+    let [issue] = evidence["delegated_issues"].as_list().unwrap() else { panic!("one redesign issue"); };
+    assert!(issue["defect_id"].is_text("RACE") && issue["disposition"].is_text("redesign"));
+    assert!(issue["evidence"].as_list().unwrap()[0]["ref"].py_eq(expected));
+}
+
+#[test]
 fn delegated_child_result_checks_frozen_assignment_and_promotes_only_after_commit() {
     let (mut case, parent) = to_delivery_review("code_reviewer", 15);
     let request = assessed_pair(&mut case, &parent);

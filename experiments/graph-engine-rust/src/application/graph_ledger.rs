@@ -73,6 +73,7 @@ pub enum GraphRead {
     BudgetConsumed,
     InvalidBudgetConsumption,
     OperationsForValidation,
+    InitializationReceipt,
     JoinMemberCount,
     ReviewChildBranches,
     ReviewPredecessors,

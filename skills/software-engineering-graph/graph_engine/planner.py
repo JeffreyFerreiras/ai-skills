@@ -177,12 +177,20 @@ def design_research_nodes(policy: Mapping[str, Any], generation: int) -> List[No
     ]
 
 
-def initial_route_nodes(policy: Mapping[str, Any], route: str) -> List[NodeSpec]:
+def initial_route_nodes(
+    policy: Mapping[str, Any], route: str, *, legacy_research: bool = True,
+) -> List[NodeSpec]:
     if route in {"design_only", "full_delivery"}:
-        return design_research_nodes(policy, 0)
+        return design_generation_nodes(policy, 0, legacy_research=legacy_research)
     if route in {"fast_path", "delivery_only"}:
         return [make_node(policy, "senior_engineer", "implementation", 0)]
     return [make_node(policy, "advisory_reviewer", "advisory", 0)]
+
+
+def design_generation_nodes(
+    policy: Mapping[str, Any], generation: int, *, legacy_research: bool,
+) -> List[NodeSpec]:
+    return design_research_nodes(policy, generation) if legacy_research else [revised_design_node(policy, generation)]
 
 
 def next_join_for_success(
@@ -271,6 +279,19 @@ def effective_role_capabilities(
     )
 
 
+def planned_role_capabilities(
+    policy: Mapping[str, Any], task: Mapping[str, Any], role: str, plan: Mapping[str, Any],
+) -> List[Dict[str, str]]:
+    version = plan.get("capability_projection_version")
+    capabilities = effective_role_capabilities(policy, task, role, version)
+    if role == "tech_lead" and "design_workflow_version" in plan:
+        capabilities.extend(
+            cap for cap in effective_role_capabilities(policy, task, "impact_mapper", version)
+            if cap["effect"] in {"filesystem_read", "external_read"} and cap not in capabilities
+        )
+    return sorted(capabilities, key=lambda cap: (cap["effect"], cap["action"], cap["target_ref"]))
+
+
 def envelope(
     run_id: str,
     policy_digest: str,
@@ -285,9 +306,7 @@ def envelope(
     template = node_template(policy, spec.key)
     plan = execution_plan or build_execution_plan(run_id, task)
     assignment = assignment_for(plan, spec.key)
-    effective_capabilities = effective_role_capabilities(
-        policy, task, spec.role, plan.get("capability_projection_version"),
-    )
+    effective_capabilities = planned_role_capabilities(policy, task, spec.role, plan)
     capabilities = [
         cap for cap in effective_capabilities
         if (spec.stage not in {"advisory", "research"}

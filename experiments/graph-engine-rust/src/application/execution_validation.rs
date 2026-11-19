@@ -36,6 +36,9 @@ pub fn validate_execution_plan(
         }
         Err(error) => return Err(error.into()),
     };
+    if plan.as_object().is_none() {
+        return Err(invalid());
+    }
     let requested = if get(&plan, "size_source")?.is_text("supervisor_override") {
         Some(string_item(&row, "size")?)
     } else {
@@ -123,5 +126,32 @@ pub fn validate_execution_plan(
             return Err(EngineError::state("EXECUTION_PLAN_APPROVAL_INVALID"));
         }
     }
+    validate_initialization_receipt(connection, run_id, &plan)?;
     Ok(plan)
+}
+
+fn validate_initialization_receipt(
+    connection: &dyn GraphLedgerReadPort,
+    run_id: &Value,
+    plan: &Value,
+) -> EngineResult<()> {
+    let rows = connection.all(GraphRead::InitializationReceipt, std::slice::from_ref(run_id))?;
+    let [row] = rows.as_slice() else {
+        return Err(invalid());
+    };
+    let response = compat::loads_value(&row["response_json"]).map_err(|_| invalid())?;
+    let recorded_plan = &response["execution_plan"];
+    if !response["code"].is_text("INITIALIZED")
+        || response["schema_version"].as_i64() != Some(1)
+        || !matches!(response["ok"], Value::Bool(true))
+        || !response["run_id"].py_eq(run_id)
+        || response["state_revision"].as_i64() != Some(1)
+        || !response["execution_plan_digest"].py_eq(&plan["plan_digest"])
+        || recorded_plan.as_object().is_none()
+        || ids::canonical_bytes(recorded_plan).map_err(|_| invalid())?
+            != ids::canonical_bytes(plan).map_err(|_| invalid())?
+    {
+        return Err(invalid());
+    }
+    Ok(())
 }

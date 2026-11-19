@@ -589,7 +589,14 @@ fn original_initialization_and_approval_fixture_uses_real_policy_ports() {
 
 #[test]
 fn schema_three_allowance_initialization_is_validated_and_persisted() {
-    let fixture = InitializedGraph::new();
+    let mut fixture = InitializedGraph::new();
+    let mut policy = compat::loads(&fixture.graph.policy_bytes).unwrap();
+    let mut roles = policy["role_capabilities"].clone();
+    roles.set("tech_lead", Value::list(roles["tech_lead"].as_list().unwrap().iter()
+        .filter(|capability| !capability["target_ref"].is_text("repo:docs/")).cloned()));
+    policy.set("role_capabilities", roles);
+    fixture.graph.policy_bytes = ids::canonical_bytes(&policy).unwrap();
+    fs::write(fixture.graph.repository.join(".codex/engineering-graph.json"), &fixture.graph.policy_bytes).unwrap();
     let allowance=compat::loads(br#"{"schema_version":1,"allowance_id":"helpers-1","run_id":"RUN-1","assignments":[{"assignment_id":"tech-evidence","parent_role":"tech_lead","helper_role":"evidence_scout","contract_revision":1,"model":"gpt-6.1-sol","reasoning_effort":"low","parent_capabilities":[{"effect":"filesystem_read","action":"read","target_ref":"repo:docs/"}],"scope_refs":["repo:docs/"],"commands":[],"checkpoint_policy":"observed_repository_state","resource_keys":["worktree"],"required_host_capabilities":["fresh_model_effort_selection","filesystem_confinement","tool_confinement"],"limits":{"children":1,"concurrency":1,"commands":0,"time_seconds":60,"output_tokens":1000,"file_reads":3}}],"shared_limits":{"children":1,"concurrency":1,"commands":0,"time_seconds":60,"output_tokens":1000,"file_reads":3},"resources":[{"key":"worktree","capacity":1}]}"#).unwrap();
     let path = fixture.graph.repository.join("docs/helper-allowance.json");
     let bytes = ids::canonical_bytes(&allowance).unwrap();
@@ -610,6 +617,17 @@ fn schema_three_allowance_initialization_is_validated_and_persisted() {
             ("sha256", ids::sha256_bytes(&bytes).into()),
         ]),
     );
+    let mut excess = task.clone();
+    excess.set("authority", Value::object([("capabilities", Value::list([]))]));
+    assert!(matches!(fixture.initialize(&excess, false),
+        Err(EngineError::Contract(error)) if error.code == "PARENT_AUTHORITY_EXCEEDED"));
+    let task_path = fixture.graph.repository.join("docs/task.json");
+    fs::write(&task_path, ids::canonical_bytes(&task).unwrap()).unwrap();
+    let preview = fixture.graphctl(&[
+        "plan".into(), "--run-id".into(), "RUN-1".into(), "--task-brief".into(),
+        task_path.to_str().unwrap().into(),
+    ]).unwrap();
+    assert!(preview["execution_plan"]["helper_allowance"].py_eq(&task["helper_allowance"]));
     let result = fixture.initialize(&task, true).unwrap();
     assert!(result["execution_plan"]["schema_version"].py_eq(&3_i64.into()));
     assert!(result["execution_plan"]["helper_allowance"].py_eq(&task["helper_allowance"]));

@@ -1,7 +1,9 @@
 use super::{
     error::{EngineError, EngineResult},
+    graph_design_evidence::design_evidence_artifacts,
     graph_ledger::{GraphLedgerReadPort, GraphRead},
     join_validation::join_members,
+    semantic_route::sealed_consolidation_outcomes,
     topology_history::operation_responses,
 };
 use crate::{
@@ -157,6 +159,189 @@ fn ledger_reference(member: &Value) -> EngineResult<Value> {
     )?)
 }
 
+fn validate_direct_design_inputs(
+    ledger: &dyn GraphLedgerReadPort,
+    run: &Value,
+    lead_id: &Value,
+    source: &Value,
+    prior_specs: &[planner::NodeSpec],
+) -> EngineResult<()> {
+    let lead = ledger.first(GraphRead::NodeEnvelope, std::slice::from_ref(lead_id))?
+        .ok_or_else(|| invalid("TOPOLOGY_NODE_INVALID"))?;
+    let envelope = compat::loads_value(string_item(&lead, "envelope_json")?)?;
+    let inputs = errors::iterable_values(string_item(&envelope, "inputs")?)?;
+    let pages = design_evidence_artifacts(ledger, run, lead_id, source)?;
+    let mut tasks = inputs.iter().filter(|input| input["kind"].is_text("task_brief"));
+    let has_task = tasks.next().is_some_and(|input| input["ref"].py_eq(&run["task_ref"])
+        && input["sha256"].py_eq(&run["task_digest"])) && tasks.next().is_none();
+    let has_source = inputs.iter().any(|input| input["kind"].is_text("branch_result")
+        && input["ref"].py_eq(&pages[0].1["source_ref"]));
+    let expected = pages.into_iter().map(|(artifact, page)| {
+        let mut required = artifact.as_input();
+        required.set("content", page);
+        ids::canonical_bytes(&required)
+    }).collect::<Result<Vec<_>, _>>()?;
+    let actual = inputs.iter().filter(|input| input["kind"].is_text("design_evidence"))
+        .map(ids::canonical_bytes).collect::<Result<Vec<_>, _>>()?;
+    if !has_task || !has_source || actual != expected {
+        return Err(invalid("TOPOLOGY_EDGE_INVALID"));
+    }
+    let mut prior_documents = Vec::new();
+    for spec in prior_specs {
+        let id = branch_identity(run, &spec.key, &spec.stage, &spec.generation.into(), &Value::Null)?;
+        let producer = ledger.first(GraphRead::Node, &[id])?
+            .filter(|node| node["run_id"].py_eq(&run["run_id"]) && node["status"].is_text("succeeded"))
+            .ok_or_else(|| invalid("TOPOLOGY_EDGE_INVALID"))?;
+        let reference = ledger_reference(&producer)?;
+        if !inputs.iter().any(|item| item["kind"].is_text("branch_result")
+            && item["ref"].py_eq(&reference) && item["sha256"].py_eq(&producer["result_digest"]))
+        {
+            return Err(invalid("TOPOLOGY_EDGE_INVALID"));
+        }
+        let result = compat::loads_value(&producer["result_json"])?;
+        if !result["artifact_ref"].is_null() {
+            prior_documents.push(ids::canonical_bytes(&result["artifact_ref"])?);
+        }
+    }
+    let mut documents = inputs.iter().filter(|item| {
+        ["technical_design", "implementation_handoff"].iter().any(|kind| item["kind"].is_text(kind))
+    }).map(|item| {
+        ids::canonical_bytes(&Value::object(["kind", "ref", "sha256"].map(|key| (key, item[key].clone()))))
+    }).collect::<Result<Vec<_>, _>>()?;
+    prior_documents.sort_unstable();
+    documents.sort_unstable();
+    if documents != prior_documents {
+        return Err(invalid("TOPOLOGY_EDGE_INVALID"));
+    }
+    Ok(())
+}
+
+fn validate_design_start_history(
+    ledger: &dyn GraphLedgerReadPort,
+    run: &Value,
+    policy: &Value,
+    responses: &[Value],
+    mapper: &Value,
+    initial: &[planner::NodeSpec],
+    legacy_research: bool,
+) -> EngineResult<()> {
+    let run_id = string_item(run, "run_id")?;
+    let mut starters = Vec::new();
+    ledger.visit(GraphRead::NodesForStatus, &[run_id.clone()], &mut |node| {
+        let design_start = if legacy_research {
+            string_item(&node, "stage")?.is_text("research")
+        } else {
+            string_item(&node, "node_key")?.is_text("tech_lead")
+        };
+        if design_start {
+            starters.push(string_item(&node, "branch_id")?.clone());
+        }
+        Ok(())
+    })?;
+    let mut transitions = Vec::new();
+    for (stage, next) in [("design", "REVISE"), ("delivery", "REDESIGN")] {
+        for (generation, outcome, _) in sealed_consolidation_outcomes(ledger, run_id, stage)? {
+            if outcome.is_text(next) {
+                let join = join_identity(run, &format!("{stage}_consolidation").into(), &generation)?;
+                transitions.push((join, generation, next));
+            }
+        }
+    }
+    let budget = ledger
+        .first(GraphRead::BudgetForUse, &[run_id.clone(), "design_revisions".into()])?
+        .ok_or_else(|| invalid("BUDGET_STATE_INVALID"))?;
+    let mut mapper_recorded = false;
+    let mut expected_starters = Vec::new();
+    let mut generation = 0_i64;
+    let mut exhausted = false;
+    let empty = Value::List(vec![]);
+    for response in responses {
+        let code = get(response, "code")?;
+        let successors = response.get("successor_branch_ids").unwrap_or(&empty);
+        let mut consolidation = None;
+        let mut prior_specs = Vec::new();
+        let specs = if code.is_text("BRANCH_RESULT_RECORDED")
+            && get(response, "branch_id")?.py_eq(string_item(mapper, "branch_id")?)
+            && get(response, "branch_status")?.is_text("succeeded")
+        {
+            if mapper_recorded {
+                return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+            }
+            mapper_recorded = true;
+            initial.to_vec()
+        } else if let Some(index) = transitions.iter().position(|(id, _, _)| {
+            code.is_text("JOIN_ADVANCED") && response["join_id"].py_eq(id)
+        }) {
+            let (_, source_generation, next) = transitions.swap_remove(index);
+            if !mapper_recorded || exhausted || (next == "REVISE" && !source_generation.py_eq(&generation.into())) {
+                return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+            }
+            let outcome = get(response, "outcome")?;
+            if outcome.is_text("BLOCK") && budget["used"].py_eq(&budget["limit_value"]) {
+                exhausted = true;
+                Vec::new()
+            } else if outcome.is_text(next) {
+                if !legacy_research {
+                    consolidation = Some(join_members(ledger, &response["join_id"])?
+                        .into_iter().next().ok_or_else(|| invalid("TOPOLOGY_HISTORY_INVALID"))?);
+                    // Resolve the producers that existed at this gate, even after later work succeeds.
+                    if initial[0].key == "tech_lead" || generation > 0 {
+                        prior_specs.push(planner::revised_design_node(policy, generation)?);
+                    }
+                    if next == "REDESIGN" {
+                        let source = source_generation.as_i64()
+                            .ok_or_else(|| invalid("TOPOLOGY_HISTORY_INVALID"))?;
+                        prior_specs.push(planner::implementation_node(policy, source)?);
+                    }
+                }
+                generation += 1;
+                planner::design_generation_nodes(policy, generation, legacy_research)?
+            } else {
+                return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+            }
+        } else {
+            if successors.as_list().unwrap().iter().any(|id| errors::set_contains(&starters, id)) {
+                return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+            }
+            continue;
+        };
+        let mut expected = specs.iter().map(|spec| {
+            branch_identity(run, &spec.key, &spec.stage, &spec.generation.into(), &Value::Null)
+        }).collect::<Result<Vec<_>, _>>()?;
+        python_operations::sort_comparable_values(&mut expected)?;
+        let mut joins = Vec::new();
+        let mut fanouts = Vec::new();
+        if specs.first().is_some_and(|spec| spec.stage == "research") {
+            joins.push(join_identity(run, &"research_collection".into(), &generation.into())?);
+            fanouts.push(ids::stable_id_with_tag_value(
+                run_id, string_item(run, "policy_digest")?, "fanout", "research",
+                &generation.into(), &Value::Null,
+            )?.into());
+        }
+        if specs.first().is_some_and(|spec| spec.stage == "research" || spec.key == "tech_lead") {
+            expected_starters.extend(expected.iter().cloned());
+        }
+        if specs.first().is_some_and(|spec| spec.key == "tech_lead") {
+            validate_direct_design_inputs(
+                ledger, run, &expected[0], consolidation.as_ref().unwrap_or(mapper), &prior_specs,
+            )?;
+        }
+        if !successors.py_eq(&Value::List(expected))
+            || !response.get("created_join_ids").unwrap_or(&empty).py_eq(&Value::List(joins))
+            || !response.get("created_fanout_ids").unwrap_or(&empty).py_eq(&Value::List(fanouts))
+        {
+            return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+        }
+    }
+    if !mapper_recorded || !transitions.is_empty() {
+        return Err(invalid("TOPOLOGY_HISTORY_INVALID"));
+    }
+    if !same_set(&starters, &expected_starters) {
+        return Err(invalid("TOPOLOGY_NODE_INVALID"));
+    }
+    Ok(())
+}
+
 pub fn validate_reconstructed_graph(
     ledger: &dyn GraphLedgerReadPort,
     run: &Value,
@@ -166,6 +351,7 @@ pub fn validate_reconstructed_graph(
         .first(GraphRead::ExecutionPlanBody, &[run_id.clone()])?
         .unwrap_or(Value::Null);
     let plan = compat::loads_value(string_item(&plan, "plan_json")?)?;
+    let legacy_research = plan.get("design_workflow_version").is_none();
     let mut expected_nodes = Vec::new();
     let mut expected_joins = Vec::new();
     let mut expected_fanouts = Vec::new();
@@ -243,6 +429,9 @@ pub fn validate_reconstructed_graph(
             Ok(())
         },
     )?;
+    if !legacy_research && !research_successors.is_empty() {
+        return Err(invalid("TOPOLOGY_STATE_INVALID"));
+    }
     for response in &responses {
         let empty = Value::List(Vec::new());
         get(response, "successor_branch_ids")?;
@@ -263,9 +452,12 @@ pub fn validate_reconstructed_graph(
                 let impact = compat::loads_value(string_item(&mapper, "result_json")?)?;
                 let route = string_item(&impact, "route_label")?;
                 errors::require_hashable(route)?;
-                for spec in
+                let specs = if ["design_only", "full_delivery"].iter().any(|name| route.is_text(name)) {
+                    planner::design_generation_nodes(&policy, 0, legacy_research)?
+                } else {
                     planner::initial_route_nodes(&policy, &route.text().unwrap_or_default())?
-                {
+                };
+                for spec in &specs {
                     insert(
                         &mut expected_nodes,
                         &branch_identity(
@@ -277,6 +469,7 @@ pub fn validate_reconstructed_graph(
                         )?,
                     )?;
                 }
+                validate_design_start_history(ledger, run, &policy, &responses, &mapper, &specs, legacy_research)?;
                 Ok(())
             })();
             match result {

@@ -147,7 +147,7 @@ pub fn default_codex() {
         let plan = build(&task, hosts::DEFAULT_HOST, Some(size));
         assert!(plan.py_eq(&build(&task, "codex", Some(size))));
         assert!(plan["host"].is_text("codex"));
-        assert_eq!(plan["catalog_revision"].as_i64(), Some(11));
+        assert_eq!(plan["catalog_revision"].as_i64(), Some(12));
         for row in plan["assignments"].as_list().unwrap() {
             if row["role"].is_text("supervisor") {
                 assert!(row["model"].is_text("primary-thread"));

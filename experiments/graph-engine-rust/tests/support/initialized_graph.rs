@@ -7,12 +7,14 @@ use graph_engine::{
         claim_runtime::ClaimServices,
         error::EngineResult,
         graph_cli::{self, CliServices, ExecuteOutcome},
+        graph_ledger::{GraphLedgerReadPort, GraphRead},
         persistent_store::StateStore,
         policy::{self, PolicyFilePort},
         process::ProcessPort,
         semantic_state::SemanticContext,
     },
     compat::{self, PyString, SerializationProfile, Value},
+    domain::execution,
     infrastructure::{
         check_runtime::NativeCheckRuntime, claim_runtime::NativeClaimRuntime,
         policy_files::NativePolicyFiles, process::NativeProcess,
@@ -92,7 +94,13 @@ impl InitializedGraph {
             "init-1".into(),
         ])?;
         if approve {
-            self.graphctl(&[
+            self.approve(&result)?;
+        }
+        Ok(result)
+    }
+
+    fn approve(&self, result: &Value) -> EngineResult<()> {
+        self.graphctl(&[
                 "record".into(),
                 "plan-approval".into(),
                 "--run-id".into(),
@@ -105,9 +113,43 @@ impl InitializedGraph {
                 "authority:test".into(),
                 "--op-id".into(),
                 "plan-approval-1".into(),
-            ])?;
-        }
-        Ok(result)
+        ])?;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn initialize_legacy_research(&self, task: &Value, revision: i64) -> EngineResult<Value> {
+        let mut initialized = self.initialize(task, false)?;
+        self.seed_legacy_research(&mut initialized, revision)?;
+        self.approve(&initialized)?;
+        Ok(initialized)
+    }
+
+    pub fn seed_legacy_research(&self, initialized: &mut Value, revision: i64) -> EngineResult<()> {
+        self.with_session(|session, _| {
+            let run = session.first(GraphRead::Run, &["RUN-1".into()])?.unwrap();
+            let task = compat::loads_value(&run["task_json"])?;
+            let mut recorded = initialized["execution_plan"].clone();
+            recorded.remove("design_workflow_version");
+            recorded.set("catalog_revision", revision.into());
+            let size = recorded["size_source"].is_text("supervisor_override")
+                .then(|| recorded["size"].text().unwrap());
+            let plan = execution::reconstruct_execution_plan("RUN-1", &task, &recorded, size.as_deref()).unwrap();
+            let digest = plan["plan_digest"].clone();
+            let plan_json = String::from_utf8(compat::dumps(&plan, SerializationProfile::STORED)?).unwrap();
+            initialized.set("execution_plan", plan);
+            initialized.set("execution_plan_digest", digest.clone());
+            let response = String::from_utf8(compat::dumps(initialized, SerializationProfile::STORED)?).unwrap();
+            session.execute_values(
+                "UPDATE execution_plans SET plan_json=?,plan_digest=? WHERE run_id='RUN-1'",
+                &[plan_json.into(), digest],
+            )?;
+            session.execute_values(
+                "UPDATE operations SET response_json=? WHERE run_id='RUN-1' AND resulting_revision=1",
+                &[response.into()],
+            )?;
+            Ok(())
+        })
     }
 
     pub fn execute(&self, arguments: &[PyString]) -> EngineResult<ExecuteOutcome> {

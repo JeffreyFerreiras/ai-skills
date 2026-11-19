@@ -551,6 +551,7 @@ pub fn catalog_markers() {
             "code_review_panel_version",
             "simplification_review_version",
             "capability_projection_version",
+            "design_workflow_version",
         ] {
             record.set(marker, 1_i64.into());
         }

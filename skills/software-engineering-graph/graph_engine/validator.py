@@ -14,7 +14,7 @@ from .contracts import (
     safe_json_snapshot, validate_fanout_assessment, validate_impact_map, validate_result_manifest, validate_task_brief,
 )
 from .config import engine_version_compatible, version_tuple, validate_task_capability_paths
-from .evidence import reverify_artifact
+from .evidence import DESIGN_EVIDENCE_PAGE_BYTES, canonical_ledger_artifact, reverify_artifact
 from .execution import CODE_REVIEW_PANEL, reconstruct_execution_plan, plan_approval_digest
 from .hosts import DEFAULT_HOST
 from .ids import canonical_bytes, sha256_bytes, stable_id
@@ -23,8 +23,8 @@ from .reviewer_delegation import (
     validate_preliminary,
 )
 from .planner import (
-    NodeSpec, branch_id, delivery_review_nodes, design_research_nodes, design_review_nodes, envelope, fanout_id,
-    initial_route_nodes, revised_design_node, validate_fanout_ordering,
+    NodeSpec, branch_id, delivery_review_nodes, design_generation_nodes, design_review_nodes, envelope, fanout_id,
+    implementation_node, initial_route_nodes, revised_design_node, validate_fanout_ordering,
 )
 from .state import StateError, current_host_identity, repository_identity, resolve_state_root
 
@@ -77,10 +77,244 @@ def _operation_responses(connection: sqlite3.Connection, run_id: str) -> List[Ma
     return responses
 
 
-def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[str, Any]) -> None:
-    execution_plan = json.loads(connection.execute(
-        "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
-    ).fetchone()[0])
+def _design_delegated_issues(connection, members, generation, dispositions):
+    echoes = {}
+    issues = []
+    by_issue = {item["issue_key"]: item["disposition"] for item in dispositions}
+    for member in members:
+        rows = connection.execute(
+            """SELECT c.content_json, a.content_json AS preliminary_json FROM review_delegation_requests r
+            JOIN review_delegation_collections c USING(request_slot_id)
+            JOIN artifacts a ON a.ref=r.preliminary_ref
+            WHERE r.parent_branch_id=? AND r.generation=? AND r.status='sealed' ORDER BY r.round_number""",
+            (member["branch_id"], generation),
+        )
+        for row in rows:
+            collection = json.loads(row["content_json"])
+            preliminary = json.loads(row["preliminary_json"])
+            parent = collection["parent_branch_id"]
+            by_branch = {child["branch_id"]: child["findings"] for child in collection["members"]}
+            by_branch[parent] = preliminary["findings"]
+            for issue in collection["issues"]:
+                provenance = issue["provenance"]
+                echoes.setdefault(parent, set()).update(source["finding_id"] for source in provenance)
+                disposition = by_issue.get(issue["issue_key"])
+                if disposition is None or disposition == "accept":
+                    continue
+                cited = set()
+                summaries = []
+                for source in provenance:
+                    findings = by_branch.get(source["branch_id"], [])
+                    finding = next((item for item in findings if item["finding_id"] == source["finding_id"]), None)
+                    if finding is None:
+                        raise StateError("DESIGN_EVIDENCE_SOURCE_INVALID")
+                    cited.update(finding["evidence_ids"])
+                    if finding["summary"] not in summaries:
+                        summaries.append(finding["summary"])
+                evidence = [{key: item[key] for key in ("kind", "ref", "sha256")}
+                            for item in preliminary["evidence"] if item["evidence_id"] in cited]
+                issues.append({
+                    **{key: issue[key] for key in ("issue_key", "acceptance_id", "location", "defect_id")},
+                    "summaries": summaries,
+                    "fix_variants": [variant["text"] for variant in issue["fix_variants"]],
+                    "evidence": evidence, "disposition": disposition,
+                })
+    return echoes, issues
+
+
+def _design_evidence_pages(document):
+    fields = ("evidence_refs", "reports", "finding_dispositions", "delegated_issues")
+    arrays = {key: document[key] for key in fields if key in document}
+    header = {key: value for key, value in document.items() if key not in arrays}
+    page_number = 1
+    def new_page():
+        page = {**header, "page": page_number, **{key: [] for key in arrays}}
+        return page, len(canonical_bytes(page))
+
+    page, size = new_page()
+    for key, items in arrays.items():
+        for item in items:
+            item_size = len(canonical_bytes(item))
+            growth = item_size + bool(page[key])
+            if size + growth > DESIGN_EVIDENCE_PAGE_BYTES:
+                yield page
+                page_number += 1
+                page, size = new_page()
+                growth = item_size
+            if size + growth > DESIGN_EVIDENCE_PAGE_BYTES:
+                raise StateError("DESIGN_EVIDENCE_ITEM_TOO_LARGE")
+            page[key].append(item)
+            size += growth
+    yield page
+
+
+def design_evidence_artifacts(connection, run, lead_id, source):
+    result = json.loads(source["result_json"])
+    document = {
+        "schema_version": 1, "kind": "design_evidence", "run_id": run["run_id"], "branch_id": lead_id,
+        "source_ref": f"ledger:{source['branch_id']}#sha256={source['result_digest']}",
+    }
+    if source["node_key"] == "impact_mapper":
+        document.update({key: result[key] for key in ("route_label", "impact_tags", "evidence_refs")})
+    else:
+        collection = connection.execute(
+            "SELECT * FROM joins WHERE run_id=? AND join_id=? AND kind='collection' AND status='sealed'",
+            (run["run_id"], result["join_id"]),
+        ).fetchone()
+        if collection is None:
+            raise StateError("SOURCE_COLLECTION_NOT_SEALED")
+        members = json.loads(collection["result_json"])
+        collection_document = {
+            "schema_version": 1, "kind": "collection", "join_id": collection["join_id"], "members": members,
+        }
+        echoes, issues = _design_delegated_issues(
+            connection, members, collection["generation"], result["delegated_finding_dispositions"],
+        ) if result.get("delegated_finding_dispositions") else ({}, [])
+        reports = []
+        for member in members:
+            if member["status"] != "succeeded":
+                continue
+            report = member["result"]
+            findings = [item for item in report.get("findings", [])
+                        if is_actionable_finding(item) and item["disposition"] not in {"approve", "accept"}
+                        and item["finding_id"] not in echoes.get(member["branch_id"], ())]
+            if findings:
+                reports.append({"branch_id": member["branch_id"], "findings": findings,
+                                "evidence": report.get("evidence", []), "artifact_ref": report.get("artifact_ref")})
+        finding_ids = {item["finding_id"] for report in reports for item in report["findings"]}
+        document.update({
+            "collection_ref": canonical_ledger_artifact(collection["join_id"], "collection", collection_document).ref,
+            "outcome": result["outcome"], "reports": reports,
+            "finding_dispositions": [item for item in result["finding_dispositions"] if item["finding_id"] in finding_ids],
+        })
+        if issues:
+            document["delegated_issues"] = issues
+    for page in _design_evidence_pages(document):
+        identifier = f"design-evidence-{lead_id}-{page['page']:06d}"
+        yield canonical_ledger_artifact(identifier, "design_evidence", page), page
+
+
+def _validate_direct_design_inputs(connection, run, lead_id, source, prior_specs):
+    lead = connection.execute("SELECT envelope_json FROM nodes WHERE branch_id=?", (lead_id,)).fetchone()
+    if lead is None:
+        raise StateError("TOPOLOGY_NODE_INVALID")
+    inputs = json.loads(lead["envelope_json"])["inputs"]
+    pages = list(design_evidence_artifacts(connection, run, lead_id, source))
+    tasks = [item for item in inputs if item["kind"] == "task_brief"]
+    required = [canonical_bytes({**artifact.as_input(), "content": page}) for artifact, page in pages]
+    actual = [canonical_bytes(item) for item in inputs if item["kind"] == "design_evidence"]
+    if (len(tasks) != 1 or tasks[0]["ref"] != run["task_ref"] or tasks[0]["sha256"] != run["task_digest"]
+            or not any(item["kind"] == "branch_result" and item["ref"] == pages[0][1]["source_ref"] for item in inputs)
+            or actual != required):
+        raise StateError("TOPOLOGY_EDGE_INVALID")
+    prior_documents = []
+    for spec in prior_specs:
+        producer_id = branch_id(run["run_id"], run["policy_digest"], spec)
+        producer = connection.execute(
+            "SELECT result_json,result_digest FROM nodes WHERE branch_id=? AND run_id=? AND status='succeeded'",
+            (producer_id, run["run_id"]),
+        ).fetchone()
+        if producer is None:
+            raise StateError("TOPOLOGY_EDGE_INVALID")
+        reference = f"ledger:{producer_id}#sha256={producer['result_digest']}"
+        if not any(item["kind"] == "branch_result" and item["ref"] == reference
+                   and item["sha256"] == producer["result_digest"] for item in inputs):
+            raise StateError("TOPOLOGY_EDGE_INVALID")
+        document = json.loads(producer["result_json"]).get("artifact_ref")
+        if document is not None:
+            prior_documents.append(canonical_bytes(document))
+    documents = [
+        canonical_bytes({key: item[key] for key in ("kind", "ref", "sha256")})
+        for item in inputs if item["kind"] in {"technical_design", "implementation_handoff"}
+    ]
+    if sorted(documents) != sorted(prior_documents):
+        raise StateError("TOPOLOGY_EDGE_INVALID")
+
+
+def _validate_design_start_history(
+    connection: sqlite3.Connection, run: Mapping[str, Any], policy: Mapping[str, Any],
+    responses: Sequence[Mapping[str, Any]], mapper: Mapping[str, Any],
+    initial_specs: Sequence[NodeSpec],
+    *, legacy_research: bool,
+) -> None:
+    starters = {row[0] for row in connection.execute(
+        "SELECT branch_id FROM nodes WHERE run_id=? AND stage=?",
+        (run["run_id"], "research"),
+    )} if legacy_research else {row[0] for row in connection.execute(
+        "SELECT branch_id FROM nodes WHERE run_id=? AND node_key='tech_lead'", (run["run_id"],),
+    )}
+    mapper_recorded = False
+    expected_starters: Set[str] = set()
+    generation = 0
+    exhausted = False
+    transitions = {
+        stable_id(run["run_id"], run["policy_digest"], "join", stage + "_consolidation", source_generation):
+            (stage, source_generation)
+        for stage, transition in (("design", "REVISE"), ("delivery", "REDESIGN"))
+        for source_generation, outcome, _ in _sealed_consolidation_outcomes(connection, run["run_id"], stage)
+        if outcome == transition
+    }
+    revision_budget = connection.execute(
+        "SELECT used,limit_value FROM budgets WHERE run_id=? AND budget_id='design_revisions'",
+        (run["run_id"],),
+    ).fetchone()
+    for response in responses:
+        successors = response.get("successor_branch_ids", [])
+        specs = None
+        design_source = None
+        prior_specs = []
+        if (response.get("code") == "BRANCH_RESULT_RECORDED"
+                and response.get("branch_id") == mapper["branch_id"]
+                and response.get("branch_status") == "succeeded"):
+            if mapper_recorded:
+                raise StateError("TOPOLOGY_HISTORY_INVALID")
+            mapper_recorded = True
+            specs = initial_specs
+            design_source = mapper
+        elif response.get("code") == "JOIN_ADVANCED" and response.get("join_id") in transitions:
+            stage, source_generation = transitions.pop(response["join_id"])
+            if not mapper_recorded or exhausted or (stage == "design" and source_generation != generation):
+                raise StateError("TOPOLOGY_HISTORY_INVALID")
+            if response.get("outcome") == "BLOCK" and revision_budget["used"] == revision_budget["limit_value"]:
+                specs = []
+                exhausted = True
+            elif response.get("outcome") == ("REVISE" if stage == "design" else "REDESIGN"):
+                if not legacy_research:
+                    design_source = join_members(connection, response["join_id"])[0]
+                    # Use the generating design and delivery gates, even after later work succeeds.
+                    if initial_specs[0].key == "tech_lead" or generation > 0:
+                        prior_specs.append(revised_design_node(policy, generation))
+                    if stage == "delivery":
+                        prior_specs.append(implementation_node(policy, source_generation))
+                generation += 1
+                specs = design_generation_nodes(policy, generation, legacy_research=legacy_research)
+            else:
+                raise StateError("TOPOLOGY_HISTORY_INVALID")
+        if specs is None:
+            if starters.intersection(successors):
+                raise StateError("TOPOLOGY_HISTORY_INVALID")
+            continue
+        expected = sorted(branch_id(run["run_id"], run["policy_digest"], spec) for spec in specs)
+        research = bool(specs and specs[0].stage == "research")
+        joins = [stable_id(run["run_id"], run["policy_digest"], "join", "research_collection", generation)] if research else []
+        fanouts = [fanout_id(run["run_id"], run["policy_digest"], "research", generation)] if research else []
+        if (successors != expected or response.get("created_join_ids", []) != joins
+                or response.get("created_fanout_ids", []) != fanouts):
+            raise StateError("TOPOLOGY_HISTORY_INVALID")
+        if research or (specs and specs[0].key == "tech_lead"):
+            expected_starters.update(expected)
+        if specs and specs[0].key == "tech_lead":
+            _validate_direct_design_inputs(connection, run, expected[0], design_source, prior_specs)
+    if not mapper_recorded or transitions:
+        raise StateError("TOPOLOGY_HISTORY_INVALID")
+    if starters != expected_starters:
+        raise StateError("TOPOLOGY_NODE_INVALID")
+
+
+def _validate_reconstructed_graph(
+    connection: sqlite3.Connection, run: Mapping[str, Any], execution_plan: Mapping[str, Any],
+) -> None:
+    legacy_research = "design_workflow_version" not in execution_plan
     expected_nodes: Set[str] = set()
     expected_joins: Set[str] = set()
     expected_fanouts: Set[str] = set()
@@ -118,6 +352,8 @@ def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[s
             (run["run_id"],),
         )
     }
+    if research_successors and not legacy_research:
+        raise StateError("TOPOLOGY_STATE_INVALID")
     for response in operation_responses:
         successors = response.get("successor_branch_ids", [])
         response_join = response.get("join_id")
@@ -132,10 +368,14 @@ def _validate_reconstructed_graph(connection: sqlite3.Connection, run: Mapping[s
     if mapper is not None and mapper["status"] == "succeeded":
         try:
             impact = json.loads(mapper["result_json"])
-            for spec in initial_route_nodes(policy, impact["route_label"]):
+            specs = initial_route_nodes(policy, impact["route_label"], legacy_research=legacy_research)
+            for spec in specs:
                 expected_nodes.add(branch_id(run["run_id"], run["policy_digest"], spec))
         except (TypeError, KeyError, json.JSONDecodeError):
             raise StateError("TOPOLOGY_HISTORY_INVALID")
+        _validate_design_start_history(
+            connection, run, policy, operation_responses, mapper, specs, legacy_research=legacy_research,
+        )
     for join_identifier, expected_successor in research_successors.items():
         sealed = connection.execute(
             "SELECT status FROM joins WHERE join_id=?", (join_identifier,)
@@ -1091,6 +1331,8 @@ def _validate_execution_plan(
         plan = json.loads(row["plan_json"])
     except (TypeError, json.JSONDecodeError):
         raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    if not isinstance(plan, dict):
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
     try:
         requested_size = row["size"] if plan.get("size_source") == "supervisor_override" else None
         expected = reconstruct_execution_plan(
@@ -1121,7 +1363,31 @@ def _validate_execution_plan(
         )
         if row["approval_digest"] != expected_approval:
             raise StateError("EXECUTION_PLAN_APPROVAL_INVALID")
+    validate_initialization_receipt(connection, run["run_id"], plan)
     return plan
+
+
+def validate_initialization_receipt(
+    connection: sqlite3.Connection, run_id: str, plan: Mapping[str, Any],
+) -> None:
+    rows = connection.execute(
+        "SELECT response_json FROM operations WHERE run_id=? AND resulting_revision=1 LIMIT 2",
+        (run_id,),
+    ).fetchall()
+    if len(rows) != 1:
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    try:
+        response = json.loads(rows[0]["response_json"])
+        if (not isinstance(response, dict) or response.get("code") != "INITIALIZED"
+                or type(response.get("schema_version")) is not int or response["schema_version"] != 1
+                or response.get("ok") is not True
+                or response.get("run_id") != run_id or type(response.get("state_revision")) is not int
+                or response["state_revision"] != 1 or response.get("execution_plan_digest") != plan["plan_digest"]
+                or not isinstance(response.get("execution_plan"), dict)
+                or canonical_bytes(response["execution_plan"]) != canonical_bytes(plan)):
+            raise StateError("EXECUTION_PLAN_STATE_INVALID")
+    except (TypeError, ValueError):
+        raise StateError("EXECUTION_PLAN_STATE_INVALID")
 
 
 def _validate_review_result_binding(
@@ -1516,7 +1782,9 @@ def _validate_route_and_topology(
     run: Mapping[str, Any],
     task: Mapping[str, Any],
     policy: Mapping[str, Any],
+    execution_plan: Mapping[str, Any],
 ) -> None:
+    legacy_research = "design_workflow_version" not in execution_plan
     nodes = connection.execute(
         "SELECT * FROM nodes WHERE run_id=? ORDER BY branch_id", (run["run_id"],)
     ).fetchall()
@@ -1544,7 +1812,7 @@ def _validate_route_and_topology(
     if run["selected_route"] != route or selected_tags != tags:
         raise StateError("ROUTE_EVIDENCE_MISMATCH")
 
-    design_outcomes = _sealed_consolidation_outcomes(connection, run["run_id"], "design")
+    _sealed_consolidation_outcomes(connection, run["run_id"], "design")
     delivery_outcomes = _sealed_consolidation_outcomes(connection, run["run_id"], "delivery")
     design_skipping_redesign = route in {"fast_path", "delivery_only"} and any(
         outcome == "REDESIGN" for _, outcome, _ in delivery_outcomes
@@ -1554,11 +1822,14 @@ def _validate_route_and_topology(
         allowed_bindings.add(("advisory_reviewer", "advisory"))
     if route in {"design_only", "full_delivery"} or design_skipping_redesign:
         allowed_bindings.update({
-            ("design_research_architecture", "research"),
-            ("design_research_validation", "research"),
             ("tech_lead", "design"), ("architect", "design"),
             ("supervisor_design_consolidation", "design"),
         })
+        if legacy_research:
+            allowed_bindings.update({
+                ("design_research_architecture", "research"),
+                ("design_research_validation", "research"),
+            })
         allowed_bindings.update(
             (policy["specialists"][tag]["node_key"], "design")
             for tag in tags if tag in policy["specialists"]
@@ -1569,9 +1840,6 @@ def _validate_route_and_topology(
             ("test_engineer", "delivery"),
             ("supervisor_delivery_consolidation", "delivery"),
         })
-        execution_plan = json.loads(connection.execute(
-            "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
-        ).fetchone()[0])
         if execution_plan.get("code_review_panel_version") == 1:
             allowed_bindings.update((key, "delivery") for key in CODE_REVIEW_PANEL)
         allowed_bindings.update(
@@ -1592,9 +1860,10 @@ def _validate_route_and_topology(
     tech_generations = sorted({node["generation"] for node in tech_nodes})
     research_generations = sorted({node["generation"] for node in research_nodes})
     senior_generations = sorted({node["generation"] for node in senior_nodes})
-    if route in {"design_only", "full_delivery"} and (not research_generations or research_generations[0] != 0):
+    design_starters = research_generations if legacy_research else tech_generations
+    if route in {"design_only", "full_delivery"} and (not design_starters or design_starters[0] != 0):
         raise StateError("TOPOLOGY_STATE_INVALID")
-    if design_skipping_redesign and (not research_generations or research_generations[0] != 1):
+    if legacy_research and design_skipping_redesign and research_generations and research_generations[0] != 1:
         raise StateError("TOPOLOGY_STATE_INVALID")
     if tech_generations and (
         (route in {"design_only", "full_delivery"} and tech_generations[0] != 0)
@@ -1626,7 +1895,7 @@ def _validate_route_and_topology(
                 node["generation"] == generation for node in tech_nodes
             ):
                 raise StateError("TOPOLOGY_STATE_INVALID")
-    if tech_generations and not set(tech_generations).issubset(set(research_generations)):
+    if legacy_research and not set(tech_generations).issubset(research_generations):
         raise StateError("GENERATION_STATE_INVALID")
     if senior_generations and senior_generations != list(range(0, senior_generations[-1] + 1)):
         raise StateError("GENERATION_STATE_INVALID")
@@ -1726,8 +1995,8 @@ def _verify_semantic_state(
     _validate_operation_ledger(connection, run)
     _validate_nodes(connection, run, task, policy)
     _validate_joins(connection, run, policy)
-    _validate_reconstructed_graph(connection, run)
-    _validate_route_and_topology(connection, run, task, policy)
+    _validate_reconstructed_graph(connection, run, execution_plan)
+    _validate_route_and_topology(connection, run, task, policy, execution_plan)
     _validate_fanouts(connection, run, case_sensitive=case_sensitive)
     _validate_review_delegation(connection, run, case_sensitive=case_sensitive)
     _validate_attempts(connection, run)

@@ -8,10 +8,11 @@ from pathlib import Path
 
 from graph_engine.config import load_policy
 from graph_engine.contracts import ContractError, validate_task_brief
-from graph_engine.execution import build_execution_plan
+from graph_engine.execution import build_execution_plan, reconstruct_execution_plan
 from graph_engine.helper_register import (
     HelperRegister, HelperRegisterError, HelperReservationLedger, validate_allowance,
 )
+from graph_engine.hosts import MUSE_MODEL
 from graph_engine.ids import canonical_bytes, sha256_bytes
 from graph_engine.state import StateError
 from graph_engine.validator import compute_timing
@@ -784,7 +785,7 @@ class GraphHardeningTests(GraphCase):
         )
 
     def _sealed_research(self):
-        self.initialize()
+        self.initialize(legacy_research=True)
         mapper = self.claim_raw()
         self._record_mapper(mapper)
         research = next(
@@ -967,7 +968,7 @@ class GraphHardeningTests(GraphCase):
         self.assertEqual(plan["size"], "small")
         self.assertTrue(plan["approval_required"])
         senior = next(item for item in plan["assignments"] if item["node_key"] == "senior_engineer")
-        self.assertEqual((senior["model"], senior["reasoning_effort"]), ("gpt-6-astra", "medium"))
+        self.assertEqual((senior["model"], senior["reasoning_effort"]), ("gpt-6.1-sol", "xhigh"))
         ready = self.graphctl("next", "--run-id", "RUN-1")
         self.assertEqual(ready["code"], "EXECUTION_PLAN_APPROVAL_REQUIRED")
         with self.assertRaisesRegex(StateError, "EXECUTION_PLAN_APPROVAL_REQUIRED"):
@@ -978,7 +979,7 @@ class GraphHardeningTests(GraphCase):
             "--authority-ref", "authority:test", "--op-id", "plan-approval-1",
         )
         branch = self.claim()
-        self.assertEqual((branch["model"], branch["reasoning_effort"]), ("gpt-6.1-sol", "low"))
+        self.assertEqual((branch["model"], branch["reasoning_effort"]), (MUSE_MODEL, "xhigh"))
 
     def test_rejected_execution_plan_blocks_the_run(self):
         initialized = self.initialize(approve=False)
@@ -1041,7 +1042,7 @@ class GraphHardeningTests(GraphCase):
         self._assert_corrupt_mutation_rejected("TOPOLOGY_JOIN_INVALID", "deleted-join-claim")
 
     def test_whole_successor_deletion_is_detected_from_operation_history(self):
-        self.initialize()
+        self.initialize(legacy_research=True)
         self._record_mapper(self.claim())
         branches = self.graphctl("status", "--run-id", "RUN-1")["branches"]
         successor_id = next(
@@ -1057,6 +1058,125 @@ class GraphHardeningTests(GraphCase):
         self._assert_corrupt_mutation_rejected(
             "TOPOLOGY_NODE_INVALID|JOIN_MEMBERSHIP_INVALID", "deleted-successor-claim"
         )
+
+    def test_inline_mapper_witness_requires_the_exact_successor(self):
+        self.initialize()
+        mapper = self.claim_raw()
+        self._record_mapper(mapper)
+        resumed = self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+        self.assertEqual(resumed["next_action"]["kind"], "claim")
+        self.assertEqual(resumed["joins"], [])
+        lead = self.claim_raw()
+        self.assertEqual((lead["node_key"], lead["generation"]), ("tech_lead", 0))
+        self.assertTrue(any(item["ref"].startswith(f"ledger:{mapper['branch_id']}#sha256=") for item in lead["inputs"]))
+        design = next(item for item in lead["inputs"] if item.get("content", {}).get("kind") == "design_evidence")
+        self.assertEqual(design["content"]["route_label"], "full_delivery")
+        self.assertEqual(design["content"]["impact_tags"], [])
+        self.assertTrue(design["content"]["evidence_refs"][0].startswith("repo:docs/artifacts/impact-evidence.json#sha256="))
+        self.assertNotIn("claim_digest", design["content"])
+        self.assertEqual(sha256_bytes(canonical_bytes(design["content"])), design["sha256"])
+        with self.store.connect(self.store.db_path("albanian-live-translate", "RUN-1")) as connection:
+            row = connection.execute("SELECT operation_id,response_json FROM operations WHERE resulting_revision=4").fetchone()
+            response = json.loads(row["response_json"])
+            self.assertEqual(response["successor_branch_ids"], [lead["branch_id"]])
+            response["successor_branch_ids"] = []
+            connection.execute("UPDATE operations SET response_json=? WHERE operation_id=?",
+                               (json.dumps(response, sort_keys=True), row["operation_id"]))
+            connection.commit()
+        self._assert_corrupt_mutation_rejected("TOPOLOGY_HISTORY_INVALID", "missing-inline-successor")
+
+    def test_initialized_plan_cannot_switch_design_workflow(self):
+        self.initialize(approve=False)
+        with self.store.connect(self.store.db_path("albanian-live-translate", "RUN-1")) as connection:
+            task = json.loads(connection.execute("SELECT task_json FROM runs").fetchone()[0])
+            plan = json.loads(connection.execute("SELECT plan_json FROM execution_plans").fetchone()[0])
+            del plan["design_workflow_version"]
+            legacy = reconstruct_execution_plan("RUN-1", task, plan)
+            connection.execute("UPDATE execution_plans SET plan_json=?,plan_digest=?",
+                               (json.dumps(legacy, sort_keys=True), legacy["plan_digest"]))
+            connection.commit()
+        with self.assertRaisesRegex(StateError, "EXECUTION_PLAN_STATE_INVALID"):
+            self.graphctl("status", "--run-id", "RUN-1")
+
+    def test_direct_design_cannot_resume_without_its_run_task(self):
+        self.initialize()
+        recorded = self._record_mapper(self.claim_raw())
+        lead = recorded["successor_branch_ids"][0]
+        with self.store.connect(self.store.db_path("albanian-live-translate", "RUN-1")) as connection:
+            row = connection.execute("SELECT envelope_json FROM nodes WHERE branch_id=?", (lead,)).fetchone()
+            envelope = json.loads(row["envelope_json"])
+            envelope["inputs"] = [item for item in envelope["inputs"] if item["kind"] != "task_brief"]
+            connection.execute("UPDATE nodes SET envelope_json=? WHERE branch_id=?", (json.dumps(envelope), lead))
+            connection.commit()
+        with self.assertRaisesRegex(StateError, "TOPOLOGY_EDGE_INVALID"):
+            self.graphctl("resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability")
+
+    def test_design_workflow_uses_the_exact_revision_one_receipt(self):
+        self.initialize(approve=False)
+        database = self.store.db_path("albanian-live-translate", "RUN-1")
+        with self.store.connect(database) as connection:
+            original = connection.execute("SELECT response_json FROM operations WHERE resulting_revision=1").fetchone()[0]
+        for case in ("relabeled", "missing", "null", "boolean", "float", "wrong", "malformed"):
+            with self.subTest(case=case):
+                response = json.loads(original)
+                if case == "relabeled":
+                    response["code"] = "BRANCH_RESULT_RECORDED"
+                elif case == "malformed":
+                    response["execution_plan"] = []
+                elif case == "missing":
+                    del response["execution_plan"]["design_workflow_version"]
+                else:
+                    response["execution_plan"]["design_workflow_version"] = {
+                        "null": None, "boolean": True, "float": 1.0, "wrong": 2,
+                    }[case]
+                with self.store.connect(database) as connection:
+                    connection.execute("UPDATE operations SET response_json=? WHERE resulting_revision=1", (json.dumps(response),))
+                    connection.commit()
+                with self.assertRaisesRegex(StateError, "EXECUTION_PLAN_STATE_INVALID"):
+                    self.graphctl("status", "--run-id", "RUN-1")
+
+    def test_exact_legacy_initialization_retry_replays_original_plan(self):
+        initialized = self.initialize(host="claude", size="small", approve=False, legacy_research=True)
+        args = (
+            "--ack-degraded-permissions", "--ack-degraded-durability", "init", "--run-id", "RUN-1",
+            "--task-brief", str(self.repo / "docs" / "task.json"), "--op-id", "init-1", "--host", "claude",
+        )
+        replay = self.graphctl(*args, "--size", "small")
+        self.assertEqual(replay, {**initialized, "code": "REPLAYED"})
+        with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+            self.graphctl(*args, "--size", "medium")
+        with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+            self.graphctl(*args[:-1], "codex", "--size", "small")
+        task_path = self.repo / "docs" / "task.json"
+        task_path.write_bytes(task_path.read_bytes() + b" ")
+        with self.assertRaisesRegex(StateError, "OPERATION_CONFLICT"):
+            self.graphctl(*args, "--size", "small")
+
+    def test_exact_legacy_init_replays_when_approval_commits_between_reads(self):
+        initialized = self.initialize(host="claude", approve=False, legacy_research=True)
+        digest = initialized["execution_plan_digest"]
+        validate_plan = cli_module._validate_execution_plan
+
+        def approve_before_plan_read(connection, run, task):
+            self.assertEqual(run["status"], "initialized")
+            approval = self.graphctl(
+                "record", "plan-approval", "--run-id", "RUN-1", "--plan-digest", digest,
+                "--decision", "APPROVE", "--authority-ref", "authority:test", "--op-id", "racing-approval",
+            )
+            self.assertEqual(approval["code"], "EXECUTION_PLAN_APPROVED")
+            return validate_plan(connection, run, task)
+
+        with patch.object(cli_module, "_validate_execution_plan", side_effect=approve_before_plan_read) as validate:
+            replay = self.graphctl(
+                "--ack-degraded-permissions", "--ack-degraded-durability", "init", "--run-id", "RUN-1",
+                "--task-brief", str(self.repo / "docs" / "task.json"), "--op-id", "init-1", "--host", "claude",
+            )
+            validate.assert_called_once()
+        self.assertEqual(replay, {**initialized, "code": "REPLAYED"})
+        status = self.graphctl("status", "--run-id", "RUN-1")
+        self.assertEqual(status["execution_plan"]["status"], "approved")
+        self.assertEqual(status["execution_plan"]["plan_digest"], digest)
+        self.assertEqual(status["state_revision"], 2)
 
     def test_research_collection_witness_requires_exact_tech_lead_successor(self):
         sealed, tech_lead = self._sealed_research()

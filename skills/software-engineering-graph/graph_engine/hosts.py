@@ -15,8 +15,8 @@ DEFAULT_HOST = "codex"
 LEGACY_HOST = "codex"
 MUSE_MODEL = "opencode-go/muse-spark-1.3-contributor"
 MUSE_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
-CURRENT_CATALOG_REVISIONS = {"claude": 4, "codex": 11, "codex-astra": 10, "cursor": 5}
-SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3, 4), "codex": (2, 3, 4, 5, 6, 7, 8, 9, 10, 11), "codex-astra": (2, 3, 4, 5, 6, 7, 8, 9, 10), "cursor": (2, 3, 4, 5)}
+CURRENT_CATALOG_REVISIONS = {"claude": 4, "codex": 12, "codex-astra": 10, "cursor": 5}
+SUPPORTED_CATALOG_REVISIONS = {"claude": (1, 3, 4), "codex": (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), "codex-astra": (2, 3, 4, 5, 6, 7, 8, 9, 10), "cursor": (2, 3, 4, 5)}
 MUSE_DEFAULT_NODES = frozenset({
     "impact_mapper", "design_research_architecture", "design_research_validation",
     "code_reviewer_naming", "test_engineer",
@@ -162,6 +162,11 @@ for _host in ("codex", "codex-astra"):
     MODEL_OPTIONS[_host] = {
         **MODEL_OPTIONS[_host], "gpt-6.1-terra": MODEL_OPTIONS_V10[_host]["gpt-6.1-terra"],
     }
+CODEX_62_OPTIONS = {
+    model: ("low", "medium", "high", "xhigh", "max", "ultra")
+    for model in ("gpt-6.2-sol", "gpt-6.2-astra")
+}
+MODEL_OPTIONS["codex"] = {**MODEL_OPTIONS["codex"], **CODEX_62_OPTIONS}
 
 
 def selected_dispatch_model(host: str, model: str, effort: str, revision: Optional[int] = None) -> str:
@@ -182,7 +187,7 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
     if workload == "helper":
         if host == "claude" and revision == 4:
             return "claude-sonnet-5-5", "low"
-        if revision in {8, 9, 10, 11} and host in {"codex", "codex-astra"}:
+        if revision in {8, 9, 10, 11, 12} and host in {"codex", "codex-astra"}:
             return "gpt-6.1-sol", "low"
         if revision in {6, 7} and host in {"codex", "codex-astra"}:
             return recommended_assignment(host, "implementation", revision)
@@ -190,7 +195,7 @@ def recommended_assignment(host: str, workload: str, revision: Optional[int] = N
                 "cursor": ("gemini-3.8-flash", "low")}.get(
                     host, ("gpt-5.6-luna" if revision == 3 else "gpt-6-luna",
                            "low" if revision in {3, 4} else "max"))
-    if host == "codex" and revision == 11:
+    if host == "codex" and revision in {11, 12}:
         return "gpt-6.1-sol", "xhigh"
     if host == "claude" and revision == 4:
         model = "claude-opus-5-5"
@@ -209,6 +214,8 @@ def model_options(host: str, revision: Optional[int] = None) -> Dict[str, Tuple[
         revision = CURRENT_CATALOG_REVISIONS[host]
     if (host == "claude" and revision == 4) or (host == "cursor" and revision == 5):
         return {**CURRENT_MODEL_OPTIONS[host], **CLAUDE_55_OPTIONS}
+    if host == "codex" and revision == 12:
+        return {**MODEL_OPTIONS_V10[host], **CODEX_62_OPTIONS}
     if revision == 3:
         options = MODEL_OPTIONS_V3
     elif revision in {2, 4, 5, 6}:

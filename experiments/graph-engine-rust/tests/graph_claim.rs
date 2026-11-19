@@ -27,6 +27,10 @@ fn initialize(approve: bool) -> InitializedGraph {
     fixture
 }
 
+fn initialize_research(fixture: &InitializedGraph, mode: &str, route: &str) {
+    fixture.initialize_legacy_research(&fixture.graph.task(mode, route, &[]), 11).unwrap();
+}
+
 fn claim(fixture: &InitializedGraph, operation: &str) -> EngineResult<Value> {
     fixture.graphctl(&[
         "next".into(),
@@ -91,6 +95,8 @@ fn mapper_results_commit_route_and_original_first_successors() {
         ("delivery", "fast_path", "senior_engineer"),
         ("delivery", "delivery_only", "senior_engineer"),
         ("advisory", "advisory", "advisory_reviewer"),
+        ("design_only", "design_only", "tech_lead"),
+        ("delivery", "full_delivery", "tech_lead"),
     ] {
         let fixture = InitializedGraph::new();
         let mut task = fixture.graph.task(mode, route, &[]);
@@ -156,8 +162,20 @@ fn mapper_results_commit_route_and_original_first_successors() {
         assert!(next["branch"]["node_key"].is_text(successor));
         assert!(result["successor_branch_ids"].py_eq(&Value::List(vec![next["branch"]["branch_id"].clone()])));
         let inputs = next["branch"]["inputs"].as_list().unwrap();
-        assert_eq!(inputs.len(), 1);
-        assert!(inputs[0]["kind"].is_text("task_brief"));
+        assert!(inputs.iter().any(|input| input["kind"].is_text("task_brief")));
+        if successor == "tech_lead" {
+            assert_eq!(inputs.len(), 3);
+            let prefix = format!("ledger:{}#sha256=", branch["branch_id"].text().unwrap());
+            assert!(inputs.iter().any(|input| input["ref"].text().unwrap().starts_with(&prefix)));
+            let evidence = inputs.iter().find(|input| input["content"]["kind"].is_text("design_evidence")).unwrap();
+            let content = &evidence["content"];
+            assert!(content["route_label"].is_text(route));
+            assert!(content["evidence_refs"].py_eq(&Value::list([second_ref.as_str().into(), first_ref.as_str().into()])));
+            assert!(content.get("claim_digest").is_none());
+            assert!(evidence["sha256"].is_text(&ids::sha256_bytes(&ids::canonical_bytes(content).unwrap())));
+        } else {
+            assert_eq!(inputs.len(), 1);
+        }
         fixture.tear_down();
     }
 }
@@ -166,7 +184,7 @@ fn mapper_results_commit_route_and_original_first_successors() {
 fn mapper_research_routes_open_pending_pair_collection_and_awaiting_fanout() {
     for (mode, route) in [("delivery", "full_delivery"), ("design_only", "design_only")] {
         let fixture = InitializedGraph::new();
-        fixture.initialize(&fixture.graph.task(mode, route, &[]), true).unwrap();
+        initialize_research(&fixture, mode, route);
         let mapper = claim(&fixture, "claim-mapper").unwrap();
         let branch = &mapper["branch"];
         let evidence = fixture.graph.repository.join("docs/impact-evidence.json");
@@ -228,8 +246,33 @@ fn mapper_research_routes_open_pending_pair_collection_and_awaiting_fanout() {
 }
 
 #[test]
-fn research_fanout_assessment_persists_ordered_dependencies_and_rolls_back_atomically() {
+fn direct_design_cannot_resume_without_its_run_task() {
     let fixture = initialize(true);
+    let mapper = claim(&fixture, "claim-mapper").unwrap();
+    fs::write(fixture.graph.repository.join("docs/route-evidence.json"), b"{}").unwrap();
+    let manifest = impact_manifest(&mapper["branch"], "full_delivery", vec!["repo:docs/route-evidence.json".into()]);
+    let result = fixture.graphctl(&result_arguments(&fixture, &mapper["branch"], &manifest, "record-mapper")).unwrap();
+    let lead = &result["successor_branch_ids"].as_list().unwrap()[0];
+    fixture.with_session(|session, _| {
+        let row = session.first(GraphRead::NodeEnvelope, std::slice::from_ref(lead))?.unwrap();
+        let mut envelope = compat::loads_value(&row["envelope_json"])?;
+        let inputs = envelope["inputs"].as_list().unwrap().iter()
+            .filter(|input| !input["kind"].is_text("task_brief")).cloned().collect::<Vec<_>>();
+        envelope.set("inputs", Value::List(inputs));
+        session.execute_values(
+            "UPDATE nodes SET envelope_json=? WHERE branch_id=?",
+            &[String::from_utf8(ids::canonical_bytes(&envelope)?).unwrap().into(), lead.clone()],
+        )?;
+        Ok(())
+    }).unwrap();
+    let args = ["resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability"];
+    assert!(matches!(fixture.graphctl(&args.map(PyString::from)), Err(EngineError::State(error)) if error.code == "TOPOLOGY_EDGE_INVALID"));
+}
+
+#[test]
+fn research_fanout_assessment_persists_ordered_dependencies_and_rolls_back_atomically() {
+    let fixture = InitializedGraph::new();
+    initialize_research(&fixture, "delivery", "full_delivery");
     let mapper = claim(&fixture, "claim-mapper").unwrap();
     let branch = &mapper["branch"];
     let impact_path = fixture.graph.repository.join("docs/impact.json");
@@ -490,7 +533,9 @@ fn research_artifact(fixture: &InitializedGraph, kind: &str, label: &str) -> Val
 }
 
 fn ordered_research() -> (InitializedGraph, Value) {
-    begin_ordered_research(initialize(true))
+    let fixture = InitializedGraph::new();
+    initialize_research(&fixture, "delivery", "full_delivery");
+    begin_ordered_research(fixture)
 }
 
 fn begin_ordered_research(fixture: InitializedGraph) -> (InitializedGraph, Value) {
@@ -679,7 +724,7 @@ fn exhausted_research_failure_blocks_run_and_leaves_collection_open() {
     policy.set("node_templates", templates);
     fixture.graph.policy_bytes = compat::dumps(&policy, compat::SerializationProfile::STORED).unwrap();
     fs::write(fixture.graph.repository.join(".codex/engineering-graph.json"), &fixture.graph.policy_bytes).unwrap();
-    fixture.initialize(&fixture.graph.task("delivery", "full_delivery", &[]), true).unwrap();
+    initialize_research(&fixture, "delivery", "full_delivery");
     let (fixture, mapped) = begin_ordered_research(fixture);
     let claimed = claim(&fixture, "claim-first").unwrap();
     let branch = &claimed["branch"];

@@ -106,7 +106,8 @@ fn start_design_reviews(case: &mut HardeningCase, tags: &[&str]) {
 
 fn start_research() -> HardeningCase {
     let mut case = HardeningCase::golden();
-    initialize(&case, &[]);
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
     case.impact("full_delivery");
     let status = case.status().unwrap();
     let action = &status["next_action"];

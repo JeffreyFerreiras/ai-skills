@@ -79,6 +79,7 @@ fn statement(query: GraphRead) -> &'static str {
         GraphRead::BudgetConsumed => "SELECT COALESCE(SUM(amount),0) FROM budget_consumptions WHERE run_id=? AND budget_id=?",
         GraphRead::InvalidBudgetConsumption => "SELECT 1 FROM budget_consumptions bc LEFT JOIN nodes n ON n.branch_id=bc.source_branch_id\n        WHERE bc.run_id=? AND (bc.amount<=0 OR n.run_id IS NULL OR n.run_id<>bc.run_id) LIMIT 1",
         GraphRead::OperationsForValidation => "SELECT * FROM operations WHERE run_id=? ORDER BY resulting_revision",
+        GraphRead::InitializationReceipt => "SELECT response_json FROM operations WHERE run_id=? AND resulting_revision=1 LIMIT 2",
         GraphRead::JoinMemberCount => "SELECT COUNT(*) FROM join_members WHERE join_id=?",
         GraphRead::ReviewChildBranches => "SELECT child_branch_id FROM review_delegation_members WHERE request_slot_id=? ORDER BY child_branch_id",
         GraphRead::ReviewPredecessors => "SELECT n.* FROM review_delegation_dependencies d JOIN nodes n ON n.branch_id=d.before_branch_id\n            WHERE d.request_slot_id=? AND d.after_branch_id=?",

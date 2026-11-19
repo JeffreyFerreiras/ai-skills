@@ -287,7 +287,9 @@ fn test_whole_join_deletion_is_detected_from_operation_history() {
 #[test]
 fn test_whole_successor_deletion_is_detected_from_operation_history() {
     let mut case = HardeningCase::new();
-    mapped(&mut case, &[]);
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
+    case.impact("full_delivery");
     let status = case.status().unwrap();
     let node = lookup(
         &status["branches"],
@@ -310,7 +312,8 @@ fn test_whole_successor_deletion_is_detected_from_operation_history() {
 }
 
 fn sealed_research(case: &mut HardeningCase) -> (Value, Value) {
-    initialize(case, &[]);
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
     let mapper = case.claim_raw().unwrap();
     case.record_mapper(&mapper, &[]);
     let status = case.status().unwrap();

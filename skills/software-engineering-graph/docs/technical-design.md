@@ -97,8 +97,9 @@ presents the execution sequence, roles, options, and capability gaps. The human 
 before initialization; afterward even a pending brief is immutable. New choices require a new run
 and approval. The command does not bypass missing policy or create a model API executor.
 
-Codex revision 11 is the default catalog. It assigns Muse Spark 1.3 xhigh to impact mapping,
-both fixed research roles, naming review, and independent testing. Design, implementation,
+Codex revision 12 keeps the revision 11 defaults and adds selectable native GPT-6.2 Sol and Astra.
+It assigns Muse Spark 1.3 xhigh to impact mapping, naming review, and independent testing.
+Design, implementation,
 simplification, other reviews, specialists, and the Supervisor recommendation use GPT-6.1 Sol
 xhigh. Publication, direct helpers, and economy fanout retain Sol low. Approved Muse assignments
 carry `dispatch_runtime: opencode-cli`; native role pins cannot substitute for that route.
@@ -112,7 +113,7 @@ options, exact sources, native role configuration, and runtime verification limi
 Missing revisions and explicit Claude revision 1 / Codex-Astra-Cursor revision 2 retain exact old
 defaults, bytes, digests and approvals. Codex revisions 3 through 7 and Cursor revision 3 retain their prior recommendations
 and options. The engine accepts each known revision explicitly; unknown or malformed revisions fail
-closed. New Codex revision 11, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require a supporting engine. Catalog
+closed. New Codex revision 12, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require a supporting engine. Catalog
 changes must not silently alter reconstruction of prior plans.
 Historical core envelopes are reconstructed for audit, not execution authority. The engine has no
 model executor; the Supervisor refuses another GPT-5.6 launch and obtains a separately approved
@@ -133,9 +134,27 @@ allowance and can select any supported exact host pair; capability verification,
 reservations and settlement remain mandatory. Model recommendations grant no authority and
 make no live benchmark or cross-harness compatibility claim.
 
-### Pre-design research gate
+### Design workflow versions
 
-Every initial `design_only` or `full_delivery` route, design revision, and delivery redesign inserts
+New plans include `design_workflow_version: 1` in the immutable plan digest. The unique revision-one
+initialization receipt binds the full plan. Retrying an existing initialization uses the recorded
+plan's catalog and feature versions and compares the original request digest.
+An initial design route opens a ready Tech Lead branch with the exact task brief, mapper result,
+and a digest-bound projection of its route, tags, and evidence references. Design `REVISE` and
+delivery `REDESIGN` open a new Tech Lead branch with a projection from the sealed collection and
+consolidation, plus relevant prior design and implementation documents. Replay checks those
+documents against the producing generations at the transition. The projection contains
+actionable findings, evidence references, and dispositions. It omits sibling claim and attempt
+details. The ledger stores this projection in ordered, canonical `design_evidence` pages of at
+most 2 MiB each. This engine control input has its own limit. Repository caps still apply to
+worker-produced artifacts. Replay verifies the exact page sequence. The direct Tech Lead inherits only the task and policy intersection of the Impact Mapper's
+filesystem and external read capabilities, alongside its own approved role capabilities.
+The lead gathers evidence within the task budget. Independent architecture and specialist review
+and deterministic consolidation continue after the lead records its design. Replay validates
+the exact successor of each design transition.
+
+Plans without the version keep the historical topology. Each initial `design_only` or
+`full_delivery` route, design revision, and delivery redesign inserts
 the fixed `design_research_architecture` and `design_research_validation` nodes for the target
 generation. Both nodes use the `impact_mapper` role with each node's approved model and effort and
 are held in an assessed-pending `research` fan-out. Their envelopes carry deterministic focus and
@@ -323,7 +342,7 @@ included under `size_policy_version: 2`; an explicit override below the computed
 while a higher override remains allowed.
 
 Route controls topology and gates; size controls model-cost assignments. Therefore a v2 small
-`full_delivery` plan preserves the full research, design, implementation, independent review, test,
+`full_delivery` plan preserves the full design, implementation, independent review, test,
 specialist, consolidation, and closure graph. Small, medium, and large plans differ only in the existing
 host-resolved class assignment matrix. Task-brief v1 retains its exact legacy classifier, unrestricted
 override behavior, execution-plan JSON shape, and digest for compatibility.
@@ -463,7 +482,7 @@ resolved implementation and architecture decisions, and no unresolved items. Eli
 high or critical risk, high uncertainty, broadly cross-cutting scope, security/privacy impact, and
 unresolved human decisions. The Impact Mapper may escalate to `full_delivery` when repository
 evidence contradicts readiness. Both `delivery_only` and the documentation fast path retain
-independent review and testing; a `REDESIGN` outcome inserts fresh research and design gates.
+independent review and testing; a `REDESIGN` outcome starts a new design generation.
 The policy loader recognizes the exact legacy four-route topology and adds `delivery_only` only to
 the validated in-memory policy. Any other route drift still fails closed, and the repository file is
 never rewritten.
