@@ -40,7 +40,7 @@ from .planner import (
     JoinSpec, NodeSpec, bootstrap, branch_id, closure_join, collection_join,
     consolidation_join, consolidation_node, delivery_review_nodes, design_review_nodes,
     design_research_nodes, envelope, fanout_id, implementation_node, initial_route_nodes, join_id,
-    effective_role_capabilities, next_join_for_success, node_template,
+    next_join_for_success, node_template, planned_role_capabilities,
     revised_design_node, validate_fanout_ordering,
 )
 from .state import (
@@ -48,10 +48,10 @@ from .state import (
     utc_after, utc_now,
 )
 from .validator import (
-    canonical_collection_members, compute_timing, join_members, validate_consolidation_manifest,
+    canonical_collection_members, compute_timing, design_evidence_artifacts, join_members, validate_consolidation_manifest,
     validate_join, verify_resume, verify_semantic_state, compute_design_outcome, compute_delivery_outcome,
     _source_finding_dispositions, _delegated_issue_sources, _delivery_outcome_without_delegated_echoes,
-    _delegated_terminal_precedence, DELIVERY_OUTCOMES,
+    _delegated_terminal_precedence, _validate_execution_plan, DELIVERY_OUTCOMES,
 )
 
 
@@ -219,12 +219,27 @@ def _insert_fanout(
     return identifier
 
 
-def _insert_research_generation(
+def _insert_design_generation(
     store: StateStore, connection: sqlite3.Connection, run: Mapping[str, Any],
     policy: Mapping[str, Any], task: Mapping[str, Any], generation: int,
-    inputs: Sequence[Mapping[str, Any]],
+    inputs: Sequence[Mapping[str, Any]], source: Mapping[str, Any],
 ) -> Dict[str, List[str]]:
-    """Insert the fixed research pair, collection join, and assessed-pending fan-out."""
+    plan = json.loads(connection.execute(
+        "SELECT plan_json FROM execution_plans WHERE run_id=?", (run["run_id"],)
+    ).fetchone()[0])
+    if "design_workflow_version" in plan:
+        if generation == 0:
+            inputs = _context_inputs(connection, run, [source])
+        spec = revised_design_node(policy, generation)
+        lead_id = branch_id(run["run_id"], run["policy_digest"], spec)
+        inputs = list(inputs)
+        for artifact, page in design_evidence_artifacts(connection, run, lead_id, source):
+            persist_artifact(connection, run["run_id"], artifact)
+            inputs.append({**artifact.as_input(), "content": page})
+        lead = _insert_spec(store, connection, run, policy, task, spec, inputs)
+        return {"branch_ids": [lead["branch_id"]], "join_ids": [], "fanout_ids": []}
+
+    # Preserve the assessed research fan-out of historical plans.
     specs = design_research_nodes(policy, generation)
     rows = [
         _insert_spec(store, connection, run, policy, task, spec, inputs, status="pending")
@@ -660,15 +675,29 @@ def _validate_review_continuation_result(
         raise ContractError("result.findings", "DELEGATION_DISPOSITION_MISSING")
 
 
-def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, runtime_root: Path):
+def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, runtime_root: Path,
+                            bound_run=None, bound_plan=None):
     run_id = opaque(args.run_id, "run_id")
     task_snapshot = safe_json_snapshot(
         Path(args.task_brief), _task_roots(repo, policy, runtime_root), policy["artifact_kinds"]["task_brief"]["max_bytes"]
     )
-    full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy)
-    validate_task_capability_paths(repo, full_task, policy, runtime_root)
+    if bound_run is not None and (task_snapshot.digest != bound_run["task_digest"]
+                                  or str(task_snapshot.path) != bound_run["task_path"]):
+        raise StateError("OPERATION_CONFLICT")
+    projection = 1 if bound_plan is None else bound_plan.get("capability_projection_version")
+    full_task = validate_task_brief(task_snapshot.parsed, policy_snapshot.digest, policy, projection)
+    validate_task_capability_paths(repo, full_task, policy, runtime_root, projection)
     for check_id in full_task["required_check_ids"]:
         configured_check(policy, check_id)
+    task = authoritative_task_subset(full_task)
+    try:
+        execution_plan = bound_plan if bound_plan is not None else build_execution_plan(
+            run_id, task, args.size, host=getattr(args, "host", DEFAULT_HOST),
+        )
+    except ValueError as error:
+        if str(error) == "EXECUTION_SIZE_BELOW_SAFETY_FLOOR":
+            raise ContractError("size", str(error))
+        raise ContractError("model_overrides", str(error))
     if full_task["schema_version"] == 3:
         allowance = full_task["helper_allowance"]
         allowance_snapshot = safe_json_snapshot(
@@ -680,19 +709,10 @@ def _prepare_execution_plan(args: argparse.Namespace, repo: Path, policy: Mappin
         validate_allowance(
             allowance_snapshot.parsed, run_id, getattr(args, "host", DEFAULT_HOST),
             {
-                role: effective_role_capabilities(policy, full_task, role)
+                role: planned_role_capabilities(policy, full_task, role, execution_plan)
                 for role in ELIGIBLE_PARENTS
-            },
+            }, historical=bound_plan is not None,
         )
-    task = authoritative_task_subset(full_task)
-    try:
-        execution_plan = build_execution_plan(
-            run_id, task, args.size, host=getattr(args, "host", DEFAULT_HOST),
-        )
-    except ValueError as error:
-        if str(error) == "EXECUTION_SIZE_BELOW_SAFETY_FLOOR":
-            raise ContractError("size", str(error))
-        raise ContractError("model_overrides", str(error))
     return task_snapshot, full_task, task, execution_plan
 
 
@@ -700,7 +720,7 @@ def _execution_preflight(task_snapshot, task, policy, policy_digest, plan):
     """Project the proposed scope and effects without creating approval or run state."""
     roles = sorted({item["role"] for item in plan["assignments"]})
     capabilities = {
-        role: effective_role_capabilities(policy, task, role, plan.get("capability_projection_version"))
+        role: planned_role_capabilities(policy, task, role, plan)
         for role in roles
     }
     checks = []
@@ -730,9 +750,43 @@ def _execution_preflight(task_snapshot, task, policy, policy_digest, plan):
     }
 
 
+def _bound_initialization(args, policy, policy_snapshot, store, run_id, op_id):
+    if not store.db_path(policy["repository_id"], run_id).exists():
+        return None, None
+    try:
+        with store.open_run(policy["repository_id"], run_id) as connection:
+            # Validate the run and its approval from the same SQLite snapshot.
+            connection.execute("BEGIN")
+            operation = connection.execute(
+                "SELECT resulting_revision FROM operations WHERE run_id=? AND operation_id=?",
+                (run_id, op_id),
+            ).fetchone()
+            if operation is None:
+                raise StateError("RUN_ALREADY_EXISTS")
+            if operation["resulting_revision"] != 1:
+                raise StateError("OPERATION_CONFLICT")
+            run = connection.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if (run["policy_digest"] != policy_snapshot.digest
+                    or bool(run["degraded_permissions_ack"]) != args.ack_degraded_permissions
+                    or bool(run["degraded_durability_ack"]) != args.ack_degraded_durability):
+                raise StateError("OPERATION_CONFLICT")
+            plan = _validate_execution_plan(connection, run, json.loads(run["task_json"]))
+            size = plan["size"] if plan["size_source"] == "supervisor_override" else None
+            if plan["host"] != getattr(args, "host", DEFAULT_HOST) or size != args.size:
+                raise StateError("OPERATION_CONFLICT")
+            return run, plan
+    except StateError as error:
+        if error.code not in {"RUN_NOT_FOUND", "NON_AUTHORITATIVE_STATE"}:
+            raise
+    return None, None
+
+
 def command_init(args: argparse.Namespace, repo: Path, policy: Mapping[str, Any], policy_snapshot: Snapshot, store: StateStore) -> Dict[str, Any]:
     run_id, op_id = opaque(args.run_id, "run_id"), opaque(args.op_id, "op_id")
-    task_snapshot, full_task, task, execution_plan = _prepare_execution_plan(args, repo, policy, policy_snapshot, store.state_root)
+    bound_run, bound_plan = _bound_initialization(args, policy, policy_snapshot, store, run_id, op_id)
+    task_snapshot, full_task, task, execution_plan = _prepare_execution_plan(
+        args, repo, policy, policy_snapshot, store.state_root, bound_run, bound_plan,
+    )
     skill_root = Path(__file__).resolve().parents[1]
     verified_evidence = [
         resolve_unhashed_reference(ref, "acceptance_evidence", repo, skill_root, policy, store.state_root)
@@ -835,18 +889,6 @@ def _record_branch_result(
                 "UPDATE runs SET status='active',selected_route=?,selected_tags_json=? WHERE run_id=?",
                 (impact["route_label"], json.dumps(impact["impact_tags"]), current["run_id"]),
             )
-            fresh_run = conn.execute("SELECT * FROM runs WHERE run_id=?", (current["run_id"],)).fetchone()
-            inputs = _context_inputs(conn, fresh_run, [])
-            if impact["route_label"] in {"design_only", "full_delivery"}:
-                research = _insert_research_generation(
-                    store, conn, fresh_run, policy, task, 0, inputs,
-                )
-                successor_ids.extend(research["branch_ids"])
-                created_join_ids.extend(research["join_ids"])
-                created_fanout_ids.extend(research["fanout_ids"])
-            else:
-                for spec in initial_route_nodes(policy, impact["route_label"]):
-                    successor_ids.append(_insert_spec(store, conn, fresh_run, policy, task, spec, inputs)["branch_id"])
         else:
             _validate_review_continuation_result(conn, current_branch, env, snapshot.parsed)
             validated = validate_result_manifest(snapshot.parsed, branch_contract)
@@ -958,7 +1000,20 @@ def _record_branch_result(
             "UPDATE branch_attempts SET finished_at=?,outcome=? WHERE branch_id=? AND attempt_number=?",
             (env["finished_at"], result_status, args.branch_id, attempt["attempt_number"]),
         )
-        if result_status == "succeeded" and current_branch["node_key"] != "impact_mapper":
+        if result_status == "succeeded" and current_branch["node_key"] == "impact_mapper":
+            fresh_run = conn.execute("SELECT * FROM runs WHERE run_id=?", (current["run_id"],)).fetchone()
+            inputs = _context_inputs(conn, fresh_run, [])
+            route = manifest["route_label"]
+            if route in {"design_only", "full_delivery"}:
+                mapper_result = conn.execute("SELECT * FROM nodes WHERE branch_id=?", (args.branch_id,)).fetchone()
+                topology = _insert_design_generation(store, conn, fresh_run, policy, task, 0, inputs, mapper_result)
+                successor_ids.extend(topology["branch_ids"])
+                created_join_ids.extend(topology["join_ids"])
+                created_fanout_ids.extend(topology["fanout_ids"])
+            else:
+                for spec in initial_route_nodes(policy, route):
+                    successor_ids.append(_insert_spec(store, conn, fresh_run, policy, task, spec, inputs)["branch_id"])
+        elif result_status == "succeeded":
             updated = conn.execute("SELECT * FROM nodes WHERE branch_id=?", (args.branch_id,)).fetchone()
             route = current["selected_route"]
             join_spec = next_join_for_success(policy, route, json.loads(current["selected_tags_json"] or "[]"), updated)
@@ -2427,12 +2482,12 @@ def command_join_advance(
                     outcome = "BLOCK"
                 else:
                     generation = join["generation"] + 1
-                    research = _insert_research_generation(
-                        store, conn, current, policy, task, generation, design_context,
+                    topology = _insert_design_generation(
+                        store, conn, current, policy, task, generation, design_context, consolidation,
                     )
-                    successor_ids.extend(research["branch_ids"])
-                    created_join_ids.extend(research["join_ids"])
-                    created_fanout_ids.extend(research["fanout_ids"])
+                    successor_ids.extend(topology["branch_ids"])
+                    created_join_ids.extend(topology["join_ids"])
+                    created_fanout_ids.extend(topology["fanout_ids"])
                     conn.execute("UPDATE runs SET design_generation=? WHERE run_id=?", (generation, current["run_id"]))
             elif join["stage"] == "design" and outcome == "APPROVE":
                 if route == "design_only":
@@ -2470,12 +2525,12 @@ def command_join_advance(
                 else:
                     design_generation = current["design_generation"] + 1
                     implementation_generation = current["implementation_generation"] + 1
-                    research = _insert_research_generation(
-                        store, conn, current, policy, task, design_generation, delivery_context,
+                    topology = _insert_design_generation(
+                        store, conn, current, policy, task, design_generation, delivery_context, consolidation,
                     )
-                    successor_ids.extend(research["branch_ids"])
-                    created_join_ids.extend(research["join_ids"])
-                    created_fanout_ids.extend(research["fanout_ids"])
+                    successor_ids.extend(topology["branch_ids"])
+                    created_join_ids.extend(topology["join_ids"])
+                    created_fanout_ids.extend(topology["fanout_ids"])
                     conn.execute("UPDATE runs SET design_generation=?,implementation_generation=? WHERE run_id=?", (design_generation, implementation_generation, current["run_id"]))
             elif join["stage"] == "delivery" and outcome == "ACCEPT":
                 created_join_ids.append(_insert_join(store, conn, current, closure_join(NodeSpec(

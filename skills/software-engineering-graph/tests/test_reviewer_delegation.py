@@ -538,12 +538,14 @@ class ReviewerDelegationFlowTests(GraphCase):
         } | ({"claim_token"} if "claim_token" in envelope else set())
           | ({"code_review_assignment"} if "code_review_assignment" in envelope else set()))
 
-    def _delegate_round(self, parent, round_number, finding_id, claim_parent=True):
+    def _delegate_round(self, parent, round_number, finding_id, claim_parent=True, *,
+                        parent_finding=None, child_has_finding=True):
         evidence = self._approved_evidence(parent)
         preliminary = {
             "schema_version": 1, "kind": "review_preliminary", "run_id": "RUN-1",
             "parent_branch_id": parent["branch_id"], "parent_attempt_id": parent["attempt_id"],
-            "generation": 0, "findings": [], "evidence": [{"evidence_id": "E-1", **evidence}],
+            "generation": 0, "findings": [parent_finding] if parent_finding else [],
+            "evidence": [{"evidence_id": "E-1", **evidence}],
         }
         request = {
             "schema_version": 1, "kind": "review_fanout_request", "run_id": "RUN-1",
@@ -581,7 +583,8 @@ class ReviewerDelegationFlowTests(GraphCase):
         self.record(child, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": child["branch_id"], "status": "succeeded",
             "output_kind": child["output_contract"]["artifact_kind"],
-            "evidence": [], "decision": "REVISE", "findings": [finding],
+            "evidence": [], "decision": "REVISE" if child_has_finding else "APPROVE",
+            "findings": [finding] if child_has_finding else [],
         })
         if not claim_parent:
             return recorded, None, preliminary, request
@@ -872,16 +875,22 @@ class ReviewerDelegationFlowTests(GraphCase):
         self.assertEqual(sorted(item["request_slot_id"] for item in nested),
                          sorted([first["request_slot_id"], second["request_slot_id"]]))
 
-    def _delegated_supervisor(self, finding_id="REV-801"):
+    def _delegated_supervisor(self, finding_id="REV-801", *, parent_finding=None, child_has_finding=True):
         parent = self._to_delivery_review()
-        _, resumed, _, _ = self._delegate_round(parent, 1, finding_id)
+        _, resumed, _, _ = self._delegate_round(
+            parent, 1, finding_id, parent_finding=parent_finding, child_has_finding=child_has_finding,
+        )
+        echo_ids = [finding_id] if child_has_finding else []
+        if parent_finding:
+            finding_id = parent_finding["finding_id"]
+            echo_ids.append(finding_id)
         continuation = resumed["review_continuation"]
         self.record(resumed, {
             "schema_version": 1, "run_id": "RUN-1", "branch_id": resumed["branch_id"],
             "status": "succeeded", "output_kind": "delivery_review",
             "artifact_ref": self.repo_artifact("delivery_review", "supervisor-parent-final"),
             "evidence": [], "decision": "BLOCK",
-            "findings": [{"finding_id": finding_id, "disposition": "block"}],
+            "findings": [{"finding_id": item, "disposition": "block"} for item in echo_ids],
             "review_request_slots": continuation["review_request_slots"],
             "child_members": continuation["child_members"],
             "terminal_non_successes": continuation["terminal_non_successes"],
@@ -938,6 +947,57 @@ class ReviewerDelegationFlowTests(GraphCase):
         advanced = self._record_delegated_supervisor_disposition("redesign", "REDESIGN")
         self.assertEqual(advanced["outcome"], "REDESIGN")
         self.assertTrue(advanced["successor_branch_ids"])
+        lead = self.claim()
+        evidence = next(item["content"] for item in lead["inputs"] if item["kind"] == "design_evidence")
+        self.assertEqual(evidence["reports"], [])
+        issue, = evidence["delegated_issues"]
+        self.assertEqual((issue["defect_id"], issue["disposition"]), ("RACE", "redesign"))
+        self.assertTrue(issue["evidence"][0]["ref"].startswith("repo:docs/"))
+        self.assertEqual(issue["evidence"][0]["ref"].split("#sha256=")[-1], issue["evidence"][0]["sha256"])
+
+    def _design_from_delegated_issues(self, child_has_finding, parent_disposition):
+        parent_finding = {
+            "finding_id": "REV-802", "acceptance_id": "AC-001", "location": "docs/Cache.cs",
+            "defect_id": "PARENT", "summary": "Independent parent finding", "fix_variant": "Revise the boundary",
+            "evidence_ids": ["E-1"],
+        }
+        supervisor, outer, _, _, echo = self._delegated_supervisor(
+            parent_finding=parent_finding, child_has_finding=child_has_finding,
+        )
+        nested = next(item["content"] for item in supervisor["inputs"]
+                      if item.get("content", {}).get("kind") == "review_nested_collection")
+        dispositions = [
+            {"issue_key": issue["issue_key"],
+             "source_identities": sorted([nested["request_slot_id"], item["branch_id"], item["finding_id"]]
+                                         for item in issue["provenance"]),
+             "disposition": parent_disposition if issue["defect_id"] == "PARENT" else "redesign"}
+            for issue in nested["issues"]
+        ]
+        self.record(supervisor, {
+            "schema_version": 1, "kind": "delivery_consolidation", "run_id": "RUN-1",
+            "join_id": outer["join_id"], "generation": 0,
+            "source_branch_ids": [item["branch_id"] for item in outer["members"]],
+            "finding_dispositions": [{"finding_id": item, "disposition": "block"}
+                                     for item in (["REV-801", echo] if child_has_finding else [echo])],
+            "delegated_finding_dispositions": dispositions, "outcome": "REDESIGN",
+        })
+        self.advance("delivery_consolidation")
+        lead = self.claim()
+        packet = next(item["content"] for item in lead["inputs"] if item["kind"] == "design_evidence")
+        self.assertEqual((packet["reports"], packet["finding_dispositions"]), ([], []))
+        issue, = packet["delegated_issues"]
+        self.assertEqual(issue["disposition"], "redesign")
+        self.assertTrue(issue["evidence"][0]["ref"].startswith("repo:docs/"))
+        return issue
+
+    def test_parent_only_delegated_redesign_keeps_original_evidence(self):
+        issue = self._design_from_delegated_issues(False, "redesign")
+        self.assertEqual(issue["defect_id"], "PARENT")
+        self.assertEqual(issue["summaries"], ["Independent parent finding"])
+
+    def test_accepted_parent_echo_is_omitted_from_child_redesign(self):
+        issue = self._design_from_delegated_issues(True, "accept")
+        self.assertEqual(issue["defect_id"], "RACE")
 
     def test_supervisor_delegated_block_controls_outcome(self):
         advanced = self._record_delegated_supervisor_disposition("block", "BLOCK")

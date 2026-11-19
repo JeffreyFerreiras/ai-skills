@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from graph_engine.cli import execute
 from graph_engine.config import profile_policy_path
+from graph_engine.execution import build_execution_plan, reconstruct_execution_plan
 from graph_engine.ids import sha256_bytes
 from graph_engine.state import StateStore
 
@@ -112,12 +113,17 @@ class GraphCase(TaskCase):
     def initialize(
         self, mode: str = "delivery", route: str = "full_delivery", tags: Optional[List[str]] = None,
         size: Optional[str] = None, approve: bool = True, host: Optional[str] = None,
+        *, legacy_research: bool = False,
     ):
-        return self.initialize_task(self.task(mode, route, tags), size=size, approve=approve, host=host)
+        return self.initialize_task(
+            self.task(mode, route, tags), size=size, approve=approve, host=host,
+            legacy_research=legacy_research,
+        )
 
     def initialize_task(
         self, task: Dict[str, Any], size: Optional[str] = None, approve: bool = True,
         host: Optional[str] = None,
+        *, legacy_research: bool = False,
     ):
         task_path = self.repo / "docs" / "task.json"
         task_path.write_text(json.dumps(task), encoding="utf-8")
@@ -129,7 +135,16 @@ class GraphCase(TaskCase):
             args.extend(["--size", size])
         if host:
             args.extend(["--host", host])
-        result = self.graphctl(*args)
+        if legacy_research:
+            def legacy_plan(run_id, task, size, host):
+                plan = build_execution_plan(run_id, task, size, host)
+                plan.pop("design_workflow_version")
+                return reconstruct_execution_plan(run_id, task, plan, size)
+
+            with patch("graph_engine.cli.build_execution_plan", side_effect=legacy_plan):
+                result = self.graphctl(*args)
+        else:
+            result = self.graphctl(*args)
         if approve:
             self.graphctl(
                 "record", "plan-approval", "--run-id", "RUN-1",

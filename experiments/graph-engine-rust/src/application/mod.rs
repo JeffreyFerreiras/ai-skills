@@ -19,6 +19,7 @@ pub mod graph_claim;
 pub mod graph_cli;
 mod graph_closure;
 pub mod graph_consolidation;
+mod graph_design_evidence;
 mod graph_delivery;
 pub mod graph_dispatch;
 pub mod graph_evidence_enable;

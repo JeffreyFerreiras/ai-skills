@@ -65,7 +65,7 @@ the roles the work needs:
   Each skill-based reviewer reports the checks and conclusions from its assigned skill. The naming
   reviewer reports concrete naming checks and does not activate either broad review workflow.
   The Supervisor cannot accept delivery without all four independent reviews.
-  The naming-only reviewer defaults to Muse Spark 1.3 `xhigh` on Codex revision 11,
+  The naming-only reviewer defaults to Muse Spark 1.3 `xhigh` on Codex revisions 11 and 12,
   GPT-6.1 Sol `low` on `codex-astra`,
   Sonnet 5.5 `low` on Claude, or Gemini 3.8 Flash `low` on Cursor. Model overrides remain available.
   The bug hunter retains the review model recommendation, uses its assigned skill in place, and cannot
@@ -87,9 +87,10 @@ review, records evidence, and returns unresolved product or risk decisions to th
 2. The skill sizes model cost independently from route complexity and proposes exact AI model and
    reasoning-effort assignments.
 3. The human approves the plan before any specialist agent starts.
-4. Design routes first run the assessed architecture/validation research fan-out. The Supervisor
-   seals its evidence collection before creating the same-generation Tech Lead branch, then the
-   selected agents continue through bounded design, implementation, review, and test handoffs.
+4. Each design generation starts with a Tech Lead who gathers evidence and proposes the design.
+   Independent design review precedes implementation, review, and test handoffs where required.
+   Plans without `design_workflow_version` retain the assessed architecture and validation
+   research fan-out before the Tech Lead, including on resume.
 5. After the approved criteria, reviews, and checks pass, the Pull Request Engineer creates exactly one
    review-ready pull request or updates and verifies the exact existing pull request.
 6. The Supervisor closes the run only after validating that publication evidence.
@@ -145,12 +146,12 @@ creates a pull request, or removes a worktree. The Senior Engineer remains the s
 writer and never publishes.
 
 The Supervisor presents an adjustable execution plan before starting branches. Codex catalog
-revision 11 recommends these assignments. They are defaults,
+revision 12 recommends these assignments. They are defaults,
 not required models:
 
 | Assignments | Model | Effort |
 | --- | --- | --- |
-| Impact mapping, both fixed research roles, naming review, independent testing | Muse Spark 1.3 | `xhigh` |
+| Impact mapping, naming review, independent testing | Muse Spark 1.3 | `xhigh` |
 | Design, implementation, simplification, other reviews and specialists | GPT-6.1 Sol | `xhigh` |
 
 GPT-6.1 Sol `low` is the economy fanout and publication recommendation for Codex.
@@ -199,10 +200,10 @@ has no speed selector; never claim a speed setting was applied.
 The user may explicitly select Fast during planning; record the choice and use only a supported
 host setting, otherwise report `fast unverified/unavailable` and inherited speed.
 
-The five executable routes are `advisory` (read-only review), `design_only` (research and independent
+The five executable routes are `advisory` (read-only review), `design_only` (design and independent
 design approval), `fast_path` (mechanical/documentation implementation plus independent review and
 testing), `delivery_only` (implementation-ready work plus independent review and testing), and
-`full_delivery` (research, design, implementation, review, and testing). `delivery_only` requires a
+`full_delivery` (design, implementation, review, and testing). `delivery_only` requires a
 v2 or v3 task brief with complete acceptance criteria, resolved implementation and architecture
 decisions, no unresolved human decisions, no high-risk sizing inputs, and no security/privacy tag.
 The Impact Mapper may escalate it to `full_delivery` when repository evidence contradicts readiness.
@@ -216,8 +217,8 @@ mandatory tag selects `medium`. High or critical risk, `security_privacy`, high 
 broadly cross-cutting scope selects `large`; high risk mapping to large is intentional. Explicit v2
 overrides may raise cost but cannot go below the computed safety floor.
 
-The route still determines workflow gates. A v2 small `full_delivery` run keeps the same research,
-design, implementation, independent review, testing, specialist, consolidation, and closure topology
+The route still determines workflow gates. A v2 small `full_delivery` run keeps the same design,
+implementation, independent review, testing, specialist, consolidation, and closure topology
 as medium or large. Revision 3 recommends the same baseline models across sizes; the human can adjust
 them to the task before approval. Existing task-brief v1 inputs retain the
 legacy route-influenced classifier, unrestricted explicit override, execution-plan shape, and digest.

@@ -88,6 +88,27 @@ impl HardeningCase {
         self.run(&["status", "--run-id", "RUN-1"])
     }
 
+    #[allow(dead_code)]
+    pub(super) fn remove_branch_input(&self, branch: &Value, kind: &str) {
+        let id = &branch["branch_id"];
+        self.fixture.with_session(|session, _| {
+            let rows = session.query_values(
+                "SELECT envelope_json FROM nodes WHERE branch_id=?", std::slice::from_ref(id),
+            )?;
+            let mut envelope = compat::loads_value(&rows[0]["envelope_json"])?;
+            let inputs = envelope["inputs"].as_list().unwrap();
+            let remaining = inputs.iter().filter(|item| !item["kind"].is_text(kind))
+                .cloned().collect::<Vec<_>>();
+            assert_eq!(inputs.len() - remaining.len(), 1);
+            envelope.set("inputs", Value::List(remaining));
+            session.execute_values(
+                "UPDATE nodes SET envelope_json=? WHERE branch_id=?",
+                &[Value::String(compat::dumps_text(&envelope, SerializationProfile::STORED)?), id.clone()],
+            )?;
+            Ok(())
+        }).unwrap();
+    }
+
     pub(super) fn evidence(&self, name: &str, payload: &Value) -> (String, String) {
         let relative = format!("docs/artifacts/{name}.json");
         let path = self.fixture.graph.repository.join(&relative);

@@ -236,7 +236,8 @@ fn settle_reviews(case: &mut HardeningCase, count: usize) {
 fn full_delivery_trace(size: &str) -> (Vec<Value>, Value) {
     let mut case = HardeningCase::stock();
     let task = task_v2(&case, "full_delivery");
-    let initialized = initialize(&case, &task, Some("codex"), Some(size), false).unwrap();
+    let mut initialized = initialize(&case, &task, Some("codex"), Some(size), false).unwrap();
+    case.fixture.seed_legacy_research(&mut initialized, 11).unwrap();
     let assignments = initialized["execution_plan"]["assignments"]
         .as_list()
         .unwrap()

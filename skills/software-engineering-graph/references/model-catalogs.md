@@ -4,17 +4,17 @@
 
 The graph recommends assignments; it does not require its preferred models. Select the actual
 harness catalog: `codex` (default Sol/Muse preference), `codex-astra` (explicit Astra preference),
-`claude`, or `cursor`. New Codex plans use catalog revision 11; Astra uses revision 10, Claude uses revision 4 and
+`claude`, or `cursor`. New Codex plans use catalog revision 12. Astra uses revision 10, Claude uses revision 4 and
 Cursor uses revision 5. Verify the selected pair against the host's current exposed capabilities; catalog
 entries do not establish account access.
 
-| Catalog | Impact, both research roles, naming, testing | Design, implementation, other reviews | Direct helpers and publication | External economy option |
+| Catalog | Impact, naming, testing | Design, implementation, other reviews | Direct helpers and publication | External economy option |
 | --- | --- | --- | --- | --- |
 | codex | Muse Spark 1.3 / xhigh | gpt-6.1-sol / xhigh | gpt-6.1-sol / low | Muse Spark 1.3 / xhigh |
 
-The explicit `codex-astra` catalog retains Sol `low` for impact mapping, research, naming,
+The explicit `codex-astra` catalog retains Sol `low` for impact mapping, naming,
 helpers and publication, Astra `medium` for core roles and testing, and Astra `high` for review.
-Claude retains Sonnet 5.5 `low` for impact mapping, research, naming, helpers and publication,
+Claude retains Sonnet 5.5 `low` for impact mapping, naming, helpers and publication,
 Opus 5.5 `medium` for core roles and testing, and Opus 5.5 `high` for review. Cursor retains
 Gemini 3.8 Flash `low` and Grok 4.7 `medium`/`high` for the same respective groups.
 
@@ -40,8 +40,8 @@ The naming-only reviewer receives the economy helper suggestion while remaining 
 and specialist nodes start with the core suggestion. Supervisor recommendation uses the review
 suggestion; publication starts with the helper suggestion. Consolidation remains in the primary
 thread. These task-adjustable defaults are user preferences, not evaluated quality/cost claims.
-Codex revision 11 instead assigns Muse `xhigh` to impact mapping, both fixed research nodes,
-naming review, and the independent Test Engineer. All other worker nodes, simplification,
+Codex revisions 11 and 12 assign Muse `xhigh` to impact mapping, naming review, and the
+independent Test Engineer. Historical research nodes also use that default. Other worker nodes, simplification,
 and the Supervisor recommendation use GPT-6.1 Sol `xhigh`. Publication and direct helpers
 retain Sol `low`.
 For both Codex catalogs, the preview's `economy_fanout_option` names GPT-6.1 Sol / low. The helper
@@ -49,6 +49,10 @@ allowance must bind the economy pair separately; graph-node overrides do not cha
 
 Before initialization, present the actual execution sequence and relevant/conditional roles,
 each model and effort, helper allowance, alternatives, assumptions, and availability gaps.
+With `design_workflow_version: 1`, skip the two `design_research_*` entries marked
+`legacy research workflow only` in the operational summary and host availability checks. They
+remain in the approved canonical plan. Historical plans keep their original research checks.
+Verify the bound pair for each dispatch.
 Invite changes and show the revised plan before approval. Use this optional field in task-brief
 v2/v3 to record selections (node keys, not role-profile names):
 
@@ -57,7 +61,7 @@ New delivery plans list `code_reviewer`, `code_reviewer_architecture`, `code_rev
 Each can have its own override. Bug hunting requires `review-bugbot` on Cursor, `review-agent`
 on Codex, or the repository-owned [bug-hunter-review](../../bug-hunter-review/SKILL.md) on Claude.
 Verify the selected skill source; skill selection does not change the approved model or effort.
-The naming default is Muse Spark 1.3 / xhigh on Codex revision 11, GPT-6.1 Sol / low on
+The naming default is Muse Spark 1.3 / xhigh on Codex revisions 11 and 12, GPT-6.1 Sol / low on
 the explicit Astra catalog, Sonnet 5.5 / low on Claude, and Gemini 3.8 Flash / low on Cursor.
 The other three retain the review recommendation.
 Present all four focuses, models, and efforts
@@ -77,8 +81,6 @@ plans do not gain this dispatch. See [Simplification review](simplification-revi
   "senior_engineer": {"model": "gpt-6.1-sol", "reasoning_effort": "xhigh"},
   "supervisor_recommendation": {"model": "gpt-6.1-sol", "reasoning_effort": "xhigh"},
   "impact_mapper": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
-  "design_research_architecture": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
-  "design_research_validation": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
   "code_reviewer_naming": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
   "test_engineer": {"model": "opencode-go/muse-spark-1.3-contributor", "reasoning_effort": "xhigh"},
   "publication_assignment": {"model": "gpt-6.1-sol", "reasoning_effort": "low"}
@@ -87,7 +89,7 @@ plans do not gain this dispatch. See [Simplification review](simplification-revi
 
 Each omitted entry retains its recommendation. Unknown nodes, malformed selections, inherited
 worker models, unsupported harness/model/effort pairs, and cross-provider mismatches are rejected.
-Muse is the one explicit cross-provider exception in Codex catalog revisions 9 through 11. It cannot be the
+Muse is the one explicit cross-provider exception in Codex catalog revisions 9 through 12. It cannot be the
 Supervisor recommendation because the CLI cannot switch the primary thread.
 The preview lists `model_options` for deliberate selection. The supported set is separate from
 the recommendation matrix, so Astra, GPT-6 Sol, and GPT-6 Luna remain selectable without changing
@@ -116,6 +118,40 @@ Changing selections then requires a new run and approval. Never edit stored task
 reset consumed budgets to obtain another retry. An unavailable selected model blocks only that
 dispatch while the Supervisor proposes an alternative for approval. Never silently substitute.
 Approval establishes permission, not runtime capability.
+
+## GPT-6.2 pilot
+
+Codex catalog revision 12 offers native `gpt-6.2-sol` and `gpt-6.2-astra` with
+`low`, `medium`, `high`, `xhigh`, `max`, and `ultra`. Start with Sol for ordinary
+implementation and supervision and consider Astra for demanding design or diagnosis. The
+catalog keeps existing recommendations until the pilot supplies evidence. Use task-brief v2 or
+v3 overrides to preview exact native assignments before approval.
+
+```json
+{
+  "supervisor_recommendation": {"model": "gpt-6.2-sol", "reasoning_effort": "high"},
+  "senior_engineer": {"model": "gpt-6.2-sol", "reasoning_effort": "high"},
+  "tech_lead": {"model": "gpt-6.2-astra", "reasoning_effort": "xhigh"}
+}
+```
+
+Use these entries inside `model_overrides`. Select the model on the primary thread for the
+Supervisor and verify the exact native model and effort at every worker dispatch. Conditional
+reviewer fan-out keeps its separately approved model and weight table.
+
+To evaluate the design workflow, compare matched cases on the same repository snapshot, scope,
+route, model and effort for corresponding roles, and validation commands. Compare the historical
+research-pair workflow with direct Tech Lead research. Record end-to-end elapsed wall time,
+available token usage, missed assumptions, and ensuing rework. Record actual billed cost when
+available. Otherwise report a labeled estimate from per-model usage and rates with an as-of date.
+Mark cost unavailable if the usage or rates needed for an estimate are missing. Record the
+historical pair's separate assignments as part
+of that workflow. New production runs use direct design. Use an isolated evaluation harness to
+reconstruct a legacy-topology comparison plan with the same catalog. Keep any plan creation and
+live dispatch subject to independent approval. The catalog change supplies no measured savings.
+
+Official model references: [GPT-6.2 Astra and Sol announcement](https://openai.com/index/introducing-gpt-6-2-astra-sol/)
+and [model documentation](https://learn.chatgpt.com/docs/models).
 
 ## Helpers and native roles
 

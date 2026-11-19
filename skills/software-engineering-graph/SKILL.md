@@ -92,15 +92,20 @@ task, prompt, environment variable, or agent self-report. Use a trusted host run
 ask the human. Pass `--host claude` to `init` when running in Claude Code and `--host cursor` when
 running in Cursor; omit it or pass `--host codex` for the default Codex catalog.
 Use `--host codex-astra` only when the human selects the Astra recommendations.
-Verify that the host supports every planned model and effort. Changing catalog is a new plan.
+Verify host support for the exact model and effort of each operational assignment, including
+conditional roles. For `design_workflow_version: 1`, exclude only
+`design_research_architecture` and `design_research_validation` from availability checks and the
+operational summary. Their `legacy research workflow only` entries stay in the canonical plan
+and cannot dispatch. Plans without the version check those assignments where the historical route
+uses them. Changing catalog requires a new plan.
 Before choosing or dispatching a catalog, read [Model catalogs](references/model-catalogs.md).
 
-Present model assignments as recommendations, not prerequisites. Default Codex catalog revision 11
+Present model assignments as recommendations, not prerequisites. Default Codex catalog revision 12
 suggests these assignments:
 
 | Assignments | Model | Effort |
 | --- | --- | --- |
-| Impact mapping, both fixed research roles, naming review, independent testing | Muse Spark 1.3 | `xhigh` |
+| Impact mapping, naming review, independent testing | Muse Spark 1.3 | `xhigh` |
 | Design, implementation, simplification, other reviews and specialists | GPT-6.1 Sol | `xhigh` |
 
 The Supervisor recommendation is GPT-6.1 Sol `xhigh`; consolidation stays in the primary thread.
@@ -114,6 +119,8 @@ Both Codex catalogs also offer native `gpt-6.1-terra` at `low`, `medium`, `high`
 `max`, and `ultra` as explicit selections since revision 10. These are observed native host settings,
 not evidence of account availability, API support, live worker success, quality, or savings.
 Terra has no conditional reviewer fan-out weight; prior catalog generations remain frozen.
+Codex revision 12 also offers native GPT-6.2 Sol and Astra as explicit selections. See
+[the GPT-6.2 pilot](references/model-catalogs.md#gpt-62-pilot) for the suggested roles and comparison.
 Claude revision 4 suggests Sonnet 5.5 `low` for helpers,
 Opus 5.5 `medium` for core work and `high` for review. Cursor suggests Gemini 3.8 Flash `low`
 for helpers, Grok 4.7 `medium` for core work and `high` for review in revision 5, with Claude 5.5 alternatives. These are human-selected
@@ -132,7 +139,7 @@ A preferred model being unavailable is a reason to propose an available alternat
 the default. Verify the selected pair before dispatch. Never silently substitute a different pair.
 
 Missing catalog revisions, prior explicit revisions, assignments, and approvals reconstruct unchanged.
-New Codex revision 11, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require an engine supporting those revisions. Role TOML pins are Codex installation
+New Codex revision 12, Astra revision 10, Claude revision 4, and Cursor revision 5 plans require an engine supporting those revisions. Role TOML pins are Codex installation
 defaults only, not cross-harness requirements. Dispatch a supported fresh equivalent-contract agent
 when a named profile does not match the approved plan. Models listed as options are not proof of
 runtime availability or live cross-harness delegation.
@@ -182,7 +189,7 @@ agents receive only their claimed envelope; resume settles every running attempt
 explicit fenced timeout; and platform degradation acknowledgments grant no authority.
 
 Then read the operation-relevant section of [Ledger operations](references/ledger-operations.md):
-`Start a run` for initialization, approval, research fan-out, and platform acknowledgments;
+`Start a run` for initialization, approval, and platform acknowledgments;
 `Instruction-level helpers` or `Optional reviewer delegation` before those paths; `Operate the
 ledger` for claim, record, join, retry, resume, abort, or completion; and `Token accounting at phase
 handoffs` for usage commands. The first branch is always the Impact Mapper. Direct evidence children
@@ -360,7 +367,7 @@ Resolve model and effort from the approved execution plan. The plan names the ho
 the role intelligence-class matrix with that catalog's vendor mapping and revision overrides.
 Native Codex role profiles use GPT-6.1 Sol `xhigh` for core and review roles, including the
 standalone Test Engineer. The native Impact Mapper and optional helpers retain Sol `low`.
-Revision 11 graph assignments for impact mapping, research, naming, and testing use Muse through
+Codex revision 11 and 12 assignments for impact mapping, naming, and testing use Muse through
 OpenCode CLI. Native pins are not fallbacks for those assignments. A different approved native
 selection may require a supported fresh agent with the same role contract.
 These pins do not override the human's selected model/effort. If a value is not exposed, report it
@@ -386,19 +393,18 @@ Select one of the five executable routes. Every route begins with the Impact Map
 its engine-defined joins and Supervisor consolidation. This mapping is authoritative:
 
 - `advisory`: answer, diagnosis, or review only; a read-only advisory reviewer, then closure. No implementation.
-- `design_only`: research pair, Tech Lead, Architect and required design specialists, then design closure.
+- `design_only`: Tech Lead, Architect and required design specialists, then design closure.
 - `fast_path`: documentation or clearly mechanical changes that cannot affect production behavior,
   dependencies, data, security, operations, or user experience; Senior Engineer, Code Reviewer,
-  Test Engineer and required delivery specialists. Initial research and design gates are omitted.
+  Test Engineer and required delivery specialists.
 - `delivery_only`: implementation-ready work whose immutable v2 or v3 task brief identifies the
   authoritative requirements source and asserts complete requirements and acceptance criteria,
   resolved implementation and architecture decisions, and no unresolved items. Risk must be low or
   medium; scope must be bounded or cross-file; uncertainty must be low or medium; security/privacy
   impact and unresolved human decisions are forbidden. Senior Engineer, Code Reviewer, Test Engineer,
-  and required delivery specialists run; initial research and design gates are omitted.
+  and required delivery specialists run.
 - `full_delivery`: implementation with unresolved design work or ineligible delivery-only risk;
-  research
-  pair, Tech Lead, Architect and required design specialists, Senior Engineer, Code Reviewer,
+  Tech Lead, Architect and required design specialists, Senior Engineer, Code Reviewer,
   Test Engineer and required delivery specialists.
 
 Record the selected route and why it applies; omit roles only as specified by that route. A detailed
@@ -425,8 +431,9 @@ role, topology, ledger state, scheduler, executor, or token reducer.
 
 Then apply these route rules:
 
-- Every initial design route, design `REVISE`, and delivery `REDESIGN` creates the same-generation
-  research pair before its next Tech Lead. Advisory and initial fast-path routes remain direct.
+- New execution plans bind `design_workflow_version: 1`. An initial design route, design `REVISE`,
+  or delivery `REDESIGN` opens a Tech Lead branch for the new design generation.
+- Plans without the marker keep their fixed research pair and collection before each Tech Lead.
 - A fast-path or delivery-only `REDESIGN` runs fresh design gates, then returns to a fresh Senior
   Engineer and delivery generation without changing the immutable route floor.
 
@@ -441,10 +448,11 @@ Read only the relevant section of [Workflow operations](references/workflow-oper
 creating a brief, running a design or repair loop, coordinating delivery review, or closing. The
 reference contains detailed packets and mechanics; the gates below remain mandatory.
 
-Every initial design generation, design `REVISE`, and delivery `REDESIGN` runs the fixed
-architecture/validation research pair before the next Tech Lead. The Supervisor seals that evidence,
-then the Tech Lead designs. The Architect and required specialists independently approve, revise, or
-block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
+The Tech Lead inspects relevant repository files, tests, and official documentation within its
+approved scope and budget. Cite evidence that drives architecture or validation choices and record
+consequential unresolved assumptions or access gaps. The approved optional `evidence_scout` may
+answer a named independent question. The Architect and required specialists independently approve,
+revise, or block. Limit design to two revision rounds. After the second unsuccessful revision, block and return
 the unresolved decision to the Supervisor or human. Begin implementation only after required design approval.
 
 Each phase has its own finding dispositions. Design findings use `approve`, `revise`, or `block`.
@@ -454,8 +462,8 @@ Delivery findings use `accept`, `repair`, `redesign`, or `block`. An out-of-scop
 Do not block a design because existing code has a defect that the task can repair. Use design
 `REVISE` only when the approved design needs a correction. Otherwise, approve the design so it
 reaches the Senior Engineer, and report the defect at delivery as `REVISE` with a `repair` finding.
-Delivery `REPAIR` starts a new Senior Engineer attempt and a retest. `REDESIGN` returns the work to
-the design research pair. Use `BLOCK` only for an in-scope condition that is unsafe, unauthorized, or
+Delivery `REPAIR` starts a new Senior Engineer attempt and a retest. `REDESIGN` starts a new design
+generation. Use `BLOCK` only for an in-scope condition that is unsafe, unauthorized, or
 unresolved and that stops safe progress.
 
 The Senior Engineer is the sole source/test writer. Every implementation and repair applies

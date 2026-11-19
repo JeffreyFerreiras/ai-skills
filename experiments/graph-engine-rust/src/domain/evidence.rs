@@ -88,6 +88,8 @@ pub fn kind_policy<'a>(kind: &Value, record: &'a Value) -> ValidationResult<&'a 
         _ => Err(ContractError::new("artifact_kind", "UNKNOWN_ARTIFACT_KIND").into()),
     }
 }
+pub const DESIGN_EVIDENCE_PAGE_BYTES: usize = 2 * 1024 * 1024;
+
 pub fn artifact_size_limit(kind: &Value, record: &Value) -> ValidationResult<BigInt> {
     let kind_config = kind_policy(kind, record)?;
     let engine = kind

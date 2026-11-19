@@ -7,7 +7,8 @@ use super::{
     graph_delivery::{attach_delivery_repair_packet, bind_review_source, verified_review_source},
     graph_ledger::GraphRead,
     graph_nodes::{
-        insert_collection_successors, insert_join_spec, insert_spec, task_input, SuccessorTopology,
+        insert_collection_successors, insert_design_generation, insert_join_spec, insert_spec,
+        task_input, SuccessorTopology,
     },
     graph_payload::branch_result_input,
     graph_writes::GraphWrite,
@@ -281,15 +282,14 @@ fn advance_consolidation(
         } else {
             (generation + 1, &design_inputs)
         };
-        let specs = planner::design_research_nodes(&loaded.policy, generation)?;
-        let collection = planner::collection_join("research", generation, specs);
-        topology = insert_collection_successors(
+        topology = insert_design_generation(
             session,
             run,
             loaded,
             context,
-            &collection,
+            generation,
             inputs,
+            consolidation,
             claims.source_files,
         )?;
         session.write(

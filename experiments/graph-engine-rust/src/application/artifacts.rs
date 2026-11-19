@@ -241,11 +241,15 @@ impl ArtifactResolver<'_> {
         })
     }
     pub fn reverify_artifact(&self, artifact: &Value) -> EngineResult<()> {
-        evidence::enforce_artifact_size(
-            item(artifact, "kind")?,
-            item(artifact, "size_bytes")?,
-            self.policy,
-        )?;
+        let kind = item(artifact, "kind")?;
+        let size = item(artifact, "size_bytes")?;
+        if kind.is_text("design_evidence") && item(artifact, "source_type")?.is_text("ledger") {
+            if !size.as_i64().is_some_and(|size| (0..=evidence::DESIGN_EVIDENCE_PAGE_BYTES as i64).contains(&size)) {
+                return Err(ContractError::new("artifact_ref", "INVALID_DESIGN_EVIDENCE_SIZE").into());
+            }
+        } else {
+            evidence::enforce_artifact_size(kind, size, self.policy)?;
+        }
         if item(artifact, "source_type")?.is_text("ledger") {
             let content = item(artifact, "content_json")?;
             if matches!(content, Value::Null) {

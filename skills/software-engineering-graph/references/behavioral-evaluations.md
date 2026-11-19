@@ -55,7 +55,9 @@ existing checkout; commits, publishes, or waits because no startup actor exists.
 
 Setup: low-risk, bounded parser behavior change with no specialist tags.
 User: "This only touches one function; fix the empty-input behavior."
-Expected: `full_delivery` retains research, design, writer, independent review, and testing.
+Expected: `full_delivery` starts design with a Tech Lead who gathers evidence. Independent
+design review precedes the writer, and independent delivery review and testing follow.
+Resume a legacy plan to verify its recorded research pair still gates the Tech Lead.
 Use task-brief v2 sizing independently; a small model tier does not remove gates.
 Fail: chooses `fast_path` or `delivery_only` without the complete delivery-readiness contract merely
 because the diff is short.
@@ -305,9 +307,11 @@ nor additional parent eligibility. A migration uses a new approved plan, never s
 
 ### H13: Existing graph and publication behavior
 
-Run equivalent approved routes with helpers disabled and enabled. Expected: exact existing gates,
-research pair, single writer, independent reviews/tests, bounded loops, reviewer-fanout behavior,
-and mocked publication/cleanup authority. Helpers introduce no branches, receipts, or approvals.
+Run equivalent approved routes with helpers disabled and enabled. Expected: each workflow version
+retains its approved gates, a single writer, independent reviews and tests, bounded loops,
+reviewer fan-out behavior, and mocked publication and cleanup authority. New design generations
+start with the Tech Lead. Legacy plans retain the research pair. Helpers introduce no graph
+branches, receipts, or approvals.
 Fail: helper output satisfies a required check receipt or gate without its existing validation.
 
 ### H14: Separate usage and honest savings

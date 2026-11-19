@@ -7,10 +7,12 @@ mod planner_case;
 
 use graph_engine::{
     application::{
+        graph_cli::ExecuteOutcome,
         error::EngineError,
         execution_validation::validate_execution_plan,
         graph_fanout,
         graph_ledger::{GraphLedgerReadPort, GraphRead},
+        persistent_store::StateStore,
         semantic_state::{verify_resume, verify_semantic_state},
         state::GraphSession,
     },
@@ -22,7 +24,7 @@ use planner_case::{
     approve_plan, contract_failure, initialize, initialize_historical, resume, task_v2,
     HistoricalPlan,
 };
-use std::fs;
+use std::{cell::Cell, fs};
 
 #[test]
 fn test_new_codex_and_cursor_writer_assignment_survives_resume_and_claim() {
@@ -121,6 +123,102 @@ fn test_legacy_astra_pending_and_approved_plans_keep_original_digest() {
     assert!(initialized["execution_plan_digest"].py_eq(&legacy["plan_digest"]));
     approve_plan(&case, &legacy["plan_digest"], "legacy-approval").unwrap();
     verify();
+}
+
+#[test]
+fn exact_historical_init_replays_original_plan_and_rejects_changed_size() {
+    let case = HardeningCase::stock();
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    let initialized = initialize_historical(
+        &case, &task, "codex-astra", Some("small"), HistoricalPlan::LegacyCatalog,
+    );
+    let replay = initialize(&case, &task, Some("codex-astra"), Some("small"), false).unwrap();
+    assert!(replay["code"].is_text("REPLAYED"));
+    assert!(replay["execution_plan"].py_eq(&initialized["execution_plan"]));
+    assert!(replay["execution_plan_digest"].py_eq(&initialized["execution_plan_digest"]));
+    assert!(matches!(
+        initialize(&case, &task, Some("codex-astra"), Some("medium"), false),
+        Err(EngineError::State(error)) if error.code == "OPERATION_CONFLICT"
+    ));
+}
+
+#[test]
+fn exact_historical_init_replays_when_approval_commits_between_reads() {
+    let case = HardeningCase::stock();
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    let initialized = initialize_historical(
+        &case, &task, "codex-astra", Some("small"), HistoricalPlan::LegacyCatalog,
+    );
+    let digest = &initialized["execution_plan_digest"];
+    let approved = Cell::new(false);
+    let interleave_approval = |point: &str| {
+        if point == "before_init_replay_plan_read" {
+            assert!(!approved.replace(true));
+            let result = approve_plan(&case, digest, "racing-approval")?;
+            assert!(result["code"].is_text("EXECUTION_PLAN_APPROVED"));
+        }
+        Ok(())
+    };
+    let original = &case.fixture.graph.store;
+    let store = StateStore {
+        state_root: original.state_root.clone(),
+        platform: original.platform,
+        database: original.database,
+        fault: &interleave_approval,
+    };
+    let repo = &case.fixture.graph.repository;
+    let path = repo.join("docs/task.json");
+    let arguments = [
+        "--repo", repo.to_str().unwrap(), "--ack-degraded-permissions", "--ack-degraded-durability",
+        "init", "--run-id", "RUN-1", "--task-brief", path.to_str().unwrap(), "--op-id", "init-1",
+        "--size", "small", "--host", "codex-astra",
+    ].map(Into::into);
+    let outcome = case.fixture.execute_with_store(&arguments, &store).unwrap();
+    let ExecuteOutcome::Response { result: replay, exit_code: 0 } = outcome else {
+        panic!("expected successful initialization replay");
+    };
+    assert!(approved.get());
+    assert!(replay["code"].is_text("REPLAYED"));
+    assert!(replay["execution_plan"].py_eq(&initialized["execution_plan"]));
+    assert!(replay["execution_plan_digest"].py_eq(digest));
+    let status = case.status().unwrap();
+    assert!(status["execution_plan"]["status"].is_text("approved"));
+    assert!(status["execution_plan"]["plan_digest"].py_eq(digest));
+    assert_eq!(status["state_revision"].as_i64(), Some(2));
+}
+
+#[test]
+fn design_workflow_uses_exact_revision_one_receipt() {
+    let case = HardeningCase::stock();
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    let original = case.fixture.initialize(&task, false).unwrap();
+    for invalid in [None, Some(Value::Null), Some(true.into()), Some(Value::Float(1.0)), Some(2_i64.into())] {
+        let mut reply = original.clone();
+        let mut plan = reply["execution_plan"].clone();
+        match invalid {
+            Some(value) => plan.set("design_workflow_version", value),
+            None => { plan.remove("design_workflow_version"); }
+        }
+        reply.set("execution_plan", plan);
+        assert_init_receipt_rejected(&case, &reply);
+    }
+    let mut malformed = original.clone();
+    malformed.set("execution_plan", Value::list([]));
+    assert_init_receipt_rejected(&case, &malformed);
+    let mut relabeled = original;
+    relabeled.set("code", "BRANCH_RESULT_RECORDED".into());
+    assert_init_receipt_rejected(&case, &relabeled);
+}
+
+fn assert_init_receipt_rejected(case: &HardeningCase, reply: &Value) {
+    case.fixture.with_session(|session, _| {
+        session.execute_values(
+            "UPDATE operations SET response_json=? WHERE resulting_revision=1",
+            &[String::from_utf8(ids::canonical_bytes(reply)?).unwrap().into()],
+        )?;
+        Ok(())
+    }).unwrap();
+    assert!(matches!(case.status(), Err(EngineError::State(error)) if error.code == "EXECUTION_PLAN_STATE_INVALID"));
 }
 
 #[test]

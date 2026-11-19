@@ -27,6 +27,10 @@ fn finding(id: &str, disposition: &str, scope: Option<&str>) -> Value {
 fn design_to_reviews(case: &mut HardeningCase, mode: &str, route: &str) {
     let task = case.fixture.graph.task(mode, route, &[]);
     case.fixture.initialize(&task, true).unwrap();
+    begin_design_reviews(case, route);
+}
+
+fn begin_design_reviews(case: &mut HardeningCase, route: &str) {
     case.impact(route);
     let tech = case.claim();
     assert!(tech["node_key"].is_text("tech_lead"));
@@ -65,7 +69,7 @@ fn used(status: &Value, budget: &str) -> Value {
 fn test_design_routes_gate_tech_lead_on_bounded_research_collection() {
     let mut case = HardeningCase::golden();
     let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
-    case.fixture.initialize(&task, true).unwrap();
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
     case.impact("full_delivery");
     let status = case.status().unwrap();
     assert!(status["next_action"]["kind"].is_text("record_fanout_assessment"));
@@ -102,16 +106,16 @@ fn test_design_routes_gate_tech_lead_on_bounded_research_collection() {
                 "impact_mapper".into(),
                 0,
                 "ready".into(),
-                "gpt-6.1-sol".into(),
-                "low".into()
+                graph_engine::domain::hosts::MUSE_MODEL.into(),
+                "xhigh".into()
             ),
             (
                 "design_research_validation".into(),
                 "impact_mapper".into(),
                 0,
                 "ready".into(),
-                "gpt-6.1-sol".into(),
-                "low".into()
+                graph_engine::domain::hosts::MUSE_MODEL.into(),
+                "xhigh".into()
             ),
         ]
     );
@@ -290,7 +294,9 @@ fn test_design_rejects_delivery_repair_disposition() {
 #[test]
 fn test_golden_revise_activates_only_next_design_generation() {
     let mut case = HardeningCase::golden();
-    design_to_reviews(&mut case, "delivery", "full_delivery");
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
+    begin_design_reviews(&mut case, "full_delivery");
     record_design_review(&mut case, "REVISE", Some("ARCH-001"));
     case.consolidate(
         "design",
@@ -336,6 +342,83 @@ fn test_golden_revise_activates_only_next_design_generation() {
 }
 
 #[test]
+fn inline_revision_resumes_to_the_exact_next_lead_and_rejects_a_missing_witness() {
+    let mut case = HardeningCase::golden();
+    design_to_reviews(&mut case, "design_only", "design_only");
+    let architect = case.claim();
+    let report_kind = architect["output_contract"]["artifact_kind"].text().unwrap();
+    let report = case.repo_artifact(&report_kind, "architecture-report");
+    let evidence = case.repo_artifact("finding", "revision-evidence");
+    case.record_as(&architect, Value::object([
+        ("schema_version", 1_i64.into()),
+        ("run_id", "RUN-1".into()),
+        ("branch_id", architect["branch_id"].clone()),
+        ("status", "succeeded".into()),
+        ("output_kind", report_kind.into()),
+        ("artifact_ref", report.clone()),
+        ("decision", "REVISE".into()),
+        ("evidence", Value::list([evidence.clone()])),
+        ("findings", Value::list([finding("ARCH-001", "revise", None)])),
+    ]), "design-revision-report").unwrap();
+    case.advance("design_collection");
+    case.consolidate("design", "REVISE", 0, vec![finding("ARCH-001", "revise", None)]);
+    let result = case.advance("design_consolidation");
+    assert!(result["outcome"].is_text("REVISE"));
+    assert!(!result["created_join_ids"].truthy());
+    assert!(!result["created_fanout_ids"].truthy());
+    let resumed = case.run(&["resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability"]).unwrap();
+    assert!(resumed["next_action"]["kind"].is_text("claim"));
+    let lead = case.claim_raw().unwrap();
+    assert!(lead["node_key"].is_text("tech_lead"));
+    assert_eq!(lead["generation"].as_i64(), Some(1));
+    assert!(result["successor_branch_ids"].py_eq(&Value::list([lead["branch_id"].clone()])));
+    let inputs = lead["inputs"].as_list().unwrap();
+    assert!(inputs.iter().any(|input| input["kind"].is_text("technical_design")));
+    assert!(inputs.iter().any(|input| input["kind"].is_text("branch_result")));
+    let revision = &inputs.iter().find(|input| input["content"]["kind"].is_text("design_evidence")).unwrap()["content"];
+    assert!(revision["finding_dispositions"].py_eq(&Value::list([finding("ARCH-001", "revise", None)])));
+    let source = &revision["reports"].as_list().unwrap()[0];
+    assert!(source["evidence"].py_eq(&Value::list([evidence])));
+    assert!(source["artifact_ref"].py_eq(&report));
+    let mut tampered = result.clone();
+    tampered.set("successor_branch_ids", Value::list([]));
+    case.fixture.with_session(|session, _| {
+        session.execute_values(
+            "UPDATE operations SET response_json=? WHERE resulting_revision=?",
+            &[
+                String::from_utf8(ids::canonical_bytes(&tampered)?).unwrap().into(),
+                result["state_revision"].clone(),
+            ],
+        )?;
+        Ok(())
+    }).unwrap();
+    assert!(matches!(case.status(), Err(EngineError::State(error)) if error.code == "TOPOLOGY_HISTORY_INVALID"));
+    case.fixture.tear_down();
+}
+
+#[test]
+fn revision_requires_its_prior_design_after_the_new_design_finishes() {
+    let mut case = HardeningCase::golden();
+    design_to_reviews(&mut case, "design_only", "design_only");
+    record_design_review(&mut case, "REVISE", Some("ARCH-001"));
+    case.consolidate("design", "REVISE", 0, vec![finding("ARCH-001", "revise", None)]);
+    case.advance("design_consolidation");
+    let lead = case.claim();
+    assert_eq!(lead["generation"].as_i64(), Some(1));
+    case.success(&lead);
+    case.advance_at("design_inputs", 1);
+    let architect = case.claim();
+    case.success_with(&architect, Some("APPROVE"), vec![]).unwrap();
+    case.advance_at("design_collection", 1);
+    case.consolidate("design", "APPROVE", 1, vec![]);
+    case.advance_at("design_consolidation", 1);
+    let resume = ["resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability"];
+    assert!(case.run(&resume).unwrap()["next_action"]["kind"].is_text("advance_join"));
+    case.remove_branch_input(&lead, "technical_design");
+    assert!(matches!(case.run(&resume), Err(EngineError::State(error)) if error.code == "TOPOLOGY_EDGE_INVALID"));
+}
+
+#[test]
 fn test_zero_design_and_repair_budgets_block_at_exact_boundary() {
     let mut case = HardeningCase::golden();
     case.edit_policy(|policy| {
@@ -355,6 +438,36 @@ fn test_zero_design_and_repair_budgets_block_at_exact_boundary() {
     assert!(result["outcome"].is_text("BLOCK"));
     assert!(case.status().unwrap()["status"].is_text("blocked"));
     case.fixture.tear_down();
+}
+
+#[test]
+fn large_design_revision_ignores_user_evidence_manifest_limit() {
+    let mut case = HardeningCase::golden();
+    case.edit_policy(|policy| {
+        let mut kinds = policy["artifact_kinds"].clone();
+        let mut kind = kinds["evidence_manifest"].clone();
+        kind.set("max_bytes", 1024_i64.into());
+        kinds.set("evidence_manifest", kind);
+        policy.set("artifact_kinds", kinds);
+    });
+    design_to_reviews(&mut case, "design_only", "design_only");
+    let findings = (0..300).map(|index| {
+        finding(&format!("ARCH-{index:03}{}", "1".repeat(510)), "revise", None)
+    }).collect::<Vec<_>>();
+    assert!(ids::canonical_bytes(&Value::List(findings.clone())).unwrap().len() > 150 * 1024);
+    let architect = case.claim();
+    case.success_with(&architect, Some("REVISE"), findings.clone()).unwrap();
+    case.advance("design_collection");
+    case.consolidate("design", "REVISE", 0, findings.clone());
+    let advanced = case.advance("design_consolidation");
+    let lead = case.claim_raw().unwrap();
+    assert!(advanced["successor_branch_ids"].py_eq(&Value::list([lead["branch_id"].clone()])));
+    let pages = lead["inputs"].as_list().unwrap().iter()
+        .filter(|item| item["kind"].is_text("design_evidence")).collect::<Vec<_>>();
+    assert_eq!(pages.len(), 1);
+    let report = &pages[0]["content"]["reports"].as_list().unwrap()[0];
+    assert!(report["findings"].py_eq(&Value::List(findings)));
+    assert!(pages[0]["size_bytes"].as_i64().unwrap() > 128 * 1024);
 }
 
 #[test]

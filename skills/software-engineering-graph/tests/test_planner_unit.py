@@ -11,7 +11,7 @@ from graph_engine.hosts import (
     SUPPORTED_CATALOG_REVISIONS,
 )
 from graph_engine.ids import stable_id
-from graph_engine.planner import validate_fanout_ordering, effective_role_capabilities
+from graph_engine.planner import validate_fanout_ordering, effective_role_capabilities, planned_role_capabilities
 
 from tests.test_support import TaskCase
 
@@ -63,6 +63,26 @@ EXPECTED_SIZE_ASSIGNMENTS = {
 
 
 class PlannerUnitTests(TaskCase):
+    def test_only_direct_design_inherits_task_approved_mapper_reads(self):
+        policy = json.loads(self.policy_bytes)
+        task = self.task_v2()
+        mapper_only = [
+            policy["role_capabilities"]["impact_mapper"][0],
+            policy["role_capabilities"]["impact_mapper"][1],
+        ]
+        lead_write = policy["role_capabilities"]["tech_lead"][-1]
+        writer_command = policy["role_capabilities"]["senior_engineer"][-1]
+        policy["role_capabilities"]["tech_lead"].remove(mapper_only[0])
+        task["authority"]["capabilities"] = [*mapper_only, lead_write, writer_command]
+        plan = build_execution_plan("RUN-1", task)
+        actual = planned_role_capabilities(policy, task, "tech_lead", plan)
+        self.assertCountEqual(actual, [*mapper_only, lead_write])
+        legacy = dict(plan)
+        del legacy["design_workflow_version"]
+        self.assertEqual(planned_role_capabilities(policy, task, "tech_lead", legacy), [lead_write])
+        self.assertEqual(planned_role_capabilities(policy, task, "impact_mapper", plan),
+                         planned_role_capabilities(policy, task, "impact_mapper", legacy))
+
     def test_terra_selections_cover_native_assignments_without_delegation_weights(self):
         for host in ("codex", "codex-astra"):
             for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
@@ -89,7 +109,7 @@ class PlannerUnitTests(TaskCase):
                     self.assertIsNone(dispatch_weight_for("gpt-6.1-terra", effort))
                     self.assertNotIn(("gpt-6.1-terra", effort), supported_dispatch_weights())
                     for revision in SUPPORTED_CATALOG_REVISIONS[host]:
-                        if revision in {10, 11}:
+                        if revision >= 10:
                             continue
                         with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
                             selected_dispatch_model(host, "gpt-6.1-terra", effort, revision)
@@ -576,7 +596,7 @@ class PlannerUnitTests(TaskCase):
             plan = build_execution_plan("RUN-1", self.task(), size)
             self.assertEqual(plan, build_execution_plan("RUN-1", self.task(), size, host="codex"))
             self.assertEqual(plan["host"], "codex")
-            self.assertEqual(plan["catalog_revision"], 11)
+            self.assertEqual(plan["catalog_revision"], 12)
             for row in plan["assignments"]:
                 if row["role"] == "supervisor":
                     self.assertEqual((row["model"], row["reasoning_effort"]), ("primary-thread", "inherited"))
@@ -595,6 +615,37 @@ class PlannerUnitTests(TaskCase):
             self.assertEqual(plan["publication_assignment"]["reasoning_effort"], "low")
             self.assertEqual(plan["helper_recommendation"], {"model": "gpt-6.1-sol", "reasoning_effort": "low"})
             self.assertEqual(plan, reconstruct_execution_plan("RUN-1", self.task(), plan, size))
+
+    def test_current_codex_catalog_selects_native_62_exactly(self):
+        for model in ("gpt-6.2-sol", "gpt-6.2-astra"):
+            for effort in ("low", "medium", "high", "xhigh", "max", "ultra"):
+                with self.subTest(model=model, effort=effort):
+                    task = self.task_v2()
+                    task["model_overrides"] = {"tech_lead": {"model": model, "reasoning_effort": effort}}
+                    plan = build_execution_plan("RUN-1", task)
+                    assignment = assignment_for(plan, "tech_lead")
+                    self.assertEqual(
+                        (assignment["model"], assignment["reasoning_effort"], assignment["dispatch_model"]),
+                        (model, effort, model),
+                    )
+                    self.assertNotIn("dispatch_runtime", assignment)
+                    self.assertEqual(plan, reconstruct_execution_plan("RUN-1", task, plan))
+                    with self.assertRaisesRegex(ValueError, "MODEL_ASSIGNMENT_INVALID"):
+                        reconstruct_execution_plan("RUN-1", task, {"host": "codex", "catalog_revision": 11})
+
+    def test_design_workflow_marker_is_digest_bound_and_strict(self):
+        task = self.task_v2()
+        plan = build_execution_plan("RUN-1", task)
+        self.assertEqual(plan["design_workflow_version"], 1)
+        for marker in (None, True, 1.0, "1", 0, 2):
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(ValueError, "DESIGN_WORKFLOW_VERSION_INVALID"):
+                    reconstruct_execution_plan("RUN-1", task, {**plan, "design_workflow_version": marker})
+        legacy = dict(plan)
+        del legacy["design_workflow_version"]
+        rebuilt = reconstruct_execution_plan("RUN-1", task, legacy)
+        self.assertNotIn("design_workflow_version", rebuilt)
+        self.assertNotEqual(plan["plan_digest"], rebuilt["plan_digest"])
 
     def test_revision_ten_digests_and_muse_routes_remain_exact(self):
         digests = {
@@ -759,7 +810,8 @@ class PlannerUnitTests(TaskCase):
                                                  {"host": host, "catalog_revision": revision,
                                                   "code_review_panel_version": 1,
                                                   "simplification_review_version": 1,
-                                                  "capability_projection_version": 1})
+                                                  "capability_projection_version": 1,
+                                                  "design_workflow_version": 1})
             self.assertEqual(revised, build_execution_plan("RUN-1", self.task(), host=host))
 
     def test_historical_delegation_plan_reconstructs_without_catalog_upgrade(self):

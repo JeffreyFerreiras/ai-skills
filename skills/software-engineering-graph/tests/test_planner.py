@@ -398,7 +398,9 @@ class PlannerTests(GraphCase):
             }
 
     def _full_delivery_topology_trace(self, size):
-        initialized = self.initialize_task(self.task_v2(), size=size, approve=False, host="codex")
+        initialized = self.initialize_task(
+            self.task_v2(), size=size, approve=False, host="codex", legacy_research=True,
+        )
         assignments = {
             item["node_key"]: (
                 item["role"], item["intelligence_class"], item["model"],

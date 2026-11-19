@@ -51,6 +51,10 @@ fn fast_path(case: &mut HardeningCase) -> Value {
 fn approved_design(case: &mut HardeningCase) -> Value {
     let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
     case.fixture.initialize(&task, true).unwrap();
+    approve_initial_design(case)
+}
+
+fn approve_initial_design(case: &mut HardeningCase) -> Value {
     case.impact("full_delivery");
     let tech = case.claim();
     assert!(tech["node_key"].is_text("tech_lead"));
@@ -1297,7 +1301,9 @@ fn test_golden_repair_activates_fresh_implementation_generation() {
 #[test]
 fn test_golden_redesign_activates_fresh_design_generation() {
     let mut case = HardeningCase::golden();
-    let writer = approved_design(&mut case);
+    let task = case.fixture.graph.task("delivery", "full_delivery", &[]);
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
+    let writer = approve_initial_design(&mut case);
     let disposition = disposition("TEST-001", "redesign");
     delivery_to_collection(&mut case, &writer, "test_engineer", disposition.clone());
     case.consolidate("delivery", "REDESIGN", 0, vec![disposition]);
@@ -1372,7 +1378,7 @@ fn request_redesign(case: &mut HardeningCase, writer: &Value, label: &str, id: &
 fn test_delivery_only_redesign_activates_fresh_design_gates() {
     let mut case = HardeningCase::golden();
     let task = delivery_only_task(&case, &[], "low", "bounded");
-    case.fixture.initialize(&task, true).unwrap();
+    case.fixture.initialize_legacy_research(&task, 11).unwrap();
     case.impact("delivery_only");
     let writer = case.claim();
     request_redesign(
@@ -1400,6 +1406,31 @@ fn test_delivery_only_redesign_activates_fresh_design_gates() {
 }
 
 #[test]
+fn inline_delivery_redesign_reopens_lead_with_causal_inputs() {
+    let mut case = HardeningCase::golden();
+    let writer = approved_design(&mut case);
+    let finding = disposition("TEST-001", "redesign");
+    delivery_to_collection(&mut case, &writer, "test_engineer", finding.clone());
+    case.consolidate("delivery", "REDESIGN", 0, vec![finding]);
+    let transition = case.advance("delivery_consolidation");
+    assert!(transition["outcome"].is_text("REDESIGN"));
+    assert!(!transition["created_join_ids"].truthy());
+    assert!(!transition["created_fanout_ids"].truthy());
+    let lead = case.claim_raw().unwrap();
+    assert!(lead["node_key"].is_text("tech_lead"));
+    assert_eq!(lead["generation"].as_i64(), Some(1));
+    assert!(transition["successor_branch_ids"].py_eq(&Value::list([lead["branch_id"].clone()])));
+    let inputs = lead["inputs"].as_list().unwrap();
+    for kind in ["technical_design", "implementation_handoff", "branch_result"] {
+        assert!(inputs.iter().any(|input| input["kind"].is_text(kind)));
+    }
+    assert_eq!(budget_used(&case.status().unwrap(), "design_revisions"), 1);
+    case.remove_branch_input(&lead, "implementation_handoff");
+    let resume = ["resume", "--run-id", "RUN-1", "--ack-degraded-permissions", "--ack-degraded-durability"];
+    assert!(matches!(case.run(&resume), Err(EngineError::State(error)) if error.code == "TOPOLOGY_EDGE_INVALID"));
+}
+
+#[test]
 fn test_fast_path_redesign_runs_fresh_design_implementation_and_delivery_to_closure() {
     let mut case = HardeningCase::golden();
     let writer = fast_path(&mut case);
@@ -1412,6 +1443,13 @@ fn test_fast_path_redesign_runs_fresh_design_implementation_and_delivery_to_clos
     let tech = case.claim();
     assert!(tech["node_key"].is_text("tech_lead"));
     assert_eq!(tech["generation"].as_i64(), Some(1));
+    let projection = tech["inputs"].as_list().unwrap().iter()
+        .find(|input| input["content"]["kind"].is_text("design_evidence")).unwrap();
+    assert!(projection["content"]["finding_dispositions"].py_eq(&Value::list([disposition("REV-777", "redesign")])));
+    let source = &projection["content"]["reports"].as_list().unwrap()[0];
+    assert!(source["branch_id"].py_eq(&writer["branch_id"]));
+    assert!(source["artifact_ref"].is_null());
+    assert!(source["evidence"].as_list().unwrap()[0]["ref"].text().unwrap().starts_with("repo:docs/artifacts/fast-path-redesign-rationale.json#sha256="));
     case.success(&tech);
     case.advance_at("design_inputs", 1);
     let architect = case.claim();

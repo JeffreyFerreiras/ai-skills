@@ -90,6 +90,9 @@ impl PersistentSession for SqliteSession {
     fn synchronous(&self) -> EngineResult<Value> {
         scalar(self, "PRAGMA synchronous")
     }
+    fn begin_read(&self) -> EngineResult<()> {
+        self.connection().execute_batch("BEGIN").map_err(sqlite::sqlite_failure)
+    }
     fn begin_initial(&self) -> EngineResult<()> {
         self.connection()
             .execute_batch("BEGIN IMMEDIATE")

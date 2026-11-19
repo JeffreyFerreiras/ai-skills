@@ -208,6 +208,11 @@ pub fn validate_route_and_topology(
     if !string_item(run, "selected_route")?.py_eq(route) || !selected_tags.py_eq(tags) {
         return Err(invalid("ROUTE_EVIDENCE_MISMATCH"));
     }
+    let plan = match ledger.first(GraphRead::ExecutionPlanBody, &[run_id.clone()])? {
+        Some(row) => compat::loads_value(string_item(&row, "plan_json")?)?,
+        None => Value::object([]),
+    };
+    let legacy_research = plan.get("design_workflow_version").is_none();
     let _design_outcomes = sealed_consolidation_outcomes(ledger, run_id, "design")?;
     let delivery_outcomes = sealed_consolidation_outcomes(ledger, run_id, "delivery")?;
     let fast = in_strings(route, &["fast_path", "delivery_only"])?;
@@ -222,13 +227,16 @@ pub fn validate_route_and_topology(
     }
     if design || skipping_redesign {
         for (key, stage) in [
-            ("design_research_architecture", "research"),
-            ("design_research_validation", "research"),
             ("tech_lead", "design"),
             ("architect", "design"),
             ("supervisor_design_consolidation", "design"),
         ] {
             add_binding(&mut bindings, key.into(), stage)?;
+        }
+        if legacy_research {
+            for key in ["design_research_architecture", "design_research_validation"] {
+                add_binding(&mut bindings, key.into(), "research")?;
+            }
         }
         add_specialists(&mut bindings, policy, tags, "design")?;
     }
@@ -241,10 +249,6 @@ pub fn validate_route_and_topology(
         ] {
             add_binding(&mut bindings, key.into(), stage)?;
         }
-        let row = ledger
-            .first(GraphRead::ExecutionPlanBody, &[run_id.clone()])?
-            .unwrap_or(Value::Null);
-        let plan = compat::loads_value(string_item(&row, "plan_json")?)?;
         if get(&plan, "code_review_panel_version")?.py_eq(&1_i64.into()) {
             for (key, _, _) in execution::PANEL {
                 add_binding(&mut bindings, (*key).into(), "delivery")?;
@@ -286,17 +290,18 @@ pub fn validate_route_and_topology(
     let tech_generations = generations(&tech)?;
     let research_generations = generations(&research)?;
     let senior_generations = generations(&senior)?;
+    let design_starters = if legacy_research { &research_generations } else { &tech_generations };
     if design
-        && !research_generations
+        && !design_starters
             .first()
             .is_some_and(|value| value.py_eq(&0_i64.into()))
     {
         return Err(invalid("TOPOLOGY_STATE_INVALID"));
     }
-    if skipping_redesign
-        && !research_generations
+    if legacy_research && skipping_redesign
+        && research_generations
             .first()
-            .is_some_and(|value| value.py_eq(&1_i64.into()))
+            .is_some_and(|value| !value.py_eq(&1_i64.into()))
     {
         return Err(invalid("TOPOLOGY_STATE_INVALID"));
     }
@@ -351,8 +356,7 @@ pub fn validate_route_and_topology(
             }
         }
     }
-    if !tech_generations.is_empty()
-        && tech_generations
+    if legacy_research && tech_generations
             .iter()
             .any(|generation| !errors::set_contains(&research_generations, generation))
     {

@@ -487,6 +487,11 @@ pub fn effective_role_capabilities(
             result.push(cap.clone());
         }
     }
+    sort_capabilities(&mut result);
+    Ok(result)
+}
+
+fn sort_capabilities(result: &mut [Value]) {
     result.sort_by(|a, b| {
         ["effect", "action", "target_ref"]
             .into_iter()
@@ -494,7 +499,28 @@ pub fn effective_role_capabilities(
             .find(|order| !order.is_eq())
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    Ok(result)
+}
+
+pub fn planned_role_capabilities(
+    policy: &Value,
+    task: &Value,
+    role: &str,
+    plan: &Value,
+    windows: bool,
+) -> ValidationResult<Vec<Value>> {
+    let version = plan.get("capability_projection_version");
+    let mut capabilities = effective_role_capabilities(policy, task, role, version, windows)?;
+    if role == "tech_lead" && plan.get("design_workflow_version").is_some() {
+        for cap in effective_role_capabilities(policy, task, "impact_mapper", version, windows)? {
+            if ["filesystem_read", "external_read"].iter().any(|effect| cap["effect"].is_text(effect))
+                && !capabilities.iter().any(|current| current.py_eq(&cap))
+            {
+                capabilities.push(cap);
+            }
+        }
+        sort_capabilities(&mut capabilities);
+    }
+    Ok(capabilities)
 }
 pub fn envelope(
     run: &str,
@@ -519,11 +545,11 @@ pub fn envelope(
     let plan = plan.filter(|p| p.truthy()).unwrap_or(&default_plan);
     let assignment = execution::assignment_for(plan, &spec.key)
         .map_err(|message| ValidationFailure::python("ValueError", message))?;
-    let capabilities = effective_role_capabilities(
+    let capabilities = planned_role_capabilities(
         policy,
         task,
         &spec.role,
-        plan.get("capability_projection_version"),
+        plan,
         windows,
     )?
     .into_iter()
@@ -626,6 +652,18 @@ pub fn envelope(
         );
     }
     Ok(result)
+}
+
+pub fn design_generation_nodes(
+    policy: &Value,
+    generation: i64,
+    legacy_research: bool,
+) -> ValidationResult<Vec<NodeSpec>> {
+    if legacy_research {
+        design_research_nodes(policy, generation)
+    } else {
+        Ok(vec![revised_design_node(policy, generation)?])
+    }
 }
 
 fn split_research_budget(value: &Value, first: bool) -> ValidationResult<Value> {

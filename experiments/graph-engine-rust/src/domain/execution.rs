@@ -140,7 +140,18 @@ pub fn class_for_node(node: &str, size: &str) -> DomainResult<(&'static str, &'s
         .map(|(_, class, effort)| (*class, *effort))
         .ok_or_else(|| "MODEL_ASSIGNMENT_INVALID".into())
 }
-fn dispatch_when(node: &str, task: &Value) -> String {
+fn dispatch_when(node: &str, task: &Value, design_workflow: Option<i64>) -> String {
+    if design_workflow.is_some() {
+        match node {
+            "design_research_architecture" | "design_research_validation" => {
+                return "legacy research workflow only".into();
+            }
+            "tech_lead" | "architect" => {
+                return "initial design, design revision, or delivery redesign".into();
+            }
+            _ => {}
+        }
+    }
     let node = if panel(node).is_some() {
         "code_reviewer"
     } else {
@@ -246,7 +257,7 @@ fn selected_pair(
                 .text()
                 .ok_or("MODEL_OVERRIDES_INVALID")?,
         )
-    } else if host == "codex" && revision == 11 && hosts::MUSE_DEFAULT_NODES.contains(&key) {
+    } else if host == "codex" && [11, 12].contains(&revision) && hosts::MUSE_DEFAULT_NODES.contains(&key) {
         (hosts::MUSE_MODEL.into(), "xhigh".into())
     } else {
         hosts::recommended_assignment(host, workload, Some(revision))?
@@ -347,6 +358,7 @@ struct PlanVintage {
     panel: Option<i64>,
     simplification: Option<i64>,
     projection: Option<i64>,
+    design_workflow: Option<i64>,
 }
 pub fn build_execution_plan(
     run: &str,
@@ -384,6 +396,7 @@ pub fn build_execution_plan(
             panel: Some(1),
             simplification: task["request_mode"].is_text("delivery").then_some(1),
             projection: Some(1),
+            design_workflow: Some(1),
         },
     )
 }
@@ -411,6 +424,7 @@ pub fn reconstruct_execution_plan(
             "capability_projection_version",
             "CAPABILITY_PROJECTION_VERSION_INVALID",
         ),
+        ("design_workflow_version", "DESIGN_WORKFLOW_VERSION_INVALID"),
         (
             "simplification_review_version",
             "SIMPLIFICATION_REVIEW_VERSION_INVALID",
@@ -435,6 +449,7 @@ pub fn reconstruct_execution_plan(
             panel: stored["code_review_panel_version"].as_i64(),
             simplification: stored["simplification_review_version"].as_i64(),
             projection: stored["capability_projection_version"].as_i64(),
+            design_workflow: stored["design_workflow_version"].as_i64(),
         },
     )
 }
@@ -480,7 +495,8 @@ fn build_plan(
         task.get("model_overrides")
             .unwrap_or(&Value::Object(vec![])),
     )?;
-    let modern = vintage.revision.is_some_and(|n| (3..=11).contains(&n));
+    let modern = vintage.revision.is_some_and(|n| (3..=12).contains(&n));
+    let muse_catalog = vintage.revision.is_some_and(|n| (9..=12).contains(&n));
     if vintage.simplification.is_some() && !modern {
         return Err("SIMPLIFICATION_REVIEW_REQUIRES_CATALOG_3".into());
     }
@@ -567,9 +583,9 @@ fn build_plan(
             ("model", model.clone().into()),
             ("reasoning_effort", reasoning_effort.into()),
             ("dispatch_model", dispatch.into()),
-            ("dispatch_when", dispatch_when(node, task).into()),
+            ("dispatch_when", dispatch_when(node, task, vintage.design_workflow).into()),
         ]);
-        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) && model == hosts::MUSE_MODEL
+        if muse_catalog && model == hosts::MUSE_MODEL
         {
             assignment.set("dispatch_runtime", "opencode-cli".into());
         }
@@ -632,7 +648,7 @@ fn build_plan(
         let dispatch = hosts::selected_dispatch_model(host, &model, &effort, vintage.revision)?;
         publication = selection(model, effort, dispatch);
     }
-    if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n))
+    if muse_catalog
         && publication["model"].is_text(hosts::MUSE_MODEL)
     {
         publication.set("dispatch_runtime", "opencode-cli".into());
@@ -732,7 +748,7 @@ fn build_plan(
         }
         if vintage
             .revision
-            .is_some_and(|n| [8, 9, 10, 11].contains(&n))
+            .is_some_and(|n| (8..=12).contains(&n))
         {
             plan.set(
                 "economy_fanout_option",
@@ -742,7 +758,7 @@ fn build_plan(
                 ]),
             );
         }
-        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) {
+        if muse_catalog {
             plan.set(
                 "external_economy_option",
                 Value::object([
@@ -783,7 +799,7 @@ fn build_plan(
             ),
             ("max_passes_per_generation", 1_i64.into()),
         ]);
-        if vintage.revision.is_some_and(|n| [9, 10, 11].contains(&n)) && model == hosts::MUSE_MODEL
+        if muse_catalog && model == hosts::MUSE_MODEL
         {
             assignment.set("dispatch_runtime", "opencode-cli".into());
         }
@@ -792,6 +808,9 @@ fn build_plan(
     }
     if let Some(version) = vintage.projection {
         plan.set("capability_projection_version", version.into());
+    }
+    if let Some(version) = vintage.design_workflow {
+        plan.set("design_workflow_version", version.into());
     }
     let digest = ids::sha256_bytes(&ids::canonical_bytes(&plan).map_err(|e| e.to_string())?);
     plan.set("plan_digest", digest.into());
@@ -814,7 +833,7 @@ pub fn assignment_for<'a>(plan: &'a Value, node: &str) -> DomainResult<&'a Value
                 .ok_or("MODEL_ASSIGNMENT_INVALID")?;
             if plan["catalog_revision"]
                 .as_i64()
-                .is_some_and(|n| (3..=11).contains(&n))
+                .is_some_and(|n| (3..=12).contains(&n))
             {
                 if node_role(node) == Some("supervisor") {
                     if (model.as_str(), effort.as_str()) != ("primary-thread", "inherited") {
