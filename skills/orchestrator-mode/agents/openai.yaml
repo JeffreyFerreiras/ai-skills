@@ -1,4 +1,4 @@
 interface:
   display_name: "Orchestrator Mode"
   short_description: "Choose a helper model and orchestrate while the primary only thinks"
-  default_prompt: "Use $orchestrator-mode to run this task with free OpenCode helpers first."
+  default_prompt: "Use $orchestrator-mode to match OpenCode helpers to each job's difficulty and prefer suitable free routes."
