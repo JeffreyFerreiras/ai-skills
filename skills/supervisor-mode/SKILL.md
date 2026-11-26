@@ -5,6 +5,8 @@ description: Manual activation only. Use $supervisor-mode to coordinate separate
 
 # Supervisor Mode
 
+**Codex activation** is manual only (`allow_implicit_invocation: false` in `agents/openai.yaml`).
+
 Coordinate separate Codex chats from this conversation. Use the Codex app thread tools when available. In a plain CLI without them, identify the unavailable action and the next manual step. Do not silently switch to subagents or OpenCode.
 
 ## Activate
