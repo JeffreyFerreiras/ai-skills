@@ -3,6 +3,8 @@ name: system-design-video
 description: Create local code-rendered vertical system design explainer videos, including Jeffrit chalk TikTok lessons, with sourced architecture, narrated timelines and media checks. Use for animated technical lessons, not NotebookLM production packets, static diagrams or footage editing alone.
 ---
 
+Read [READ-ME-FIRST-BEFORE-ANY-VIDEO-WORK.txt](references/READ-ME-FIRST-BEFORE-ANY-VIDEO-WORK.txt) before any video work.
+
 # System design video
 
 Produce an editable vertical video that teaches how a system works. Keep the

@@ -1,0 +1,79 @@
+STOP. READ THIS BEFORE ANY VIDEO WORK. Skipping it caused real regressions.
+================================================================
+
+BEFORE STARTING
+[ ] Topic picked from TikTok search demand, with evidence saved
+[ ] Facts sourced from Microsoft Learn first
+[ ] Voice picked from the rotation (next one in line):
+    - Kokoro af_bella fp32, speed 1.0 (female)
+    - Chatterbox male, sample 1
+    - Kokoro am_fenrir, speed 1.20 (male)
+[ ] Character matches voice:
+    - male voice = Jeffrit gigachad bust
+    - female voice = wife bust, next in ROTATION.md (wife-1 > wife-2 > wife-3)
+[ ] Tracker row updated (and at every stage after this)
+
+SCRIPT AND CODE
+[ ] No spoken acronyms ("Entity Framework Core", not "EF Core")
+[ ] Method names spoken as separate words ("To List", "I Queryable")
+[ ] All code reviewed and APPROVED by Video - Senior Engineer
+[ ] Every code line on screen is 34 characters or fewer
+[ ] No em dashes anywhere (script, captions, cover, caption text)
+
+NARRATION
+[ ] Sample shown to Jeffrey before the full narration
+[ ] ~0.42 s between sentences, ~0.68 s between paragraphs
+[ ] No padded extra beats
+[ ] Whisper check passes
+[ ] One TTS take per sentence; measure the 0.42 s / 0.68 s gaps and overall WPM on the final MP4 (Fenrir 1.20 ~171 wpm; 1.32 was too fast)
+[ ] Test difficult technical terms with phonetic spellings in the sample listen
+[ ] If speech-to-text mishears a word in a way that changes meaning, regenerate that word
+[ ] Dip the music before each paragraph so soft first words are not buried
+
+VISUALS (the regressions: check twice)
+[ ] MULTIPLE SCENES: at least 6 distinct scenes, one per beat
+    (hook, problem diagram, code close-up, data flow, metric/payoff,
+    fix, rule card, close). No single set held longer than ~20 s.
+[ ] Real transitions between scenes
+[ ] Laptop has no hands or arms
+[ ] Code is typed in, syntax-highlighted, readable on a phone (360x640)
+[ ] Data flow is animated cause and effect
+[ ] No scene ID or track labels on ANY copy, drafts included
+[ ] Visual sample shown to Jeffrey before the full render
+[ ] Show the stakes or consequence early and resolve them on screen
+[ ] Watch the rough cut at normal speed with sound before the full-quality render, then again on the final encode
+[ ] Database demos use concrete, recognizable rows
+[ ] Labels explain the current action and clear as the scene advances
+[ ] Style matches the chosen references; keep a consistent visual theme
+
+SOUND (the regressions: check twice)
+[ ] SOUND EFFECTS PRESENT: chalk writes, code type-in ticks,
+    transition whooshes, data/row hits, payoff hit, lid close,
+    outro sting. Audible but ducked under narration.
+[ ] No rumble or buzz
+[ ] -14 LUFS integrated, true peak at or below -2 dBTP
+[ ] Once Jeffrey picks opening sounds, keep them in later takes
+[ ] If the export misses loudness or speech targets, fail the check and keep the previous master
+
+ENDING
+[ ] Jeffrit chalk gigachad outro is the LAST thing in the video
+[ ] Total length under 2:00
+[ ] Crossfade into the end card; music resolves on a final chord (no abrupt cut)
+
+DELIVERY (all in one go, without being asked)
+[ ] Clean master (never the review copy)
+[ ] TikTok cover: inside centered 1080x1440 band, clear of bottom 250 px
+[ ] Female-voice episode: wife bust on the cover too
+[ ] Caption as its own message, text only, lowercase hashtags
+[ ] Never publish. Jeffrey uploads.
+[ ] Cover has no added labels or commentary; never swap an illustrated cover for a text-only one
+[ ] If the cover needs to be larger, zoom the original drawing so it fills the frame
+[ ] Review notes refer to moments by timestamp (mm:ss)
+[ ] Watch and listen to the finished master in continuous playback before delivery
+[ ] Keep approved narration fixed when only the visuals are being revised
+
+AFTER APPROVAL
+[ ] Archive to Z:\ShareDrive\Video\Learning per Naming Rules.txt
+[ ] Lessons saved to Drive and the knowledge vault (push to main)
+[ ] Advance the voice and wife rotation for the next episode
+[ ] Verify final file hashes after cleanup, and before removing originals
