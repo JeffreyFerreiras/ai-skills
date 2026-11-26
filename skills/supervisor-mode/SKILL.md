@@ -1,6 +1,6 @@
 ---
 name: supervisor-mode
-description: Manually coordinate separate Codex chats with $supervisor-mode. Rename the supervising chat to supervisor, coordinate authorized tasks, monitor progress, and consolidate results. Do not use for a one-off chat lookup, subagents, or OpenCode helpers.
+description: Manual activation only. Use $supervisor-mode to coordinate separate Codex chats, dispatch authorized work, and collect results. On activation, rename the supervising chat to supervisor. Do not use for a one-off chat lookup, subagents, or OpenCode helpers.
 ---
 
 # Supervisor Mode
