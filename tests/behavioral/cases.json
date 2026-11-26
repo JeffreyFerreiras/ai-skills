@@ -101,8 +101,8 @@
     "id": "supervisor-mode-new-worktree-revision-mismatch",
     "skill": "supervisor-mode",
     "prompt": "Use $supervisor-mode to create a chat in a new local Web worktree at the existing ref R to review the API.",
-    "fixture": "The host verifies the saved project, environment, start ref, and dispatch settings. On a later check the ready worker reports revision S instead of the requested commit at R.",
-    "expected": "Verify the start state before creation and require the worker to verify its ready checkout before reviewing. Report the mismatch from the worker's evidence and keep the review unresolved."
+    "fixture": "The host verifies the saved project, environment, start ref, and dispatch settings. On a later check the ready worker reports revision S instead of the requested commit at R. In a second variant the worker cannot verify its revision.",
+    "expected": "Verify the start state before creation and require the worker to verify its ready checkout before reviewing. Report the mismatch or missing checkout evidence and keep the review unresolved."
   },
   {
     "id": "supervisor-mode-standalone-review-candidate-drift",
@@ -116,7 +116,7 @@
     "skill": "supervisor-mode",
     "prompt": "Use $supervisor-mode to start one read-only Codex chat to review immutable commit R in Web.",
     "fixture": "R stands for a full commit ID, verified in the intended repository. The worker reports evidence for that exact object on a later status check, after HEAD advances to S.",
-    "expected": "Verify the worker inspected R in the intended repository, and report its review for R. Accept the matched evidence even though HEAD advanced."
+    "expected": "Verify R in the intended repository before dispatch. Verify the worker inspected that commit and report its review for R. Accept the matched evidence even though HEAD advanced."
   },
   {
     "id": "supervisor-mode-ordered-followup-and-cancellation",
