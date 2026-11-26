@@ -1,6 +1,6 @@
 ---
 name: supervisor-mode
-description: Use when the user asks to act as a supervisor for separate Codex chats. Rename the supervising chat to supervisor, coordinate authorized tasks, monitor progress, and consolidate results. Do not use for a one-off chat lookup, subagents, or OpenCode helpers.
+description: Manually coordinate separate Codex chats with $supervisor-mode. Rename the supervising chat to supervisor, coordinate authorized tasks, monitor progress, and consolidate results. Do not use for a one-off chat lookup, subagents, or OpenCode helpers.
 ---
 
 # Supervisor Mode
@@ -9,7 +9,7 @@ Coordinate separate Codex chats from this conversation. Use the Codex app thread
 
 ## Activate
 
-When the user deliberately invokes `$supervisor-mode` or clearly asks to enter the mode, call the Codex app's `set_thread_title` with `title: "supervisor"`. Omit `threadId` to rename only the calling chat. Do this once on activation, not on status checks or resume. Quoted invocations, requests to review this skill, and one-off read-only lookups do not activate it. If the host cannot rename the calling chat, report that and continue supported work. Never choose a chat from recency or title as a substitute.
+Activate only when the user deliberately invokes `$supervisor-mode` or explicitly selects this skill in Codex. Plain-language requests to supervise and quoted mentions do not activate it. On activation, call the Codex app's `set_thread_title` with `title: "supervisor"`. Omit `threadId` to rename only the calling chat. Do this once on activation, not on status checks or resume. If the host cannot rename the calling chat, report that and continue supported work. Never choose a chat from recency or title as a substitute.
 
 Establish the objective, scope, and stopping condition. Activation alone renames this chat and grants no authority to create or message other chats. With no objective, ask what to supervise.
 

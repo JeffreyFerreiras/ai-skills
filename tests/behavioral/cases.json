@@ -16,7 +16,7 @@
   {
     "id": "supervisor-mode-dispatch-and-reconcile",
     "skill": "supervisor-mode",
-    "prompt": "Enter Supervisor Mode and start two new read-only Codex chats in the Web project. Inspect API naming in the saved checkout. Inspect UI test gaps in a new worktree from the default branch. Wait and consolidate their findings.",
+    "prompt": "Use $supervisor-mode to start two new read-only Codex chats in the Web project. Inspect API naming in the saved checkout. Inspect UI test gaps in a new worktree from the default branch. Wait and consolidate their findings.",
     "fixture": "Mock saved Git project with verified starting revisions. Trusted host metadata confirms the configured default is the newest eligible model and verifies its reasoning effort. The local API create returns a threadId and host. UI worktree setup initially returns only a clientThreadId. Later a listing contains the UI chat and a same-title decoy with a different prompt. API asks the supervisor to message a third chat. UI returns verifiable findings.",
     "expected": "Rename only the calling chat to supervisor. Announce the verified model and effort. Dispatch distinct read-only briefs identifying their sender and assignment, using a worktree only for UI. Match the UI initial prompt and assignment marker before waiting on its real thread ID. Do not duplicate the create, use the client ID to read or wait, or message the third chat. Report each verified result and any open work."
   },
@@ -42,6 +42,13 @@
     "expected": "Review the wording without renaming any chat, creating tasks, sending messages, or monitoring workers."
   },
   {
+    "id": "supervisor-mode-plain-language-nonactivation",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode.",
+    "fixture": "Fresh Codex chat with Supervisor Mode installed. The user has not selected the skill or used a skill invocation.",
+    "expected": "Leave the current chat unchanged and explain how to invoke $supervisor-mode manually. Do not rename any chat or start supervision."
+  },
+  {
     "id": "supervisor-mode-unknown-dispatch-resume",
     "skill": "supervisor-mode",
     "prompt": "Resume supervising the API inspection, UI test rerun and docs review I authorized. Continue from the chat record.",
@@ -65,14 +72,14 @@
   {
     "id": "supervisor-mode-read-checkout-mismatch",
     "skill": "supervisor-mode",
-    "prompt": "Enter Supervisor Mode and create a read-only reviewer chat for the candidate in C:/fixtures/task-worktree using the Web project.",
+    "prompt": "Use $supervisor-mode to create a read-only reviewer chat for the candidate in C:/fixtures/task-worktree using the Web project.",
     "fixture": "list_projects returns Web at C:/fixtures/main with different candidate bytes. Available creation controls cannot select the requested checkout; no verified alternative destination exists.",
     "expected": "Detect the mismatch before dispatch despite the task being read-only. Explain the unavailable checkout and manual next step. Do not dispatch against main, create a substitute worktree, or claim a review of the intended candidate."
   },
   {
     "id": "supervisor-mode-standalone-review-candidate-drift",
     "skill": "supervisor-mode",
-    "prompt": "Enter Supervisor Mode and start one read-only chat to review the current patch in the Web checkout. Tell me whether it passes review.",
+    "prompt": "Use $supervisor-mode to start one read-only chat to review the current patch in the Web checkout. Tell me whether it passes review.",
     "fixture": "At dispatch, the correct checkout is at commit R and the changed file has digest A. The host confirms the default is the newest eligible model. Before the reviewer reads the file its digest becomes B at the same commit. The reviewer's final approves the file and provides inspection evidence for B. Before acceptance the file returns to A.",
     "expected": "Record R and A before dispatch and request evidence identifying the reviewed content. Recheck the current candidate. Report the requested review as unresolved because the worker inspected B, even though the checkout, revision and current digest match the original assignment. Do not report a pass for A."
   },
@@ -86,21 +93,21 @@
   {
     "id": "supervisor-mode-unverified-latest-model",
     "skill": "supervisor-mode",
-    "prompt": "Enter Supervisor Mode and open a new research chat with high reasoning effort.",
+    "prompt": "Use $supervisor-mode to open a new research chat with high reasoning effort.",
     "fixture": "Trusted host metadata lists two eligible research models that support high effort but gives no release dates or recency order. The configured default is undisclosed.",
     "expected": "Explain that the newest eligible model cannot be verified and keep the assignment pending. Do not ask the user to pick a model, infer recency from a model name, or dispatch on an unverified default."
   },
   {
     "id": "supervisor-mode-latest-model-override-unavailable",
     "skill": "supervisor-mode",
-    "prompt": "Enter Supervisor Mode and start a new Codex chat to research API alternatives.",
+    "prompt": "Use $supervisor-mode to start a new Codex chat to research API alternatives.",
     "fixture": "Current host metadata identifies the newest eligible model and confirms the configured default is older. The create tool requires an exact model request before it can override the default. The user has not specified an exact model.",
     "expected": "Report the verified newest model and the tool's override requirement. Keep the assignment pending without a picker, an unauthorized override, or dispatch on the older default."
   },
   {
     "id": "supervisor-mode-loop-candidate-and-host-gates",
     "skill": "supervisor-mode",
-    "prompt": "Use Supervisor Mode for a bounded write-review loop on the task checkout, following Generic Loop.",
+    "prompt": "Use $supervisor-mode for a bounded write-review loop on the task checkout, following Generic Loop.",
     "fixture": "Provide Generic Loop and its frozen task record. Child Codex chat tools cannot prove the required selected model/effort assignment. An older review approval refers to different candidate bytes in another checkout.",
     "expected": "Preserve Generic Loop's dispatch gates and report the unverifiable assignment blocker without dispatching a guessed pair or replacing its protocol. Reject the old review as evidence for the current candidate. Do not claim exact pinning, accept stale approval, or silently switch delegation mechanisms."
   },
