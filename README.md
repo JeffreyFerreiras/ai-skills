@@ -136,6 +136,7 @@ Every canonical skill, alphabetically. Names come from `SKILL.md`; summaries com
 | [root-cause-analysis](skills/root-cause-analysis/SKILL.md) | Trace failures to evidence-backed causes |
 | [skill-doctor](skills/skill-doctor/SKILL.md) | Validate and audit a skills repository |
 | [software-engineering-graph](skills/software-engineering-graph/SKILL.md) | Orchestrate rigorous application delivery |
+| [supervisor-mode](skills/supervisor-mode/SKILL.md) | Coordinate work across separate Codex chats |
 | [sync-agent-skills](skills/sync-agent-skills/SKILL.md) | Sync user-profile skills without repository copies |
 | [sync-agents-md](skills/sync-agents-md/SKILL.md) | Audit and reconcile agent instructions |
 | [system-design-video](skills/system-design-video/SKILL.md) | Create narrated vertical system design videos, including Jeffrit chalk TikToks |
