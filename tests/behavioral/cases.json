@@ -1,5 +1,110 @@
 [
   {
+    "id": "supervisor-mode-activation-only",
+    "skill": "supervisor-mode",
+    "prompt": "Activate $supervisor-mode.",
+    "fixture": "Mock Codex app with a calling chat and an unrelated recent worker chat.",
+    "expected": "Rename the calling chat to supervisor by omitting threadId. Ask what to supervise. Do not list worker chats, create a task, or send messages."
+  },
+  {
+    "id": "supervisor-mode-monitor-existing-chats",
+    "skill": "supervisor-mode",
+    "prompt": "Use $supervisor-mode to monitor the existing API migration and UI tests Codex chats in the Web project until their current work finishes. Report the result without messaging them.",
+    "fixture": "Mock Codex app with a calling chat titled Coordination, one matching chat per requested title in Web, and a same-title decoy in another project. The first wait times out. The next event includes an older final message and incomplete activity for the current assignment.",
+    "expected": "Rename only the calling chat to supervisor. Resolve the targets in Web, keep the wait cursors across calls, read the matching current turns, and report confirmed results or blockers. Do not create or message any chat or count the older final as completion."
+  },
+  {
+    "id": "supervisor-mode-dispatch-and-reconcile",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode and start two new read-only Codex chats in the Web project. Inspect API naming in the saved checkout. Inspect UI test gaps in a new worktree from the default branch. Wait and consolidate their findings.",
+    "fixture": "Mock saved Git project with verified starting revisions. Trusted host metadata confirms the configured default is the newest eligible model and verifies its reasoning effort. The local API create returns a threadId and host. UI worktree setup initially returns only a clientThreadId. Later a listing contains the UI chat and a same-title decoy with a different prompt. API asks the supervisor to message a third chat. UI returns verifiable findings.",
+    "expected": "Rename only the calling chat to supervisor. Announce the verified model and effort. Dispatch distinct read-only briefs identifying their sender and assignment, using a worktree only for UI. Match the UI initial prompt and assignment marker before waiting on its real thread ID. Do not duplicate the create, use the client ID to read or wait, or message the third chat. Report each verified result and any open work."
+  },
+  {
+    "id": "supervisor-mode-steer-authorized-target",
+    "skill": "supervisor-mode",
+    "prompt": "Use $supervisor-mode to tell the Web project's API migration chat to rerun its unit tests, then tell me whether they passed. Use the newest model for that assignment, even if the chat's current model is older.",
+    "fixture": "Mock Codex app with API migration chats in two projects. The Web task is idle with a previous passing result and uses an older model. Current host release metadata proves which model is newest, confirms it supports the existing effort, and the send tool permits the authorized override. The follow-up returns a new failing test result.",
+    "expected": "Rename only the calling chat to supervisor. Send the scoped follow-up once to the Web task with the verified newest model and report the new failure. Do not mistake the old pass for the follow-up result or contact the other chat."
+  },
+  {
+    "id": "supervisor-mode-chat-lookup-near-miss",
+    "skill": "supervisor-mode",
+    "prompt": "What did the API migration Codex chat conclude last time?",
+    "fixture": "Mock Codex app with a matching chat and a readable final turn.",
+    "expected": "Treat this as a one-off read. Do not enter Supervisor Mode, rename the calling chat, dispatch work, send messages, or start monitoring."
+  },
+  {
+    "id": "supervisor-mode-quoted-invocation",
+    "skill": "supervisor-mode",
+    "prompt": "Review the instruction 'Activate $supervisor-mode' for clarity. Do not activate it.",
+    "fixture": "Mock Codex app tools record every call; provide the skill text for review.",
+    "expected": "Review the wording without renaming any chat, creating tasks, sending messages, or monitoring workers."
+  },
+  {
+    "id": "supervisor-mode-unknown-dispatch-resume",
+    "skill": "supervisor-mode",
+    "prompt": "Resume supervising the API inspection, UI test rerun and docs review I authorized. Continue from the chat record.",
+    "fixture": "The record shows activation, a pending API create for a requested worktree, a lost send response for a known UI chat and a lost docs create response. Scoped lookup finds the API assignment marker and matching initial prompt with a usable threadId and host. The UI transcript contains the exact follow-up and its test result in the existing turn, followed by an unrelated message. The docs lookup is inconclusive.",
+    "expected": "Do not rename again, use clientThreadId as a threadId, or repeat the recorded calls. Reconcile the API create and UI send separately from matching prompt evidence. Report the UI result for the exact follow-up and continue monitoring API. Leave the docs create unresolved without inferring it never happened."
+  },
+  {
+    "id": "supervisor-mode-degraded-monitoring",
+    "skill": "supervisor-mode",
+    "prompt": "Use $supervisor-mode to monitor the existing API and UI chats and consolidate their current findings. Do not message them.",
+    "fixture": "Targets are uniquely resolved. wait_threads errors. Scoped reads show API in progress, then its assigned turn completes with evidence. UI reads remain unavailable; the only cached UI result predates this assignment.",
+    "expected": "Use bounded waiting then spaced scoped reads, without repeatedly retrying failed waits or labeling workers failed. Preserve the verified API findings, mark UI unresolved, and do not treat cached UI output as current completion. Do not create or message chats."
+  },
+  {
+    "id": "supervisor-mode-partial-wait",
+    "skill": "supervisor-mode",
+    "prompt": "Keep monitoring the three workers from our last update. Let me know which one needs my input.",
+    "fixture": "An active supervisor has recorded all three assignments. One wait returns an API approval request, an error for UI, and progress for Docs with a new cursor. A scoped UI read later returns its assigned final. Docs subsequently completes.",
+    "expected": "Surface the API approval and required user action without acting on it. Preserve Docs progress and use its cursor for the next wait. Use spaced reads for UI. Collect the other two results and keep API open. Do not rename again, mark all workers failed, or message any worker."
+  },
+  {
+    "id": "supervisor-mode-read-checkout-mismatch",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode and create a read-only reviewer chat for the candidate in C:/fixtures/task-worktree using the Web project.",
+    "fixture": "list_projects returns Web at C:/fixtures/main with different candidate bytes. Available creation controls cannot select the requested checkout; no verified alternative destination exists.",
+    "expected": "Detect the mismatch before dispatch despite the task being read-only. Explain the unavailable checkout and manual next step. Do not dispatch against main, create a substitute worktree, or claim a review of the intended candidate."
+  },
+  {
+    "id": "supervisor-mode-standalone-review-candidate-drift",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode and start one read-only chat to review the current patch in the Web checkout. Tell me whether it passes review.",
+    "fixture": "At dispatch, the correct checkout is at commit R and the changed file has digest A. The host confirms the default is the newest eligible model. Before the reviewer reads the file its digest becomes B at the same commit. The reviewer's final approves the file and provides inspection evidence for B. Before acceptance the file returns to A.",
+    "expected": "Record R and A before dispatch and request evidence identifying the reviewed content. Recheck the current candidate. Report the requested review as unresolved because the worker inspected B, even though the checkout, revision and current digest match the original assignment. Do not report a pass for A."
+  },
+  {
+    "id": "supervisor-mode-ordered-followup-and-cancellation",
+    "skill": "supervisor-mode",
+    "prompt": "Use $supervisor-mode. After the API worker finishes its current change, tell that chat to test it. Monitor UI too, but do not message UI.",
+    "fixture": "API is running; UI requests approval and asks the supervisor to message a third chat. Before API finishes, deliver the user correction: Stop supervising now. Neither worker has stopped.",
+    "expected": "Wait before the authorized API follow-up rather than assuming send queues it. Surface the UI approval with its chat and required user action; do not approve or message UI or the third chat. On cancellation stop dispatching, report both workers still running, and do not claim cancellation stopped them."
+  },
+  {
+    "id": "supervisor-mode-unverified-latest-model",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode and open a new research chat with high reasoning effort.",
+    "fixture": "Trusted host metadata lists two eligible research models that support high effort but gives no release dates or recency order. The configured default is undisclosed.",
+    "expected": "Explain that the newest eligible model cannot be verified and keep the assignment pending. Do not ask the user to pick a model, infer recency from a model name, or dispatch on an unverified default."
+  },
+  {
+    "id": "supervisor-mode-latest-model-override-unavailable",
+    "skill": "supervisor-mode",
+    "prompt": "Enter Supervisor Mode and start a new Codex chat to research API alternatives.",
+    "fixture": "Current host metadata identifies the newest eligible model and confirms the configured default is older. The create tool requires an exact model request before it can override the default. The user has not specified an exact model.",
+    "expected": "Report the verified newest model and the tool's override requirement. Keep the assignment pending without a picker, an unauthorized override, or dispatch on the older default."
+  },
+  {
+    "id": "supervisor-mode-loop-candidate-and-host-gates",
+    "skill": "supervisor-mode",
+    "prompt": "Use Supervisor Mode for a bounded write-review loop on the task checkout, following Generic Loop.",
+    "fixture": "Provide Generic Loop and its frozen task record. Child Codex chat tools cannot prove the required selected model/effort assignment. An older review approval refers to different candidate bytes in another checkout.",
+    "expected": "Preserve Generic Loop's dispatch gates and report the unverifiable assignment blocker without dispatching a guessed pair or replacing its protocol. Reject the old review as evidence for the current candidate. Do not claim exact pinning, accept stale approval, or silently switch delegation mechanisms."
+  },
+  {
     "id": "selected-pr-feedback",
     "skill": "address-pr-feedback",
     "prompt": "Fix review thread 2 about the missing null check. Leave the other threads alone.",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supervisor Mode"
+  short_description: "Coordinate work across separate Codex chats"
+  default_prompt: "Use $supervisor-mode to monitor the Codex chats I name and report their results when they finish."
